@@ -6,7 +6,10 @@ export function addDays(date: string, days: number) {
   return result.toISOString().slice(0, 10);
 }
 
-export function today() { return new Date().toISOString().slice(0, 10); }
+export function today() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export function daysUntil(date: string) {
   const target = new Date(`${date}T12:00:00`).getTime();

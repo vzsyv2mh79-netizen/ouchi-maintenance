@@ -27,6 +27,7 @@ npm run build
 - `lib/date.ts`: 周期計算と日付表示
 
 MVP のデータはブラウザーの `localStorage` に保存されます。`AppData` は `homes`、`products`、`tasks`、`history` に分離してあり、後から各操作を Supabase Repository に置き換えられる構造です。
+設定からデモデータを消して自分の製品を登録できます。登録画面のカテゴリ別候補は任意選択の一般的な目安です。端末間同期、通知、品番による自動調査は未実装です。
 
 ## 情報源について
 
