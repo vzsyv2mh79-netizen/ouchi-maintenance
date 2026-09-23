@@ -1,0 +1,33 @@
+# おうちメンテ
+
+家庭内の家電・住宅設備・消耗品について、掃除・交換・点検の予定と実施履歴を一元管理する Next.js 製 MVP です。
+
+## 開発
+
+```bash
+npm install
+npm run dev
+```
+
+品質チェックは次のコマンドで実行できます。
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+## 構成
+
+- `app/`: App Router のエントリ、メタデータ、PWA マニフェスト、グローバルスタイル
+- `components/`: 画面、ナビゲーション、フォーム、操作ロジック
+- `lib/types.ts`: Supabase のテーブルへ移行しやすいドメイン型
+- `lib/catalog.ts`: 追加・変更可能な製品カテゴリーマスター
+- `lib/seed.ts`: 一般的な目安として表示するデモデータ
+- `lib/date.ts`: 周期計算と日付表示
+
+MVP のデータはブラウザーの `localStorage` に保存されます。`AppData` は `homes`、`products`、`tasks`、`history` に分離してあり、後から各操作を Supabase Repository に置き換えられる構造です。
+
+## 情報源について
+
+デモのお手入れ周期は実在製品のメーカー推奨値ではなく、すべて「一般的な目安」「デモデータ」として表示します。メーカー公式、取扱説明書、公的情報、一般的な目安、ユーザー設定を区別する型を用意しています。
