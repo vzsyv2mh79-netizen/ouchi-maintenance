@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import {PGlite} from '@electric-sql/pglite';
+const {outputText}=ts.transpileModule(readFileSync('lib/homes.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}});
+const {selectHome}=await import('data:text/javascript;base64,'+Buffer.from(outputText).toString('base64'));
+test('home selection keeps every product, task and history within the selected home',()=>{
+ const data={homes:[{id:'a'},{id:'b'}],products:[{id:'pa',homeId:'a'},{id:'pb',homeId:'b'}],tasks:[{id:'ta',productId:'pa'},{id:'tb',productId:'pb'}],history:[{id:'ha',productId:'pa'},{id:'hb',productId:'pb'}]};
+ const result=selectHome(data,'b');assert.deepEqual(result,{homes:[data.homes[1]],products:[data.products[1]],tasks:[data.tasks[1]],history:[data.history[1]]});assert.equal(data.products.length,2);
+});
+test('Postgres family invitation, expiry, replay, revocation and household access',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema public,auth to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;`);
+  for(const file of ['20261001144732_household_storage.sql','20261001232931_atomic_import.sql','20261001233450_household_sharing.sql','20261001235138_account_data_erasure.sql'])await db.exec(readFileSync('supabase/migrations/'+file,'utf8'));
+  const alice='11111111-1111-4111-8111-111111111111',bob='22222222-2222-4222-8222-222222222222',eve='33333333-3333-4333-8333-333333333333';
+  await db.query('insert into auth.users values($1),($2),($3)',[alice,bob,eve]);
+  const user=async(id)=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
+  const load=async()=> (await db.query('select public.load_household() as data')).rows[0].data;
+  const invite=async(home)=>(await db.query('select public.create_home_invite($1) as code',[home])).rows[0].code;
+  const join=async(code)=>db.query('select public.accept_home_invite($1,$2)',[code,'Family']);
+  await user(alice);const first=(await load()).homes[0];assert.equal(first.role,'owner');
+  await db.query('select public.create_maintenance_home($1,$2)',['実家','parents']);assert.equal((await load()).homes.length,2);await load();assert.equal((await load()).homes.length,2);
+  const product={id:'44444444-4444-4444-8444-444444444444',homeId:first.id,categoryId:'aircon',maker:'Test',name:'Air',modelNumber:'TEST'};
+  const task={id:'55555555-5555-4555-8555-555555555555',productId:product.id,name:'Clean',kind:'掃除',intervalDays:14,nextDueAt:'2026-10-02',sourceKind:'ユーザー設定'};
+  await db.query('select public.add_product_with_tasks($1,$2)',[JSON.stringify(product),JSON.stringify([task])]);
+  const code=await invite(first.id);assert.match(code,/^[0-9a-f]{64}$/);await assert.rejects(()=>join(code));
+  await user(bob);const own=(await load()).homes[0];await assert.rejects(()=>invite(first.id));await assert.rejects(()=>join('0'.repeat(64)));assert.equal((await load()).products.length,0);
+  await join(code);let view=await load();assert.equal(view.homes.find(h=>h.id===first.id).role,'member');assert.equal(view.products.length,1);
+  await db.query('update public.products set name=$1 where id=$2',['Shared edit',product.id]);await db.query('select public.complete_maintenance($1)',[task.id]);assert.equal((await load()).history.length,1);
+  assert.equal((await db.query('update public.homes set name=$1 where id=$2 returning id',['Intruder',first.id])).rows.length,0);
+  assert.equal((await db.query('delete from public.homes where id=$1 returning id',[first.id])).rows.length,0);
+  await user(eve);await load();await assert.rejects(()=>join(code));assert.equal((await load()).products.length,0);assert.equal((await db.query('select * from public.home_members')).rows.length,0);
+  await user(alice);assert.equal((await load()).products[0].name,'Shared edit');
+  const expired=await invite(first.id);await db.query("update public.home_invites set expires_at=now()-interval '1 day' where token_hash=sha256(convert_to($1,'UTF8'))",[expired]);
+  const revoked=await invite(first.id);await db.query("update public.home_invites set revoked=true where token_hash=sha256(convert_to($1,'UTF8'))",[revoked]);
+  await db.query('delete from public.home_members where "homeId"=$1 and user_id=$2',[first.id,bob]);
+  await user(bob);assert.equal((await load()).products.length,0);await assert.rejects(()=>join(expired));await assert.rejects(()=>join(revoked));await assert.rejects(()=>db.query('select public.complete_maintenance($1)',[task.id]));
+  await user(alice);const second=await invite(first.id);await user(bob);await join(second);await db.query('delete from public.home_members where "homeId"=$1 and user_id=$2',[first.id,bob]);assert.equal((await load()).products.length,0);assert.equal((await load()).homes[0].id,own.id);
+  await user(alice);const third=await invite(first.id);await user(bob);await join(third);
+  await db.query('select public.erase_maintenance_data()');
+  assert.equal((await db.query('select * from public.homes')).rows.length,0);
+  await user(alice);assert.equal((await load()).products.length,1);
+  assert.equal((await db.query('select * from public.home_members')).rows.length,0);
+  await db.query('select public.erase_maintenance_data()');
+  assert.equal((await db.query('select * from public.products')).rows.length,0);
+  assert.equal((await db.query('select * from public.maintenance_tasks')).rows.length,0);
+  assert.equal((await db.query('select * from public.maintenance_history')).rows.length,0);
+  await db.exec('reset role');assert.equal((await db.query('select * from auth.users')).rows.length,3);
+  await db.exec('reset role;set role anon');await assert.rejects(()=>db.query('select public.erase_maintenance_data()'));await assert.rejects(()=>join(second));await assert.rejects(()=>db.query('select maintenance_private.access_home($1)',[first.id]));
+ }finally{await db.close();}
+});
