@@ -8,7 +8,7 @@ export type SourceKind = "メーカー公式" | "取扱説明書" | "公的情�
 export type MaintenanceKind = "掃除" | "交換" | "点検" | "補充";
 export type MaintenanceTask = {
   id: string; productId: string; name: string; kind: MaintenanceKind; intervalDays: number;
-  lastCompletedAt?: string; nextDueAt: string; sourceKind: SourceKind; sourceUrl?: string;
+  lastCompletedAt?: string; nextDueAt: string; sourceKind: SourceKind; sourceUrl?: string; sourceNote?: string; sourceFrequency?: string;
 };
 export type MaintenanceHistory = {
   id: string; taskId: string; productId: string; completedAt: string; note?: string;
