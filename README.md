@@ -5,17 +5,23 @@
 ## 開発
 
 ```bash
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 品質チェックは次のコマンドで実行できます。
 
 ```bash
-npm run lint
-npm run typecheck
-npm run build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
+
+Node.js 24 と `package.json` の `packageManager` に指定した pnpm を使います。
+GitHub Actions の `Regression checks` は main 向けPR、mainへのpush、手動実行で上記4項目を検証します。
+PGliteのメモリ内DBと合成ユーザーでテストするため、Supabaseの接続情報やGitHub Secretsは不要です。
+CIはmigrationの本番適用・デプロイを行いません。
 
 ## 構成
 
