@@ -1,0 +1,5 @@
+publicHoistPattern:
+  - '*eslint*'
+allowBuilds:
+  unrs-resolver: false
+enableGlobalVirtualStore: false

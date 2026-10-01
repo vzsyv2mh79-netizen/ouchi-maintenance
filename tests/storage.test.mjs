@@ -1,0 +1,30 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import { PGlite } from '@electric-sql/pglite';
+const db = new PGlite();
+await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$; grant usage on schema public, auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;`);
+await db.exec(readFileSync('supabase/migrations/20261001144732_household_storage.sql','utf8'));
+const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
+await db.query('insert into auth.users(id) values ($1), ($2)', [alice,bob]);
+async function asUser(id) { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub', $1, false)",[id]); await db.exec('set role authenticated'); }
+async function load() { return (await db.query('select public.load_household() as data')).rows[0].data; }
+await asUser(alice);
+let a = await load(); assert.equal(a.homes.length,1); assert.equal(a.products.length,0);
+const p = {id:'33333333-3333-4333-8333-333333333333',homeId:a.homes[0].id,categoryId:'aircon',maker:'test',name:'Product',modelNumber:'TEST'};
+const t = {id:'44444444-4444-4444-8444-444444444444',productId:p.id,name:'Clean',kind:'掃除',intervalDays:14,nextDueAt:'2026-10-01',sourceKind:'ユーザー設定'};
+await db.query('select public.add_product_with_tasks($1::jsonb,$2::jsonb)',[JSON.stringify(p),JSON.stringify([t])]);
+await db.query('select public.complete_maintenance($1::uuid)',[t.id]); await db.query('select public.complete_maintenance($1::uuid)',[t.id]);
+a = await load(); assert.equal(a.history.length,1);
+assert.equal(Date.parse(a.tasks[0].nextDueAt)-Date.parse(a.tasks[0].lastCompletedAt),14*86400000);
+const p2={...p,id:'55555555-5555-4555-8555-555555555555'};
+await assert.rejects(()=>db.query('select public.add_product_with_tasks($1::jsonb,$2::jsonb)',[JSON.stringify(p2),JSON.stringify([{...t,id:'66666666-6666-4666-8666-666666666666',productId:p2.id,intervalDays:0}])]));
+assert.equal((await load()).products.length,1,'invalid task rolls back the product');
+await asUser(bob);const b=await load();assert.notEqual(b.homes[0].id,a.homes[0].id);assert.equal(b.products.length,0);assert.equal(b.tasks.length,0);assert.equal(b.history.length,0);
+await assert.rejects(()=>db.query('select public.complete_maintenance($1::uuid)',[t.id]));
+await assert.rejects(()=>db.query('insert into public.products(id,"homeId","categoryId",name) values ($1,$2,$3,$4)',[p2.id,p.homeId,'aircon','Intruder']));
+await assert.rejects(()=>db.query('insert into public.maintenance_tasks select * from jsonb_populate_record(null::public.maintenance_tasks,$1::jsonb)',[JSON.stringify({...t,id:'66666666-6666-4666-8666-666666666666'})]));
+await db.exec('reset role; set role anon');
+await assert.rejects(()=>db.query('select * from public.products'));
+await assert.rejects(()=>db.query('select public.load_household()'));
+await db.close();
+console.log('PASS: household isolation, RLS insert restrictions, anonymous access denied, atomic product creation, atomic completion, duplicate completion');

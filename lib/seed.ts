@@ -1,13 +1,14 @@
 import { addDays, today } from "./date";
 import type { AppData, MaintenanceHistory, MaintenanceTask, Product } from "./types";
 
+export function createSeedData(): AppData {
 const d = today();
 const product = (id: string, categoryId: string, maker: string, name: string, modelNumber: string): Product =>
   ({ id, homeId: "home-1", categoryId, maker, name, modelNumber, installedDate: "2025-04-12" });
 const task = (id: string, productId: string, name: string, kind: MaintenanceTask["kind"], intervalDays: number, offset: number): MaintenanceTask =>
   ({ id, productId, name, kind, intervalDays, lastCompletedAt: addDays(d, offset - intervalDays), nextDueAt: addDays(d, offset), sourceKind: "一般的な目安" });
 
-export const seedData: AppData = {
+return {
   homes: [{ id: "home-1", name: "わが家", kind: "home" }],
   products: [
     product("p-aircon", "aircon", "Daikin", "リビングのエアコン", "AN40ZRP-W"),
@@ -33,3 +34,5 @@ export const seedData: AppData = {
     { id: "h-3", taskId: "t-pre", productId: "p-purifier", completedAt: addDays(d, -23) },
   ] satisfies MaintenanceHistory[],
 };
+
+}
