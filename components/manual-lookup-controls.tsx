@@ -4,7 +4,7 @@ import {normalizeModel,type ProductCandidate} from "@/lib/product-lookup";
 export function ManualLookupControls({model,onSelect}:{model:string;onSelect:(candidate:ProductCandidate)=>void}) {
  const [url,setUrl]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [candidate,setCandidate]=useState<ProductCandidate|null>(null);
- return <section className="settings-group"><h3>公式説明書から候補を読み取る</h3><p>現在はSHARP空気清浄機の公式PDFに対応しています。説明書のURLを入力すると、品番と同じ行に記載された周期を確認します。読み取れない項目は手入力してください。</p><form className="form-grid" onSubmit={async event=>{
+ return <section className="settings-group"><h3>公式説明書から候補を読み取る</h3><p>現在はSHARP空気清浄機の公式PDFに対応しています。説明書のURLを入力すると、品番を照合し、明記されたお手入れ周期を確認します。読み取れない項目は手入力してください。</p><form className="form-grid" onSubmit={async event=>{
   event.preventDefault();if(busy)return;setBusy(true);setMessage('');setCandidate(null);
   const selectedModel=normalizeModel(model);
   try{const response=await fetch('/api/manual-suggestions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:selectedModel,url})});const result=await response.json();if(!response.ok){setMessage(result.error??'説明書を確認できませんでした。');return;}
