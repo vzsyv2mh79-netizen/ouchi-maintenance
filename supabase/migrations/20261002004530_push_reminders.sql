@@ -14,7 +14,8 @@ alter table public.maintenance_push_subscriptions enable row level security;
 create policy own_push_subscriptions on public.maintenance_push_subscriptions for all to authenticated
  using(user_id=(select auth.uid())) with check(user_id=(select auth.uid()));
 revoke all on public.maintenance_push_subscriptions from anon,authenticated;
-grant select,insert,delete on public.maintenance_push_subscriptions to authenticated;
+grant select,delete on public.maintenance_push_subscriptions to authenticated;
+grant insert(endpoint,p256dh,auth) on public.maintenance_push_subscriptions to authenticated;
 grant update(endpoint,p256dh,auth) on public.maintenance_push_subscriptions to authenticated;
 grant all on public.maintenance_push_subscriptions to service_role;
 

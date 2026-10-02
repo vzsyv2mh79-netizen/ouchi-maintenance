@@ -36,6 +36,9 @@ test('Postgres push isolation, shared due counts, leases, successful deduplicati
   await db.query('insert into public.maintenance_push_subscriptions(endpoint,p256dh,auth) values($1,$2,$3) on conflict(endpoint) do update set endpoint=excluded.endpoint,p256dh=excluded.p256dh,auth=excluded.auth returning id',[endpoint(1),'B'+'A'.repeat(86),'b'.repeat(22)]);
   assert.equal((await db.query('select * from public.maintenance_push_subscriptions')).rows.length,1);
   await assert.rejects(()=>db.query("update public.maintenance_push_subscriptions set last_sent_on=current_date"));
+  for(const [column,value] of [['last_sent_on','2099-12-31'],['claimed_until','2099-12-31T00:00:00Z'],['claim_token','99999999-9999-4999-8999-999999999999']]){
+   await assert.rejects(()=>db.query(`insert into public.maintenance_push_subscriptions(endpoint,p256dh,auth,${column}) values($1,$2,$3,$4)`,[endpoint(98),'B'+'A'.repeat(86),'a'.repeat(22),value]));
+  }
   await assert.rejects(()=>claim());
   await assert.rejects(()=>db.query('insert into public.maintenance_push_subscriptions(endpoint,p256dh,auth) values($1,$2,$3)',['https://localhost/','B'+'A'.repeat(86),'a'.repeat(22)]));
   await assert.rejects(()=>db.query('insert into public.maintenance_push_subscriptions(user_id,endpoint,p256dh,auth) values($1,$2,$3,$4)',[bob,endpoint(99),'B'+'A'.repeat(86),'a'.repeat(22)]));

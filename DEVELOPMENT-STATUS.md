@@ -1,6 +1,14 @@
 # 残作業・検証台帳
 
+## 最新の保存先・通知権限監査（2026-10-02）
+
+Supabaseを再確認すると、ikukyu-plannerはINACTIVE、汎用hphifiqyypwyxkzfanodと住宅営業cyqmrlminuqwnfgbnqbpはACTIVE_HEALTHY。以前の稼働状況から変わっている。こちらでは停止/再開操作をしていない。汎用プロジェクトはAuthユーザー0人、public.feedback_requestsの実件数2件。推定行数0は空の証明ではなく、既存記録を保持する。おうちメンテの4テーブルは存在しない。共有利用の具体案をユーザーに提示して保存先の回答待ち。実DB変更と契約変更は未実施。
+
+通知購読のINSERT権限をendpoint/p256dh/auth列だけに制限。配送日・送信占有・占有tokenは新規登録時にもブラウザが指定できない。通常の本人購読/upsertと配送処理は通り、3種の配送メタ情報を含むINSERTは拒否されることをPostgresで確認。22件テスト/lint/typecheck/build成功。
+
 ## Web Push実装の追加証跡（2026-10-02）
+
+Chrome経路修正commit14ab1f4のGitHub Actions run36949144011はcompleted/success。最新Vercel Preview dpl_ERJGDvybUbgUmv8mcx893XkXFUrfはREADY: https://ouchi-maintenance-84glolsd3-gfgz4m9pkm-8942.vercel.app/ 。本番は変更していない。
 
 通知基盤commit2bb050dのGitHub Actions run36948782614はcompleted/success。Vercel Preview dpl_FrJTGW7mqfGs9tGwjntqjb5cBkc1はREADYで、公開設定画面の通知案内も確認した。証跡 /private/tmp/ouchi-preview-push-settings-mobile.png。Chrome公式ソースで現在のFCM `/wp/`経路を確認し、従来の `/fcm/send/`と双方を許可する修正を追加。新経路を使ったPostgres購読/配送検査を含め22件のテスト/typecheck/lint/buildが再成功。根拠: https://chromium.googlesource.com/chromium/src/+/refs/tags/141.0.7390.94/components/push_messaging/push_messaging_constants.cc 。実通知が届くことの証明ではない。
 
