@@ -48,3 +48,11 @@
 2026-10-02 紹介ページ: /aboutを実装。使い始め方、保存方式、対応品番と通知の制限を案内。390px幅のブラウザで表示とアプリ導線を確認。住まいを追加し、切り替えで製品0件に分離され、再読み込み後も追加住まいが残ることを確認。本番公開は未了。証跡 /private/tmp/ouchi-introduction-mobile.png。
 
 2026-10-02 データ削除: このアプリの所有住まい・製品・項目・履歴を一括削除し、参加共有から退出するRPCと二段階確認UIを追加。共有先の他ユーザーの住まいと共通Authアカウントは保持。ログインアカウント自体の退会は、専用/共有DB方針未確定のため未了。実データの削除は実行していない。
+
+2026-10-02 レビュー公開: PR #4 draft https://github.com/vzsyv2mh79-netizen/ouchi-maintenance/pull/4。GitHubコネクタでcommit 4d909ccaf480f03a12276e74480de9394d4983a7を作成、tree 8774ce8c861e4384be85e26ad83aa6c9d2c0611eはローカルHEADと一致。PR #3の自動検査変更を取り込み済み。本番mainは2351151のまま。Vercel Preview dpl_2xUPhLLa6Nuj16LLmuVm3wowU9MJ READY。公開Previewの/about表示とアプリへの導線、現在日付の表示をブラウザで確認。証跡 /private/tmp/ouchi-preview-about.png。
+
+2026-10-02 Preview追加検証: GitHub Actions Regression checks run 36943361171（commit4d909cc）completed/success。Previewで不正バックアップ拒否、正しい合成バックアップの件数表示（製品1・項目0・履歴0）、キャンセル後も元の製品5件保持を確認。復元確定は実行せず、上書き動作の画面検証は未了。バックアップ書き出しのdownloadイベント取得はタイムアウトし、保存完了は未証明。ブラウザのerror/warnログは空。証跡 /private/tmp/ouchi-backup-preview-check.png。
+
+2026-10-02 自動品番取得: 固定のSHARP公式説明書一覧データをサーバー側取得し、品番完全一致の空気清浄機候補を返すAPIを実装。JSを実行せずJSONレコードのみ解析、タイムアウト/容量制限/固定取得先で制限。周期未確認候補は提案なしと明示。既存確認済み品番はオフライン照合を維持。実APIでKI-RX70候補あり/KI-RX7候補なしを確認。テスト14件、lint/typecheck/build成功。説明書本文の自動取得/解析、他メーカー、Preview反映は未了。
+
+2026-10-02 説明書解析基盤: pdfjs-dist6.3.289でSHARP空気清浄機の公式PDFから文字/ページを取得。公式URL許可リスト、redirect拒否、10MB/100ページ制限、表紙2ページの品番完全一致、異なる列と異なる周期の拒否を実装。日本語CMap169ファイルとworker1ファイルが本番出力に含まれることを確認。実APIでKI-RX100説明書から本体/後ろパネル（29ページ）・加湿フィルター/トレー（30ページ）の2項目を自動抽出、KI-RX70で同じPDFは拒否。利用者が公式PDF URLを入力して根拠を確認するUIを追加。テスト18件/lint/typecheck/build成功。PDF自動発見の全自動化、他メーカー、画面操作とVercel実行確認は未了。
