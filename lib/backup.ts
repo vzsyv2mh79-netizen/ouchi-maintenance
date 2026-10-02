@@ -1,5 +1,11 @@
 import type { AppData } from "./types";
 
+export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+function withinBackupLimit(raw: string) {
+  if (new TextEncoder().encode(raw).byteLength > MAX_BACKUP_BYTES) throw new Error("ファイルは10MB以内にしてください");
+  return raw;
+}
+
 const kinds = ["掃除", "交換", "点検", "補充"];
 const sources = ["メーカー公式", "取扱説明書", "公的情報", "一般的な目安", "ユーザー設定"];
 function record(value: unknown): Record<string, unknown> {
@@ -43,10 +49,10 @@ export function validateData(value: unknown): AppData {
   return { homes, products, tasks, history };
 }
 export function encodeBackup(data: AppData) {
-  return JSON.stringify({ app: "ouchi-maintenance", version: 1, exportedAt: new Date().toISOString(), data: validateData(data) }, null, 2);
+  return withinBackupLimit(JSON.stringify({ app: "ouchi-maintenance", version: 1, exportedAt: new Date().toISOString(), data: validateData(data) }, null, 2));
 }
 export function decodeBackup(raw: string) {
-  if (raw.length > 10 * 1024 * 1024) throw new Error("ファイルは10MB以内にしてください");
+  withinBackupLimit(raw);
   const envelope = record(JSON.parse(raw));
   if (envelope.app !== "ouchi-maintenance" || envelope.version !== 1) throw new Error("対応するバックアップではありません");
   return validateData(envelope.data);

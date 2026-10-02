@@ -17,3 +17,16 @@ test('invalid backup never becomes restore data', () => {
   assert.throws(() => decodeBackup(invalid(d => d.tasks[0].sourceKind='メーカー公式')));
   assert.throws(() => decodeBackup('{"version":99}'));
 });
+test('export and restore apply the same UTF-8 file limit to Japanese records', () => {
+  const large = structuredClone(data);
+  large.products = Array.from({length: 400}, (_, i) => ({...data.products[0], id:`p${i}`, memo:'家'.repeat(10000)}));
+  large.tasks = [];
+  large.history = [];
+  const raw = JSON.stringify({app:'ouchi-maintenance',version:1,data:large});
+  assert.ok(raw.length < 10 * 1024 * 1024);
+  assert.ok(Buffer.byteLength(raw) > 10 * 1024 * 1024);
+  assert.throws(() => encodeBackup(large), /10MB/);
+  assert.throws(() => decodeBackup(raw), /10MB/);
+  large.products = large.products.slice(0, 10);
+  assert.deepEqual(JSON.parse(JSON.stringify(decodeBackup(encodeBackup(large)))), large);
+});
