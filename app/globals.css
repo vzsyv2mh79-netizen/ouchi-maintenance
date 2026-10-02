@@ -48,3 +48,11 @@ button { color:inherit; }
 .field-hint { line-height: 1.7; font-size: 11px; }
 .suggestions .field-hint { display: block; }
 .toast { height: auto; min-height: 48px; padding-top: 8px; padding-bottom: 8px; }
+
+.account-page { max-width: 540px; margin: 0 auto; padding: 48px 20px; }
+.account-page h1 { font-size: 26px; }
+.account-page p { line-height: 1.8; font-size: 14px; }
+button:focus-visible, a:focus-visible { outline: 3px solid #246bfe; outline-offset: 3px; }
+
+.home-switch select { border: 0; background: transparent; color: inherit; font: inherit; max-width: 150px; }
+.settings-group input { max-width: 100%; }

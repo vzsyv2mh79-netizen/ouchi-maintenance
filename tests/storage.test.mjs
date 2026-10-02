@@ -23,6 +23,18 @@ await asUser(bob);const b=await load();assert.notEqual(b.homes[0].id,a.homes[0].
 await assert.rejects(()=>db.query('select public.complete_maintenance($1::uuid)',[t.id]));
 await assert.rejects(()=>db.query('insert into public.products(id,"homeId","categoryId",name) values ($1,$2,$3,$4)',[p2.id,p.homeId,'aircon','Intruder']));
 await assert.rejects(()=>db.query('insert into public.maintenance_tasks select * from jsonb_populate_record(null::public.maintenance_tasks,$1::jsonb)',[JSON.stringify({...t,id:'66666666-6666-4666-8666-666666666666'})]));
+// UPDATE/DELETE must be invisible across households, even with known IDs.
+assert.equal((await db.query('update public.products set name=$1 where id=$2 returning id', ['Intruder',p.id])).rows.length,0);
+assert.equal((await db.query('delete from public.maintenance_tasks where id=$1 returning id',[t.id])).rows.length,0);
+await asUser(alice);
+await db.query('update public.products set name=$1 where id=$2',['Edited',p.id]);
+await db.query('update public.maintenance_tasks set "intervalDays"=21 where id=$1',[t.id]);
+assert.equal((await load()).products[0].name,'Edited');
+assert.equal((await load()).tasks[0].intervalDays,21);
+await assert.rejects(() => db.query('update public.products set "homeId"=$1 where id=$2',[b.homes[0].id,p.id]));
+await db.query('delete from public.products where id=$1',[p.id]);
+const deleted = await load();
+assert.equal(deleted.products.length,0); assert.equal(deleted.tasks.length,0); assert.equal(deleted.history.length,0);
 await db.exec('reset role; set role anon');
 await assert.rejects(()=>db.query('select * from public.products'));
 await assert.rejects(()=>db.query('select public.load_household()'));

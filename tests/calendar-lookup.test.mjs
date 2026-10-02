@@ -25,3 +25,17 @@ test('normalized exact model matching preserves evidence; similar models never i
   assert.equal(lookup.lookupModel('KI-RX75-W').length,0);
   assert.equal(lookup.lookupModel('').length,0);
 });
+
+test('additional model uses its own manual evidence and discovery never fabricates candidates', () => {
+  const [candidate] = lookup.lookupModel('ki-rx100');
+  assert.equal(candidate.suggestions.length, 3);
+  for (const suggestion of candidate.suggestions) {
+    assert.equal(suggestion.sourceKind, '取扱説明書');
+    assert.equal(suggestion.intervalDays, 30);
+    assert.ok(suggestion.sourceUrl.includes('kirx100_mn.pdf#page='));
+  }
+  assert.equal(lookup.lookupModel('KI-RX100-W').length, 0);
+  assert.equal(lookup.officialSearchLinks('evil.example/?x').length, 0);
+  assert.equal(lookup.officialSearchLinks(' ＫＩ－ＲＸ１００ ')[0].maker, 'SHARP');
+  assert.ok(decodeURIComponent(lookup.officialSearchLinks('KI-RX100')[0].url).includes('site:jp.sharp "KI-RX100"'));
+});

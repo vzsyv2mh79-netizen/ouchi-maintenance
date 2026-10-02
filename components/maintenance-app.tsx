@@ -1,6 +1,9 @@
 "use client";
+import { PushControls } from "./push-controls";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Archive, ArrowLeft, CalendarDays, Check, CheckCircle2, ChevronRight,
   ClipboardCheck, Clock3, History, Home, House, Info, LayoutGrid,
@@ -10,11 +13,19 @@ import { categories } from "@/lib/catalog";
 import { addDays, daysUntil, dueLabel, formatLong, formatShort, today } from "@/lib/date";
 import { createSeedData } from "@/lib/seed";
 import { getSupabase } from "@/lib/supabase";
-import { loadCloud, saveProduct, saveTask, finishTask } from "@/lib/cloud-repository";
+import { loadCloud, saveProduct, saveTask, finishTask, updateProduct, updateTask, deleteRecord, importLocalData, createHome, updateHome, removeHome } from "@/lib/cloud-repository";
 import { CloudAccount } from "./cloud-account";
-import { lookupModel, type ProductCandidate } from "@/lib/product-lookup";
+import { ManualLookupControls } from "./manual-lookup-controls";
+import { HomeControls } from "./home-controls";
+import { selectHome } from "@/lib/homes";
+import { CalendarControls } from "./calendar-controls";
+import { CloudImportControls } from "./cloud-import-controls";
+import { InstallControls } from "./install-controls";
+import { BackupControls } from "./backup-controls";
+import { validateData } from "@/lib/backup";
+import { lookupModel, officialSearchLinks, supportedModels, type ProductCandidate } from "@/lib/product-lookup";
 import { suggestions } from "@/lib/suggestions";
-import type { AppData, MaintenanceKind, MaintenanceTask, Product, SourceKind } from "@/lib/types";
+import type { AppData, MaintenanceKind, MaintenanceTask, Product, SourceKind, Home as HomeRecord } from "@/lib/types";
 
 type Tab = "home" | "tasks" | "products" | "history" | "settings";
 const storageKey = "ouchi-maintenance-v1";
@@ -26,10 +37,13 @@ const navItems = [
 
 export function MaintenanceApp() {
   const [data, setData] = useState<AppData>(() => ({ homes: [{ id: "home-1", name: "わが家", kind: "home" }], products: [], tasks: [], history: [] }));
+  const [homeId, setHomeId] = useState("");
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [modal, setModal] = useState<"product" | "task" | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editTask, setEditTask] = useState<MaintenanceTask | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const [authReady, setAuthReady] = useState(() => !getSupabase());
@@ -52,14 +66,14 @@ export function MaintenanceApp() {
     if (!authReady) return;
     let active = true;
     generation.current += 1;
-    setReady(false); setLoadError(false); setStorageError(false); setSelectedProduct(null); setModal(null);
+    setHomeId(""); setReady(false); setLoadError(false); setStorageError(false); setSelectedProduct(null); setModal(null); setEditProduct(null); setEditTask(null);
     if (cloudUser) {
       loadCloud().then((value) => { if (active) { setData(value); setReady(true); } })
         .catch(() => { if (active) setLoadError(true); });
     } else {
       try {
         const saved = localStorage.getItem(storageKey);
-        setData(saved ? validateLocal(JSON.parse(saved)) : createSeedData());
+        setData(saved ? validateData(JSON.parse(saved)) : createSeedData());
       } catch { setData(createSeedData()); setStorageError(true); }
       setReady(true);
     }
@@ -77,7 +91,7 @@ export function MaintenanceApp() {
     try {
       if (cloudUser) { await remote(); const value = await loadCloud(); if (generation.current === currentGeneration) setData(value); }
       else { localStorage.setItem(storageKey, JSON.stringify(next)); setData(next); setStorageError(false); }
-      if (generation.current === currentGeneration) { setModal(null); setToast(message); }
+      if (generation.current === currentGeneration) { setModal(null); setEditProduct(null); setEditTask(null); setToast(message); }
     } catch {
       if (generation.current === currentGeneration) {
         setToast(cloudUser ? "保存結果を確認できませんでした。再読み込みして確認してください。" : "端末に保存できませんでした。空き容量やブラウザ設定を確認してください。");
@@ -104,32 +118,57 @@ export function MaintenanceApp() {
   };
   const addTask = (task: MaintenanceTask) => { void commitChange({ ...data, tasks: [...data.tasks, task] }, () => saveTask(task), "お手入れ項目を追加しました"); };
 
+  const removeProduct = (product: Product) => {
+    if (!window.confirm(`「${product.name}」と関連するお手入れ・履歴を削除しますか？`)) return;
+    void commitChange({ ...data, products: data.products.filter(p => p.id !== product.id), tasks: data.tasks.filter(t => t.productId !== product.id), history: data.history.filter(h => h.productId !== product.id) }, () => deleteRecord("products", product.id), "製品を削除しました").then(() => setSelectedProduct(null));
+  };
+  const removeTask = (task: MaintenanceTask) => {
+    if (!window.confirm(`「${task.name}」と関連する履歴を削除しますか？`)) return;
+    void commitChange({ ...data, tasks: data.tasks.filter(t => t.id !== task.id), history: data.history.filter(h => h.taskId !== task.id) }, () => deleteRecord("maintenance_tasks", task.id), "項目を削除しました");
+  };
+
+  const currentHome = data.homes.find(h => h.id === homeId) ?? data.homes[0];
+  const view = selectHome(data, currentHome.id);
+  const addHome = (name: string, kind: HomeRecord["kind"]) => {
+    const home = { id: crypto.randomUUID(), name, kind };
+    void commitChange({ ...data, homes: [...data.homes, home] }, () => createHome(name, kind), "住まいを追加しました");
+  };
+  const renameHome = (name: string, kind: HomeRecord["kind"]) => {
+    void commitChange({ ...data, homes: data.homes.map(h => h.id === currentHome.id ? { ...h, name, kind } : h) }, () => updateHome(currentHome.id, name, kind), "住まいを更新しました");
+  };
+  const deleteHome = () => {
+    if (data.homes.length < 2 || !window.confirm(`「${currentHome.name}」の製品・お手入れ・履歴をすべて削除しますか？共有している家族の記録も削除されます。`)) return;
+    const ids = new Set(view.products.map(p => p.id));
+    void commitChange({ ...data, homes: data.homes.filter(h => h.id !== currentHome.id), products: data.products.filter(p => !ids.has(p.id)), tasks: data.tasks.filter(t => !ids.has(t.productId)), history: data.history.filter(h => !ids.has(h.productId)) }, () => removeHome(currentHome.id), "住まいを削除しました");
+  };
   const page = selectedProduct && tab === "products"
-    ? <ProductDetail productId={selectedProduct} data={data} onBack={() => setSelectedProduct(null)} onComplete={completeTask} onAddTask={() => setModal("task")} />
-    : tab === "home" ? <HomePage data={data} onComplete={completeTask} onOpenProduct={openProduct} onAll={() => setTab("tasks")} />
-    : tab === "tasks" ? <TasksPage data={data} onComplete={completeTask} onOpenProduct={openProduct} />
-    : tab === "products" ? <ProductsPage data={data} onAdd={() => setModal("product")} onOpenProduct={openProduct} />
-    : tab === "history" ? <HistoryPage data={data} onOpenProduct={openProduct} />
-    : <SettingsPage cloud={!!cloudUser} busy={busy} data={data} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
+    ? <ProductDetail onEditProduct={setEditProduct} onEditTask={setEditTask} onDeleteProduct={removeProduct} onDeleteTask={removeTask} productId={selectedProduct} data={view} onBack={() => setSelectedProduct(null)} onComplete={completeTask} onAddTask={() => setModal("task")} />
+    : tab === "home" ? <HomePage data={view} onComplete={completeTask} onOpenProduct={openProduct} onAll={() => setTab("tasks")} />
+    : tab === "tasks" ? <TasksPage data={view} onComplete={completeTask} onOpenProduct={openProduct} />
+    : tab === "products" ? <ProductsPage data={view} onAdd={() => setModal("product")} onOpenProduct={openProduct} />
+    : tab === "history" ? <HistoryPage data={view} onOpenProduct={openProduct} />
+    : <SettingsPage key={cloudUser ?? "local"} homeControls={<HomeControls home={currentHome} cloud={!!cloudUser} busy={busy} canDelete={data.homes.length > 1} onCreate={addHome} onUpdate={renameHome} onDelete={deleteHome} onRefresh={() => commitChange(data, async () => {}, "記録を更新しました")} />} backupData={data} onImport={(local) => { void commitChange(data, () => importLocalData(local, currentHome.id), "端末の記録をクラウドに追加しました"); }} onRestore={(restored) => { void commitChange(restored, async () => {}, "バックアップを復元しました"); }} cloud={!!cloudUser} busy={busy} data={view} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
 
   if (!ready || loadError) return <div className="page narrow"><h1>おうちメンテ</h1><p role="status">{loadError ? "記録を読み込めませんでした。通信状態を確認して再読み込みしてください。" : "記録を読み込み中…"}</p>{loadError && <><button className="primary-button" onClick={() => window.location.reload()}>再読み込み</button><CloudAccount disabled={busy} /></>}</div>;
   return (
     <div className="app-shell" inert={busy}>
       <Sidebar cloud={!!cloudUser} active={tab} onChange={(next) => { setTab(next); setSelectedProduct(null); }} />
       <div className="app-main">
-        <Topbar data={data} />
+        <Topbar data={data} homeId={currentHome.id} onSwitch={(id) => { setHomeId(id); setSelectedProduct(null); setModal(null); setEditProduct(null); setEditTask(null); }} />
         <main className="page-container">{storageError && <p role="alert">端末の保存データを読み込めませんでした。保存データは保持されています。ブラウザを再読み込みしてください。安全のため新しい保存は停止しています。</p>}{page}</main>
       </div>
       <BottomNav active={tab} onChange={(next) => { setTab(next); setSelectedProduct(null); }} />
-      {modal === "product" && <ProductModal homeId={data.homes[0].id} onClose={() => setModal(null)} onSave={addProduct} />}
+      {modal === "product" && <ProductModal homeId={currentHome.id} onClose={() => setModal(null)} onSave={addProduct} />}
       {modal === "task" && selectedProduct && <TaskModal productId={selectedProduct} onClose={() => setModal(null)} onSave={addTask} />}
+      {editProduct && <ProductModal initial={editProduct} homeId={editProduct.homeId} onClose={() => setEditProduct(null)} onSave={(product) => { void commitChange({ ...data, products: data.products.map(p => p.id === product.id ? product : p) }, () => updateProduct(product), "製品を更新しました"); }} />}
+      {editTask && <TaskModal initial={editTask} productId={editTask.productId} onClose={() => setEditTask(null)} onSave={(task) => { void commitChange({ ...data, tasks: data.tasks.map(t => t.id === task.id ? task : t) }, () => updateTask(task), "項目を更新しました"); }} />}
       {toast && <div className="toast"><span className="toast-check"><Check size={16} /></span>{toast}</div>}
     </div>
   );
 }
 
-function Topbar({ data }: { data: AppData }) {
-  return <header className="topbar"><div className="mobile-brand"><Logo />おうちメンテ</div><span className="home-switch"><House size={16} />{data.homes[0].name}</span></header>;
+function Topbar({ data, homeId, onSwitch }: { data: AppData; homeId: string; onSwitch: (id: string) => void }) {
+  return <header className="topbar"><div className="mobile-brand"><Logo />おうちメンテ</div><label className="home-switch"><House size={16} /><select aria-label="表示する住まい" value={homeId} onChange={(e) => onSwitch(e.target.value)}>{data.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></label></header>;
 }
 function Logo() { return <span className="logo-mark"><House size={17} strokeWidth={2.3} /></span>; }
 function Sidebar({ active, onChange, cloud }: { cloud: boolean; active: Tab; onChange: (tab: Tab) => void }) {
@@ -189,13 +228,13 @@ function ProductsPage({ data, onAdd, onOpenProduct }: { data: AppData; onAdd: ()
   </div>;
 }
 
-function ProductDetail({ productId, data, onBack, onComplete, onAddTask }: { productId: string; data: AppData; onBack: () => void; onComplete: (id: string) => void; onAddTask: () => void }) {
+function ProductDetail({ productId, data, onBack, onComplete, onAddTask, onEditProduct, onEditTask, onDeleteProduct, onDeleteTask }: { onEditProduct: (p: Product) => void; onEditTask: (t: MaintenanceTask) => void; onDeleteProduct: (p: Product) => void; onDeleteTask: (t: MaintenanceTask) => void; productId: string; data: AppData; onBack: () => void; onComplete: (id: string) => void; onAddTask: () => void }) {
   const product = data.products.find((p) => p.id === productId)!; const tasks = data.tasks.filter((t) => t.productId === productId);
   return <div className="page"><button className="back-button" onClick={onBack}><ArrowLeft size={18} />製品一覧</button>
     <section className="product-hero"><div className="product-hero-icon">{categoryEmoji(product.categoryId)}</div><div><span>{product.maker}</span><h1>{product.name}</h1><p>{product.modelNumber}</p></div></section>
-    <div className="detail-meta"><div><span>カテゴリ</span><strong>{categories.find((c) => c.id === product.categoryId)?.name}</strong></div><div><span>設置日</span><strong>{product.installedDate ? formatLong(product.installedDate) : "未設定"}</strong></div><div><span>登録場所</span><strong>わが家</strong></div></div>
+    <div className="modal-actions"><button className="secondary-button" onClick={() => onEditProduct(product)}>製品を編集</button><button className="text-button" onClick={() => onDeleteProduct(product)}>製品を削除</button></div><div className="detail-meta"><div><span>カテゴリ</span><strong>{categories.find((c) => c.id === product.categoryId)?.name}</strong></div><div><span>設置日</span><strong>{product.installedDate ? formatLong(product.installedDate) : "未設定"}</strong></div><div><span>登録場所</span><strong>{data.homes[0].name}</strong></div></div>
     <div className="section-title detail-title"><div><h2>この製品のお手入れ</h2><p>{tasks.length}件の項目を登録中</p></div><button className="secondary-button" onClick={onAddTask}><Plus size={17} />項目を追加</button></div>
-    <div className="maintenance-cards">{tasks.map((task) => <article className="maintenance-card" key={task.id}><div className="maintenance-head"><div className="kind-icon"><Wrench size={19} /></div><div><span className="kind-label">{task.kind}</span><h3>{task.name}</h3></div><button className="complete-button" onClick={() => onComplete(task.id)}><Check size={17} />完了</button></div><div className="maintenance-details"><div><span>設定した周期</span><strong>{intervalLabel(task.intervalDays)}</strong></div><div><span>最終実施日</span><strong>{task.lastCompletedAt ? formatLong(task.lastCompletedAt) : "未実施"}</strong></div><div><span>次回予定日</span><strong className={daysUntil(task.nextDueAt) <= 0 ? "attention" : ""}>{formatLong(task.nextDueAt)}<small>{dueLabel(task.nextDueAt)}</small></strong></div></div>{task.sourceFrequency && <p className="field-hint">{task.sourceFrequency}</p>}{task.sourceNote && <p className="field-hint">{task.sourceNote}</p>}<div className="source-row"><Info size={14} /><span>情報源：</span><strong>{task.sourceKind}</strong>{task.sourceUrl?.startsWith("https://") && <a href={task.sourceUrl} target="_blank" rel="noreferrer">根拠を開く</a>}{task.id.startsWith("t-") && <em>デモデータ</em>}</div></article>)}</div>
+    <div className="maintenance-cards">{tasks.map((task) => <article className="maintenance-card" key={task.id}><div className="maintenance-head"><div className="kind-icon"><Wrench size={19} /></div><div><span className="kind-label">{task.kind}</span><h3>{task.name}</h3></div><button className="complete-button" onClick={() => onComplete(task.id)}><Check size={17} />完了</button></div><div className="maintenance-details"><div><span>設定した周期</span><strong>{intervalLabel(task.intervalDays)}</strong></div><div><span>最終実施日</span><strong>{task.lastCompletedAt ? formatLong(task.lastCompletedAt) : "未実施"}</strong></div><div><span>次回予定日</span><strong className={daysUntil(task.nextDueAt) <= 0 ? "attention" : ""}>{formatLong(task.nextDueAt)}<small>{dueLabel(task.nextDueAt)}</small></strong></div></div><div className="modal-actions"><button className="secondary-button" onClick={() => onEditTask(task)}>項目を編集</button><button className="text-button" onClick={() => onDeleteTask(task)}>項目を削除</button></div>{task.sourceFrequency && <p className="field-hint">{task.sourceFrequency}</p>}{task.sourceNote && <p className="field-hint">{task.sourceNote}</p>}<div className="source-row"><Info size={14} /><span>情報源：</span><strong>{task.sourceKind}</strong>{task.sourceUrl?.startsWith("https://") && <a href={task.sourceUrl} target="_blank" rel="noreferrer">根拠を開く</a>}{task.id.startsWith("t-") && <em>デモデータ</em>}</div></article>)}</div>
     {tasks.length === 0 && <EmptyState icon={<Wrench />} title="お手入れ項目がありません" text="掃除や交換の周期を登録すると、予定日を一覧で確認できます。" action="項目を追加" onAction={onAddTask} />}
   </div>;
 }
@@ -204,17 +243,37 @@ function HistoryPage({ data, onOpenProduct }: { data: AppData; onOpenProduct: (i
   const sorted = [...data.history].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   return <div className="page"><PageHeading title="お手入れ履歴" subtitle="いつ、何をしたかを記録しています。" /><div className="history-card">{sorted.map((item, i) => { const product = data.products.find((p) => p.id === item.productId); const task = data.tasks.find((t) => t.id === item.taskId); if (!product || !task) return null; return <button key={item.id} className="history-row" onClick={() => onOpenProduct(product.id)}><div className="history-date"><strong>{formatShort(item.completedAt)}</strong><span>{i === 0 ? "最新" : "完了"}</span></div><span className="history-line" /><div className="history-check"><Check size={15} /></div><div className="history-copy"><span>{product.name}</span><strong>{task.name}</strong></div><ChevronRight size={18} /></button>; })}</div></div>;
 }
-function SettingsPage({ data, onReset, onClear, cloud, busy }: { cloud: boolean; busy: boolean; data: AppData; onReset: () => void; onClear: () => void }) {
-  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" /><div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。"} 自動通知は未対応です。</p></div><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
+function SettingsPage({ homeControls, backupData, data, onReset, onClear, cloud, busy, onRestore, onImport }: { homeControls: ReactNode; backupData: AppData; onImport: (data: AppData) => void; onRestore: (data: AppData) => void; cloud: boolean; busy: boolean; data: AppData; onReset: () => void; onClear: () => void }) {
+  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
 }
 function PageHeading({ title, subtitle }: { title: string; subtitle: string }) { return <div className="page-heading"><h1>{title}</h1><p>{subtitle}</p></div>; }
 
 function ModalShell({ title, description, onClose, children }: { title: string; description?: string; onClose: () => void; children: React.ReactNode }) {
-  return <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}><section className="modal" role="dialog" aria-modal="true" aria-label={title}><div className="modal-header"><div><h2>{title}</h2>{description && <p>{description}</p>}</div><button aria-label="閉じる" onClick={onClose}><X size={20} /></button></div>{children}</section></div>;
+  const dialog = useRef<HTMLElement>(null);
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const node = dialog.current;
+    const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]';
+    const first = node?.querySelector<HTMLElement>(selector); first?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); close.current(); }
+      if (event.key !== "Tab" || !node) return;
+      const focusable = [...node.querySelectorAll<HTMLElement>(selector)];
+      const first = focusable[0], last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    node?.addEventListener("keydown", keydown);
+    const overflow = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { node?.removeEventListener("keydown", keydown); document.body.style.overflow = overflow; previous?.focus(); };
+  }, []);
+  return <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}><section ref={dialog} className="modal" role="dialog" aria-modal="true" aria-label={title}><div className="modal-header"><div><h2>{title}</h2>{description && <p>{description}</p>}</div><button aria-label="閉じる" onClick={onClose}><X size={20} /></button></div>{children}</section></div>;
 }
 type TaskChoice = { name: string; kind: MaintenanceKind; intervalDays: number; sourceKind?: SourceKind; sourceUrl?: string; frequency?: string; conditions?: string };
-function ProductModal({ onClose, onSave, homeId }: { homeId: string; onClose: () => void; onSave: (p: Product, selected: TaskChoice[]) => void }) {
-  const [form, setForm] = useState({ categoryId: "aircon", maker: "", name: "", modelNumber: "", purchaseDate: "", installedDate: "", memo: "" });
+function ProductModal({ onClose, onSave, homeId, initial }: { initial?: Product; homeId: string; onClose: () => void; onSave: (p: Product, selected: TaskChoice[]) => void }) {
+  const [form, setForm] = useState({ categoryId: initial?.categoryId ?? "aircon", maker: initial?.maker ?? "", name: initial?.name ?? "", modelNumber: initial?.modelNumber ?? "", purchaseDate: initial?.purchaseDate ?? "", installedDate: initial?.installedDate ?? "", memo: initial?.memo ?? "" });
   const [selected, setSelected] = useState<number[]>([]);
   const [lookup, setLookup] = useState(false);
   const [candidate, setCandidate] = useState<ProductCandidate | null>(null);
@@ -222,31 +281,28 @@ function ProductModal({ onClose, onSave, homeId }: { homeId: string; onClose: ()
   const valid = form.name.trim() && form.categoryId;
   const choices: TaskChoice[] = candidate?.suggestions ?? suggestions[form.categoryId] ?? [];
   if (lookup) return <LookupModal onClose={() => setLookup(false)} onSelect={(value) => { setCandidate(value); setSelected([]); setForm((f) => ({ ...f, maker: value.maker, name: value.name, categoryId: value.categoryId, modelNumber: value.modelNumber })); setLookup(false); }} />;
-  return <ModalShell title="製品を追加" description="製品の基本情報を登録します。" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ id: crypto.randomUUID(), homeId, ...form, name: form.name.trim(), purchaseDate: form.purchaseDate || undefined, installedDate: form.installedDate || undefined }, selected.map((index) => choices[index])); }}>
-    <button type="button" className="lookup-button" onClick={() => setLookup(true)}><span><Sparkles size={19} /></span><div><strong>品番から自動で調べる</strong><small>確認済みの公式情報から候補を選択</small></div><ChevronRight size={18} /></button>
+  return <ModalShell title={initial ? "製品を編集" : "製品を追加"} description="製品の基本情報を登録します。" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ id: initial?.id ?? crypto.randomUUID(), homeId, ...form, name: form.name.trim(), purchaseDate: form.purchaseDate || undefined, installedDate: form.installedDate || undefined }, selected.map((index) => choices[index])); }}>
+    {!initial && <button type="button" className="lookup-button" onClick={() => setLookup(true)}><span><Sparkles size={19} /></span><div><strong>品番から自動で調べる</strong><small>確認済みの公式情報から候補を選択</small></div><ChevronRight size={18} /></button>}
     <div className="form-grid"><label><span>カテゴリ <em>必須</em></span><select value={form.categoryId} onChange={(e) => { update("categoryId", e.target.value); setSelected([]); setCandidate(null); }}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label><span>メーカー</span><input value={form.maker} onChange={(e) => update("maker", e.target.value)} placeholder="例：Panasonic" /></label><label className="wide"><span>製品名 <em>必須</em></span><input required value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="例：リビングのエアコン" /></label><label className="wide"><span>品番</span><input value={form.modelNumber} onChange={(e) => { update("modelNumber", e.target.value); setCandidate(null); setSelected([]); }} placeholder="例：ABC-1234" /></label><label><span>購入日</span><input type="date" value={form.purchaseDate} onChange={(e) => update("purchaseDate", e.target.value)} /></label><label><span>設置日</span><input type="date" value={form.installedDate} onChange={(e) => update("installedDate", e.target.value)} /></label><label className="wide"><span>メモ</span><textarea value={form.memo} onChange={(e) => update("memo", e.target.value)} placeholder="設置場所や保証についてのメモ" /></label></div>
-    {choices.length > 0 && <fieldset className="suggestions"><legend>お手入れ候補（任意）</legend><p>{candidate ? "品番が一致する公式情報を確認して選んでください。予定の周期は必要に応じて見直してください。" : "一般的な目安です。製品の取扱説明書を確認して選んでください。"}</p>{choices.map((item, index) => <label key={item.name}><input type="checkbox" checked={selected.includes(index)} onChange={(e) => setSelected((current) => e.target.checked ? [...current, index] : current.filter((i) => i !== index))} /><span>{item.name} ・ {item.frequency ?? `約${intervalLabel(item.intervalDays)}`}{item.conditions && <small className="field-hint">{item.conditions}</small>}</span></label>)}</fieldset>}
-    {candidate && <p className="field-hint"><a href={candidate.manualUrl} target="_blank" rel="noreferrer">取扱説明書</a> ・ <a href={candidate.suggestions[0]?.sourceUrl ?? candidate.productUrl} target="_blank" rel="noreferrer">メーカー公式の根拠</a>（確認日：{candidate.verifiedAt}）</p>}<div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>キャンセル</button><button className="primary-button" disabled={!valid}>製品を追加</button></div></form></ModalShell>;
+    {!initial && choices.length > 0 && <fieldset className="suggestions"><legend>お手入れ候補（任意）</legend><p>{candidate ? "品番が一致する公式情報を確認して選んでください。予定の周期は必要に応じて見直してください。" : "一般的な目安です。製品の取扱説明書を確認して選んでください。"}</p>{choices.map((item, index) => <label key={item.name}><input type="checkbox" checked={selected.includes(index)} onChange={(e) => setSelected((current) => e.target.checked ? [...current, index] : current.filter((i) => i !== index))} /><span>{item.name} ・ {item.frequency ?? `約${intervalLabel(item.intervalDays)}`}{item.conditions && <small className="field-hint">{item.conditions}</small>}</span></label>)}</fieldset>}
+    {candidate && <p className="field-hint"><a href={candidate.manualUrl} target="_blank" rel="noreferrer">取扱説明書</a> ・ <a href={candidate.suggestions[0]?.sourceUrl ?? candidate.productUrl} target="_blank" rel="noreferrer">メーカー公式の根拠</a>（確認日：{candidate.verifiedAt}）</p>}<div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>キャンセル</button><button className="primary-button" disabled={!valid}>{initial ? "変更を保存" : "製品を追加"}</button></div></form></ModalShell>;
 }
-function TaskModal({ productId, onClose, onSave }: { productId: string; onClose: () => void; onSave: (t: MaintenanceTask) => void }) {
-  const [name, setName] = useState(""); const [kind, setKind] = useState<MaintenanceKind>("掃除"); const [interval, setInterval] = useState(30); const [source, setSource] = useState<SourceKind>("ユーザー設定");
-  const [sourceUrl, setSourceUrl] = useState("");
+function TaskModal({ productId, onClose, onSave, initial }: { initial?: MaintenanceTask; productId: string; onClose: () => void; onSave: (t: MaintenanceTask) => void }) {
+  const [name, setName] = useState(initial?.name ?? ""); const [kind, setKind] = useState<MaintenanceKind>(initial?.kind ?? "掃除"); const [interval, setInterval] = useState(initial?.intervalDays ?? 30); const [source, setSource] = useState<SourceKind>(initial?.sourceKind ?? "ユーザー設定");
+  const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? "");
+  const [nextDueAt, setNextDueAt] = useState(initial?.nextDueAt ?? addDays(today(), 30));
   const needsUrl = ["メーカー公式", "取扱説明書", "公的情報"].includes(source);
   const valid = name.trim() && Number.isInteger(interval) && interval >= 1 && interval <= 3650 && (!needsUrl || /^https:\/\//.test(sourceUrl));
-  return <ModalShell title="お手入れ項目を追加" description="周期を設定すると、次の予定日を自動計算します。" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ id: crypto.randomUUID(), productId, name: name.trim(), kind, intervalDays: interval, nextDueAt: addDays(today(), interval), sourceKind: source, sourceUrl: sourceUrl || undefined }); }}><div className="form-grid"><label className="wide"><span>メンテナンス名 <em>必須</em></span><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="例：フィルター掃除" /></label><label><span>種類</span><select value={kind} onChange={(e) => setKind(e.target.value as MaintenanceKind)}>{["掃除", "交換", "点検", "補充"].map((v) => <option key={v}>{v}</option>)}</select></label><label><span>周期（日）</span><input type="number" min="1" max="3650" required value={interval} onChange={(e) => setInterval(Number(e.target.value))} /></label><label className="wide"><span>情報源</span><select value={source} onChange={(e) => setSource(e.target.value as SourceKind)}>{["メーカー公式", "取扱説明書", "公的情報", "一般的な目安", "ユーザー設定"].map((v) => <option key={v}>{v}</option>)}</select><small className="field-hint">確認できた情報源を正確に選んでください。</small></label><label className="wide"><span>情報源URL{needsUrl ? "（必須）" : "（任意）"}</span><input type="url" required={needsUrl} value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://…" /></label></div><div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>キャンセル</button><button className="primary-button" disabled={!valid}>項目を追加</button></div></form></ModalShell>;
+  return <ModalShell title={initial ? "お手入れ項目を編集" : "お手入れ項目を追加"} description="周期を設定すると、次の予定日を自動計算します。" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ ...initial, id: initial?.id ?? crypto.randomUUID(), productId, name: name.trim(), kind, intervalDays: interval, nextDueAt: initial ? nextDueAt : addDays(today(), interval), sourceKind: source, sourceUrl: sourceUrl || undefined }); }}><div className="form-grid"><label className="wide"><span>メンテナンス名 <em>必須</em></span><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="例：フィルター掃除" /></label><label><span>種類</span><select value={kind} onChange={(e) => setKind(e.target.value as MaintenanceKind)}>{["掃除", "交換", "点検", "補充"].map((v) => <option key={v}>{v}</option>)}</select></label><label><span>周期（日）</span><input type="number" min="1" max="3650" required value={interval} onChange={(e) => setInterval(Number(e.target.value))} /></label>{initial && <label className="wide"><span>次回予定日</span><input type="date" required value={nextDueAt} onChange={(e) => setNextDueAt(e.target.value)} /><small>周期を変更しても次回予定日は自動で変更されません。必要に応じて指定してください。</small></label>}<label className="wide"><span>情報源</span><select value={source} onChange={(e) => setSource(e.target.value as SourceKind)}>{["メーカー公式", "取扱説明書", "公的情報", "一般的な目安", "ユーザー設定"].map((v) => <option key={v}>{v}</option>)}</select><small className="field-hint">確認できた情報源を正確に選んでください。</small></label><label className="wide"><span>情報源URL{needsUrl ? "（必須）" : "（任意）"}</span><input type="url" required={needsUrl} value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://…" /></label></div><div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>キャンセル</button><button className="primary-button" disabled={!valid}>{initial ? "変更を保存" : "項目を追加"}</button></div></form></ModalShell>;
 }
 function LookupModal({ onClose, onSelect }: { onClose: () => void; onSelect: (candidate: ProductCandidate) => void }) {
   const [model, setModel] = useState("");
   const [results, setResults] = useState<ProductCandidate[] | null>(null);
-  return <ModalShell title="品番から調べる" description="確認済みの公式情報を検索します。現在の対応品番：KI-RX75" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); setResults(lookupModel(model)); }} className="form-grid"><label className="wide"><span>品番</span><input required value={model} onChange={(e) => { setModel(e.target.value); setResults(null); }} placeholder="例：KI-RX75" /></label><button className="primary-button">候補を探す</button></form>{results?.length === 0 && <p role="status">確認済みの候補がありません。似た品番の情報は適用せず、手入力で登録してください。</p>}{results?.map((value) => <div className="settings-group" key={value.modelNumber}><h3>{value.maker} {value.modelNumber}</h3><p>{value.name}</p><a href={value.productUrl} target="_blank" rel="noreferrer">公式製品ページ</a> ・ <a href={value.manualUrl} target="_blank" rel="noreferrer">取扱説明書</a><p>本体の品番と一致することを確認してください。</p><button className="primary-button" onClick={() => onSelect(value)}>この製品を選ぶ</button></div>)}<button className="text-button" onClick={onClose}>手入力に戻る</button></ModalShell>;
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  return <ModalShell title="品番から調べる" description={`SHARP・Panasonicの空気清浄機を公式情報から照合します。すぐにお手入れを提案できる品番：${supportedModels.join("、")}`} onClose={onClose}><form onSubmit={async (e) => { e.preventDefault(); if(searching)return; setSearching(true);setSearchError("");setResults(null);try{const known=lookupModel(model);if(known.length){setResults(known);return;}const response=await fetch(`/api/product-lookup?model=${encodeURIComponent(model)}`);const body=await response.json();if(!response.ok)throw new Error();setResults(body.candidates);}catch{setSearchError("公式情報を取得できませんでした。通信状態を確認し、もう一度お試しください。");}finally{setSearching(false);} }} className="form-grid"><label className="wide"><span>品番</span><input required disabled={searching} value={model} onChange={(e) => { setModel(e.target.value); setResults(null); }} placeholder="例：KI-RX75" /></label><button className="primary-button" disabled={searching}>{searching ? "公式情報を確認中…" : "候補を探す"}</button></form>{searchError && <p role="alert">{searchError}</p>}{results?.length === 0 && <div><p role="status">確認済みの候補がありません。メーカーの公式サイトで品番と説明書を確認してください。検索結果からの自動登録には未対応です。</p>{officialSearchLinks(model).map(link => <p key={link.maker}><a href={link.url} target="_blank" rel="noreferrer">{link.maker}の公式情報を検索</a></p>)}</div>}{results?.map((value) => <div className="settings-group" key={value.modelNumber}><h3>{value.maker} {value.modelNumber}</h3><p>{value.name}</p>{value.lookupNote && <p>{value.lookupNote}</p>}<a href={value.productUrl} target="_blank" rel="noreferrer">{value.productLinkLabel ?? (value.lookupNote ? "公式説明書一覧" : "公式製品ページ")}</a> ・ <a href={value.manualUrl} target="_blank" rel="noreferrer">{value.manualLinkLabel ?? (value.lookupNote ? "品番別の説明書を探す" : "取扱説明書")}</a><p>本体の品番と一致することを確認してください。</p><button className="primary-button" onClick={() => onSelect(value)}>この製品を選ぶ</button></div>)}<ManualLookupControls key={`${model}:${results?.[0]?.discoveredManualUrl ?? ""}`} model={model} initialUrl={results?.[0]?.discoveredManualUrl} onSelect={onSelect} /><button className="text-button" onClick={onClose}>手入力に戻る</button></ModalShell>;
 }
 function EmptyState({ icon, title, text, action, onAction }: { icon: React.ReactNode; title: string; text: string; action: string; onAction: () => void }) { return <div className="empty-state"><span>{icon}</span><h3>{title}</h3><p>{text}</p><button className="primary-button" onClick={onAction}>{action}</button></div>; }
 
 function categoryEmoji(id: string) { return ({ aircon: "❄", washer: "◉", ecocute: "♨", "air-purifier": "✦", "pest-control": "◇" } as Record<string,string>)[id] ?? "⌂"; }
 function intervalLabel(days: number) { if (days % 365 === 0) return `${days / 365}年ごと`; if (days % 30 === 0) return `${days / 30}か月ごと`; if (days % 7 === 0) return `${days / 7}週間ごと`; return `${days}日ごと`; }
-
-function validateLocal(value: AppData): AppData {
-  if (!value || !Array.isArray(value.homes) || !value.homes.length || !Array.isArray(value.products) || !Array.isArray(value.tasks) || !Array.isArray(value.history)) throw new Error("Invalid saved data");
-  if (value.products.some((p) => !p || typeof p.id !== "string" || typeof p.name !== "string" || typeof p.maker !== "string" || typeof p.modelNumber !== "string" || !value.homes.some((h) => h.id === p.homeId)) || value.tasks.some((t) => !t || !value.products.some((p) => p.id === t.productId) || !Number.isInteger(t.intervalDays) || t.intervalDays < 1 || typeof t.nextDueAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(t.nextDueAt) || !Number.isFinite(Date.parse(t.nextDueAt))) || value.history.some((h) => !h || typeof h.completedAt !== "string" || !value.tasks.some((t) => t.id === h.taskId && t.productId === h.productId))) throw new Error("Invalid saved relationships");
-  return value;
-}
