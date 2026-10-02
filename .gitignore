@@ -8,3 +8,5 @@ out
 *.tsbuildinfo
 supabase/.temp/
 supabase/.branches/
+
+.manual-assets/

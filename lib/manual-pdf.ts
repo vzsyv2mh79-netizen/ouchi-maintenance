@@ -1,8 +1,10 @@
 import { join } from "node:path";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { pathToFileURL } from "node:url";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { extractMaintenanceLines, hasExactModel, pdfTextLines } from "./manual-evidence";
 export async function inspectManual(bytes: Uint8Array, model:string, url:string) {
-  const packageRoot=join(process.cwd(),'node_modules/pdfjs-dist');
+  const packageRoot=join(process.cwd(),'.manual-assets');
+  GlobalWorkerOptions.workerSrc=pathToFileURL(join(packageRoot,'pdf.worker.mjs')).href;
   const task=getDocument({data:bytes,enableXfa:false,useWasm:false,useSystemFonts:false,cMapUrl:join(packageRoot,'cmaps/'),cMapPacked:true,verbosity:0});
   try {
     const document=await task.promise;
