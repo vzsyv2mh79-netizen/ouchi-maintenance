@@ -1,6 +1,6 @@
 import type { MaintenanceTask } from "./types";
 export type VerifiedSuggestion = Pick<MaintenanceTask, "name" | "kind" | "intervalDays" | "sourceKind" | "sourceUrl"> & { frequency: string; conditions: string };
-export type ProductCandidate = { maker: string; name: string; modelNumber: string; categoryId: string; productUrl: string; manualUrl: string; verifiedAt: string; lookupNote?: string; suggestions: VerifiedSuggestion[] };
+export type ProductCandidate = { maker: string; name: string; modelNumber: string; categoryId: string; productUrl: string; manualUrl: string; discoveredManualUrl?: string; productLinkLabel?: string; manualLinkLabel?: string; verifiedAt: string; lookupNote?: string; suggestions: VerifiedSuggestion[] };
 
 // Curated model-specific evidence. Future search providers must return candidates
 // with citations for human verification; generated text never enters this catalog.

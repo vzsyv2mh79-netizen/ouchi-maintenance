@@ -11,6 +11,7 @@ export async function POST(request:Request) {
     const text=await request.text();if(text.length>2000)throw new Error();
     const body=JSON.parse(text);model=normalizeModel(body.model);url=officialManualUrl(body.url);
     if(!/^[A-Z0-9][A-Z0-9-]{1,79}$/.test(model))throw new Error();
+    if(new URL(url).hostname==='panasonic.jp'&&body.manualConsentConfirmed!==true)return NextResponse.json({error:'メーカーの説明書利用条件を確認し、同意したことを確認してから読み取ってください。'},{status:400});
   } catch { return NextResponse.json({error:'品番と対応するメーカー公式PDFのURLを確認してください。'},{status:400}); }
   try {
     const response=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(8000),cache:"no-store"});

@@ -26,3 +26,15 @@ test('font baseline differences join a heading to its adjacent frequency without
  const crossColumn=pdfTextLines([item('センサー部',10,300,70),item('約1カ月に1回',250,302,70),item('お手入れ',10,700,60)]);
  assert.equal(extractMaintenanceLines([{page:29,lines:crossColumn}],url).length,0);
 });
+
+const panasonicUrl='https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/001/12/F-VXW90_web%201.pdf';
+test('Panasonic manual URL allows the observed official asset path and rejects escaping it',()=>{
+ assert.equal(officialManualUrl(panasonicUrl),panasonicUrl);
+ for(const input of [panasonicUrl.replace('panasonic.jp','panasonic.jp.evil.test'),panasonicUrl+'?redirect=http://localhost',panasonicUrl.replace('F-VXW90_web%201.pdf','evil%2F..%2Fsecret.pdf'),panasonicUrl.replace('/support/manual/','/private/'),'https://panasonic.jp/api/data.pdf'])assert.throws(()=>officialManualUrl(input));
+});
+test('Panasonic delimited part labels retain day/week/month evidence without inventing conditional schedules',()=>{
+ const pages=[{page:14,lines:['お手入れする','本体・フロントパネル ＜約 1 か月に 1 回＞','高感度ハウスダストセンサー','＜約3か月に1回＞']},{page:15,lines:['お手入れ','プレフィルター <約2週間に1回> 集じんフィルター <汚れが気になるとき>']},{page:16,lines:['お手入れする','タンク ＜毎日＞','トレー ＜約1か月に1回＞','イオン除菌ユニット（防カビ剤入り） ＜約1か月に1回＞']}];
+ const result=extractMaintenanceLines(pages,panasonicUrl);assert.equal(result.length,5);assert.deepEqual(result.map(item=>item.intervalDays),[30,14,1,30,30]);
+ assert.equal(result[0].sourceUrl,panasonicUrl+'#page=14');assert.equal(result[1].sourceUrl,panasonicUrl+'#page=15');assert.equal(result[2].sourceUrl,panasonicUrl+'#page=16');
+ for(const lines of [['お手入れ','トレー <約1か月に1回>トレー <約2か月に1回>'],['お手入れ','トレー','<約1か月に1回>'],['お手入れ','説明:トレー <約1か月に1回>'],['お手入れ','トレー <約1か月に1回>','トレー <約2か月に1回>']])assert.equal(extractMaintenanceLines([{page:16,lines}],panasonicUrl).length,0);
+});
