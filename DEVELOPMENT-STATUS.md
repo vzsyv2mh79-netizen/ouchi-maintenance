@@ -2,6 +2,8 @@
 
 ## Web Push実装の追加証跡（2026-10-02）
 
+通知基盤commit2bb050dのGitHub Actions run36948782614はcompleted/success。Vercel Preview dpl_FrJTGW7mqfGs9tGwjntqjb5cBkc1はREADYで、公開設定画面の通知案内も確認した。証跡 /private/tmp/ouchi-preview-push-settings-mobile.png。Chrome公式ソースで現在のFCM `/wp/`経路を確認し、従来の `/fcm/send/`と双方を許可する修正を追加。新経路を使ったPostgres購読/配送検査を含め22件のテスト/typecheck/lint/buildが再成功。根拠: https://chromium.googlesource.com/chromium/src/+/refs/tags/141.0.7390.94/components/push_messaging/push_messaging_constants.cc 。実通知が届くことの証明ではない。
+
 本人が操作する端末ごとの通知購読/停止UI、RLS付き本人限定購読、最大10端末、毎朝09:00 JSTのVercel Cronを追加。サーバー専用VAPID/サービスキー/CRON_SECRETを使用する構成だが、鍵の生成・設定は未実施。通知は所有/参加住まいの期限済み件数のみで、製品名・住まい名を含めない。既知ブラウザPushホストのHTTPSだけへ送信。一時的な送信占有と同日送信記録、失敗を成功扱いしない処理、404/410購読整理、クラウド記録削除時の購読削除を実装。
 
 22件テスト/typecheck/lint/build成功。Postgresで本人/他人/匿名のアクセス、配送メタ情報のブラウザ書換禁止、共有解除、重複/失敗/古い占有tokenを検査。Service Workerの通知クリックは外部URLを無視してアプリへ開く。ローカル本番APIで未認証/誤認証401、正しい合成Cron認証でも未設定503、公開鍵設定なしnullを確認。390px画面で案内表示と横はみ出しなしを確認。証跡: /private/tmp/ouchi-push-settings-mobile.png。

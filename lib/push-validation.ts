@@ -3,7 +3,7 @@ export function isPushEndpoint(value: unknown): value is string {
  try {
   const url=new URL(value);
   if(url.protocol!=='https:'||url.port||url.username||url.password||url.hash)return false;
-  return (url.hostname==='fcm.googleapis.com'&&url.pathname.startsWith('/fcm/send/')) ||
+  return (url.hostname==='fcm.googleapis.com'&&(url.pathname.startsWith('/fcm/send/')||url.pathname.startsWith('/wp/'))) ||
    (url.hostname==='updates.push.services.mozilla.com'&&url.pathname.startsWith('/wpush/')) ||
    (url.hostname==='web.push.apple.com'&&url.pathname.length>1) ||
    (/^[a-z0-9-]+\.notify\.windows\.com$/.test(url.hostname)&&url.pathname==='/w/');

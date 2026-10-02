@@ -6,7 +6,7 @@ import {PGlite} from '@electric-sql/pglite';
 const {outputText}=ts.transpileModule(readFileSync('lib/push-validation.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}});
 const {isPushEndpoint,validPushKeys,reminderPayload}=await import('data:text/javascript;base64,'+Buffer.from(outputText).toString('base64'));
 test('push sender permits only HTTPS browser provider endpoints and valid key shapes',()=>{
- for(const endpoint of ['https://fcm.googleapis.com/fcm/send/test','https://updates.push.services.mozilla.com/wpush/v2/test','https://web.push.apple.com/test','https://wns2-by3p.notify.windows.com/w/?token=test'])assert.equal(isPushEndpoint(endpoint),true);
+ for(const endpoint of ['https://fcm.googleapis.com/wp/test','https://fcm.googleapis.com/fcm/send/test','https://updates.push.services.mozilla.com/wpush/v2/test','https://web.push.apple.com/test','https://wns2-by3p.notify.windows.com/w/?token=test'])assert.equal(isPushEndpoint(endpoint),true);
  for(const endpoint of ['http://fcm.googleapis.com/fcm/send/test','https://localhost/fcm/send/test','https://127.0.0.1/','https://fcm.googleapis.com.evil.test/fcm/send/test','https://fcm.googleapis.com:8080/fcm/send/test','https://evil@fcm.googleapis.com/fcm/send/test','https://fcm.googleapis.com/fcm/send/test#secret','https://notify.windows.com/w/'])assert.equal(isPushEndpoint(endpoint),false);
  assert.equal(validPushKeys('B'+'A'.repeat(86),'a'.repeat(22)),true);
  assert.equal(validPushKeys('A'.repeat(87),'a'.repeat(22)),false);
@@ -23,7 +23,7 @@ test('Postgres push isolation, shared due counts, leases, successful deduplicati
   await db.query('insert into auth.users values($1),($2)',[alice,bob]);
   const asUser=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
   const asSender=async()=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec('set role service_role');};
-  const endpoint=n=>'https://fcm.googleapis.com/fcm/send/device'+n;
+  const endpoint=n=>'https://fcm.googleapis.com/wp/device'+n;
   const subscribe=async n=>db.query('insert into public.maintenance_push_subscriptions(endpoint,p256dh,auth) values($1,$2,$3) returning id',[endpoint(n),'B'+'A'.repeat(86),'a'.repeat(22)]);
   const claim=async (size=100)=>(await db.query('select * from public.claim_maintenance_push($1)',[size])).rows;
   const finish=async(job,sent,expired=false)=>db.query('select public.finish_maintenance_push($1,$2,$3,$4,$5)',[job.id,job.claim_token,job.delivery_day,sent,expired]);

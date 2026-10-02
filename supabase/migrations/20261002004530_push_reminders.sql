@@ -2,7 +2,7 @@
 create table public.maintenance_push_subscriptions (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
- endpoint text not null unique check(length(endpoint) between 1 and 2048 and endpoint ~ '^https://(fcm\.googleapis\.com/fcm/send/|updates\.push\.services\.mozilla\.com/wpush/|web\.push\.apple\.com/|[a-z0-9-]+\.notify\.windows\.com/w/)' and endpoint !~ '#'),
+ endpoint text not null unique check(length(endpoint) between 1 and 2048 and endpoint ~ '^https://(fcm\.googleapis\.com/(fcm/send|wp)/|updates\.push\.services\.mozilla\.com/wpush/|web\.push\.apple\.com/|[a-z0-9-]+\.notify\.windows\.com/w/)' and endpoint !~ '#'),
  p256dh text not null check(length(p256dh) between 87 and 88),
  auth text not null check(length(auth) between 22 and 24),
  last_sent_on date,
