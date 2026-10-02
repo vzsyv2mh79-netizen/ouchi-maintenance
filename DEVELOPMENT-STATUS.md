@@ -1,5 +1,23 @@
 # 残作業・検証台帳
 
+## 共有Supabaseへの実適用（2026-10-02、保存先回答待ちを解消）
+
+ユーザーから「既存Supabaseを共有して進めて」の承認を受け、hphifiqyypwyxkzfanodを保存先に確定。直前にAuthユーザー0人・既存feedback_requests2件・既存テーブルのみを再確認。5件のmigration（household_storage/atomic_import/household_sharing/account_data_erasure/push_reminders）を実適用し、全成功。おうちメンテ用8テーブルは全てRLS有効。既存feedback_requestsは変更せず2件保持。
+
+実Supabaseのトランザクション内で合成ユーザー2人を用いた製品/項目追加、完了履歴、14日後の次回予定、同日重複完了防止、他ユーザーから製品/項目/履歴の閲覧拒否を確認し、最後にrollback。検証後Authユーザー0人・homes0件、既存feedback2件。匿名のproducts SELECTとload_household実行権限はfalse。実Authログイン・Data API・画面操作の検証とは区別する。
+
+Supabaseセキュリティアドバイザーはおうちメンテの警告なし。既存feedback_requestsについてRLS有効/ポリシーなしINFOのみ（既存のサーバー専用挿入構成、変更していない）。VercelへNEXT_PUBLIC_SUPABASE_URLと有効なpublishable keyをProduction/Preview向けに保存。サービスロールキーはブラウザ設定へ含めていない。環境設定は新しいdeploymentで有効になる。新規契約・既存DB停止/削除は未実施。Authリダイレクト設定、実ログイン、通知用サーバー設定、本番反映と実機検証は残る。
+
+## 公式説明書入力のスマホ幅と品番切替確認（2026-10-02）
+
+最新公開Preview b303b723を390×844で確認。SHARP KI-RX100とPanasonic F-VXW90の検索結果・説明書入力は、文書幅390px/ダイアログ幅390px/内部scrollWidth390pxで横にはみ出さない。KI-RX100からF-VXW90へ品番を編集すると前の候補・PDF URL・利用条件確認欄が消え、再検索後に新しい公式URLと未チェックの確認欄が表示された。実メーカー利用条件への同意は行っていない。証跡 /private/tmp/ouchi-manual-lookup-mobile.png。実スマホのPWAインストール・実通知・クラウド接続の証明とは区別する。
+
+GitHub Actions run36952893346はcompleted/success。クラウド保存先の質問は未回答で、実DB変更は進めていない。
+
+## SHARP確認済み説明書の公開画面確認（2026-10-02）
+
+公開commit b303b723c45cb256837aa61e5e64abeda8cf1881、tree05a29885e24e50d998f2c3e0f3f8d8ef44fb1ac6はローカルと一致。Vercel dpl_G1uHrp58QhnchKHvdxLzaZqbGDh3はREADY。公開Preview https://ouchi-maintenance-6n1otpgpa-gfgz4m9pkm-8942.vercel.app/ でKI-RX100検索→公式PDF自動入力→利用条件ページリンク→未チェック/読取ボタン無効を確認。証跡 /private/tmp/ouchi-preview-sharp-prefill.png。利用条件への同意操作は実施していない。
+
 ## SHARP確認済みPDFの自動入力と利用条件確認（2026-10-02）
 
 SHARP公式会員案内ページが参照する公開app.jsから正規の直接ダウンロード案内先 https://cs.sharp.co.jp/select/download?productId=KI-RX70 を確認。案内先には利用条件と「同意して次へ」があり、それ以後へは進んでいない。一般のSHARP品番でPDF URL自動発見まで完了したとは扱わない。
