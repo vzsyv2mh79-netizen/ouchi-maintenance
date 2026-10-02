@@ -24,3 +24,17 @@ test('worker never intercepts API, auth, queries, external requests or mutations
     let intercepted=false;env.handlers.fetch({request:{url,method,mode:'navigate'},respondWith:()=>intercepted=true});assert.equal(intercepted,false,url);
   }
 });
+test('push shows a bounded notice and notification clicks stay in the app',async()=>{
+ const handlers={},shown=[],opened=[];let closed=false;
+ const self={location:{origin:'https://example.test'},addEventListener:(name,fn)=>handlers[name]=fn,registration:{showNotification:async(title,options)=>shown.push({title,options})},clients:{matchAll:async()=>[],openWindow:async(url)=>opened.push(url)}};
+ vm.runInNewContext(readFileSync('public/sw.js','utf8'),{self,URL,Response});
+ let work;
+ handlers.push({data:{json:()=>({title:'Untrusted title',body:'x'.repeat(500),tag:'test',url:'https://evil.test/'})},waitUntil:p=>work=p});await work;
+ assert.equal(shown[0].title,'おうちメンテ');assert.equal(shown[0].options.body.length,200);assert.equal(shown[0].options.data.url,'/');
+ handlers.notificationclick({notification:{close:()=>closed=true,data:{url:'https://evil.test/'}},waitUntil:p=>work=p});await work;
+ assert.equal(closed,true);assert.deepEqual(opened,['/']);
+ handlers.push({data:{json:()=>{throw new Error('Malformed');}},waitUntil:p=>work=p});await work;
+ assert.match(shown[1].options.body,/アプリで確認/);
+ let focused=false;self.clients.matchAll=async()=>[{url:'https://other.test/',focus:async()=>{throw new Error('Wrong app');}},{url:'https://example.test/',focus:async()=>focused=true}];
+ handlers.notificationclick({notification:{close:()=>{},data:{}},waitUntil:p=>work=p});await work;assert.equal(focused,true);assert.equal(opened.length,1);
+});

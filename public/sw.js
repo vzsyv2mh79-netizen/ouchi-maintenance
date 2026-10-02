@@ -39,3 +39,19 @@ self.addEventListener("fetch", event => {
     return response;
   })());
 });
+
+self.addEventListener('push',event=>{
+ event.waitUntil((async()=>{
+  let payload;try{payload=event.data?.json();}catch{}
+  const body=typeof payload?.body==='string'?payload.body.slice(0,200):'お手入れの予定をアプリで確認してください。';
+  await self.registration.showNotification('おうちメンテ',{body,icon:'/icons/192',badge:'/icons/192',tag:typeof payload?.tag==='string'?payload.tag.slice(0,80):'ouchi-maintenance',data:{url:'/'}});
+ })());
+});
+self.addEventListener('notificationclick',event=>{
+ event.notification.close();
+ event.waitUntil((async()=>{
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  for(const client of windows){const url=new URL(client.url);if(url.origin===self.location.origin&&url.pathname==='/'&&!url.search){await client.focus();return;}}
+  await self.clients.openWindow('/');
+ })());
+});
