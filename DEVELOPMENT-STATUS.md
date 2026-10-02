@@ -1,5 +1,15 @@
 # 残作業・検証台帳
 
+## SHARP確認済みPDFの自動入力と利用条件確認（2026-10-02）
+
+SHARP公式会員案内ページが参照する公開app.jsから正規の直接ダウンロード案内先 https://cs.sharp.co.jp/select/download?productId=KI-RX70 を確認。案内先には利用条件と「同意して次へ」があり、それ以後へは進んでいない。一般のSHARP品番でPDF URL自動発見まで完了したとは扱わない。
+
+確認済みKI-RX75/KI-RX100の既存公式PDF URLは入力欄へ自動反映するよう変更。SHARP・Panasonicとも利用条件確認欄と読取前のAPI確認を適用。ローカル画面でKI-RX100のURL自動入力、公式利用条件ページリンク、確認欄未チェック、読取ボタン無効を確認。APIでは両SHARP品番の自動入力値と、同意確認なし400を確認した。25件テスト、lint/typecheck/build成功。証跡 /private/tmp/ouchi-sharp-prefill.png。同意後の最新画面検証はユーザー確認待ち。
+
+## Panasonic対応の確認用公開成功（2026-10-02）
+
+公開commit ed91af3e0f17c2994a3e0fada0d2febe54cb6dfa。ローカルtree8698f9c427065fa1795bf8e97f47665255e57320とGitHub公開treeの一致を確認し、開発ブランチのみをforce:falseで更新。GitHub Actions run36952400403はcompleted/success。Vercel dpl_3geP7c3Ws6pHLTWN2JGAB1zXkFEFはREADY: https://ouchi-maintenance-pfptpgth2-gfgz4m9pkm-8942.vercel.app/ 。公開画面でF-VXW90の公式候補、主説明書URLの自動入力、周期未確認表示、未チェックの利用条件欄と読取ボタン無効を確認した。証跡 /private/tmp/ouchi-preview-panasonic-discovery.png。同意後の抽出→登録の画面検証は未了。本番はmain2351151のまま。最新lint/typecheck/buildと25件テスト成功。
+
 ## Panasonic公式候補・説明書URLの画面確認（2026-10-02）
 
 ローカル本番画面でF-VXW90を検索し、Panasonic公式サポートの完全一致候補、公式PDF URL自動入力、未読のため周期提案なしを確認。利用条件確認欄は未チェック、読取ボタンは無効。利用条件への同意操作は行っていない。証跡 /private/tmp/ouchi-panasonic-discovery.png。実PDFの解析では品番一致と5項目の根拠ページを確認したが、利用者の同意後の画面登録・公開環境検証は未了。README/紹介ページにSHARP・Panasonicの対応範囲と制限を反映。

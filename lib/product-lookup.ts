@@ -8,6 +8,7 @@ export const catalog: ProductCandidate[] = [{
   maker: "SHARP", name: "加湿空気清浄機", modelNumber: "KI-RX75", categoryId: "air-purifier",
   productUrl: "https://jp.sharp/kuusei/products/kirx75/",
   manualUrl: "https://jp.sharp/restricted/support/manual/air_purifier/kirx75_mn.pdf",
+  discoveredManualUrl: "https://jp.sharp/restricted/support/manual/air_purifier/kirx75_mn.pdf",
   verifiedAt: "2026-10-01",
   suggestions: [{ name: "使い捨て加湿プレフィルター交換", kind: "交換", intervalDays: 30,
     frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式",
@@ -17,6 +18,7 @@ export const catalog: ProductCandidate[] = [{
   maker: "SHARP", name: "加湿空気清浄機", modelNumber: "KI-RX100", categoryId: "air-purifier",
   productUrl: "https://jp.sharp/kuusei/products/kirx100/",
   manualUrl: "https://jp.sharp/restricted/support/manual/air_purifier/kirx100_mn.pdf",
+  discoveredManualUrl: "https://jp.sharp/restricted/support/manual/air_purifier/kirx100_mn.pdf",
   verifiedAt: "2026-10-02",
   suggestions: [
     { name: "本体・後ろパネルのお手入れ", kind: "掃除", intervalDays: 30,
