@@ -32,13 +32,13 @@ function rows(value: unknown) {
 export function validateData(value: unknown): AppData {
   const data = record(value);
   const homes = rows(data.homes).map((h) => {
-    if (!["home", "parents", "second", "rental"].includes(String(h.kind))) throw new Error("住まいの種類が正しくありません");
+    if (typeof h.kind !== "string" || !["home", "parents", "second", "rental"].includes(h.kind)) throw new Error("住まいの種類が正しくありません");
     return { id: text(h.id, true), name: text(h.name, true), kind: h.kind as AppData["homes"][number]["kind"] };
   });
   if (!homes.length) throw new Error("住まいがありません");
   const products = rows(data.products).map((p) => ({ id: text(p.id, true), homeId: text(p.homeId, true), categoryId: text(p.categoryId, true), maker: text(p.maker), name: text(p.name, true), modelNumber: text(p.modelNumber), purchaseDate: optional(p.purchaseDate, true), installedDate: optional(p.installedDate, true), memo: optional(p.memo) }));
   const tasks = rows(data.tasks).map((t) => {
-    if (!kinds.includes(String(t.kind)) || !sources.includes(String(t.sourceKind)) || !Number.isInteger(t.intervalDays) || Number(t.intervalDays) < 1 || Number(t.intervalDays) > 3650) throw new Error("お手入れの設定が正しくありません");
+    if (typeof t.kind !== "string" || !kinds.includes(t.kind) || typeof t.sourceKind !== "string" || !sources.includes(t.sourceKind) || !Number.isInteger(t.intervalDays) || Number(t.intervalDays) < 1 || Number(t.intervalDays) > 3650) throw new Error("お手入れの設定が正しくありません");
     const url = optional(t.sourceUrl);
     if (url && !/^https?:\/\//.test(url)) throw new Error("情報源URLが正しくありません");
     if (["メーカー公式", "取扱説明書", "公的情報"].includes(String(t.sourceKind)) && !url?.startsWith("https://")) throw new Error("根拠のURLがありません");

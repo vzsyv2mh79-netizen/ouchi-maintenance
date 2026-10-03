@@ -30,3 +30,27 @@ test('export and restore apply the same UTF-8 file limit to Japanese records', (
   large.products = large.products.slice(0, 10);
   assert.deepEqual(JSON.parse(JSON.stringify(decodeBackup(encodeBackup(large)))), large);
 });
+
+
+test('enum fields must be strings, never coercible arrays from imported or local JSON', () => {
+  for (const [section, field, valid] of [['homes', 'kind', 'home'], ['tasks', 'kind', '掃除'], ['tasks', 'sourceKind', 'ユーザー設定']]) {
+    for (const invalid of [[valid], [[valid]], [], null, 1, true, {}]) {
+      const copy = structuredClone(data); copy[section][0][field] = invalid;
+      const raw = JSON.stringify({ app: 'ouchi-maintenance', version: 1, data: copy });
+      assert.throws(() => decodeBackup(raw), `${section}.${field}: ${JSON.stringify(invalid)}`);
+      assert.throws(() => encodeBackup(copy), `export ${section}.${field}: ${JSON.stringify(invalid)}`);
+    }
+  }
+});
+
+test('every supported enum string survives backup round trip', () => {
+  for (const homeKind of ['home', 'parents', 'second', 'rental']) {
+    for (const kind of ['掃除', '交換', '点検', '補充']) {
+      for (const sourceKind of ['メーカー公式', '取扱説明書', '公的情報', '一般的な目安', 'ユーザー設定']) {
+        const copy = structuredClone(data); copy.homes[0].kind = homeKind;
+        Object.assign(copy.tasks[0], { kind, sourceKind, sourceUrl: 'https://example.com/manual' });
+        assert.deepEqual(JSON.parse(JSON.stringify(decodeBackup(encodeBackup(copy)))), copy);
+      }
+    }
+  }
+});
