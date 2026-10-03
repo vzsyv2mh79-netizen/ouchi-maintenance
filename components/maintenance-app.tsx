@@ -73,7 +73,7 @@ export function MaintenanceApp() {
     } else {
       try {
         const saved = localStorage.getItem(storageKey);
-        setData(saved ? validateData(JSON.parse(saved)) : createSeedData());
+        setData(saved === null ? createSeedData() : validateData(JSON.parse(saved)));
       } catch { setData(createSeedData()); setStorageError(true); }
       setReady(true);
     }
