@@ -131,8 +131,11 @@ export function MaintenanceApp() {
         if (!saved) return;
       }
       if (generation.current === currentGeneration) { setModal(null); setEditProduct(null); setEditTask(null); setToast(message); }
-    } catch {
+    } catch (cause) {
       if (generation.current === currentGeneration) {
+        if (cause instanceof Error && cause.message === "このバックアップはすでに復元されています。") {
+          setToast(cause.message); return;
+        }
         setToast(cloudUser ? "保存結果を確認できませんでした。再読み込みして確認してください。" : "端末に保存できませんでした。空き容量やブラウザ設定を確認してください。");
         if (cloudUser) setLoadError(true);
       }
