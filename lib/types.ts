@@ -1,5 +1,5 @@
 export type Category = { id: string; name: string; icon: string };
-export type Home = { id: string; name: string; kind: "home" | "parents" | "second" | "rental" };
+export type Home = { id: string; name: string; kind: "home" | "parents" | "second" | "rental"; role?: "owner" | "member" };
 export type Product = {
   id: string; homeId: string; categoryId: string; maker: string; name: string;
   modelNumber: string; purchaseDate?: string; installedDate?: string; memo?: string;
