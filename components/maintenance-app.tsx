@@ -73,7 +73,7 @@ export function MaintenanceApp() {
     } else {
       try {
         const saved = localStorage.getItem(storageKey);
-        setData(saved ? validateData(JSON.parse(saved)) : createSeedData());
+        setData(saved === null ? createSeedData() : validateData(JSON.parse(saved)));
       } catch { setData(createSeedData()); setStorageError(true); }
       setReady(true);
     }
@@ -141,7 +141,7 @@ export function MaintenanceApp() {
     const ids = new Set(view.products.map(p => p.id));
     void commitChange({ ...data, homes: data.homes.filter(h => h.id !== currentHome.id), products: data.products.filter(p => !ids.has(p.id)), tasks: data.tasks.filter(t => !ids.has(t.productId)), history: data.history.filter(h => !ids.has(h.productId)) }, () => removeHome(currentHome.id), "住まいを削除しました");
   };
-  const page = selectedProduct && tab === "products"
+  const page = selectedProduct && tab === "products" && view.products.some(product => product.id === selectedProduct)
     ? <ProductDetail onEditProduct={setEditProduct} onEditTask={setEditTask} onDeleteProduct={removeProduct} onDeleteTask={removeTask} productId={selectedProduct} data={view} onBack={() => setSelectedProduct(null)} onComplete={completeTask} onAddTask={() => setModal("task")} />
     : tab === "home" ? <HomePage data={view} onComplete={completeTask} onOpenProduct={openProduct} onAll={() => setTab("tasks")} />
     : tab === "tasks" ? <TasksPage data={view} onComplete={completeTask} onOpenProduct={openProduct} />
@@ -244,7 +244,7 @@ function HistoryPage({ data, onOpenProduct }: { data: AppData; onOpenProduct: (i
   return <div className="page"><PageHeading title="お手入れ履歴" subtitle="いつ、何をしたかを記録しています。" /><div className="history-card">{sorted.map((item, i) => { const product = data.products.find((p) => p.id === item.productId); const task = data.tasks.find((t) => t.id === item.taskId); if (!product || !task) return null; return <button key={item.id} className="history-row" onClick={() => onOpenProduct(product.id)}><div className="history-date"><strong>{formatShort(item.completedAt)}</strong><span>{i === 0 ? "最新" : "完了"}</span></div><span className="history-line" /><div className="history-check"><Check size={15} /></div><div className="history-copy"><span>{product.name}</span><strong>{task.name}</strong></div><ChevronRight size={18} /></button>; })}</div></div>;
 }
 function SettingsPage({ homeControls, backupData, data, onReset, onClear, cloud, busy, onRestore, onImport }: { homeControls: ReactNode; backupData: AppData; onImport: (data: AppData) => void; onRestore: (data: AppData) => void; cloud: boolean; busy: boolean; data: AppData; onReset: () => void; onClear: () => void }) {
-  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
+  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。機種変更や別のブラウザには自動で引き継がれません。ブラウザのデータ削除・プライベートブラウズの終了で失われるため、定期的にバックアップを保存してください。同じ記録を複数のタブで同時に編集しないでください。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
 }
 function PageHeading({ title, subtitle }: { title: string; subtitle: string }) { return <div className="page-heading"><h1>{title}</h1><p>{subtitle}</p></div>; }
 
@@ -277,13 +277,17 @@ function ProductModal({ onClose, onSave, homeId, initial }: { initial?: Product;
   const [selected, setSelected] = useState<number[]>([]);
   const [lookup, setLookup] = useState(false);
   const [candidate, setCandidate] = useState<ProductCandidate | null>(null);
-  const update = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const update = (key: keyof typeof form, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    if (key === "maker") { setCandidate(null); setSelected([]); }
+  };
   const valid = form.name.trim() && form.categoryId;
   const choices: TaskChoice[] = candidate?.suggestions ?? suggestions[form.categoryId] ?? [];
   if (lookup) return <LookupModal onClose={() => setLookup(false)} onSelect={(value) => { setCandidate(value); setSelected([]); setForm((f) => ({ ...f, maker: value.maker, name: value.name, categoryId: value.categoryId, modelNumber: value.modelNumber })); setLookup(false); }} />;
   return <ModalShell title={initial ? "製品を編集" : "製品を追加"} description="製品の基本情報を登録します。" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); if (valid) onSave({ id: initial?.id ?? crypto.randomUUID(), homeId, ...form, name: form.name.trim(), purchaseDate: form.purchaseDate || undefined, installedDate: form.installedDate || undefined }, selected.map((index) => choices[index])); }}>
     {!initial && <button type="button" className="lookup-button" onClick={() => setLookup(true)}><span><Sparkles size={19} /></span><div><strong>品番から自動で調べる</strong><small>確認済みの公式情報から候補を選択</small></div><ChevronRight size={18} /></button>}
     <div className="form-grid"><label><span>カテゴリ <em>必須</em></span><select value={form.categoryId} onChange={(e) => { update("categoryId", e.target.value); setSelected([]); setCandidate(null); }}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label><span>メーカー</span><input value={form.maker} onChange={(e) => update("maker", e.target.value)} placeholder="例：Panasonic" /></label><label className="wide"><span>製品名 <em>必須</em></span><input required value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="例：リビングのエアコン" /></label><label className="wide"><span>品番</span><input value={form.modelNumber} onChange={(e) => { update("modelNumber", e.target.value); setCandidate(null); setSelected([]); }} placeholder="例：ABC-1234" /></label><label><span>購入日</span><input type="date" value={form.purchaseDate} onChange={(e) => update("purchaseDate", e.target.value)} /></label><label><span>設置日</span><input type="date" value={form.installedDate} onChange={(e) => update("installedDate", e.target.value)} /></label><label className="wide"><span>メモ</span><textarea value={form.memo} onChange={(e) => update("memo", e.target.value)} placeholder="設置場所や保証についてのメモ" /></label></div>
+    {!initial && !candidate && <p role="status" className="field-hint">この製品の公式周期は未確認です。候補は一般的な目安です。説明書で確認するか、登録後に「項目を追加」から手入力してください。品番は空欄でも登録できます。</p>}
     {!initial && choices.length > 0 && <fieldset className="suggestions"><legend>お手入れ候補（任意）</legend><p>{candidate ? "品番が一致する公式情報を確認して選んでください。予定の周期は必要に応じて見直してください。" : "一般的な目安です。製品の取扱説明書を確認して選んでください。"}</p>{choices.map((item, index) => <label key={item.name}><input type="checkbox" checked={selected.includes(index)} onChange={(e) => setSelected((current) => e.target.checked ? [...current, index] : current.filter((i) => i !== index))} /><span>{item.name} ・ {item.frequency ?? `約${intervalLabel(item.intervalDays)}`}{item.conditions && <small className="field-hint">{item.conditions}</small>}</span></label>)}</fieldset>}
     {candidate && <p className="field-hint"><a href={candidate.manualUrl} target="_blank" rel="noreferrer">取扱説明書</a> ・ <a href={candidate.suggestions[0]?.sourceUrl ?? candidate.productUrl} target="_blank" rel="noreferrer">メーカー公式の根拠</a>（確認日：{candidate.verifiedAt}）</p>}<div className="modal-actions"><button type="button" className="cancel-button" onClick={onClose}>キャンセル</button><button className="primary-button" disabled={!valid}>{initial ? "変更を保存" : "製品を追加"}</button></div></form></ModalShell>;
 }

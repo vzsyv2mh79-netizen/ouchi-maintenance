@@ -1,5 +1,59 @@
 # 残作業・検証台帳
 
+## 2026-10-05 継続作業・主要フロー再検証（過去記録より優先）
+
+最新mainは2351151、未マージdraft PRは#3/#4/#5、通常の未解決Issueは0件。PR#3のCIは#4に取り込み済み。各PRの最新公開headのCIは成功。PR#5の空文字保存・不正列挙型の拒否と27件テストを今回の開発ブランチへ取り込んだ。merge・本番反映・課金変更は未実施。
+
+修正: 製品削除直後に削除済み製品の詳細を参照して画面が落ちる問題を解消。公式候補選択後のメーカー変更では候補・選択を解除し、公式根拠を別メーカーへ持ち越さない。未照合の手入力画面に「公式周期は未確認」と手入力案内を表示。設定に機種変更/別ブラウザ/ブラウザデータ削除/プライベートブラウズ/複数タブ同時編集の制約と定期バックアップを明記。
+
+ローカルproductionビルド（Supabase環境変数なし、127.0.0.1:3015）の実ブラウザで確認:
+- 未確認品番UNKNOWN-2026の家電名・メーカー・品番登録、任意候補を選ばず登録。
+- 手入力掃除14日周期→完了日10/5→次回10/19、履歴1件、再読込後保持。
+- 製品名編集、交換への種類変更、21日周期、次回10/26を明示変更し再読込後保持。
+- JSON実ファイル保存 `/Users/a16/Downloads/ouchi-maintenance-2026-10-05.json`、6製品/10項目/4履歴と関連付けを確認。ダウンロードイベント取得はタイムアウトしたが実ファイルを読み取って保存を証明。
+- 項目削除で関連履歴も削除、再読込後も保持。製品削除後の画面エラーを再現し修正。修正後の削除成功表示と一覧復帰を確認。
+- 上記実バックアップの読込→6/10/4件確認→復元確定→再読込後の製品名/交換21日/最終実施日/10月26日予定を確認。
+- KI-RX100完全一致候補、公式PDF自動入力、未チェック利用条件と読取ボタン無効。既存カタログから本体/後ろパネル1項目登録、30日換算、次回11/4、根拠29ページが再読込後も保持。公式説明書29ページを再照合。メーカー変更で根拠・選択が消えることを確認。PDF読取の同意操作は未実施。
+- 最終lint/typecheck/test27件/build成功。証跡 `/private/tmp/ouchi-20261005-flow.png`、`ouchi-20261005-delete.png`、`ouchi-20261005-official.png`。
+
+公開本番のホーム・日付・設定・クラウドログイン欄を読み取り確認。追加機能はmainへ未反映。共有Supabase hphifiqyypwyxkzfanodはACTIVE_HEALTHY、対象8テーブルのRLS有効、Authユーザー0/住まい0。実DB・Auth・接続先・既存記録に変更なし。
+
+残作業（完成扱いにしない）:
+1. 本人のアカウント登録・メール確認・ログイン後の画面保存、再ログイン、別端末、家族共有/移行。標準SMTPの送信制約は過去の実設定監査による。独自SMTPの事業者・送信元・料金と共有Authへの影響を確認して承認後に設定。本人が新しいパスワードを入力する。
+2. 既存PR#4のレビュー・main取り込み・本番反映の承認と、反映後の主要フロー確認。#3/#5は取り込み済みの重複PRとして承認後に整理。
+3. 複数タブの同時編集による古い記録の上書き対策は未解決。単一タブ利用を画面で案内。完全な競合対策には端末保存方式の改善が必要。
+4. 実スマホPWA/通知許可/Push配信・停止、カレンダー実取り込み、一般メーカー自動照合、クラウドJSON全体復元、共有Authアカウント自体の退会は未検証または未対応。通知用秘密鍵/送信設定は未変更。
+
+料金・クラウド必要性・端末記録を残す移行手順はREADMEに整理。Free月額0米ドル、Pro月額25米ドルから、追加プロジェクト10米ドルからは2026-10-05公式料金表で確認。現在の契約・使用量とSMTPの追加費用は未確定。
+
+## 既存ドメインの確認（2026-10-03）
+
+VercelチームのDomains一覧で ikukyu-compass.com を確認。Vercel管理、2027年9月20日まで有効、既存 -ikukyu-planner に接続。送信専用サブドメインを利用する候補となり、新規ドメイン購入が必須とは扱わない。DNSは未変更。メール送信事業者・独自SMTP設定の有無は未確認であり、ドメイン保有だけでメール送信可能と判断しない。別アプリのドメインを送信元に使う選択は本人確認待ち。
+
+## 登録メール送信の実設定監査（2026-10-03）
+
+共有Supabase hphifiqyypwyxkzfanod の Authentication → Emails → SMTP Settings を読み取り確認。Enable custom SMTP はオフ（switch value 0）、設定変更は実行していない。公式 https://supabase.com/docs/guides/auth/auth-smtp を照合し、標準SMTPは組織メンバーのメールアドレスのみ送信可能・現在2通/時・本番用途非推奨と確認。本人登録の案内は組織メンバーのアドレスに限定され、家族や一般利用者向け登録・パスワード再設定を完成と扱えない。既存の送信サービスと送信用ドメインの有無を確認し、共有Auth全体への影響を踏まえて設定する必要がある。有料契約・メール確認無効化・新規認証情報の作成は行わない。
+
+## 実Supabaseの移行・家族共有・記録削除検証（2026-10-03）
+
+共有先hphifiqyypwyxkzfanodの実DBで、トランザクション内の合成ユーザー2人をauthenticated権限に切り替えて検査。import_maintenanceの製品/項目/履歴追加と同じfingerprint再送時の非重複、招待前の閲覧拒否、招待参加後の3種記録閲覧、招待再利用拒否、共有参加者の所有者専用移行拒否、共有項目の完了、退出後の閲覧拒否、参加者の記録削除が所有者記録に影響しないこと、所有者のアプリ記録削除で関連データと移行receiptが消えることを確認。最後にrollbackし、検証用ユーザー/記録は残していない。
+
+この検査は実DB権限/RPCの証明であり、Authメール・本人ログイン・実ブラウザ共有/移行/削除の完了とは扱わない。本人のアカウント登録とメール確認はまだ回答待ち。
+
+## 本番への共有Supabase接続設定反映（2026-10-03）
+
+公開Auth設定APIは200、メール認証有効・signup有効・メール確認必須を確認。publishable keyのみでREST products SELECTは401/42501（permission denied）、未ログインの記録取得を拒否した。
+
+既に承認済みのmain2351151を最新Project Settingsで本番再公開。dpl_3y3XyTSmjfREeDPQzojD2XyiVhPVはREADY、ouchi-maintenance.vercel.appへ割当済み。PR #4の機能コードは本番未反映。実本番画面で現在日付・設定・クラウドログインフォーム・はじめての方→アカウント作成表示を確認。新パスワードを入力/作成する操作は本人へ引き継ぐ。証跡 /private/tmp/ouchi-production-cloud-signup.png。Authユーザーを作成したり、メール送信したりしていない。本番mainには/reset-password画面などPR #4追加機能がまだなく、設定済みURLでの再設定フロー完成を主張しない。メール送信/受信、本人ログイン後の保存、再ログインの確認が残る。
+
+## Authメールの戻り先設定完了（2026-10-02）
+
+ユーザーの「いいよ」による設定直前承認後、共有Supabase hphifiqyypwyxkzfanodのSite URLを https://ouchi-maintenance.vercel.app/ に変更し保存。Redirect URLsへ同URLと https://ouchi-maintenance.vercel.app/reset-password の2件だけを追加。画面のSite URL、Total URLs:2、Successfully added 2 URLsで保存を確認。ワイルドカードと他ドメインは追加していない。証跡 /private/tmp/ouchi-auth-redirects-saved.png。実メール送信/受信/リンク後の認証は未検証。本番アプリへの接続設定反映と本人アカウントでの検証が残る。
+
+## 接続設定反映後のPreview（2026-10-02）
+
+commit a84f73385ecc9c04c18e652f80cd0339a208e33b、Vercel dpl_DQf3A8g9FUXv1NVsabeQ9mWG4VUpはREADY。https://ouchi-maintenance-17r4c8eme-gfgz4m9pkm-8942.vercel.app/ の設定画面でクラウドログイン/新規登録/再設定フォームの有効化を確認。証跡 /private/tmp/ouchi-cloud-login-ready.png。ログインは未実行。Supabase AuthはSite URL http://localhost:3000、Redirect URLsなしであり、本番アプリと/reset-passwordへの設定直前確認をユーザーに提示。本人による新規パスワード入力とメール確認が必要。公開接続設定の保存証跡 /private/tmp/ouchi-vercel-cloud-settings.png。本番にはまだ新しいdeploymentを適用していない。
+
 ## 共有Supabaseへの実適用（2026-10-02、保存先回答待ちを解消）
 
 ユーザーから「既存Supabaseを共有して進めて」の承認を受け、hphifiqyypwyxkzfanodを保存先に確定。直前にAuthユーザー0人・既存feedback_requests2件・既存テーブルのみを再確認。5件のmigration（household_storage/atomic_import/household_sharing/account_data_erasure/push_reminders）を実適用し、全成功。おうちメンテ用8テーブルは全てRLS有効。既存feedback_requestsは変更せず2件保持。

@@ -2,7 +2,7 @@ name: Regression checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/complete-maintenance]
   push:
     branches: [main]
   workflow_dispatch:
