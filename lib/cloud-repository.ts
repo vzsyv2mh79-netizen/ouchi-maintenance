@@ -1,3 +1,4 @@
+import { prepareCloudBackup } from "./cloud-backup";
 import { prepareCloudImport } from "./cloud-import";
 import { getSupabase } from "./supabase";
 import type { AppData, MaintenanceTask, Product } from "./types";
@@ -55,4 +56,11 @@ export async function updateHome(id: string, name: string, kind: string) {
 export async function removeHome(id: string) {
   const { data, error } = await client().from("homes").delete().eq("id", id).select("id");
   if (error || !data?.length) throw error ?? new Error("Home unavailable");
+}
+
+export async function restoreCloudBackup(data: AppData) {
+  const prepared = await prepareCloudBackup(data);
+  const { data: restored, error } = await client().rpc("restore_maintenance_backup", { backup_hash: prepared.hash, payload: prepared.payload });
+  if (error) throw error;
+  if (restored === false) throw new Error("このバックアップはすでに復元されています。");
 }

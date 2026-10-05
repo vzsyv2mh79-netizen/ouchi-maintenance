@@ -13,7 +13,7 @@ import { categories } from "@/lib/catalog";
 import { addDays, daysUntil, dueLabel, formatLong, formatShort, today } from "@/lib/date";
 import { createSeedData } from "@/lib/seed";
 import { getSupabase } from "@/lib/supabase";
-import { loadCloud, saveProduct, saveTask, finishTask, updateProduct, updateTask, deleteRecord, importLocalData, createHome, updateHome, removeHome } from "@/lib/cloud-repository";
+import { loadCloud, saveProduct, saveTask, finishTask, updateProduct, updateTask, deleteRecord, importLocalData, createHome, updateHome, removeHome, restoreCloudBackup } from "@/lib/cloud-repository";
 import { CloudAccount } from "./cloud-account";
 import { ManualLookupControls } from "./manual-lookup-controls";
 import { HomeControls } from "./home-controls";
@@ -186,7 +186,7 @@ export function MaintenanceApp() {
     : tab === "tasks" ? <TasksPage data={view} onComplete={completeTask} onOpenProduct={openProduct} />
     : tab === "products" ? <ProductsPage data={view} onAdd={() => setModal("product")} onOpenProduct={openProduct} />
     : tab === "history" ? <HistoryPage data={view} onOpenProduct={openProduct} />
-    : <SettingsPage key={cloudUser ?? "local"} homeControls={<HomeControls home={currentHome} cloud={!!cloudUser} busy={busy} canDelete={data.homes.length > 1} onCreate={addHome} onUpdate={renameHome} onDelete={deleteHome} onRefresh={() => commitChange(data, async () => {}, "記録を更新しました")} />} backupData={data} onImport={(local) => { void commitChange(data, () => importLocalData(local, currentHome.id), "端末の記録をクラウドに追加しました"); }} onRestore={(restored) => { void commitChange(restored, async () => {}, "バックアップを復元しました"); }} cloud={!!cloudUser} busy={busy} data={view} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
+    : <SettingsPage key={cloudUser ?? "local"} homeControls={<HomeControls home={currentHome} cloud={!!cloudUser} busy={busy} canDelete={data.homes.length > 1} onCreate={addHome} onUpdate={renameHome} onDelete={deleteHome} onRefresh={() => commitChange(data, async () => {}, "記録を更新しました")} />} backupData={data} onImport={(local) => { void commitChange(data, () => importLocalData(local, currentHome.id), "端末の記録をクラウドに追加しました"); }} onRestore={(restored) => { void commitChange(restored, () => restoreCloudBackup(restored), "バックアップを復元しました"); }} cloud={!!cloudUser} busy={busy} data={view} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
 
   if (!ready || loadError) return <div className="page narrow"><h1>おうちメンテ</h1><p role="status">{loadError ? "記録を読み込めませんでした。通信状態を確認して再読み込みしてください。" : "記録を読み込み中…"}</p>{loadError && <><button className="primary-button" onClick={() => window.location.reload()}>再読み込み</button><CloudAccount disabled={busy} /></>}</div>;
   return (
