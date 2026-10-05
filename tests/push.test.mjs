@@ -18,7 +18,7 @@ test('Postgres push isolation, shared due counts, leases, successful deduplicati
  const db=new PGlite();
  try {
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema public,auth to authenticated,anon,service_role;grant execute on function auth.uid() to authenticated,anon,service_role;`);
-  for(const file of ['20261001144732_household_storage.sql','20261001232931_atomic_import.sql','20261001233450_household_sharing.sql','20261001235138_account_data_erasure.sql','20261002004530_push_reminders.sql'])await db.exec(readFileSync('supabase/migrations/'+file,'utf8'));
+  for(const file of ['20261001144732_household_storage.sql','20261001232931_atomic_import.sql','20261001233450_household_sharing.sql','20261001235138_account_data_erasure.sql','20261002004530_push_reminders.sql','20261005135600_push_test_delivery.sql'])await db.exec(readFileSync('supabase/migrations/'+file,'utf8'));
   const alice='11111111-1111-4111-8111-111111111111',bob='22222222-2222-4222-8222-222222222222';
   await db.query('insert into auth.users values($1),($2)',[alice,bob]);
   const asUser=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
@@ -49,7 +49,17 @@ test('Postgres push isolation, shared due counts, leases, successful deduplicati
   await asUser(bob);const bobId=(await subscribe(20)).rows[0].id;assert.equal((await db.query('select * from public.maintenance_push_subscriptions')).rows.length,1);
   assert.equal((await db.query('delete from public.maintenance_push_subscriptions where id=$1 returning id',[aliceId])).rows.length,0);
   await db.query('select public.accept_home_invite($1,$2)',[code,'Family']);
-  await asSender();const jobs=await claim();assert.equal(jobs.length,2);assert.ok(jobs.every(j=>Number(j.due_count)===1));assert.equal((await claim()).length,0);
+  await assert.rejects(()=>db.query('select * from public.claim_maintenance_push_test($1,$2)',[bob,endpoint(20)]));
+  await assert.rejects(()=>db.query('select * from public.maintenance_push_test_limits'));
+  await asSender();
+  const testClaim=async(id,url)=>db.query('select * from public.claim_maintenance_push_test($1,$2)',[id,url]);
+  await assert.rejects(()=>testClaim(alice,endpoint(20)));
+  assert.equal((await testClaim(alice,endpoint(1))).rows.length,1);
+  await assert.rejects(()=>testClaim(alice,endpoint(1)));
+  assert.equal((await testClaim(bob,endpoint(20))).rows.length,1);
+  await db.query("update public.maintenance_push_test_limits set requested_at=now()-interval '2 minutes' where user_id=$1",[alice]);
+  assert.equal((await testClaim(alice,endpoint(1))).rows.length,1);
+  const jobs=await claim();assert.equal(jobs.length,2);assert.ok(jobs.every(j=>Number(j.due_count)===1));assert.equal((await claim()).length,0);
   await finish(jobs[0],true);await finish(jobs[1],false);assert.equal((await claim()).length,0);
   await db.query("update public.maintenance_push_subscriptions set claimed_until=now()-interval '1 minute' where id=$1",[jobs[1].id]);
   const retry=(await claim())[0];assert.equal(retry.id,jobs[1].id);assert.notEqual(retry.claim_token,jobs[1].claim_token);
@@ -60,6 +70,7 @@ test('Postgres push isolation, shared due counts, leases, successful deduplicati
   await asSender();const afterLeave=await claim();assert.equal(Number(afterLeave.find(j=>j.id===aliceId).due_count),1);assert.equal(Number(afterLeave.find(j=>j.id===bobId).due_count),0);
   await finish(afterLeave.find(j=>j.id===aliceId),false,true);assert.equal((await db.query('select * from public.maintenance_push_subscriptions where id=$1',[aliceId])).rows.length,0);
   await asUser(bob);await db.query('select public.erase_maintenance_data()');assert.equal((await db.query('select * from public.maintenance_push_subscriptions')).rows.length,0);
+  await asSender();assert.equal((await db.query('select * from public.maintenance_push_test_limits')).rows.length,0);
   await db.exec('reset role;set role anon');await assert.rejects(()=>db.query('select * from public.maintenance_push_subscriptions'));await assert.rejects(()=>claim());
  }finally{await db.close();}
 });

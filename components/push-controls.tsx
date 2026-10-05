@@ -41,6 +41,21 @@ export function PushControls({cloud}:{cloud:boolean}) {
   }catch(cause){if(created)await created.unsubscribe().catch(()=>{});setMessage(cause instanceof Error?cause.message:'通知を有効にできませんでした。');}
   finally{setBusy(false);}
  }
+ async function testNotification() {
+  if(busy)return;setBusy(true);setMessage('');
+  try {
+   const db=getSupabase();if(!db)throw new Error();
+   const registration=await navigator.serviceWorker.getRegistration('/');
+   const subscription=await registration?.pushManager.getSubscription();
+   if(!subscription)throw new Error('この端末の通知を有効にしてください。');
+   const {data:{session},error}=await db.auth.getSession();
+   if(error||!session)throw new Error('ログインをやり直してください。');
+   const result=await fetch('/api/push/test',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({endpoint:subscription.endpoint})});
+   const body=await result.json();if(!result.ok)throw new Error(body.error??'テスト通知を送信できませんでした。');
+   setMessage('テスト通知を送信しました。端末の通知欄で到着を確認してください。表示されない場合は通知許可や集中モードを確認してください。');
+  }catch(cause){setMessage(cause instanceof Error?cause.message:'テスト通知を送信できませんでした。');}
+  finally{setBusy(false);}
+ }
  async function disable() {
   if(busy)return;setBusy(true);setMessage('');
   try {
@@ -52,6 +67,6 @@ export function PushControls({cloud}:{cloud:boolean}) {
   finally{setBusy(false);}
  }
  return <section className="settings-group"><h2>お手入れの通知</h2><p>期限が来たお手入れを毎朝9時ごろ、この端末にまとめて通知します。通知には件数だけを表示し、製品名や住まいの名前は表示しません。</p>
- {!cloud?<p>クラウド保存にログインすると設定できます。</p>:!supported?<p>このブラウザでは通知を利用できません。iPhone・iPadはホーム画面に追加したアプリから設定してください。</p>:!publicKey?<p>通知の送信準備中です。カレンダーのリマインダーは利用できます。</p>:<><button className="secondary-button" disabled={busy} onClick={active?disable:enable}>{busy?'設定中…':active?'この端末の通知を停止':'この端末で通知を受け取る'}</button><p>通知は端末ごとに設定します。アプリを閉じた後やログアウト後も継続します。停止する場合は、このアカウントでログインして通知を停止してください。端末の設定や通信状況により遅れることがあります。</p></>}
+ {!cloud?<p>クラウド保存にログインすると設定できます。</p>:!supported?<p>このブラウザでは通知を利用できません。iPhone・iPadはホーム画面に追加したアプリから設定してください。</p>:!publicKey?<p>通知の送信準備中です。カレンダーのリマインダーは利用できます。</p>:<><button className="secondary-button" disabled={busy} onClick={active?disable:enable}>{busy?'設定中…':active?'この端末の通知を停止':'この端末で通知を受け取る'}</button>{active&&<button className="secondary-button" disabled={busy} onClick={testNotification}>テスト通知を送る</button>}<p>通知は端末ごとに設定します。アプリを閉じた後やログアウト後も継続します。停止する場合は、このアカウントでログインして通知を停止してください。端末の設定や通信状況により遅れることがあります。</p></>}
  {message&&<p role="status">{message}</p>}</section>;
 }
