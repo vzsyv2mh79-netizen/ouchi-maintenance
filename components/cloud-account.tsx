@@ -36,7 +36,16 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
       if (result.error) throw result.error;
       setPassword("");
       if (signup && !result.data.session) setMessage("確認メールを開いてから、ログインしてください。");
-    } catch { setMessage("手続きを完了できませんでした。メール・パスワードと通信状態を確認してください。"); }
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+      const messages: Record<string, string> = {
+        email_address_not_authorized: "このメールアドレスへの送信は現在制限されています。運営側のメール送信設定が必要です。",
+        over_email_send_rate_limit: "メール送信の上限に達しました。時間をおいて再度お試しください。",
+        over_request_rate_limit: "操作が集中しています。数分おいて再度お試しください。",
+        email_not_confirmed: "確認メールのリンクを開いてから、ログインしてください。",
+      };
+      setMessage(typeof code === "string" && messages[code] ? messages[code] : "手続きを完了できませんでした。メール・パスワードと通信状態を確認してください。");
+    }
     finally { setBusy(false); }
   };
   return <section className="settings-group"><h2>クラウド保存</h2>{userEmail ? <><p>{userEmail}</p><button className="secondary-button" disabled={busy || disabled} onClick={async () => { setBusy(true); const { error } = await client.auth.signOut(); if (error) setMessage("ログアウトできませんでした。再度お試しください。"); setBusy(false); }}>ログアウト</button><button className="text-button" disabled={busy || disabled} onClick={() => setEraseOpen(!eraseOpen)}>このアプリのクラウド記録を削除</button>{eraseOpen && <div><p>所有するすべての住まい・製品・お手入れ・履歴を削除し、参加中の家族共有から退出します。あなたが所有する住まいの記録は、参加家族も使えなくなります。元に戻せません。必要な記録は先にバックアップしてください。</p><p>他のアプリでも使う可能性があるログインアカウントと、端末内の記録は残ります。</p><label><span>確認のため「削除」と入力</span><input value={eraseText} onChange={event => setEraseText(event.target.value)} autoComplete="off" /></label><button className="secondary-button" disabled={busy || disabled || eraseText !== "削除"} onClick={async () => {
