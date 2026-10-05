@@ -53,6 +53,7 @@ export function MaintenanceApp() {
   const [storageError, setStorageError] = useState(false);
   const operation = useRef(false);
   const generation = useRef(0);
+  const localSnapshot = useRef<string | null>(null);
   const [, refreshDate] = useState(0);
   useEffect(() => {
     const client = getSupabase();
@@ -73,11 +74,28 @@ export function MaintenanceApp() {
     } else {
       try {
         const saved = localStorage.getItem(storageKey);
+        localSnapshot.current = saved;
         setData(saved === null ? createSeedData() : validateData(JSON.parse(saved)));
       } catch { setData(createSeedData()); setStorageError(true); }
       setReady(true);
     }
     return () => { active = false; };
+  }, [cloudUser, authReady]);
+  useEffect(() => {
+    if (cloudUser || !authReady) return;
+    const receive = (event: StorageEvent) => {
+      if (event.key !== storageKey && event.key !== null) return;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const updated = raw === null ? createSeedData() : validateData(JSON.parse(raw));
+        localSnapshot.current = raw;
+        setData(updated); setStorageError(false);
+        setModal(null); setEditProduct(null); setEditTask(null); setSelectedProduct(null);
+        setToast("別のタブで記録が更新されました。最新の記録を表示しています。");
+      } catch { setStorageError(true); }
+    };
+    window.addEventListener("storage", receive);
+    return () => window.removeEventListener("storage", receive);
   }, [cloudUser, authReady]);
   useEffect(() => {
     const timer = setInterval(() => refreshDate((n) => n + 1), 30_000);
@@ -90,7 +108,28 @@ export function MaintenanceApp() {
     const currentGeneration = generation.current;
     try {
       if (cloudUser) { await remote(); const value = await loadCloud(); if (generation.current === currentGeneration) setData(value); }
-      else { localStorage.setItem(storageKey, JSON.stringify(next)); setData(next); setStorageError(false); }
+      else {
+        const expectedSnapshot = localSnapshot.current;
+        const write = () => {
+          const raw = localStorage.getItem(storageKey);
+          if (raw !== expectedSnapshot) {
+            const updated = raw === null ? createSeedData() : validateData(JSON.parse(raw));
+            localSnapshot.current = raw; setData(updated);
+            setModal(null); setEditProduct(null); setEditTask(null); setSelectedProduct(null);
+            setToast("別のタブで記録が更新されています。内容を確認して、もう一度操作してください。");
+            return false;
+          }
+          const encoded = JSON.stringify(next);
+          localStorage.setItem(storageKey, encoded); localSnapshot.current = encoded;
+          setData(next); setStorageError(false); return true;
+        };
+        if (!navigator.locks) {
+          setToast("このブラウザでは安全な端末保存を利用できません。最新のブラウザかクラウド保存を利用してください。");
+          return;
+        }
+        const saved = await navigator.locks.request(storageKey, write);
+        if (!saved) return;
+      }
       if (generation.current === currentGeneration) { setModal(null); setEditProduct(null); setEditTask(null); setToast(message); }
     } catch {
       if (generation.current === currentGeneration) {
@@ -244,7 +283,7 @@ function HistoryPage({ data, onOpenProduct }: { data: AppData; onOpenProduct: (i
   return <div className="page"><PageHeading title="お手入れ履歴" subtitle="いつ、何をしたかを記録しています。" /><div className="history-card">{sorted.map((item, i) => { const product = data.products.find((p) => p.id === item.productId); const task = data.tasks.find((t) => t.id === item.taskId); if (!product || !task) return null; return <button key={item.id} className="history-row" onClick={() => onOpenProduct(product.id)}><div className="history-date"><strong>{formatShort(item.completedAt)}</strong><span>{i === 0 ? "最新" : "完了"}</span></div><span className="history-line" /><div className="history-check"><Check size={15} /></div><div className="history-copy"><span>{product.name}</span><strong>{task.name}</strong></div><ChevronRight size={18} /></button>; })}</div></div>;
 }
 function SettingsPage({ homeControls, backupData, data, onReset, onClear, cloud, busy, onRestore, onImport }: { homeControls: ReactNode; backupData: AppData; onImport: (data: AppData) => void; onRestore: (data: AppData) => void; cloud: boolean; busy: boolean; data: AppData; onReset: () => void; onClear: () => void }) {
-  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。機種変更や別のブラウザには自動で引き継がれません。ブラウザのデータ削除・プライベートブラウズの終了で失われるため、定期的にバックアップを保存してください。同じ記録を複数のタブで同時に編集しないでください。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
+  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。機種変更や別のブラウザには自動で引き継がれません。ブラウザのデータ削除・プライベートブラウズの終了で失われるため、定期的にバックアップを保存してください。別のタブで記録が更新されると最新の内容を表示します。編集中のフォームは閉じるため、改めて内容を確認してください。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
 }
 function PageHeading({ title, subtitle }: { title: string; subtitle: string }) { return <div className="page-heading"><h1>{title}</h1><p>{subtitle}</p></div>; }
 
