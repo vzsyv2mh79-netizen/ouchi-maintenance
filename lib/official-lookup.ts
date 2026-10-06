@@ -46,3 +46,20 @@ export function parseSharpIndex(source: string, input: string): ProductCandidate
   }
   return [];
 }
+
+export function daikinSupportUrl(input:string) {
+  const model=normalizeModel(input);
+  if(!/^AN[0-9]{2,3}[A-Z]{2,5}-[A-Z]$/.test(model))return null;
+  const query=new URLSearchParams({conditions:model,searchAgeFrom:'ALL',searchAgeTo:'ALL',suesetuFlg:'0',tAuth:'free',torisetuFlg:'1',type:'0'});
+  return `https://www.free.dtnet.daikin.co.jp/DT-NET/torisetu/result?${query}`;
+}
+export function parseDaikinSupport(source:string,input:string):ProductCandidate[] {
+  const model=normalizeModel(input),url=daikinSupportUrl(model);if(!url)return [];
+  const markup=source.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'').replace(/<!--[\s\S]*?-->/g,'');
+  const title=htmlText(markup.match(/<title\b[^>]*>([^<]{1,1000})<\/title\s*>/i)?.[1]??'').normalize('NFKC').replace(/\s+/g,' ').trim();
+  const header=markup.match(/<h1\b[^>]*>([^<]{1,100})<\/h1\s*>\s*<p\b[^>]*>([^<]{1,500})<\/p\s*>/i);
+  if(!header||normalizeModel(htmlText(header[1]))!==model||!htmlText(header[2]).includes('ルームエアコン'))return [];
+  if(!title.startsWith(model+' | 取扱説明書 |')||!title.endsWith('ダイキン工業株式会社 | DT-NET'))return [];
+  // The PDF download requires manufacturer consent. Link to the result page without inventing a PDF URL or maintenance intervals.
+  return [{maker:'ダイキン',name:'ルームエアコン',modelNumber:model,categoryId:'aircon',productUrl:url,manualUrl:url,productLinkLabel:'公式説明書検索結果',manualLinkLabel:'説明書と利用条件を確認',verifiedAt:new Date().toISOString().slice(0,10),suggestions:[],lookupNote:'メーカー公式の検索結果で品番を確認しました。説明書のダウンロードにはメーカーの利用条件の確認が必要です。本文とお手入れ周期は未確認のため、自動提案はありません。'}];
+}

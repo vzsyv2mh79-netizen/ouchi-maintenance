@@ -6,7 +6,7 @@ const compile = source => ts.transpileModule(source,{compilerOptions:{module:ts.
 const uri = source => 'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const catalogUri=uri(compile(readFileSync('lib/product-lookup.ts','utf8')));
 const source=compile(readFileSync('lib/official-lookup.ts','utf8')).replace('"./product-lookup"',JSON.stringify(catalogUri));
-const {parseSharpIndex,parsePanasonicSupport,panasonicSupportUrl}=await import(uri(source));
+const {parseSharpIndex,parsePanasonicSupport,panasonicSupportUrl,parseDaikinSupport,daikinSupportUrl}=await import(uri(source));
 test('official index candidates match exact model and do not infer maintenance advice',()=>{
  const fixture='const kataBuhinList=[{"cat":"kashitsu","kisyu":"KI-RX70"},{"cat":"kuki","kisyu":"FU-R50"},{"cat":"option","kisyu":"FZ-R50"}];';
  const [candidate]=parseSharpIndex(fixture,' ｋｉ－ｒｘ７０ ');
@@ -31,4 +31,21 @@ test('Panasonic discovery uses the exact product title and main manual link, nev
  assert.equal(parsePanasonicSupport(title+link(pdf,'F-VXW75'),'F-VXW90')[0].discoveredManualUrl,undefined);
  assert.equal(parsePanasonicSupport(title+'<script>'+link(pdf)+'</script>','F-VXW90')[0].discoveredManualUrl,undefined);
  assert.equal(panasonicSupportUrl('https://localhost/'),null);
+});
+
+
+test('Daikin discovery matches the current model, never successor models or unverified advice',()=>{
+ const title='<title>AN40ZRP-W | 取扱説明書 | ルームエアコン Ｒシリーズ（量販店） | ダイキン工業株式会社 | DT-NET</title>';
+ const header='<h1 style="display: inline-block">AN40ZRP-W</h1><p>住宅用　空調　ルームエアコン　Ｒシリーズ（量販店）</p>';
+ const fixture=title+header+'<h4>AN407ARP-W</h4>';
+ const [candidate]=parseDaikinSupport(fixture,' ａｎ４０ｚｒｐ－ｗ ');
+ assert.equal(candidate.modelNumber,'AN40ZRP-W');assert.equal(candidate.categoryId,'aircon');
+ assert.deepEqual(candidate.suggestions,[]);assert.equal(candidate.discoveredManualUrl,undefined);
+ assert.equal(new URL(candidate.manualUrl).searchParams.get('conditions'),'AN40ZRP-W');
+ assert.equal(parseDaikinSupport(fixture,'AN407ARP-W').length,0);
+ assert.equal(parseDaikinSupport(title+'<script>'+header+'</script>','AN40ZRP-W').length,0);
+ assert.equal(parseDaikinSupport(title+'<!--'+header+'-->','AN40ZRP-W').length,0);
+ assert.equal(parseDaikinSupport(fixture.replace('ルームエアコン　Ｒ','業務用　Ｒ'),'AN40ZRP-W').length,0);
+ assert.equal(parseDaikinSupport(fixture.replace('ダイキン工業株式会社','別メーカー'),'AN40ZRP-W').length,0);
+ assert.equal(daikinSupportUrl('https://localhost/'),null);assert.equal(daikinSupportUrl('AN40ZRP-W?redirect=localhost'),null);
 });
