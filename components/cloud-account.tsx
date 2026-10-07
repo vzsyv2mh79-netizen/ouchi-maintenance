@@ -35,7 +35,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
         : await client.auth.signInWithPassword({ email, password });
       if (result.error) throw result.error;
       setPassword("");
-      if (signup && !result.data.session) setMessage("確認メールを開いてから、ログインしてください。");
+      if (signup && !result.data.session) setMessage("確認メールを開いてから、ログインしてください。届かない場合は迷惑メールフォルダも確認し、見つかったメールを「迷惑メールではない」にしてください。");
     } catch (error) {
       const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
       const messages: Record<string, string> = {
