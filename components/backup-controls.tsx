@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { decodeBackup, encodeBackup, MAX_BACKUP_BYTES } from "@/lib/backup";
+import { today } from "@/lib/date";
 import type { AppData } from "@/lib/types";
 
 export function BackupControls({ data, cloud, busy, onRestore }: { data: AppData; cloud: boolean; busy: boolean; onRestore: (data: AppData) => void }) {
@@ -10,7 +11,7 @@ export function BackupControls({ data, cloud, busy, onRestore }: { data: AppData
     <button className="secondary-button" disabled={busy} onClick={() => {
       try {
         const url = URL.createObjectURL(new Blob([encodeBackup(data)], { type: "application/json" }));
-        const link = document.createElement("a"); link.href = url; link.download = `ouchi-maintenance-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); setError("");
+        const link = document.createElement("a"); link.href = url; link.download = `ouchi-maintenance-${today()}.json`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); setError("");
       } catch (cause) { setError(cause instanceof Error ? `バックアップを作成できませんでした。${cause.message}` : "バックアップを作成できませんでした。"); }
     }}>バックアップを保存</button>
     <label className="wide"><span>バックアップから復元</span><input type="file" accept=".json,application/json" disabled={busy} onChange={async (event) => {
