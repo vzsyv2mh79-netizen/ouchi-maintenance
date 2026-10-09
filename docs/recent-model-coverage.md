@@ -244,3 +244,7 @@ Official rendered list: October2024. Dedicated manual cover and PDF9–12 (print
 ## Panasonic MC-NS100K / MC-NS70F
 
 Official rendered list: November2023. Own manual covers and care pages (NS100K PDF8–11; NS70F PDF9–12) and both shared care-guide pages inspected. Each gets only conditional pet/cotton-heavy monthly bag-fill inspection, with own page8/page9. S-type AMC-U2; retain case/reseat. Case30min soak/24h dry, sponge notch/no extra pushing and nonwoven rubber groove reassembly. NS100K rotating brush wipe-only, cover-only wash/two recesses; NS70F entire floor nozzle no-waterwash. Conditional cleaning/sensor and dock-first lamp recovery do not become scheduled cleaning tasks.
+
+## Panasonic MC-PB61J
+
+Official rendered list: November2024. Dedicated cover and PDF7–8 (printed12–15) independently visually inspected. Four reduced-suction/dirty monthly-approximate cleaning tasks and optional pet/cotton-heavy monthly bag-fill check. Brush-only washing; nozzle/body/extension/stand/exhaust no-waterwash. Filter wash fully dry/reinstall. Own belt/felt-side/lock reassembly and S-bag A-direction/cardboard/click preserved. Flashing means soon, steady light means immediate replacement; do not inherit dock-model lamp semantics.
