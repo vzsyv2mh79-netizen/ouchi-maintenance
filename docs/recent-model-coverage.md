@@ -252,3 +252,7 @@ Official rendered list: November2024. Dedicated cover and PDF7–8 (printed12–
 ## Panasonic MC-SB35K / MC-SB55K
 
 Official rendered list: August2025. Dedicated covers and care/parts independently visually inspected: SB35K PDF7–8 printed12–15; SB55K PDF9–10 printed16–19. Weekly bin-line inspection only; condition-based cleaning has no fixed intervals. Net filter30min soak, pleated filter running water/no brushing, washed bin/filter24h air dry, exact reassembly. Brush-only washing with belt/felt-side/lock marks; body/exhaust no-waterwash. SB35K adapter unplug/red care lamp/standard no-light differs from SB55K removal from charging stand/blue-red simultaneous flashing and abnormal-only dry sensor care.
+
+## Panasonic MC-SB70KM
+
+Official rendered list: October2024. Dedicated cover and PDF9–11 printed16–21, plus own one-page tank notice independently visually inspected. Weekly bin-line inspection only; dust-filter (not pleated) assembly with tissue wiping/24h dry, no inherited30min soak. Brush-only wash/belt/cover-claws/lock marks; tank interior-only wash, contacts/outlet cotton swab without pressure. Room-temperature tap water only/discard after use. Condition-only prefilter/futon/abnormal clean-sensor care, no invented recurring cleaning.

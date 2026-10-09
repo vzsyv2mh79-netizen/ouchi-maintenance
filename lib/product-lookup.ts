@@ -8064,4 +8064,33 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "サイクロン式コードレススティック掃除機",
+    "modelNumber": "MC-SB70KM",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-SB70KM/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/679/000000002777679/MC-SB70KM.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2024年10月発売を確認。専用説明書印刷16〜21ページ（PDF9〜11ページ）と給水タンク注意書きを確認。お手入れ前は運転スイッチを切り、充電アダプターを抜きます。ゴミはラインを超える前にこまめに捨てます。清掃はゴミ捨て後も吸込力が戻らないとき／操作部の青・赤ランプが同時点滅して吸わなくなったときなどに行い、固定周期を設定しません。ダストフィルターは軽くはたき、表面のごみはティッシュで拭き取ります。ダストカップ・ネットフィルター・ダストフィルター・スポンジフィルターは汚れが気になるとき水洗いでき、約24時間風通しのよい場所で十分乾燥させます。スポンジをダストフィルターに確実に戻し、ネットフィルターとダストフィルターをセットして、ダストボックスをカチッと装着します。床用ノズル本体は水洗い禁止で、回転ブラシだけ外して水洗いできます。ベルト・カバーのつめ・解錠／施錠マークを合わせ十分乾燥後に戻します。給水タンクは内側だけ水洗い可能。接点の水滴・ほこりは綿棒で取り除き、強く押しつけません。常温の水道水以外は入れず、掃除後は水を捨てます。ミスト吹出口も水滴・ほこりを綿棒で取り除き、強く押しつけません。プレフィルターは軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。ふとん用ノズルは必要時に軽く水洗いし、十分乾燥させます。センサーはクリーンランプの色が変わらないときだけ柔らかい布で乾拭き。センサー・排気口・本体・延長管・スタンドは水洗い禁止。熱風・洗剤・ベンジン・シンナー・アルコールを使いません。",
+    "suggestions": [
+      {
+        "name": "ダストボックスのゴミすてライン確認",
+        "kind": "点検",
+        "intervalDays": 7,
+        "frequency": "週に1度が目安（予定計算は7日）／ラインを超える前にゴミ捨て",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/679/000000002777679/MC-SB70KM.pdf#page=9",
+        "conditions": "説明書印刷16〜17ページ（PDF9ページ）。運転スイッチを切り、充電アダプターを抜きます。ゴミの種類によってたまり方が違うため、予定を待たずラインを超える前に捨てます。ペットの毛や綿ごみが多いとランプが反応しない場合もあるため直接確認してください。ネットフィルターとダストフィルターを戻し、本体に確実にカチッと装着します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

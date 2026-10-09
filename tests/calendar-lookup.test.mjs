@@ -1006,3 +1006,11 @@ test('SB35K and SB55K use weekly bin inspection without invented cleaning or sen
  assert.match(b.lookupNote,/充電台から本体を外し/);assert.match(b.lookupNote,/同時点滅/);assert.match(b.lookupNote,/センサー.*乾拭き.*水洗い禁止/);
  assert.notEqual(a.manualUrl,b.manualUrl);assert.equal(lookup.lookupModel('MC-SB55KX').length,0);
 });
+
+test('SB70KM keeps its dust-filter assembly and inner-only mist tank care',()=>{
+ const [c]=lookup.lookupModel('MC-SB70KM');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年10月発売/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,7);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=9');
+ assert.match(c.lookupNote,/ダストフィルター.*ティッシュ.*約24時間/);assert.ok(!c.lookupNote.includes('プリーツフィルター'));assert.ok(!c.lookupNote.includes('約30分'));
+ assert.match(c.lookupNote,/スポンジをダストフィルター.*カチッ/);assert.match(c.lookupNote,/タンクは内側だけ水洗い可能/);assert.match(c.lookupNote,/常温の水道水以外は入れず.*水を捨て/);
+ assert.match(c.lookupNote,/ミスト吹出口.*綿棒.*強く押しつけません/);assert.match(c.lookupNote,/回転ブラシだけ.*ベルト.*つめ.*解錠／施錠/);assert.match(c.lookupNote,/クリーンランプの色が変わらないときだけ.*乾拭き/);assert.match(c.lookupNote,/固定周期を設定しません/);
+ assert.equal(lookup.lookupModel('MC-SB70K').length,0);
+});
