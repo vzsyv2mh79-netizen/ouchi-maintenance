@@ -430,3 +430,21 @@ test('WXC and GXCC retain distinct chiller and ice tray care', () => {
  for (const c of [w,g]) assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
  assert.equal(lookup.lookupModel('R-WXC74Y').length,0);
 });
+
+
+test('Hitachi H X uses its own shared manual and excludes unrelated camera and drawer care', () => {
+ for (const model of ['R-H54X','R-H49X']) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);
+  assert.match(c.manualUrl,/r_h54x_a\.pdf$/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[4].conditions,/26ページ/);
+  assert.match(c.suggestions[6].conditions,/27ページ/);
+  assert.ok(!c.suggestions[6].conditions.includes('プラチナ'));
+  assert.match(c.suggestions[9].conditions,/35ページ/);
+  assert.match(c.lookupNote,/冷蔵室以外のドア/);
+  assert.ok(!/カメラ|電動引き出し|MENU/.test(c.lookupNote));
+ }
+ assert.equal(lookup.lookupModel('R-H54Y').length,0);
+});
