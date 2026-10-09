@@ -740,3 +740,19 @@ test('KW57YJ retains dedicated switch-room care without sibling catalyst or drai
  assert.ok(!c.suggestions.some(x=>/触媒|裏返|毛足|真空/.test(x.conditions)));
  assert.equal(lookup.lookupModel('R-KW57Y').length,0);
 });
+
+
+test('2024 HW V models retain dedicated sources and vegetable-room precautions', () => {
+ for(const model of ['R-HW62V','R-HW54V','R-HW49V']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2024);
+  assert.match(c.manualUrl,/r_hw62v_b\.pdf$/);assert.match(c.lookupNote,/2024年2月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  const care=c.suggestions[6].conditions;
+  for(const pattern of [/触媒は取り外さず/,/しきりを外/,/「R」.*正面右下/,/裏返して排水/,/毛足の長い/,/潤滑剤を拭き取らない/]) assert.match(care,pattern);
+  assert.match(c.suggestions[4].conditions,/ケース全体/);assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/真空|カメラ|切替室/.test(x.conditions)));
+ }
+ assert.equal(lookup.lookupModel('R-HW54VG').length,0);
+});
