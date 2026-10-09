@@ -1410,3 +1410,8 @@ test('SBD-G5P preserves weekly mop and quarterly mandatory sponge from its own m
 test('SCD-R4P uses monthly mop and split cyclone with its own thirty-minute soak guidance', () => {
  const [c]=lookup.lookupModel('SCD-R4P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('210061.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[39,40,43,43,44,45].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/反時計回り.*約30分.*谷に沿って.*強く押し付け.*約24時間.*熱風.*時計回り/);assert.match(c.suggestions[4].conditions,/スライドさせて解除.*ロックスイッチで固定/);assert.equal(c.suggestions[5].intervalDays,30);assert.ok(!c.suggestions.some(x=>x.name.includes('センサー')||x.name.includes('ドック')));assert.equal(lookup.lookupModel('SCD-R4PX').length,0);
 });
+
+
+test('FCA-31PZ1 uses weekly swab sensors and monthly passive bedding head care', () => {
+ const [c]=lookup.lookupModel('FCA-31PZ1');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209040.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[24,24,25].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/電源プラグを抜いて.*左右のダニちりセンサーを綿棒/);assert.match(c.suggestions[2].conditions,/毛取りブラシ.*ピンセット.*たたきパッド.*柔らかいブラシ/);assert.ok(c.suggestions.every(x=>!x.name.includes('回転ブラシ')&&!x.name.includes('ダストカップ')));assert.match(c.lookupNote,/使い捨てフィルターを外して捨て.*日陰.*洗濯機・ドライヤー.*左右のレバー.*固定周期/);assert.doesNotMatch(c.lookupNote,/24時間|30分/);assert.equal(lookup.lookupModel('FCA-31PZ1X').length,0);
+});
