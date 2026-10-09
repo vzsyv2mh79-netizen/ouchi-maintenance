@@ -1336,3 +1336,25 @@ test('2026 SCD-R5PD separates weekly cup, monthly brush and dock maintenance', (
  assert.match(c.suggestions[5].conditions,/運転中.*取り外しません.*ごみ箱の上.*フィルター類を忘れず/);
  assert.match(c.suggestions[6].conditions,/スポンジフィルターは軽くはたいて水洗い.*不織布フィルターは水洗いの対象に含めず交換/);assert.equal(c.suggestions[7].kind,'交換');assert.match(c.suggestions[7].frequency,/早い側の60日/);assert.match(c.lookupNote,/固定の交換年数は設定していません/);assert.equal(lookup.lookupModel('SCD-R5PDX').length,0);
 });
+
+
+test('2026 dock cleaners preserve mop, sensor and slide-lock instructions', () => {
+ for (const [model,pdf] of [['SCD-124PD','212764'],['SCD-L4PD','212765']]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2026);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,7,30,30,30,60,60,60]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,41,42,42,46,46,47,38,49,49].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.suggestions[1].conditions,/先端のボタン.*モップ部分を水洗い/);assert.match(c.suggestions[2].conditions,/割りばし.*布を巻き付け/);
+  assert.match(c.suggestions[3].conditions,/スポンジフィルターと排気フィルター.*約30分.*谷に沿って.*強く押し付け.*約24時間/);
+  assert.match(c.suggestions[6].conditions,/カバーを押さえながらロックスイッチをスライドさせて固定/);
+  assert.match(c.suggestions[7].conditions,/運転中.*取り外しません.*フィルター類を忘れず/);
+  assert.match(c.suggestions[8].conditions,/不織布フィルターは水洗いの対象に含めず交換/);assert.equal(c.suggestions[9].kind,'交換');assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
+test('FBD-41 distinguishes cloth-free swab sensors, washable holder and quarterly sponge', () => {
+ const [c]=lookup.lookupModel('FBD-41');assert.ok(c.manualUrl.endsWith('211188.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,90]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[31,31,32,33,34].map(n=>c.manualUrl+'#page='+n));
+ assert.match(c.suggestions[0].conditions,/薄めた中性洗剤を使用できます/);assert.match(c.suggestions[1].conditions,/左右のセンサーを綿棒/);
+ assert.match(c.suggestions[2].conditions,/ロックスイッチを押して.*約24時間.*カチッ/);
+ assert.match(c.suggestions[3].conditions,/汚れている場合.*紙パックは水洗いしません/);
+ assert.match(c.suggestions[4].conditions,/約24時間.*必ず取り付け.*全周をすき間のない.*カバーをしっかり/);assert.equal(lookup.lookupModel('FBD-41X').length,0);
+});
