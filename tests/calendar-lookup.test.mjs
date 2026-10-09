@@ -1316,3 +1316,14 @@ test('2025 Iris humidifying air purifiers separate refill, silver case and filte
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2026 Iris vacuums preserve model-specific exhaust washing and power isolation', () => {
+ for(const [model,id,pages] of [['SCA-113','215097',[25,26,30,30]],['SCD-186P','213778',[32,33,36,36,37]],['SCD-186PS','213781',[36,37,40,40,41]]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'vacuum');assert.ok(c.manualUrl.endsWith(id+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),pages.map((_,i)=>i===0?7:30));
+  assert.match(c.lookupNote,/ごみすてライン.*固定の日数.*固定の交換年数/);assert.match(c.suggestions[1].conditions,/サイクロンユニット.*スポンジフィルター.*約24時間.*熱風.*カチッ/);
+  if(model==='SCA-113'){assert.match(c.suggestions[1].conditions,/排気フィルターはごみをはたき落とします。水洗いする部品に含めません/);assert.match(c.suggestions[0].conditions,/電源コードをコンセントから抜いて/);}
+  else{assert.match(c.suggestions[4].conditions,/ブラシの溝.*約24時間.*前端内側/);if(model==='SCD-186P'){assert.match(c.suggestions[1].conditions,/排気フィルターはごみをはたき落とした後、水洗い/);assert.match(c.suggestions[0].conditions,/充電アダプターを本体から抜いて/);}else{assert.match(c.suggestions[1].conditions,/クリーニングブラシ.*谷に沿って.*強く押し付けて/);assert.match(c.suggestions[0].conditions,/充電スタンドから外して.*すき間ノズル・充電スタンド/);}}
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
