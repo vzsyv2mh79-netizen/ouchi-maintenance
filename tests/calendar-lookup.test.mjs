@@ -240,3 +240,22 @@ test('D50 variants cite the explicit dehumidifier care route and retain both tra
  for(const model of ['KI-VD50','KI-UD70','KI-UD50-W']) assert.equal(lookup.lookupModel(model).length,0);
  assert.ok(lookup.lookupModel('KI-US50')[0].suggestions[1].sourceUrl.endsWith('filter_humi_care07.html'));
 });
+
+test('NX500K keeps monthly bag inspection separate from conditional replacement and washing', () => {
+  const [c] = lookup.lookupModel('ｍｃ－ｎｘ５００ｋ');
+  assert.equal(c.releaseYear, 2025);
+  assert.equal(c.categoryId, 'vacuum');
+  assert.equal(c.suggestions.length, 1);
+  const t = c.suggestions[0];
+  assert.equal(t.kind, '点検');
+  assert.equal(t.intervalDays, 30);
+  assert.equal(t.sourceKind, '取扱説明書');
+  assert.ok(t.sourceUrl.endsWith('MC-NX500K.pdf#page=9'));
+  assert.match(t.conditions, /月ごとの一律交換ではありません/);
+  assert.match(t.conditions, /約2秒間隔/);
+  assert.match(c.lookupNote, /点灯は保護装置/);
+  assert.match(c.lookupNote, /床用ノズル全体は水洗い不可/);
+  assert.match(c.lookupNote, /AMC-U2/);
+  assert.equal(lookup.lookupModel('MC-NX700K').length, 0);
+  assert.equal(lookup.lookupModel('MC-NX500K-A').length, 0);
+});

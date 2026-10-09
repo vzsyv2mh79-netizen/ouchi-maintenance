@@ -343,6 +343,18 @@ for (const [modelNumber, releaseYear] of [["KI-SD50", 2024], ["KI-TD50", 2025], 
   });
 }
 
+const nx500Manual = "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/904/130/000000003904130/MC-NX500K.pdf";
+catalog.push({
+  maker: "Panasonic", name: "セパレート型コードレススティック掃除機", modelNumber: "MC-NX500K", categoryId: "vacuum",
+  productUrl: "https://panasonic.jp/soji/products/MC-NX500K.html",
+  manualUrl: nx500Manual, discoveredManualUrl: nx500Manual, verifiedAt: "2026-10-09",
+  releaseYear: 2025, releaseSourceUrl: "https://news.panasonic.com/jp/topics/206494",
+  lookupNote: "メーカー発表は2025年12月中旬発売。説明書16〜17ページの月1回の紙パック確認を提案します。交換は赤い紙パック交換ランプの約2秒間隔の点滅時で、点灯は保護装置のお知らせです。純正S型紙パックAMC-U2を使用し、紙パックケースは捨てないでください。ダストボックス・プレフィルターは吸込力が回復しないときなど、ノズル・排気口・クリーンフィルターは吸込力低下や汚れが気になるときのお手入れで、固定周期は設定していません。説明書18〜21ページを確認してください。床用ノズル全体は水洗い不可、取り外した回転ブラシは水洗い可能です。内部センサーはランプのつき方がおかしいときに柔らかい布で乾拭きします。",
+  suggestions: [{ name: "紙パックのゴミのたまり具合を確認", kind: "点検", intervalDays: 30,
+    frequency: "月1回（特にペットの毛や綿ゴミが多いとき。予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${nx500Manual}#page=9`,
+    conditions: "説明書16〜17ページ。ペットの毛や綿ゴミは、いっぱいでも交換ランプが点滅しない場合があるため、直接確認します。交換は赤いランプが約2秒間隔で点滅したとき。月ごとの一律交換ではありません。点灯や約0.3秒間隔の早い点滅は交換サインと異なり、説明書24ページで対処を確認してください。紙パック交換後は本体を充電台にセットし直します。" }],
+});
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
