@@ -220,3 +220,7 @@ Official support records October 2023; exact day is not provided there. Dedicate
 ## Panasonic MC-PJ25A
 
 Official rendered https://panasonic.jp/soji/products.html explicitly shows February 2026 release (not January announcement). Support-linked MC-PJ25A.pdf cover and PDF6–7 (printed10–13) independently inspected. Two monthly-approximate suggestions retain reduced-suction/dirty condition; nozzle waterwash/dry restrictions and body/hose/extension no-waterwash preserved. Filter care only when suction fails to recover after bag replacement; bag change on lamp signal, no invented recurring intervals.
+
+## Panasonic MC-PJ250G / MC-PJ25G
+
+Official rendered product list: August 2025. Each support-linked dedicated PDF cover and PDF7–9 (printed12–17) independently inspected. Three reduced-suction/dirty monthly-approximate suggestions. Parent nozzle body and child nozzle no-waterwash; only rotating brush may be washed, belt/cover reassembly and shade-dry preserved. PJ250G sensor only for abnormal detection lamp, no sensor on PJ25G. Bag and filter condition-only notes.

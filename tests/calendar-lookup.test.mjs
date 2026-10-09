@@ -920,3 +920,15 @@ test('MC-PJ25A uses its own two conditional monthly care suggestions, never bag/
  assert.match(c.lookupNote,/フィルター清掃や紙パック交換を固定周期にはしません/);
  assert.equal(lookup.lookupModel('MC-PJ25AJ').length,0);
 });
+
+test('PJ250G and PJ25G preserve dedicated powered-nozzle care and conditional sensor distinction',()=>{
+ const [a]=lookup.lookupModel('MC-PJ250G'),[b]=lookup.lookupModel('MC-PJ25G');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年8月発売/);assert.equal(c.suggestions.length,3);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=8' && x.intervalDays===30 && x.frequency.includes('吸込力が弱くなったとき')));
+ assert.match(c.suggestions[0].conditions,/親ノズル本体は水洗い禁止.*ブラシ.*水洗いできます/);assert.match(c.suggestions[0].conditions,/ベルト.*つめ.*陰干し/);
+ assert.match(c.suggestions[1].conditions,/子ノズルは水洗い禁止/);assert.match(c.suggestions[2].conditions,/本体・ホース・延長管は水洗い禁止/);
+ assert.ok(!c.suggestions.some(x=>/フィルター|紙パック|センサー/.test(x.name)));}
+ assert.match(a.manualUrl,/MC-PJ250G\.pdf$/);assert.match(b.manualUrl,/MC-PJ25G\.pdf$/);
+ assert.match(a.lookupNote,/ゴミ検知ランプ.*内部センサー.*から拭き.*水洗い禁止/);assert.ok(!b.lookupNote.includes('センサー'));
+ assert.equal(lookup.lookupModel('MC-PJ250GX').length,0);
+});
