@@ -828,3 +828,19 @@ test('2024 H V preserves dedicated nine-task care without special chiller or veg
  }
  assert.equal(lookup.lookupModel('R-H54VG').length,0);
 });
+
+
+test('KXCC57V uses dedicated switch-room evidence without vegetable-room care', () => {
+ const [c]=lookup.lookupModel('R-KXCC57V');
+ assert.ok(lookup.supportedModels.includes('R-KXCC57V'));assert.equal(c.releaseYear,2024);
+ assert.match(c.manualUrl,/r_kxcc57v_b\.pdf$/);assert.match(c.lookupNote,/2024年2月発売/);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[42,41,41,41,42,41,41,41,41,42].map(p=>c.manualUrl+'#page='+p));
+ const care=c.suggestions[6].conditions;
+ for(const pattern of [/上下の切替室.*しきりを外/,/「R」.*正面右下/,/左右にスライド/,/冷凍室.*スリット/,/潤滑剤を拭き取らない/]) assert.match(care,pattern);
+ assert.match(c.suggestions[4].conditions,/44ページ.*ケース全体/);
+ assert.match(c.suggestions[9].conditions,/58ページ/);
+ assert.match(c.lookupNote,/カメラ.*気になるとき/);assert.match(c.lookupNote,/約4分/);
+ assert.ok(!c.suggestions.some(x=>/野菜室|触媒|裏返|毛足|小物ケース/.test(x.name+x.conditions)));
+ assert.equal(lookup.lookupModel('R-KXCC57VG').length,0);
+});
