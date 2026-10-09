@@ -1066,3 +1066,8 @@ test('YEX2026 preserve distinct filter washing and tank handling',()=>{
 test('Sharp T190 uses weekly tank, fortnightly prefilter and monthly body care',()=>{
  const [c]=lookup.lookupModel('CV-T190');assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年3月13日発売/);assert.match(c.manualUrl,/cvt190_mn.pdf$/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,14,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=16',c.manualUrl+'#page=17',c.manualUrl+'#page=17']);assert.ok(c.suggestions.every(x=>x.conditions.includes('運転を停止して電源プラグを抜き、排水')));assert.match(c.suggestions[0].conditions,/スポンジ.*フロート.*ふたをしっかり/);assert.match(c.suggestions[1].conditions,/約10分.*歯ブラシ.*陰干し.*前パネル/);assert.match(c.suggestions[2].conditions,/4か所.*絶対に水洗いしません.*40℃以下/);assert.equal(lookup.lookupModel('CV-T190X').length,0);
 });
+
+
+test('Mitsubishi P180YX uses own spread pages and conditional continuous drain check',()=>{
+ const [c]=lookup.lookupModel('MJ-P180YX');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'dehumidifier-appliance');assert.match(c.lookupNote,/2025年5月1日発売/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,90,14]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=10',c.manualUrl+'#page=11',c.manualUrl+'#page=10']);assert.match(c.suggestions[1].conditions,/約30分.*洗剤・熱湯・ブラシ・もみ洗い.*平ら.*ぬれたまま.*8回/);assert.match(c.suggestions[2].conditions,/場合だけ選択.*つまり・折れ曲がり・ひび割れ/);assert.match(c.lookupNote,/フロートは取り外さず.*MJPR-830VFT.*一律の交換周期は設定しません/);assert.equal(lookup.lookupModel('MJ-P180YXX').length,0);
+});
