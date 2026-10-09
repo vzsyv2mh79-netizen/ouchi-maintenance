@@ -228,3 +228,7 @@ Official rendered product list: August 2025. Each support-linked dedicated PDF c
 ## Panasonic MC-JP890K
 
 Official rendered product list: October 2025. Dedicated support-linked PDF cover and PDF7–8 (printed12–15) inspected independently. Care has reduced-suction/dirty conditions without a monthly interval; do not inherit PJ monthly cleaning. One monthly bag-fill inspection only for pet hair/cotton-heavy use. Powered nozzle body, hand brush, child nozzle, hose/body/extension and sensor no-waterwash. Brush/filter permitted wash with full dry and own guide/groove reassembly. Bag replacement, filter and abnormal sensor remain condition-only.
+
+## Panasonic MC-SR640K / MC-SR44K
+
+Official rendered list: October 2025 for both. Dedicated manual covers, PDF7–8 (printed12–15) and each two-page supplemental notice independently rendered/inspected. Weekly bin-line inspection; empty before line without waiting for schedule. No fixed cleaning/filter/sensor cycle. Bin assembly requires net filter/cyclone unit and lid hooks. Unit one-hour soak; clean filter no brush scrubbing; wash parts air-dry about24h. Nozzle body/hand brush/child nozzle/body/hose/extension/sensor no-waterwash. Only SR640K has washable futon nozzle.
