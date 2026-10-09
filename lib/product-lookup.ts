@@ -543,6 +543,36 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+// The official shared manual explicitly names all four opening variants.
+const fridge2025Manual = "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/742/771/000000003742771/NR-C37WS2_C37WS2L_C33JS2_C33JS2L_ARAH0A108880_%E6%B4%BB%E7%94%A8%E3%82%AC%E3%82%A4%E3%83%89.pdf";
+for (const modelNumber of ["NR-C33JS2", "NR-C33JS2L", "NR-C37WS2", "NR-C37WS2L"]) {
+  const ws = modelNumber.includes("C37WS2");
+  const productModel = ws ? "NR-C37WS2" : "NR-C33JS2";
+  catalog.push({
+    maker: "Panasonic", name: "冷凍冷蔵庫", modelNumber, categoryId: "fridge",
+    productUrl: `https://panasonic.jp/reizo/products/${productModel}.html`, manualUrl: fridge2025Manual,
+    productLinkLabel: "左右開き品番を確認できる公式製品情報", manualLinkLabel: "取扱説明書（活用ガイド）",
+    releaseYear: 2025, releaseSourceUrl: ws ? "https://news.panasonic.com/jp/topics/206395" : "https://news.panasonic.com/jp/press/jn250821-1", verifiedAt: "2026-10-09",
+    lookupNote: "2025年10月発売シリーズ。共通公式説明書の表紙で左右開き4品番を確認済みです。印刷15〜17ページで周期を確認しました。液だれ・汚れはすぐに拭き、モイスチャーコントロールプレート／フィルターは汚れが気になるときに清掃します。条件付き清掃は固定日数にしません。物理的な清掃は電源プラグを抜き、再接続まで7分以上待ってください。製氷皿の自動清掃時は電源が必要です。",
+    suggestions: [
+      { name: "給水タンク・浄水フィルターの水洗い", kind: "掃除", intervalDays: 7, frequency: "週1回（予定計算は7日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷17ページ（PDF9）。電源プラグを抜き、タンク・フィルター・フタのパッキングを外してやさしく水洗いします。水道水以外を使う場合はぬめりやカビが発生しやすいため、さらにこまめに水洗いしてください。" },
+      { name: "ガラストレイ・わけられるん棚の清掃", kind: "掃除", intervalDays: 90, frequency: "3か月に1回（予定計算は90日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷16ページ（PDF9）。電源プラグを抜き、説明書の取り外し図に従って清掃します。重いガラス棚の落下・破損に注意。取り外せない仕切棚は柔らかい布で拭きます。落ちにくい汚れには薄めた台所用中性洗剤を使い、水拭きしてください。" },
+      { name: "ドア棚・ボトル棚の清掃", kind: "掃除", intervalDays: 90, frequency: "3か月に1回（予定計算は90日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷16ページ（PDF9）。電源プラグを抜いて清掃。ボトル棚の前に上のドア棚を外し、取り付けは水平に差し込んで押し下げます。固く絞った布を使い、水分をすき間に入れないでください。" },
+      { name: "パーシャル・野菜室・冷凍室ケースの清掃", kind: "掃除", intervalDays: 90, frequency: "3か月に1回（予定計算は90日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷17ページ（PDF9）。電源プラグを抜き、部品別の取り外し図に従います。レールの潤滑剤は拭き取らないでください。水洗い後は水滴を拭き、冷凍室上段ケース・小物野菜ケースはFRONTを前にして戻します。" },
+      { name: "製氷皿の自動水洗い", kind: "掃除", intervalDays: 180, frequency: "年1〜2回（予定計算は180日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=8`,
+        conditions: "印刷15ページ（PDF8）。製氷皿は取り外せません。電源を入れた状態でタンクに水だけを入れ、冷凍室上段ケースの氷を空にして製氷停止ボタンを10秒以上押します。清掃中（約3分）は冷凍室ドアを開けず、終了後に排出された水を捨てて拭き取ります。" },
+      { name: "電源プラグ・冷蔵庫周囲・脚カバーのほこり取り", kind: "掃除", intervalDays: 365, frequency: "年1回（予定計算は365日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷16ページ（PDF9）。電源プラグを抜き、背面・壁面・床などのすき間のほこりを取り除きます。脚カバーは説明書4ページの方法で外します。床の保護や転倒防止など移動時の注意を確認し、無理に動かさないでください。" },
+      { name: "製氷用浄水フィルターの交換", kind: "交換", intervalDays: 1095, frequency: "約3年を目安（予定計算は1095日）", sourceKind: "取扱説明書", sourceUrl: `${fridge2025Manual}#page=9`,
+        conditions: "印刷17ページ（PDF9）。浄水フィルターは約3年が交換目安です。水あかなどが詰まると製氷できない場合があります。既に使用している場合は使用開始日を基に予定を調整し、交換部品は説明書22ページで確認してください。" },
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
