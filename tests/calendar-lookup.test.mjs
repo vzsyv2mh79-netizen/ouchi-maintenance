@@ -1040,3 +1040,10 @@ test('Panasonic C shared manual explicitly covers both 2025 models',()=>{
  assert.match(c.manualUrl,/KX07C_KX05C/);assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));assert.match(c.suggestions[2].conditions,/フロートは外しません/);assert.match(c.suggestions[3].conditions,/ぬれたまま.*赤線.*カチッ/);assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*2〜3回/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));}
  assert.equal(a.manualUrl,b.manualUrl);assert.notEqual(a.manualUrl,lookup.lookupModel('FE-KX07D')[0].manualUrl);assert.equal(lookup.lookupModel('FE-KX07CX').length,0);
 });
+
+
+test('KF07C uses its dedicated cover and care pages without inferring KF05C from the filename',()=>{
+ const [c]=lookup.lookupModel('FE-KF07C');assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年度モデル/);assert.equal(c.categoryId,'humidifier');assert.match(c.manualUrl,/000000003749189/);assert.notEqual(c.manualUrl,lookup.lookupModel('FE-KX07C')[0].manualUrl);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,30,30,30,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));assert.match(c.suggestions[2].conditions,/フロートは外しません/);assert.match(c.suggestions[3].conditions,/押し洗い.*ぬれたまま.*赤線.*カチッ/);assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*2〜3回/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));
+ assert.equal(lookup.lookupModel('FE-KF05C').length,0);assert.equal(lookup.lookupModel('FE-KF07CX').length,0);
+});
