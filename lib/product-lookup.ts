@@ -8605,4 +8605,50 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+catalog.push(...[
+  {
+    "maker": "SHARP",
+    "name": "プラズマクラスター衣類乾燥除湿機",
+    "modelNumber": "CV-T190",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://jp.sharp/joshitsu/products/cv-t190/",
+    "productLinkLabel": "公式商品情報",
+    "manualUrl": "https://jp.sharp/restricted/support/manual/dehumid_con/cvt190_mn.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://corporate.jp.sharp/news/250305-a.html",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式発表で2025年3月13日発売を確認。専用説明書16〜17ページを確認。排水タンクは1週間に1回、プレフィルターは2週間に1回、本体は1か月に1回お手入れします。必ず運転を停止して電源プラグを抜き、排水してから行います。指定外の洗剤は使いません。長期間使わないときは、清掃後に水分をよく拭き取り十分乾燥させ、直射日光の当たらない湿気の少ない場所に保管します（説明書20ページ）。",
+    "suggestions": [
+      {
+        "name": "排水タンクの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://jp.sharp/restricted/support/manual/dehumid_con/cvt190_mn.pdf#page=16",
+        "conditions": "説明書16ページ。必ず運転を停止して電源プラグを抜き、排水してから行います。タンクふたを外し、排水タンクとふたの内側を食器洗い用スポンジなどで洗います。汚れがひどいときは食器用中性洗剤を薄めたぬるま湯で洗います。柔らかい布で水分を拭き、フロートがきちんと取り付けられていることを確認し、タンクふたをしっかりはめます。"
+      },
+      {
+        "name": "プレフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://jp.sharp/restricted/support/manual/dehumid_con/cvt190_mn.pdf#page=17",
+        "conditions": "説明書17ページ。必ず運転を停止して電源プラグを抜き、排水してから行います。前パネルを外し、プレフィルターのホコリを掃除機で吸い取ります。力を加えすぎません。汚れがひどいときは台所用中性洗剤を溶かした液で約10分つけ置きし、歯ブラシで軽くこすりながら洗剤を十分に洗い流して陰干しします。プレフィルターがきちんと取り付けられていることを確認し、前パネルを戻します。"
+      },
+      {
+        "name": "本体・キャスターの拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://jp.sharp/restricted/support/manual/dehumid_con/cvt190_mn.pdf#page=17",
+        "conditions": "説明書17ページ。必ず運転を停止して電源プラグを抜き、排水してから行います。本体と4か所のキャスターを柔らかい布で拭きます。本体は絶対に水洗いしません。汚れがひどいときは水または40℃以下のぬるま湯を含ませた布で拭きます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

@@ -1061,3 +1061,8 @@ test('YEX2026 preserve distinct filter washing and tank handling',()=>{
  assert.match(a.suggestions[0].conditions,/本体側フィルター.*外したフィルター.*水洗い.*左右共用.*取っ手/);assert.match(a.suggestions[1].conditions,/タンクハンドル/);assert.equal(a.suggestions[0].sourceUrl,a.manualUrl+'#page=19');
  assert.equal(b.suggestions[0].sourceUrl,b.manualUrl+'#page=17');assert.equal(b.suggestions[1].sourceUrl,b.manualUrl+'#page=16');assert.match(b.suggestions[0].conditions,/取り付けた状態/);assert.ok(!b.suggestions[0].conditions.includes('水洗い'));assert.ok(!b.suggestions[1].conditions.includes('ハンドル'));assert.notEqual(a.manualUrl,b.manualUrl);
 });
+
+
+test('Sharp T190 uses weekly tank, fortnightly prefilter and monthly body care',()=>{
+ const [c]=lookup.lookupModel('CV-T190');assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年3月13日発売/);assert.match(c.manualUrl,/cvt190_mn.pdf$/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,14,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=16',c.manualUrl+'#page=17',c.manualUrl+'#page=17']);assert.ok(c.suggestions.every(x=>x.conditions.includes('運転を停止して電源プラグを抜き、排水')));assert.match(c.suggestions[0].conditions,/スポンジ.*フロート.*ふたをしっかり/);assert.match(c.suggestions[1].conditions,/約10分.*歯ブラシ.*陰干し.*前パネル/);assert.match(c.suggestions[2].conditions,/4か所.*絶対に水洗いしません.*40℃以下/);assert.equal(lookup.lookupModel('CV-T190X').length,0);
+});
