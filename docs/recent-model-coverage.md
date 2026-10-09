@@ -260,3 +260,8 @@ Official rendered list: October2024. Dedicated cover and PDF9–11 printed16–2
 ## Panasonic MC-JP880K
 
 Official rendered list: May2025. Dedicated cover and PDF7–9 printed12–17 visually inspected. FAQ printed16 explicitly recommends monthly-approximate bag-fill check for all use (pet/cotton warning also printed12). One inspection task links own FAQpage9; replacement condition-based. Brush wipe-only/cover wash-only/two recesses, unlike JP890K removable brush. Filter only after bag replacement fails to restore suction; press-wash/no揉み/machine/full dry/upper mark/guide groove. Abnormal-only dry clean sensor, no fixed cleaning interval.
+
+
+## Panasonic 気化式加湿機（2026年9月発売）
+
+FE-KX07D / FE-KX05D / FE-KF07D を追加。公式商品一覧 https://panasonic.jp/kashitsu/ と各モデルの公式サポートにあるHP掲載用の詳細説明書を確認。各モデル独自のPDF URLを保持。表紙・12〜14ページを画像で確認。タンク毎日、プレフィルター・トレー・加湿フィルターと枠・イオン除菌ユニットは約1か月。フロートを外さない、フィルターは押し洗い、ユニットは分解しない条件を保持。交換約10年は1日8時間運転と定期清掃の条件付きなので固定交換予定を作らない。確認日2026-10-10。
