@@ -9031,4 +9031,52 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "三菱電機",
+    "name": "空清脱臭除湿機",
+    "modelNumber": "MJ-PHDV24ZX",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://www.mitsubishielectric.co.jp/ldg/wink/ssl/displayProduct.do?pid=366927",
+    "productLinkLabel": "公式製品情報",
+    "manualUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z279h01.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.mitsubishielectric.co.jp/ldg/wink/ssl/displayProduct.do?pid=366927",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式製品情報で2026年5月22日発売を確認。専用説明書の印刷24〜26ページ（PDF13〜14ページ）を確認。吸込口・スマートフラップ・湿度センサー・冷却口・ニオイセンサーは2週間に1回程度、高感度ダスト/ホコリセンサーのレンズは半年に1回程度清掃します。運転スイッチを切にして電源プラグを抜いてから行います。タンク・本体は汚れたときに柔らかい布で乾拭きし、タンクの汚れが落ちない場合は水かぬるま湯で洗い乾いた布で拭きます。フロートは取り外さず、タンクふたを取り付けてから本体に戻します。フィルターカバー・静電フィルターは汚れたときに掃除機のブラシ付きノズルでほこりを吸い取り、活性炭フィルターのお手入れは不要です。静電・活性炭フィルターは洗っても再使用できません。フィルター交換ランプ点灯、ひどい汚れやいやなニオイがある場合にMJPR-PHDVFTの静電・活性炭フィルターセットを一緒に交換します。ランプは約3年の使用で点灯しますが、寿命は使用状況・環境で異なるため固定交換予定は設定しません。",
+    "suggestions": [
+      {
+        "name": "吸込口・スマートフラップ・センサー部の掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z279h01.pdf#page=13",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷25ページ。フィルターカバー・静電フィルター・活性炭フィルターを外し、吸込口・スマートフラップ・湿度センサー・冷却口・ニオイセンサーの汚れを掃除機で吸い取ります。清掃後は活性炭フィルター・静電フィルター・フィルターカバーを取り付けます。洗剤などは使いません。"
+      },
+      {
+        "name": "高感度ダスト/ホコリセンサーのレンズ清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "半年に1回程度（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z279h01.pdf#page=13",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷25ページ。フィルターカバーを外し、正面と左側面の2か所のレンズを乾いた綿棒で清掃します。水・アルコール・洗剤で拭きません。フィルターカバーを取り付け直します。"
+      },
+      {
+        "name": "連続排水時のホース点検",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "連続排水または無人で長時間使用する場合、2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z279h01.pdf#page=13",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷24ページ。連続排水または無人で長時間使用する場合だけ選択してください。ホース内に異物や汚れがたまっていないか、つまり・折れ曲がり・ひび割れなどの劣化がないか確認します。ホース周囲が氷点下になる場所では連続排水しません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
