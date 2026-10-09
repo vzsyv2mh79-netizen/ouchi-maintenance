@@ -1459,3 +1459,9 @@ test('SCD-L3PD keeps weekly cup, no split, and distinct dock wash versus replace
 test('SCD-185PM preserves dedicated monthly cup and mop care without invented sensor',()=>{
  const[c]=lookup.lookupModel('SCD-185PM');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('202401.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,42,45,45,46,47].map(n=>c.manualUrl+'#page='+n));assert.ok(c.suggestions.every(x=>!/センサー/.test(x.name)));assert.match(c.suggestions[1].conditions,/反時計回り.*30分.*谷に沿って.*24時間.*熱風.*時計回り.*上側の穴/);assert.match(c.suggestions.at(-1).conditions,/ボタン.*水洗い.*ケース/);assert.equal(lookup.lookupModel('SCD-185PMX').length,0);
 });
+
+
+test('SBD-201P and T2P retain weekly mop/sensors and quarterly sponge without later cover instructions',()=>{
+ for(const[m,pdf,pages]of[['SBD-201P','201506',[38,38,38,39,39,40,41,41]],['SBD-T2P','201507',[39,39,39,40,40,41,42,42]]]){const[c]=lookup.lookupModel(m);assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,30,30,30,30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].conditions,/内部左右/);assert.match(c.suggestions[6].conditions,/汚れた場合.*使い捨て.*取り外し/);assert.match(c.suggestions[7].conditions,/24時間.*必ず取り付け/);assert.doesNotMatch(c.suggestions[5].conditions,/押し下げて手前|前端内側/);assert.equal(lookup.lookupModel(m+'X').length,0);}
+ const[a]=lookup.lookupModel('SBD-201P');const[b]=lookup.lookupModel('SBD-T2P');assert.doesNotMatch(a.suggestions[0].conditions,/マルチパワー/);assert.match(b.suggestions[0].conditions,/マルチパワー/);assert.match(b.suggestions[4].conditions,/マルチパワー/);
+});
