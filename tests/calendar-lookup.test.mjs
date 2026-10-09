@@ -811,3 +811,20 @@ test('2024 HXCC V cites its own 60-page manual and keeps camera care conditional
  }
  assert.equal(lookup.lookupModel('R-HXCC62VG').length,0);
 });
+
+
+test('2024 H V preserves dedicated nine-task care without special chiller or vegetable divider instructions', () => {
+ for(const model of ['R-H54V','R-H49V']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2024);
+  assert.match(c.manualUrl,/r_h54v_b\.pdf$/);assert.match(c.lookupNote,/2024年1月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[24,23,23,23,23,23,23,23,24].map(p=>c.manualUrl+'#page='+p));
+  const care=c.suggestions[5].conditions;
+  for(const pattern of [/水がたれる/,/潤滑剤を拭き取らず/,/小物ケース.*スリット/,/左右のつめ.*外側/]) assert.match(care,pattern);
+  assert.match(c.suggestions[8].conditions,/35ページ/);
+  assert.match(c.lookupNote,/25ページ/);assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/氷温|触媒|裏返|毛足|しきりを外|カメラ/.test(x.name+x.conditions)));
+ }
+ assert.equal(lookup.lookupModel('R-H54VG').length,0);
+});
