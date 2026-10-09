@@ -11357,4 +11357,174 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式紙パックふとんクリーナー",
+  "modelNumber": "FBD-D1",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2026,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2026年1月発売、専用説明書表紙で基本品番を確認。本体と左右のセンサーは週1回、回転ブラシと紙パックホルダーは月1回、スポンジフィルターは3か月に1回。紙パックは水洗いしません。清掃しても吸引力が弱い場合は別売りのスポンジフィルターを購入してください（35ページ）。固定の交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・ヘッド外側・充電スタンドの拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf#page=31",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから取り外して行います。本体・充電スタンド・充電アダプターには水をかけません。薄めた中性洗剤を使用できますが、シンナー・ベンジン・アルコールなど揮発性のものは使用しません。よく絞った柔らかい布で拭きます。"
+    },
+    {
+      "name": "左右のほこり感知センサーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf#page=31",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから取り外して行います。本体・充電スタンド・充電アダプターには水をかけません。薄めた中性洗剤を使用できますが、シンナー・ベンジン・アルコールなど揮発性のものは使用しません。ダストパックセットを取り外し、本体内部の左右のセンサーを綿棒などで拭きます。位置は説明書の図で確認してください。"
+    },
+    {
+      "name": "回転ブラシのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf#page=32",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから取り外して行います。本体・充電スタンド・充電アダプターには水をかけません。薄めた中性洗剤を使用できますが、シンナー・ベンジン・アルコールなど揮発性のものは使用しません。ロックスイッチを押してカバーを外し、回転ブラシを持ち上げます。髪の毛をピンセットで取り除き、絡まったごみはブラシの溝に沿ってはさみで切って取り除き、水洗いします。水洗いした部品はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。ブラシを戻し、カバーのつめをヘッドの前端内側に引っかけ、カチッと鳴るまで押し込んで閉じます（33ページ）。"
+    },
+    {
+      "name": "ダストパックホルダーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf#page=33",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから取り外して行います。本体・充電スタンド・充電アダプターには水をかけません。薄めた中性洗剤を使用できますが、シンナー・ベンジン・アルコールなど揮発性のものは使用しません。ホルダーを点検し、汚れている場合は水洗いして十分に乾かします。紙パックは水洗いしません。"
+    },
+    {
+      "name": "スポンジフィルター洗浄",
+      "kind": "掃除",
+      "intervalDays": 90,
+      "frequency": "3か月に1回程度（予定計算は90日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211190.pdf#page=34",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから取り外して行います。本体・充電スタンド・充電アダプターには水をかけません。薄めた中性洗剤を使用できますが、シンナー・ベンジン・アルコールなど揮発性のものは使用しません。ダストパックセットを外し、収納部の奥からスポンジフィルターをつまんで取り出し、水洗いします。水洗いした部品はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。収納部の奥に必ず取り付け、フィルターの全周をすき間のないように押し込みます。ダストパックセットを戻し、カバーをしっかり閉めます（35ページ）。"
+    }
+  ]
+} satisfies ProductCandidate);
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式ハンディクリーナー",
+  "modelNumber": "HCD-23",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/212120.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2026,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2026年1月発売、専用説明書表紙で基本品番を確認。本体の週1回拭き掃除、カップの2か月清掃、スポンジの3か月清掃を区別しています。排気フィルターをブラシなどでこすりません。汚れが気になる場合の浸し洗いは説明書24ページの図を確認してください。清掃後も吸引力が弱い場合は別売りの排気フィルターを購入してください（24ページ）。固定の交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・すき間ノズルの拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/212120.pdf#page=24",
+      "conditions": "必ず運転を停止し、充電中はUSB充電ケーブルを本体から取り外して行います。本体・付属USBケーブルには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。よく絞った柔らかい布で本体・すき間ノズルなどを拭きます。"
+    },
+    {
+      "name": "ダストカップ・排気フィルターのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 60,
+      "frequency": "2か月に1回程度（予定計算は60日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/212120.pdf#page=24",
+      "conditions": "必ず運転を停止し、充電中はUSB充電ケーブルを本体から取り外して行います。本体・付属USBケーブルには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストカップを外し、フィルターカバーと排気フィルターを取り外します。ごみを落として水洗いします。排気フィルターはブラシなどでこすりません。汚れが気になる場合の浸し洗いは説明書の図を確認してください。水洗いした部品はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。フィルター類を戻してダストカップを取り付けます。"
+    },
+    {
+      "name": "スポンジフィルター洗浄",
+      "kind": "掃除",
+      "intervalDays": 90,
+      "frequency": "3か月に1回程度（予定計算は90日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/212120.pdf#page=25",
+      "conditions": "必ず運転を停止し、充電中はUSB充電ケーブルを本体から取り外して行います。本体・付属USBケーブルには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストカップを外し、取付部の奥からスポンジフィルターをつまんで取り出して水洗いします。水洗いした部品はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。フィルターの全周をすき間のないように押し込み、必ず取り付けます。ダストカップを戻します（26ページ）。"
+    }
+  ]
+} satisfies ProductCandidate);
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式紙パックスティッククリーナー",
+  "modelNumber": "HBD-41",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2025,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=2",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2025年11月発売、専用説明書表紙で基本品番を確認。本体などの週1回拭き掃除、ホルダー・風路・ヘッドの月1回点検、スポンジの3か月清掃を区別しています。紙パックは水洗いしません。清掃後も吸引力が弱い場合はスポンジフィルターを交換してください（31ページ）。固定の交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・延長パイプ・ヘッド外側・付属品の拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf#page=30",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。よく絞った柔らかい布で本体・延長パイプ・フロアヘッド外側・すき間ノズルなどを拭きます。"
+    },
+    {
+      "name": "ダストパックホルダーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf#page=31",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを取り外し、ホルダーを点検します。汚れている場合はホルダーを水洗いして十分に乾かします。紙パックは水洗いしません。"
+    },
+    {
+      "name": "本体風路・延長パイプの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf#page=31",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。内部を点検し、ごみが詰まっていたらピンセットや割りばしなどで取り除きます。"
+    },
+    {
+      "name": "フロアヘッドの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf#page=31",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。吸い込み口と内部を点検し、ごみが詰まっていたらピンセットや割りばしなどで取り除きます。"
+    },
+    {
+      "name": "スポンジフィルター洗浄",
+      "kind": "掃除",
+      "intervalDays": 90,
+      "frequency": "3か月に1回程度（予定計算は90日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210537.pdf#page=32",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを外し、収納部の奥からスポンジフィルターをつまんで取り出して水洗いします。水洗いした部品はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。収納部の奥に必ず取り付け、フィルターの全周をすき間のないように押し込みます。ダストパックセットを戻し、カバーをしっかり閉めます（33ページ）。"
+    }
+  ]
+} satisfies ProductCandidate);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
