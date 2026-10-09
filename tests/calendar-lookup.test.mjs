@@ -1402,3 +1402,11 @@ test('2025 HBD-C1 and HBD-31 use dedicated handheld manuals and avoid stick-clea
  }
  const [c1]=lookup.lookupModel('HBD-C1');const [h31]=lookup.lookupModel('HBD-31');assert.match(c1.suggestions[0].name,/フレキシブルホース/);assert.doesNotMatch(h31.suggestions[0].name,/フレキシブルホース/);
 });
+
+
+test('SBD-G5P preserves weekly mop and quarterly mandatory sponge from its own manual', () => {
+ const [c]=lookup.lookupModel('SBD-G5P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('210064.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,30,30,30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[37,37,38,38,39,40,41,42].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[5].conditions,/スライドさせて解除.*約24時間.*ロックスイッチで固定/);assert.match(c.suggestions[7].conditions,/約24時間.*必ず取り付け.*全周をすき間のない/);assert.ok(!c.suggestions.some(x=>x.name.includes('センサー')));assert.equal(lookup.lookupModel('SBD-G5PX').length,0);
+});
+test('SCD-R4P uses monthly mop and split cyclone with its own thirty-minute soak guidance', () => {
+ const [c]=lookup.lookupModel('SCD-R4P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('210061.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[39,40,43,43,44,45].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/反時計回り.*約30分.*谷に沿って.*強く押し付け.*約24時間.*熱風.*時計回り/);assert.match(c.suggestions[4].conditions,/スライドさせて解除.*ロックスイッチで固定/);assert.equal(c.suggestions[5].intervalDays,30);assert.ok(!c.suggestions.some(x=>x.name.includes('センサー')||x.name.includes('ドック')));assert.equal(lookup.lookupModel('SCD-R4PX').length,0);
+});
