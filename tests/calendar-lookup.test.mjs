@@ -513,3 +513,21 @@ test('R-H54XG uses its own manual and conditional four-minute ice cleaning', () 
  assert.ok(!c.suggestions.some(x=>/プラチナ触媒|しきり/.test(x.conditions)));
  assert.equal(lookup.lookupModel('R-H54YG').length,0);
 });
+
+
+test('2024 WY refrigerators preserve their own nine-task layout without special chiller care', () => {
+ for(const model of ['R-H54WY','R-H49WY']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.equal(c.releaseYear,2024);
+  assert.match(c.lookupNote,/2024年11月発売/);
+  assert.match(c.manualUrl,/r_h54wy_a\.pdf$/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.ok(!c.suggestions.some(x=>/特鮮|氷温|カメラ|製氷おそうじ/.test(x.name)));
+  assert.match(c.suggestions[5].conditions,/背面から水がたれる/);
+  assert.ok(!c.suggestions.some(x=>/プラチナ|歯ブラシ|しきり/.test(x.conditions)));
+  assert.match(c.lookupNote,/約4分/);
+ }
+ assert.equal(lookup.lookupModel('R-H54WYG').length,0);
+});
