@@ -606,6 +606,7 @@ for (const modelNumber of ["NR-C33ES2", "NR-C33ES2L", "NR-C37ES2", "NR-C37ES2L"]
 catalog.push(...[
   {
     "maker": "日立",
+    "productLinkLabel": "公式製品情報",
     "name": "冷凍冷蔵庫",
     "modelNumber": "R-HWC62X",
     "categoryId": "fridge",
@@ -711,6 +712,7 @@ catalog.push(...[
   },
   {
     "maker": "日立",
+    "productLinkLabel": "公式製品情報",
     "name": "冷凍冷蔵庫",
     "modelNumber": "R-HWC54X",
     "categoryId": "fridge",
@@ -816,6 +818,7 @@ catalog.push(...[
   },
   {
     "maker": "日立",
+    "productLinkLabel": "公式製品情報",
     "name": "冷凍冷蔵庫",
     "modelNumber": "R-HWC49X",
     "categoryId": "fridge",
