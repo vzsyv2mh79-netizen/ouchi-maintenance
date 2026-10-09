@@ -1913,7 +1913,7 @@ export function lookupModel(value: string) {
   return catalog.filter((candidate) => normalizeModel(candidate.modelNumber) === model);
 }
 
-export const supportedModels = catalog.map(candidate => candidate.modelNumber);
+
 // Links are discovery aids only. Search results never become verified suggestions.
 export function officialSearchLinks(value: string) {
   const model = normalizeModel(value);
@@ -2144,3 +2144,5 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+export const supportedModels = catalog.map(candidate => candidate.modelNumber);

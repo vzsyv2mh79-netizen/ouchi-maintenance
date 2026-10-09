@@ -157,6 +157,7 @@ test('2024 washer D variants use the D manual and weekly drain-filter evidence',
 test('2025 washers cite the main manual and separate care guide for each task', () => {
  for (const model of ['NA-LX129EL','NA-LX129ER']) {
   const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
   assert.equal(c.releaseYear,2025);
   assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,7,90]);
   assert.ok(c.suggestions.slice(0,2).every(x=>x.sourceUrl.endsWith('NA-LX129E.pdf#page=19')));
@@ -435,6 +436,7 @@ test('WXC and GXCC retain distinct chiller and ice tray care', () => {
 test('Hitachi H X uses its own shared manual and excludes unrelated camera and drawer care', () => {
  for (const model of ['R-H54X','R-H49X']) {
   const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
   assert.equal(c.releaseYear,2025);
   assert.match(c.manualUrl,/r_h54x_a\.pdf$/);
   assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
