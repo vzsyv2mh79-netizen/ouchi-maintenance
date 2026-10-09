@@ -1,0 +1,7 @@
+{
+  "name": "kakei-shared-web-app",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": { "build": "node build.js" },
+  "engines": { "node": ">=20" }
+}
