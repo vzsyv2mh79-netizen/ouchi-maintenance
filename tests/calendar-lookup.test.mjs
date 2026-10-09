@@ -1183,3 +1183,22 @@ test('2026 Iris evaporative humidifiers separate refill cleaning from monthly co
  }
  assert.notEqual(lookup.lookupModel('AHM-MVU35A')[0].manualUrl,lookup.lookupModel('KHM-MVU401')[0].manualUrl);
 });
+
+
+test('Iris steam humidifiers preserve model-specific citric amounts and powered cleaning cycle', () => {
+ for(const [model,id,g,l] of [['AHM-MHU40A','211209',20,2],['AHM-MHU60A','211213',30,3],['KHM-MHU401','211210',20,2],['KHM-MHU601','211215',30,3]]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');
+  assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,60]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[26,27,25].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.lookupNote,/使用するたび.*固定の日数/);
+  assert.match(c.suggestions[0].conditions,/完全に冷めて.*よく絞った/);
+  assert.match(c.suggestions[1].conditions,/パッキンは外しません/);
+  assert.match(c.suggestions[1].conditions,/洗剤.*使いません.*食器洗い乾燥機/);
+  const wash=c.suggestions[2].conditions;
+  assert.ok(wash.includes('クエン酸'+g+'g'));assert.ok(wash.includes('総量'+l+'L'));
+  assert.match(wash,/満水線.*差し込み.*「強」で2時間.*完全に冷めてから湯を捨て.*すすぎ/);
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
