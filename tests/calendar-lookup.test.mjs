@@ -1047,3 +1047,9 @@ test('KF07C uses its dedicated cover and care pages without inferring KF05C from
  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,30,30,30,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));assert.match(c.suggestions[2].conditions,/フロートは外しません/);assert.match(c.suggestions[3].conditions,/押し洗い.*ぬれたまま.*赤線.*カチッ/);assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*2〜3回/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));
  assert.equal(lookup.lookupModel('FE-KF05C').length,0);assert.equal(lookup.lookupModel('FE-KF07CX').length,0);
 });
+
+
+test('YEX120B uses dehumidifier category and own fortnightly filter/monthly tank evidence',()=>{
+ const [c]=lookup.lookupModel('F-YEX120B');assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年5月30日発売/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=19'&&x.conditions.includes('電源プラグを抜き、必ず排水')));
+ assert.match(c.suggestions[0].conditions,/繊維部分を強くこすったり押したりしません.*つめ.*外したまま使わず/);assert.match(c.suggestions[1].conditions,/排水口を引っ張りません.*2〜3回.*フロートは外さず.*中性洗剤/);assert.match(c.lookupNote,/内部乾燥.*固定周期は設定しません.*約1時間/);assert.ok(!c.suggestions.some(x=>/内部乾燥|交換/.test(x.name)));assert.equal(lookup.lookupModel('F-YEX120BX').length,0);
+});

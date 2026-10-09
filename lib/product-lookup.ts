@@ -8497,4 +8497,41 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "エコ・ハイブリッド方式 衣類乾燥除湿機",
+    "modelNumber": "F-YEX120B",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://panasonic.jp/joshitsu/products/F-YEX120B/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/653/000000004397653/F-YEX120B_web.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn240410-1",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式発表で2024年5月30日発売を確認。専用説明書18〜19ページを確認。左右のフィルターは2週間に1回程度、タンクセットは1か月に1回程度お手入れします。清掃前は電源プラグを抜き、必ず排水します。本体はかたく絞った布で拭き、水洗い・寝かせることを避けます。内部乾燥は運転後や長期間使わないときに行うことが推奨され、固定周期は設定しません。約1時間後に自動停止します（説明書23ページ）。長期保管前は内部乾燥・排水・すべての清掃を行い、ほこりよけをかぶせ、水平で安定した湿気の少ない場所に立てて保管します。",
+    "suggestions": [
+      {
+        "name": "左右フィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/653/000000004397653/F-YEX120B_web.pdf#page=19",
+        "conditions": "説明書18〜19ページ。電源プラグを抜き、必ず排水してから行います。左右のフィルターの汚れを掃除機などで取り除きます。繊維部分を強くこすったり押したりしません。つめを本体の穴に合わせ、上側を押してはめ込みます。フィルターを外したまま使わず、破損した場合は交換します。"
+      },
+      {
+        "name": "タンクセットのすすぎ洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/653/000000004397653/F-YEX120B_web.pdf#page=19",
+        "conditions": "説明書18〜19ページ。電源プラグを抜き、必ず排水してから行います。タンクハンドルを上げ、排水口を開けてタンクふたを引き上げます。排水口を引っ張りません。タンクとふたを水で2〜3回すすぎます。フロートは外さず、水でぬめりや軸周辺の汚れを落とします。しつこい汚れには薄めた台所用中性洗剤を使います。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
