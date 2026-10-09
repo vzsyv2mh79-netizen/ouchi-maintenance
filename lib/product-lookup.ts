@@ -8308,4 +8308,129 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "気化式加湿機",
+    "modelNumber": "FE-KX07C",
+    "categoryId": "humidifier",
+    "productUrl": "https://panasonic.jp/kashitsu/products/FE-KX07C/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf",
+    "manualLinkLabel": "取扱説明書（詳細版）",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/kashitsu/products/FE-KX07C.html",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式商品ページで2025年度モデルと確認。公式サポートの詳細版説明書12〜14ページを確認。タンクは毎日、プレフィルター・トレー・加湿フィルターと枠・イオン除菌ユニットは約1か月に1回お手入れします。におい、水が減りにくい、トレーの水が変色する場合は早めに行います。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。加湿フィルターの交換目安は約10年（1日8時間運転・定期的なお手入れ時）ですが、においが取れない、水が減らない、傷みや縮みがある場合は早めに交換します。交換用FE-ZKE07を使い、フィルター枠は捨てません。長期保管ではタンク・トレーの水を捨て、すべてお手入れし、加湿フィルターを十分陰干しして乾かします。本体は寝かせたり逆さにしたりせず、湿気の少ない場所に保管します。",
+    "suggestions": [
+      {
+        "name": "タンクの水洗い",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "毎日（予定計算は1日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。タンクを水洗いします。"
+      },
+      {
+        "name": "プレフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。背面・側面の汚れを掃除機などで取り除きます。突起を穴に差し込み、カチッと音がするまで戻します。外したまま運転しません。"
+      },
+      {
+        "name": "トレーの水洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。タンクと側面プレフィルターを外してトレーを取り出し、水洗いします。細部は綿棒や歯ブラシで掃除します。フロートは外しません。排水はトレーを取り出してから行い、本体から直接排水しません。"
+      },
+      {
+        "name": "加湿フィルター・フィルター枠の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=13",
+        "conditions": "説明書13ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。加湿フィルターは水かぬるま湯で押し洗いし、枠は水洗いします。ブラシでこすらず、洗濯機・乾燥機を使いません。すぐ使う場合はぬれたままで構いません。縫い合わせの赤線を内側にしてトレーに入れ、枠をかぶせカチッとロックします。"
+      },
+      {
+        "name": "イオン除菌ユニットのつけ置き洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=13",
+        "conditions": "説明書13ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。ユニットは枠から外れないため、ユニット部分だけを加湿機用洗浄剤などでつけ置き洗いします。分解せず、ブラシでこすったり強く押したりしません。説明書14ページの洗浄剤使用方法に従い、約30分つけ置き後、新しい水で2〜3回すすぎます。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "気化式加湿機",
+    "modelNumber": "FE-KX05C",
+    "categoryId": "humidifier",
+    "productUrl": "https://panasonic.jp/kashitsu/products/FE-KX05C/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf",
+    "manualLinkLabel": "取扱説明書（詳細版）",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/kashitsu/products/FE-KX05C.html",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式商品ページで2025年度モデルと確認。公式サポートの詳細版説明書12〜14ページを確認。タンクは毎日、プレフィルター・トレー・加湿フィルターと枠・イオン除菌ユニットは約1か月に1回お手入れします。におい、水が減りにくい、トレーの水が変色する場合は早めに行います。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。加湿フィルターの交換目安は約10年（1日8時間運転・定期的なお手入れ時）ですが、においが取れない、水が減らない、傷みや縮みがある場合は早めに交換します。交換用FE-ZKE07を使い、フィルター枠は捨てません。長期保管ではタンク・トレーの水を捨て、すべてお手入れし、加湿フィルターを十分陰干しして乾かします。本体は寝かせたり逆さにしたりせず、湿気の少ない場所に保管します。",
+    "suggestions": [
+      {
+        "name": "タンクの水洗い",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "毎日（予定計算は1日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。タンクを水洗いします。"
+      },
+      {
+        "name": "プレフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。背面・側面の汚れを掃除機などで取り除きます。突起を穴に差し込み、カチッと音がするまで戻します。外したまま運転しません。"
+      },
+      {
+        "name": "トレーの水洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=12",
+        "conditions": "説明書12ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。タンクと側面プレフィルターを外してトレーを取り出し、水洗いします。細部は綿棒や歯ブラシで掃除します。フロートは外しません。排水はトレーを取り出してから行い、本体から直接排水しません。"
+      },
+      {
+        "name": "加湿フィルター・フィルター枠の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=13",
+        "conditions": "説明書13ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。加湿フィルターは水かぬるま湯で押し洗いし、枠は水洗いします。ブラシでこすらず、洗濯機・乾燥機を使いません。すぐ使う場合はぬれたままで構いません。縫い合わせの赤線を内側にしてトレーに入れ、枠をかぶせカチッとロックします。"
+      },
+      {
+        "name": "イオン除菌ユニットのつけ置き洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "約1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/749/356/000000003749356/KX07C_KX05C_HP%E6%8E%B2%E8%BC%89%E7%94%A8_web_0.pdf#page=13",
+        "conditions": "説明書13ページ。電源プラグを抜いてからお手入れします。お手入れ後は電源プラグを差し込み「フィルター」ボタンを約3秒押してリセットします。ユニットは枠から外れないため、ユニット部分だけを加湿機用洗浄剤などでつけ置き洗いします。分解せず、ブラシでこすったり強く押したりしません。説明書14ページの洗浄剤使用方法に従い、約30分つけ置き後、新しい水で2〜3回すすぎます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
