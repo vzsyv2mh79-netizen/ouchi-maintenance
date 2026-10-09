@@ -1238,3 +1238,17 @@ test('Iris hybrid humidifiers use their own page offsets and unpowered tank soak
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2024 Iris MH60 steam humidifiers retain the explicit 2h timer cleaning setting', () => {
+ for(const [model,id] of [['AHM-MH60','298878'],['KHM-MH60','299193']]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,60]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[16,15,14].map(n=>c.manualUrl+'#page='+n));
+  assert.doesNotMatch(c.lookupNote,/使用するたび|使うたび/);
+  assert.match(c.suggestions[0].conditions,/完全に冷めて.*絞った/);
+  assert.match(c.suggestions[1].conditions,/パッキンは外しません.*16ページ/);
+  assert.match(c.suggestions[2].conditions,/30g.*40℃以下.*3L.*濃度を高くしません.*満水線.*差し込み.*「強」.*タイマーボタンで「2h」.*完全に冷めてから湯を捨て.*すすぎ/);
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});

@@ -9866,4 +9866,95 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "AHM-MH60",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/298878.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2024年12月発売と専用説明書を確認。表紙の基本品番AHM-MH60に対応します。14〜16ページのお手入れを確認しました。シンナー・ベンジン・洗剤・漂白剤は使いません。クエン酸洗浄のみ説明書14ページの専用手順に従います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/298878.pdf#page=16",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞った柔らかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/298878.pdf#page=15",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を取り外し、柔らかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。取り付けは説明書16ページの図と順番に従います。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/298878.pdf#page=14",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸30gを水または40℃以下のぬるま湯3Lでよく溶かし、水タンクに入れます。濃度を高くしません。満水線まで水を入れ、上ぶたを閉めます。この洗浄手順では電源プラグを差し込み、電源を入れ、加湿量「強」を選び、タイマーボタンで「2h」を選びます。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書14ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "KHM-MH60",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/299193.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2024年12月発売と専用説明書を確認。表紙の基本品番KHM-MH60に対応します。14〜16ページのお手入れを確認しました。シンナー・ベンジン・洗剤・漂白剤は使いません。クエン酸洗浄のみ説明書14ページの専用手順に従います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/299193.pdf#page=16",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞った柔らかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/299193.pdf#page=15",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を取り外し、柔らかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。取り付けは説明書16ページの図と順番に従います。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/299193.pdf#page=14",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸30gを水または40℃以下のぬるま湯3Lでよく溶かし、水タンクに入れます。濃度を高くしません。満水線まで水を入れ、上ぶたを閉めます。この洗浄手順では電源プラグを差し込み、電源を入れ、加湿量「強」を選び、タイマーボタンで「2h」を選びます。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書14ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
