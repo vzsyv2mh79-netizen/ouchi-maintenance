@@ -711,3 +711,16 @@ test('2026 V four variants preserve own sources, water conditions and capacity-s
  }
  assert.equal(lookup.lookupModel('R-V38YG').length,0);
 });
+
+
+test('2026 R27Y cites only its own nonautomatic-ice care', () => {
+ const [c]=lookup.lookupModel('R-27Y');
+ assert.ok(lookup.supportedModels.includes('R-27Y'));assert.equal(c.releaseYear,2026);
+ assert.match(c.manualUrl,/r_27y_a\.pdf$/);
+ assert.match(c.lookupNote,/2026年8月発売/);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,90,90,180,180]);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=10'));
+ assert.ok(!c.suggestions.some(x=>/給水|製氷|フィルター|側面/.test(x.name)));
+ assert.match(c.suggestions[6].conditions,/蒸発皿を取り外さない/);
+ assert.equal(lookup.lookupModel('R-27YL').length,0);
+});
