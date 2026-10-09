@@ -110,3 +110,18 @@ test('2024–2026 steam humidifiers retain their own release evidence and revise
   for (const model of ['EE-DG5','EE-DG50-WA','EE-DG60','EE-RV30','EE-DE50DS']) assert.equal(lookup.lookupModel(model).length,0);
   assert.equal(lookup.lookupModel(' ｅｅ－ｄｇ５０ ')[0].releaseYear,2026);
 });
+
+test('TX100/TX75 use their 2024 shared manual without inventing usage-based schedules', () => {
+  for (const model of ['KI-TX100','KI-TX75']) {
+    const [candidate] = lookup.lookupModel(model);
+    assert.equal(candidate.releaseYear,2024);
+    assert.ok(candidate.releaseSourceUrl.endsWith('240903-a.html'));
+    assert.ok(candidate.manualUrl.endsWith('kitx100_tx75_mn.pdf'));
+    assert.deepEqual(candidate.suggestions.map(item => item.intervalDays),[30,30,30]);
+    assert.deepEqual(candidate.suggestions.map(item => item.sourceUrl.split('#').at(-1)),['page=24','page=24','page=26']);
+    assert.ok(candidate.lookupNote.includes('給水のたび'));
+    assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
+    assert.ok(candidate.suggestions[2].conditions.includes('水洗い・天日干ししない'));
+  }
+  for (const model of ['KI-TX70','KI-TX100-H','KI-UX100']) assert.equal(lookup.lookupModel(model).length,0);
+});

@@ -130,6 +130,30 @@ for (const { family, year } of recentSteamManuals) {
   }
 }
 
+// Both TX variants are explicitly listed in this shared 2024 manual.
+const txManual = "https://jp.sharp/restricted/support/manual/air_purifier/kitx100_tx75_mn.pdf";
+const txRelease = "https://corporate.jp.sharp/news/240903-a.html";
+for (const modelNumber of ["KI-TX100", "KI-TX75"]) {
+  catalog.push({
+    maker: "SHARP", name: "加湿空気清浄機", modelNumber, categoryId: "air-purifier",
+    productUrl: txRelease, manualUrl: txManual, discoveredManualUrl: txManual,
+    productLinkLabel: "品番・発売日を確認できる公式発表", manualLinkLabel: "取扱説明書",
+    releaseYear: 2024, releaseSourceUrl: txRelease, verifiedAt: "2026-10-09",
+    lookupNote: "2024年9月12日発売。共通説明書の表紙に両品番を掲載。23〜26ページで月ごとのお手入れを確認済みです。給水のたび・運転時間による表示・汚れやにおいの条件は、日数に置き換えず説明書で確認してください。",
+    suggestions: [
+      { name: "本体のお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${txManual}#page=24`,
+        conditions: "説明書24ページ。停止して電源プラグを抜き、柔らかい布で拭きます。本体は水洗いせず、キャスターも確認してください。" },
+      { name: "加湿フィルター・トレーのお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）・汚れやにおいが気になるとき", sourceKind: "取扱説明書", sourceUrl: `${txManual}#page=24`,
+        conditions: "説明書24〜25ページ。停止して電源プラグを抜き、水洗いします。フィルターを分解せず、フロートを外さないでください。汚れ・においがある場合は予定前でも実施し、洗剤・すすぎ・加湿内部洗浄の操作は説明書で確認してください。" },
+      { name: "後ろパネル・センサー部のお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${txManual}#page=26`,
+        conditions: "説明書26ページ。停止して電源プラグを抜き、ほこりを掃除機で取ります。汚れが残る場合の洗浄方法は説明書を確認し、洗った部品は十分乾かして取り付けてください。集じん・脱臭フィルターは水洗い・天日干ししないでください。" },
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
