@@ -216,3 +216,7 @@ R-WXC74W and R-GXCC67W: exact official launch pages and dedicated r_wxc74w_a.pdf
 ## Hitachi R-27TV (October 2023)
 
 Official support records October 2023; exact day is not provided there. Dedicated r_27tv_c.pdf cover and pages 10/11/15 inspected independently. Seven care tasks; no automatic ice maker or fixed side-panel cleaning. Lower-case projections/corner holes and frame rollers/rail directions preserved.
+
+## Panasonic MC-PJ25A
+
+Official rendered https://panasonic.jp/soji/products.html explicitly shows February 2026 release (not January announcement). Support-linked MC-PJ25A.pdf cover and PDF6–7 (printed10–13) independently inspected. Two monthly-approximate suggestions retain reduced-suction/dirty condition; nozzle waterwash/dry restrictions and body/hose/extension no-waterwash preserved. Filter care only when suction fails to recover after bag replacement; bag change on lamp signal, no invented recurring intervals.
