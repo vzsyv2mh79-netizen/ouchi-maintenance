@@ -12667,4 +12667,121 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式サイクロンスティッククリーナー",
+  "modelNumber": "SCD-220",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=4",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/205900.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2024,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=4",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2024年10月発売、専用説明書の表紙と清掃ページを確認。機種ごとの清掃周期と取り外し・洗浄・再取り付け手順に基づきます。清掃後も吸引力が弱い場合のフィルター交換は使用状況によるため、固定交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・延長パイプ・ヘッド外側・付属品の拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/205900.pdf#page=30",
+      "conditions": "必ず運転を停止し、USB充電ケーブルを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。よく絞った柔らかい布で本体・延長パイプ・フロアヘッド外側・すき間ノズルなどを拭きます。"
+    },
+    {
+      "name": "ダストカップ・フィルターのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/205900.pdf#page=31",
+      "conditions": "必ず運転を停止し、USB充電ケーブルを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。カップを反時計回りに回し、本体の三角マークと開いた鍵マークを合わせ、下に引いて外します。無理に外しません。サイクロンユニット・排気・スポンジフィルターを外します。サイクロンユニット・ケース・スポンジ・排気フィルターは、ごみを軽くはたき落として水洗いします。排気の汚れが気になる場合は水に約30分浸してから洗います。よく水を切り、風通しのよい場所に約24時間置いて十分に乾かし、ドライヤーなどの熱風を当てません。スポンジをユニット中央のくぼみに入れ、排気を取り付け、凸部と切り欠きを合わせてケースに戻します。本体の三角マークと開いた鍵マークを合わせてカップを差し込み、時計回りに回し、三角マークと閉じた鍵マークを合わせて確実にはめ込みます。フィルター類を忘れずに取り付けます。続きは32〜33ページの図を確認してください。"
+    },
+    {
+      "name": "本体風路・延長パイプの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/205900.pdf#page=34",
+      "conditions": "必ず運転を停止し、USB充電ケーブルを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。本体風路・延長パイプ内部を定期的に点検し、詰まったごみをピンセットや割りばしなどで取り除きます。"
+    },
+    {
+      "name": "フロアヘッドの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/205900.pdf#page=34",
+      "conditions": "必ず運転を停止し、USB充電ケーブルを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。フロアヘッド内部と吸い込み口を点検し、詰まったごみをピンセットや割りばしなどで取り除きます。"
+    }
+  ]
+} satisfies ProductCandidate);
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式サイクロンスティッククリーナー",
+  "modelNumber": "SCD-185P",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=4",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2024,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=4",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2024年5月発売、専用説明書の表紙と清掃ページを確認。機種ごとの清掃周期と取り外し・洗浄・再取り付け手順に基づきます。清掃後も吸引力が弱い場合のフィルター交換は使用状況によるため、固定交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・延長パイプ・ヘッド外側・付属品の拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf#page=30",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。よく絞った柔らかい布で本体・延長パイプ・フロアヘッド外側・すき間ノズルなどを拭きます。"
+    },
+    {
+      "name": "ダストカップ・フィルターのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf#page=31",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。カップ底の取り外しボタンを押してロックを外し、手前に引きます。ボタンを押さずに無理に外しません。サイクロンユニット・排気・スポンジフィルターを外し、ユニット上を反時計回りに回して上下に分解します。サイクロンユニット・ケース・スポンジ・排気フィルターは、ごみを軽くはたき落として水洗いします。排気の汚れが気になる場合は水に約30分浸してから洗います。よく水を切り、風通しのよい場所に約24時間置いて十分に乾かし、ドライヤーなどの熱風を当てません。ユニット上を下にはめ込み、時計回りに回して組み立てます。スポンジをユニット中央のくぼみに入れ、排気を取り付け、凸部と切り欠きを合わせてケースに戻します。カップ上側の穴に本体のつめを差し込み、カチッと鳴るまで押し込みます。続きは32〜33ページを確認してください。"
+    },
+    {
+      "name": "本体風路・延長パイプの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf#page=34",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。本体風路・延長パイプ内部を定期的に点検し、詰まったごみをピンセットや割りばしなどで取り除きます。"
+    },
+    {
+      "name": "フロアヘッドの詰まり点検",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf#page=34",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。フロアヘッド内部と吸い込み口を点検し、詰まったごみをピンセットや割りばしなどで取り除きます。"
+    },
+    {
+      "name": "回転ブラシのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/202399.pdf#page=35",
+      "conditions": "必ず運転を停止し、充電アダプターを本体から抜いて行います。本体・充電機器には水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使いません。カバーのつめを押し下げて手前に引き、カバーを外します。回転ブラシを持ち上げて外します。巻き付いた髪の毛をピンセットで取り、絡まったごみはブラシの溝に沿ってはさみで切り、水洗いします。よく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。ブラシを戻し、カバーのつめをフロアヘッド前端内側に引っかけ、カチッと音がするまで押し込みます。再取り付けは36ページを確認してください。"
+    }
+  ]
+} satisfies ProductCandidate);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
