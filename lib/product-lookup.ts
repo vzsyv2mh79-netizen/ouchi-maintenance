@@ -8093,4 +8093,33 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式キャニスター掃除機",
+    "modelNumber": "MC-JP880K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-JP880K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/246/245/000000003246245/MC-JP880K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年5月発売を確認。専用説明書印刷12〜17ページ（PDF7〜9ページ）を確認。清掃は吸込力が弱くなったとき／気になったときで、固定周期を設定しません。切を押し電源プラグを抜きます。親ノズル本体・手元ブラシ・子ノズル・本体・ホース・延長管は水洗い禁止。回転ブラシは固く絞った布で水拭きし、ノズルカバーだけ水洗いできます。カバーのつめを2か所の凹部にはめ込みます。洗浄後は十分乾燥させ、熱風や洗剤・ベンジン・シンナー・アルコールを使いません。センサーはクリーンランプのつき方がおかしいときだけ柔らかい布で乾拭きし、水洗い禁止です。フィルターは紙パック交換後も吸込力が戻らないときだけ軽くはたくか軽く水洗いし、押し洗いします。もみ洗い・洗濯機洗いをせず十分乾燥させ、図の印を上側にしてガイド（ゴム部）と溝の内側へ必ず戻します。紙パックは純正M型Vタイプを使用。オレンジ色ランプの約2秒間隔の点滅はもうすぐ交換、点灯はすぐ交換です。紙パックの挿入方向を合わせ、シャッター付きなら捨てる前にシャッターを閉じます。交換自体は固定周期にはしません。",
+    "suggestions": [
+      {
+        "name": "紙パックのたまり具合確認",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "月1回程度（予定計算は30日）／ランプとたまり具合で交換を判断",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/246/245/000000003246245/MC-JP880K.pdf#page=9",
+        "conditions": "説明書印刷16ページ（PDF9ページ）の「紙パックはいつ交換するの？」を確認。ゴミの種類によってランプが正しく点灯しない場合があるため、直接たまり具合を確認します。切を押し電源プラグを抜きます。ペットの毛や綿ごみが多い場合は特に確認してください（印刷12ページ）。交換は固定周期ではなく、純正M型Vタイプを使用し、挿入方向を合わせます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
