@@ -496,3 +496,20 @@ test('R27X only proposes its own nonautomatic-ice care', () => {
  assert.match(c.suggestions[6].conditions,/蒸発皿を取り外さない/);
  assert.equal(lookup.lookupModel('R-27XL').length,0);
 });
+
+
+test('R-H54XG uses its own manual and conditional four-minute ice cleaning', () => {
+ const [c]=lookup.lookupModel('R-H54XG');
+ assert.ok(lookup.supportedModels.includes('R-H54XG'));
+ assert.match(c.manualUrl,/r_h54xg_b\.pdf$/);
+ assert.match(c.lookupNote,/2025年10月発売/);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ assert.match(c.suggestions[0].conditions,/フィルター部分にはスポンジも使わず/);
+ assert.match(c.suggestions[6].conditions,/レールの潤滑剤を拭き取らない/);
+ assert.match(c.lookupNote,/約4分/);
+ assert.match(c.lookupNote,/初回・1週間以上不使用後のみ/);
+ assert.ok(!c.suggestions.some(x=>/製氷おそうじ|カメラ|電動/.test(x.name)));
+ assert.ok(!c.suggestions.some(x=>/プラチナ触媒|しきり/.test(x.conditions)));
+ assert.equal(lookup.lookupModel('R-H54YG').length,0);
+});
