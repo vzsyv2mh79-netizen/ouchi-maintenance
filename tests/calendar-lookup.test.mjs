@@ -872,3 +872,30 @@ test('2024 premium V models preserve own vacuum, ice-tray and PLATINUM divider d
  assert.ok(!g.suggestions.some(x=>/真空|製氷皿/.test(x.name)));
  assert.equal(lookup.lookupModel('R-WXC74VG').length,0);
 });
+
+test('2024 premium W models preserve own vacuum, ice-tray and PLATINUM divider distinctions', () => {
+ const [w]=lookup.lookupModel('R-WXC74W'),[g]=lookup.lookupModel('R-GXCC67W');
+ for(const c of [w,g]) {
+  assert.ok(lookup.supportedModels.includes(c.modelNumber));assert.equal(c.releaseYear,2024);
+  assert.match(c.lookupNote,/2024年11月発売/);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.lookupNote,/電動引き出し.*電源プラグ.*水.*分解/);
+  assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/カメラ|電動引き出し|製氷おそうじ/.test(x.name)));
+ }
+ assert.match(w.manualUrl,/r_wxc74w_a\.pdf$/);
+ assert.deepEqual(w.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095,180]);
+ assert.match(w.suggestions[4].conditions,/真空チルド.*ハンドル.*ロック/);
+ assert.match(w.suggestions[4].conditions,/6か所/);
+ assert.match(w.suggestions[10].conditions,/MENU.*製氷停止.*約1分/);
+ assert.match(w.suggestions[6].conditions,/「R」.*正面右下/);
+ assert.match(w.suggestions[9].conditions,/57ページ/);
+ assert.match(g.manualUrl,/r_gxcc67w_a\.pdf$/);
+ assert.deepEqual(g.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+ assert.match(g.suggestions[6].conditions,/PLATINUM/);
+ assert.ok(!/「R」/.test(g.suggestions[6].conditions));
+ assert.match(g.suggestions[6].conditions,/しきりを付けずに本体へ入れない/);
+ assert.match(g.suggestions[9].conditions,/58ページ/);
+ assert.ok(!g.suggestions.some(x=>/真空|製氷皿/.test(x.name)));
+ assert.equal(lookup.lookupModel('R-WXC74WG').length,0);
+});

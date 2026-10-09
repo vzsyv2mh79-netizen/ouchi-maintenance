@@ -208,3 +208,7 @@ R-KXCC57V。公式サポート2024年2月発売、専用r_kxcc57v_b.pdf表紙・
 
 ## 日立2024年WXC/GXCC V冷蔵庫
 R-WXC74V/R-GXCC67V。各公式サポート2024年2月発売、各専用r_wxc74v_b.pdf/r_gxcc67v_b.pdf表紙・40〜45/57・41〜45/58図表を独立確認。WXCは真空チルド月1/パッキング汚れ時水洗い自然乾燥6突起/ハンドルロック、製氷皿年1〜2回停止点灯後/約1分、計11項目。GXCCは特鮮氷温月1、PLATINUM向き/しきり無し本体挿入禁止、計10項目。触媒取り外し/水洗い禁止、ケース逆さ排水/ブラシ禁止/潤滑剤保持。電動引き出し異物/汁時のみ乾拭き、水かけ/分解/リンク操作禁止。カメラGXのみ汚れ時。製氷初回/週不使用後4分条件付き、WはMENU操作。
+
+## Hitachi WXC/GXCC W (November 2024)
+
+R-WXC74W and R-GXCC67W: exact official launch pages and dedicated r_wxc74w_a.pdf / r_gxcc67w_a.pdf cover, care, removal and parts pages independently inspected. WXC pages 40–45/57: 11 tasks; GXCC pages 41–45/58: 10 tasks. Vacuum packing and ice-tray stop/resume differ from special-chiller and PLATINUM divider assembly. Camera/electric-drawer and first-use/week-unused ice cleaning remain conditional.
