@@ -467,3 +467,20 @@ test('HWS right and left models retain dedicated manual and catalyst restriction
  }
  assert.equal(lookup.lookupModel('R-HWS47Y').length,0);
 });
+
+
+test('Hitachi V X preserves three-minute ice cleaning and water-dependent tank care', () => {
+ for (const model of ['R-V38X','R-V38XL','R-V32X','R-V32XL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.match(c.manualUrl,/r_v38x_a\.pdf$/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.match(c.suggestions[0].conditions,/塩素を含まない水.*3日に1回/);
+  assert.match(c.lookupNote,/約3分/);
+  assert.match(c.lookupNote,/製氷皿は取り外せず/);
+  assert.ok(!c.suggestions.some(x=>/氷温|チルド|側面|製氷皿/.test(x.name)));
+  assert.match(c.suggestions[7].conditions,model.includes('38')?/上に引っ張り/:/手前に引っ張り/);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ }
+ assert.equal(lookup.lookupModel('R-V38Y').length,0);
+});
