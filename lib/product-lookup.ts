@@ -6560,4 +6560,219 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-HXCC62V",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HXCC62V/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HXCC62V/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2024年2月発売の各公式サポートと、2品番を明記したHXCC V専用説明書を確認済み。41〜42ページの周期を提案します。カメラは汚れが気になるときに電源プラグを抜き、柔らかい布でほこりなどを拭き取ります（41ページ）。定期予定にはしません。製氷おそうじは初回・1週間以上不使用後のみ（43ページ）。通電状態でタンク満水・正しい位置、氷を取り除き、冷蔵室以外のドアを閉めて製氷ボタンを5秒以上押します。冷蔵室も閉め、約4分終了まで全ドアを開けません。終了後の排水は43ページの図に従ってください。機械部には手を入れないでください。条件付きのため定期予定にはしません。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "特鮮氷温ルームの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。電源プラグを抜き、食品を出して44ページの図に従ってケースを外し、ケースと容器をぬるま湯を含ませた柔らかい布で拭きます。洗剤は使わず、ドアやハンドルだけを持たずケース全体を持ち、指を下に入れないでください。取り付け後は何度か出し入れして正しく取り付けたことを確認してください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書44ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。電源プラグを抜き、食品を出して45ページの図に従って外し、ぬるま湯を含ませた柔らかい布で拭きます。野菜室のプラチナ触媒は水洗いしないでください。説明書にない部品は取り外さないでください。野菜室の下段ケースを外す前にしきりを外します。しきりの「R」を正面右下にして最後まで取り付けます。野菜室の上段ケースは「手前 FRONT」を手前にします。冷凍室下段の小物ケースは「手前 FRONT」とスリットのある方を手前にし、左右のつめを大物ケースの外側にセットしてください。野菜室下段ケースを水洗いした場合は裏返して排水し十分に乾かします。下段ケース背面の水垂れに注意し、歯ブラシやたわしなど毛足の長いものを使わず、ケースやレールの潤滑剤を拭き取らないでください。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・側面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。脚カバーを外し調節脚を上げて冷蔵庫を手前に引き出す方法は、説明書の図と移動時の注意を確認してください。傷つきやすい床は板などで保護し、無理に動かさないでください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書58ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  },
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-HXCC54V",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HXCC54V/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HXCC54V/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2024年2月発売の各公式サポートと、2品番を明記したHXCC V専用説明書を確認済み。41〜42ページの周期を提案します。カメラは汚れが気になるときに電源プラグを抜き、柔らかい布でほこりなどを拭き取ります（41ページ）。定期予定にはしません。製氷おそうじは初回・1週間以上不使用後のみ（43ページ）。通電状態でタンク満水・正しい位置、氷を取り除き、冷蔵室以外のドアを閉めて製氷ボタンを5秒以上押します。冷蔵室も閉め、約4分終了まで全ドアを開けません。終了後の排水は43ページの図に従ってください。機械部には手を入れないでください。条件付きのため定期予定にはしません。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "特鮮氷温ルームの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。電源プラグを抜き、食品を出して44ページの図に従ってケースを外し、ケースと容器をぬるま湯を含ませた柔らかい布で拭きます。洗剤は使わず、ドアやハンドルだけを持たずケース全体を持ち、指を下に入れないでください。取り付け後は何度か出し入れして正しく取り付けたことを確認してください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書44ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。電源プラグを抜き、食品を出して45ページの図に従って外し、ぬるま湯を含ませた柔らかい布で拭きます。野菜室のプラチナ触媒は水洗いしないでください。説明書にない部品は取り外さないでください。野菜室の下段ケースを外す前にしきりを外します。しきりの「R」を正面右下にして最後まで取り付けます。野菜室の上段ケースは「手前 FRONT」を手前にします。冷凍室下段の小物ケースは「手前 FRONT」とスリットのある方を手前にし、左右のつめを大物ケースの外側にセットしてください。野菜室下段ケースを水洗いした場合は裏返して排水し十分に乾かします。下段ケース背面の水垂れに注意し、歯ブラシやたわしなど毛足の長いものを使わず、ケースやレールの潤滑剤を拭き取らないでください。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・側面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=41",
+        "conditions": "説明書41ページ。物理的な清掃・交換は電源プラグを抜いて行います。脚カバーを外し調節脚を上げて冷蔵庫を手前に引き出す方法は、説明書の図と移動時の注意を確認してください。傷つきやすい床は板などで保護し、無理に動かさないでください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hxcc62v_b.pdf#page=42",
+        "conditions": "説明書42ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書58ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
