@@ -1266,3 +1266,27 @@ test('AAP-AH50A keeps daily humidification care separate from non-cleanable air 
  assert.match(c.suggestions[5].conditions,/1日8時間.*水質.*におい.*水が減らない.*傷み・縮み.*枠は捨てず.*5か所/);
  assert.equal(lookup.lookupModel('AAP-AH50AX').length,0);
 });
+
+
+test('KAP-AH501 uses its dedicated care pages one page after AAP-AH50A', () => {
+ const [c]=lookup.lookupModel('KAP-AH501');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('289204.pdf'));
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,1,30,30,30,730]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[39,39,41,41,42,45].map(n=>c.manualUrl+'#page='+n));
+ assert.match(c.lookupNote,/38・43ページ.*44ページ.*約3秒.*38ページ/);
+ assert.match(c.suggestions[4].conditions,/分解せず.*3L.*約18g.*後ろ/);
+ assert.match(c.suggestions[5].conditions,/1日8時間.*枠は捨てず.*5か所/);
+ assert.equal(lookup.lookupModel('KAP-AH501X').length,0);
+});
+
+test('2024 Iris ultrasonic humidifiers preserve internal-only washing and silver bead soak', () => {
+ for(const [model,id] of [['AHM-UU28B','107242'],['KHM-UU281','107243']]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'humidifier');assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=24'));
+  assert.match(c.lookupNote,/使うたび.*吹き出し口.*排水方向.*本体内部だけ.*外側に水をかけず.*開けず.*上部のみ/);
+  assert.match(c.lookupNote,/吸気口.*ほこりがつまっていたら.*十分乾燥.*フィルターなし.*周期未指定.*固定の日数/);
+  assert.match(c.suggestions[0].conditions,/ブラシ.*綿棒.*やさしく.*傷/);
+  assert.match(c.suggestions[1].conditions,/中央に入れたまま.*40℃以下.*3L.*20g.*浸る量.*2〜5分.*濃度を高くしません.*開けません/);
+  assert.doesNotMatch(c.suggestions[1].conditions,/2時間|「強」|電源を入れ/);
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
