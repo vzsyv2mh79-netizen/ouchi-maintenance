@@ -448,7 +448,7 @@ test('Hitachi H X uses its own shared manual and excludes unrelated camera and d
   assert.match(c.lookupNote,/冷蔵室以外のドア/);
   assert.ok(!/カメラ|電動引き出し|MENU/.test(c.lookupNote));
  }
- assert.equal(lookup.lookupModel('R-H54Y').length,0);
+ assert.equal(lookup.lookupModel('R-H54XX').length,0);
 });
 
 
@@ -655,4 +655,22 @@ test('2026 HZC Y preserves vacuum room care and dedicated manual evidence', () =
   assert.ok(!c.suggestions.some(x=>/特鮮|製氷おそうじ|カメラ/.test(x.name)));
  }
  assert.equal(lookup.lookupModel('R-HZC49Y').length,0);
+});
+
+
+test('2026 H Y models retain their own chiller and drainage care without catalyst advice', () => {
+ for(const model of ['R-H54Y','R-H49Y']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2026);
+  assert.match(c.manualUrl,/r_h54y_a_01\.pdf$/);
+  assert.match(c.lookupNote,/2026年4月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.equal(c.suggestions[4].name,'特鮮氷温ルームの清掃');
+  assert.match(c.suggestions[6].conditions,/裏返して排水し十分に乾かし/);
+  assert.match(c.suggestions[6].conditions,/毛足の長いものは使わず/);
+  assert.ok(!c.suggestions.some(x=>/触媒|しきりを外|真空|カメラ/.test(x.name+x.conditions)));
+  assert.match(c.lookupNote,/約4分/);
+ }
+ assert.equal(lookup.lookupModel('R-H54YG').length,0);
 });
