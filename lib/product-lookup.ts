@@ -7654,4 +7654,95 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式キャニスター掃除機",
+    "modelNumber": "MC-PJ250G",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-PJ250G/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/096/000000003562096/MC-PJ250G.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年8月発売を確認。専用説明書印刷14〜16ページ（PDF8〜9ページ）のお手入れは、吸込力が弱くなったとき（月1回程度）／気になったときです。フィルターは紙パック交換後も吸込力が戻らないとき、軽くはたくか軽く水洗いし、もみ洗い・洗濯機洗いをせず十分乾燥させ、ガイド内側に必ず再装着します（印刷16ページ）。紙パックは交換ランプの点灯・点滅時に純正M型Vタイプを使用します（印刷12〜13ページ）。紙パック交換とフィルター清掃は固定周期にはしません。 ゴミ検知ランプのつき方がおかしいとき（消えないなど）は、内部センサーを柔らかい布でから拭きします。水洗い禁止、固定周期にはしません（印刷15ページ）。",
+    "suggestions": [
+      {
+        "name": "親ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/096/000000003562096/MC-PJ250G.pdf#page=8",
+        "conditions": "説明書印刷14ページ（PDF8ページ）。切を押し電源プラグを抜き、接点・ローラーなどのごみを取り除きます。親ノズル本体は水洗い禁止で、回転部（ブラシ）だけ水洗いできます。取り外し・再装着時はベルトとブラシカバーのつめ、ひらく／しまるの方向を説明書の図で確認してください。水洗いしたブラシは水を切り陰干しして十分乾燥させ、ドライヤー・洗剤を使わないでください。"
+      },
+      {
+        "name": "子ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/096/000000003562096/MC-PJ250G.pdf#page=8",
+        "conditions": "説明書印刷15ページ（PDF8ページ）。切を押し電源プラグを抜き、接点などのごみを取り除きます。子ノズルは水洗い禁止です。"
+      },
+      {
+        "name": "本体・ホース・延長管の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/096/000000003562096/MC-PJ250G.pdf#page=8",
+        "conditions": "説明書印刷15ページ（PDF8ページ）。切を押し電源プラグを抜き、柔らかい布を固く絞って水拭きします。本体・ホース・延長管は水洗い禁止です。洗剤・ベンジン・シンナー・アルコールを使わないでください。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式キャニスター掃除機",
+    "modelNumber": "MC-PJ25G",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-PJ25G/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/100/000000003562100/MC-PJ25G.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年8月発売を確認。専用説明書印刷14〜16ページ（PDF8〜9ページ）のお手入れは、吸込力が弱くなったとき（月1回程度）／気になったときです。フィルターは紙パック交換後も吸込力が戻らないとき、軽くはたくか軽く水洗いし、もみ洗い・洗濯機洗いをせず十分乾燥させ、ガイド内側に必ず再装着します（印刷16ページ）。紙パックは交換ランプの点灯・点滅時に純正M型Vタイプを使用します（印刷12〜13ページ）。紙パック交換とフィルター清掃は固定周期にはしません。",
+    "suggestions": [
+      {
+        "name": "親ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/100/000000003562100/MC-PJ25G.pdf#page=8",
+        "conditions": "説明書印刷14ページ（PDF8ページ）。切を押し電源プラグを抜き、接点・ローラーなどのごみを取り除きます。親ノズル本体は水洗い禁止で、回転部（ブラシ）だけ水洗いできます。取り外し・再装着時はベルトとブラシカバーのつめ、ひらく／しまるの方向を説明書の図で確認してください。水洗いしたブラシは水を切り陰干しして十分乾燥させ、ドライヤー・洗剤を使わないでください。"
+      },
+      {
+        "name": "子ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/100/000000003562100/MC-PJ25G.pdf#page=8",
+        "conditions": "説明書印刷15ページ（PDF8ページ）。切を押し電源プラグを抜き、接点などのごみを取り除きます。子ノズルは水洗い禁止です。"
+      },
+      {
+        "name": "本体・ホース・延長管の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/562/100/000000003562100/MC-PJ25G.pdf#page=8",
+        "conditions": "説明書印刷15ページ（PDF8ページ）。切を押し電源プラグを抜き、柔らかい布を固く絞って水拭きします。本体・ホース・延長管は水洗い禁止です。洗剤・ベンジン・シンナー・アルコールを使わないでください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
