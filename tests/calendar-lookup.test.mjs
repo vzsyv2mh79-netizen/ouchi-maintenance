@@ -151,5 +151,18 @@ test('2024 washer D variants use the D manual and weekly drain-filter evidence',
     assert.ok(candidate.suggestions[2].conditions.includes('ブザー'));
     assert.ok(candidate.lookupNote.includes('使用のたび'));
   }
-  for (const model of ['NA-LX127DL','NA-LX129EL','NA-LX129DL-W']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['NA-LX127DL','NA-LX129FL','NA-LX129DL-W']) assert.equal(lookup.lookupModel(model).length,0);
+});
+
+test('2025 washers cite the main manual and separate care guide for each task', () => {
+ for (const model of ['NA-LX129EL','NA-LX129ER']) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,7,90]);
+  assert.ok(c.suggestions.slice(0,2).every(x=>x.sourceUrl.endsWith('NA-LX129E.pdf#page=19')));
+  assert.ok(c.suggestions[2].sourceUrl.includes('3642461') && c.suggestions[2].sourceUrl.endsWith('#page=7'));
+  assert.ok(c.suggestions[3].sourceUrl.includes('3642461') && c.suggestions[3].sourceUrl.endsWith('#page=5'));
+  assert.ok(c.suggestions[3].conditions.includes('1か月以上'));
+ }
+ for (const m of ['NA-LX127EL','NA-LX129FL','NA-LX129ER-W']) assert.equal(lookup.lookupModel(m).length,0);
 });
