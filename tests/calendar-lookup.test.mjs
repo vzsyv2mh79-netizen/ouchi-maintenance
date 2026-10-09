@@ -259,3 +259,19 @@ test('NX500K keeps monthly bag inspection separate from conditional replacement 
   assert.equal(lookup.lookupModel('MC-NX700K').length, 0);
   assert.equal(lookup.lookupModel('MC-NX500K-A').length, 0);
 });
+
+test('TZ500 keeps dedicated dishwasher schedules and detergent modes distinct', () => {
+  const [c] = lookup.lookupModel('NP-TZ500');
+  assert.equal(c.releaseYear, 2024);
+  assert.equal(c.categoryId, 'dishwasher');
+  assert.deepEqual(c.suggestions.map(t => t.intervalDays), [7,15,30,30,90]);
+  assert.ok(c.suggestions.every(t => t.sourceKind === '取扱説明書' && t.sourceUrl.includes('/000000002409139/np-tz500.pdf#page=')));
+  assert.match(c.suggestions[1].frequency, /月に2〜3回/);
+  assert.match(c.suggestions[1].conditions, /食器を入れず/);
+  assert.match(c.suggestions[1].conditions, /塩素系洗剤/);
+  assert.match(c.suggestions[4].frequency, /洗剤変更時/);
+  assert.match(c.suggestions[4].conditions, /モード2は詰まり時/);
+  assert.match(c.suggestions[4].conditions, /モード3は洗剤排出/);
+  assert.equal(lookup.lookupModel('NP-TZ300').length, 0);
+  assert.equal(lookup.lookupModel('NP-TH5').length, 0);
+});
