@@ -256,3 +256,7 @@ Official rendered list: August2025. Dedicated covers and care/parts independentl
 ## Panasonic MC-SB70KM
 
 Official rendered list: October2024. Dedicated cover and PDF9–11 printed16–21, plus own one-page tank notice independently visually inspected. Weekly bin-line inspection only; dust-filter (not pleated) assembly with tissue wiping/24h dry, no inherited30min soak. Brush-only wash/belt/cover-claws/lock marks; tank interior-only wash, contacts/outlet cotton swab without pressure. Room-temperature tap water only/discard after use. Condition-only prefilter/futon/abnormal clean-sensor care, no invented recurring cleaning.
+
+## Panasonic MC-JP880K
+
+Official rendered list: May2025. Dedicated cover and PDF7–9 printed12–17 visually inspected. FAQ printed16 explicitly recommends monthly-approximate bag-fill check for all use (pet/cotton warning also printed12). One inspection task links own FAQpage9; replacement condition-based. Brush wipe-only/cover wash-only/two recesses, unlike JP890K removable brush. Filter only after bag replacement fails to restore suction; press-wash/no揉み/machine/full dry/upper mark/guide groove. Abnormal-only dry clean sensor, no fixed cleaning interval.

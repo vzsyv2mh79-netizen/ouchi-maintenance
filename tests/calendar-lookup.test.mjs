@@ -1014,3 +1014,11 @@ test('SB70KM keeps its dust-filter assembly and inner-only mist tank care',()=>{
  assert.match(c.lookupNote,/ミスト吹出口.*綿棒.*強く押しつけません/);assert.match(c.lookupNote,/回転ブラシだけ.*ベルト.*つめ.*解錠／施錠/);assert.match(c.lookupNote,/クリーンランプの色が変わらないときだけ.*乾拭き/);assert.match(c.lookupNote,/固定周期を設定しません/);
  assert.equal(lookup.lookupModel('MC-SB70K').length,0);
 });
+
+test('JP880K preserves wipe-only brush and monthly bag inspection from its FAQ',()=>{
+ const [c]=lookup.lookupModel('MC-JP880K');assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年5月発売/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,30);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=9');
+ assert.match(c.suggestions[0].frequency,/月1回程度/);assert.match(c.suggestions[0].conditions,/印刷16ページ/);assert.match(c.lookupNote,/回転ブラシは固く絞った布.*カバーだけ水洗い/);assert.match(c.lookupNote,/2か所の凹部/);
+ assert.match(c.lookupNote,/紙パック交換後も吸込力が戻らないとき.*押し洗い.*もみ洗い.*十分乾燥.*ガイド/);assert.match(c.lookupNote,/オレンジ色.*点滅はもうすぐ交換、点灯はすぐ交換/);
+ assert.match(c.lookupNote,/クリーンランプ.*乾拭き.*水洗い禁止/);assert.match(c.lookupNote,/固定周期を設定しません/);assert.ok(!c.lookupNote.includes('ベルト'));
+ assert.equal(lookup.lookupModel('MC-JP880KX').length,0);
+});
