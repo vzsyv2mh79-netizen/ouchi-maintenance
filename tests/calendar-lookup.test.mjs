@@ -344,7 +344,7 @@ test('Hitachi HWC X care keeps catalyst and filter restrictions and conditional 
   assert.match(c.lookupNote,/1週間以上不使用/);
  }
  assert.equal(lookup.lookupModel('R-HXC54Y').length,0);
- assert.equal(lookup.lookupModel('R-HWC54Y').length,0);
+ assert.equal(lookup.lookupModel('R-HWC54XG').length,0);
 });
 
 
@@ -614,4 +614,25 @@ test('2024 HS V variants retain their own nine tasks without HWS-only care', () 
   assert.match(c.lookupNote,/約4分/);
  }
  assert.equal(lookup.lookupModel('R-HS47VG').length,0);
+});
+
+
+test('2026 HWC Y models retain dedicated sources and vegetable case safeguards', () => {
+ for (const model of ['R-HWC62Y','R-HWC54Y','R-HWC49Y']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.equal(c.releaseYear,2026);
+  assert.match(c.lookupNote,/2026年2月発売/);
+  assert.equal(c.releaseSourceUrl,'https://kadenfan.hitachi.co.jp/support/rei/item/'+model+'/manual.html');
+  assert.match(c.manualUrl,/r_hwc62y_b_00\.pdf$/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は取り外さず、水洗いしない/);
+  assert.match(c.suggestions[6].conditions,/しきりを外し/);
+  assert.match(c.suggestions[6].conditions,/裏返して排水/);
+  assert.match(c.lookupNote,/初回・1週間以上不使用後のみ/);
+  assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/製氷おそうじ|カメラ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HWC62YG').length,0);
 });
