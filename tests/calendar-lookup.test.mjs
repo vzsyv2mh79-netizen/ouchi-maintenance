@@ -1434,3 +1434,11 @@ test('SCD-L4P uses a press-release upper-hole cup without the U2P soak or split'
 test('SCD-U2P uses a slide-release lower-tab cup and monthly mop', () => {
  const [c]=lookup.lookupModel('SCD-U2P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('208375.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,41,42,48,49,46,48].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].conditions,/ボタンをスライド.*反時計回り.*汚れが気になる場合.*30分.*24時間.*時計回り.*下端の凸部.*確実に閉まって/);assert.doesNotMatch(c.suggestions[2].conditions,/上側の穴|ボタンを押して/);assert.match(c.suggestions[5].conditions,/押し下げて手前.*上に引き上げ.*回転軸.*カチッ/);assert.equal(lookup.lookupModel('SCD-U2PX').length,0);
 });
+
+
+test('SCD-220 uses USB disconnect and twist-lock cup without invented powered-brush care', () => {
+ const [c]=lookup.lookupModel('SCD-220');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('205900.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[30,31,34,34].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/USB充電ケーブル.*反時計回り.*開いた鍵.*下に引いて.*汚れが気になる場合.*30分.*24時間.*熱風.*時計回り.*閉じた鍵.*フィルター類を忘れず/);assert.doesNotMatch(c.suggestions[1].conditions,/ボタンを押して|上下に分解/);assert.ok(c.suggestions.every(x=>!/回転ブラシ|センサー|モップ/.test(x.name)));assert.equal(lookup.lookupModel('SCD-220X').length,0);
+});
+test('SCD-185P uses press-release cup, split cyclone and front-tab brush cover', () => {
+ const [c]=lookup.lookupModel('SCD-185P');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('202399.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[30,31,34,34,35].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/充電アダプター.*ボタンを押して.*反時計回り.*上下に分解.*汚れが気になる場合.*30分.*24時間.*時計回り.*上側の穴.*カチッ/);assert.doesNotMatch(c.suggestions[1].conditions,/ブラシを谷|USB|下端/);assert.match(c.suggestions[4].conditions,/押し下げて手前.*持ち上げて.*24時間.*前端内側.*カチッ/);assert.equal(lookup.lookupModel('SCD-185PX').length,0);
+});
