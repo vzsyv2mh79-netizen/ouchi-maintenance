@@ -123,7 +123,7 @@ test('TX100/TX75 use their 2024 shared manual without inventing usage-based sche
     assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
     assert.ok(candidate.suggestions[2].conditions.includes('水洗い・天日干ししない'));
   }
-  for (const model of ['KI-TX70','KI-TX100-H','KI-UX70']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['KI-TX60','KI-TX100-H','KI-UX60']) assert.equal(lookup.lookupModel(model).length,0);
 });
 
 test('2025 UX variants use their own manual rather than inheriting TX advice', () => {
@@ -138,7 +138,7 @@ test('2025 UX variants use their own manual rather than inheriting TX advice', (
     assert.ok(candidate.suggestions.every(item => item.sourceUrl.startsWith(candidate.manualUrl+'#')));
     assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
   }
-  for (const model of ['KI-UX70','KI-UX100-H','KI-WX100']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['KI-UX60','KI-UX100-H','KI-WX90']) assert.equal(lookup.lookupModel(model).length,0);
 });
 
 test('2024 washer D variants use the D manual and weekly drain-filter evidence', () => {
@@ -183,4 +183,23 @@ test('2026 washers retain F-specific filter schedules and do not inherit E tank 
  }
  assert.equal(lookup.lookupModel('NA-LX129ER')[0].suggestions.at(-1).intervalDays,90);
  for(const m of ['NA-LX127FL','NA-LX129GL','NA-LX129FR-W']) assert.equal(lookup.lookupModel(m).length,0);
+});
+
+
+test('new Sharp variants cite the care route explicitly linked by each official model page', () => {
+ for (const [model,year,large] of [['KI-TX70',2024,false],['KI-UX70',2025,false],['KI-WX70',2026,false],['KI-WX75',2026,true],['KI-WX100',2026,true]]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,year);
+  assert.equal(c.releaseSourceUrl,`https://cs.sharp.co.jp/select/contents?productId=${model}`);
+  assert.ok(c.lookupNote.includes('機種別の公式お手入れ案内'));
+  assert.equal(c.discoveredManualUrl,undefined);
+  assert.equal(c.suggestions.length,large?4:3);
+  assert.ok(c.suggestions.every(x=>x.intervalDays===30 && x.sourceKind==='メーカー公式' && x.sourceUrl.endsWith('.html')));
+  assert.ok(c.suggestions[1].sourceUrl.endsWith(large?'filter_humi_care06.html':'filter_humi_care03.html'));
+  assert.ok(c.lookupNote.includes('給水のたび'));
+  assert.ok(!c.suggestions.some(x=>x.name.includes('タンク') || x.name.includes('集じん')));
+ }
+ for(const model of ['KI-TX60','KI-UX60','KI-WX90','KI-WX70-W']) assert.equal(lookup.lookupModel(model).length,0);
+ assert.equal(lookup.lookupModel('ＫＩ－ＷＸ７０')[0].releaseYear,2026);
+ assert.ok(lookup.lookupModel('KI-UX75')[0].suggestions.every(x=>x.sourceKind==='取扱説明書'));
 });
