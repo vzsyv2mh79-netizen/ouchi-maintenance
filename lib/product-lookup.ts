@@ -12217,4 +12217,50 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "布団クリーナー",
+  "modelNumber": "FCA-31PZ1",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209040.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2025,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2025年5月発売、専用説明書表紙で基本品番を確認。週1回の本体・センサー清掃と月1回のヘッド清掃を提案します。カップはこまめにごみを捨てて洗います（20〜22ページ）。使い捨てフィルターを外して捨て、カップ・フィルターセットを流水で洗い、風通しのよい日陰で十分に乾かします。洗濯機・ドライヤーは使いません。フィルターセットは捨てず、向きに注意して戻し、左右のレバーが両方かかるまでカップを取り付けます。カップ洗浄の固定周期やフィルター交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・ヘッド外側の拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209040.pdf#page=24",
+      "conditions": "必ず運転を停止し、電源プラグを抜いて行います。本体には水をかけません。洗剤を使う場合は中性洗剤を薄めます。シンナー・ベンジン・アルコールなど揮発性のあるものは使いません。よく絞った柔らかい布で本体とヘッドの外側を拭きます。"
+    },
+    {
+      "name": "ダニちりセンサーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209040.pdf#page=24",
+      "conditions": "必ず運転を停止し、電源プラグを抜いて行います。本体には水をかけません。洗剤を使う場合は中性洗剤を薄めます。シンナー・ベンジン・アルコールなど揮発性のあるものは使いません。ダストカップを取り外し、左右のダニちりセンサーを綿棒などで拭きます。ごみが付くと誤動作の原因になります。"
+    },
+    {
+      "name": "ヘッドのローラー・毛取りブラシ・たたきパッド・吸引口のお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209040.pdf#page=25",
+      "conditions": "必ず運転を停止し、電源プラグを抜いて行います。本体には水をかけません。洗剤を使う場合は中性洗剤を薄めます。シンナー・ベンジン・アルコールなど揮発性のあるものは使いません。ローラーや毛取りブラシに絡み付いた毛・糸くず、吸引口に詰まったごみをピンセットなどで取り除きます。たたきパッドの汚れは柔らかいブラシなどで取り除きます。"
+    }
+  ]
+} satisfies ProductCandidate);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
