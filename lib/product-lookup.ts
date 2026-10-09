@@ -89,7 +89,7 @@ for (const modelNumber of ["EE-DD35", "EE-DD50"]) {
   catalog.push({
     maker: "象印", name: "スチーム式加湿器", modelNumber, categoryId: "humidifier",
     productUrl: "https://www.zojirushi.co.jp/syohin/life/humidifier/ee-dd/", manualUrl: steamManual,
-    manualLinkLabel: "取扱説明書", verifiedAt: "2026-10-09",
+    productLinkLabel: "公式製品ページ", manualLinkLabel: "取扱説明書", verifiedAt: "2026-10-09",
     lookupNote: "公式説明書の表紙に両品番が掲載されています。印刷18〜19ページ（PDF10ページ）の内容器洗浄とパッキン交換の目安を確認済みです。内容器洗浄は1〜2か月の幅があるため、予定は短い側の30日で計算します。水質・使用状況や汚れによって早めてください。",
     suggestions: [
       { name: "内容器のクエン酸洗浄", kind: "掃除", intervalDays: 30,
