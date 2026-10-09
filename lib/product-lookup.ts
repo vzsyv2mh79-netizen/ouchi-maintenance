@@ -9648,4 +9648,113 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "気化式加湿器",
+    "modelNumber": "AHM-MVU55A",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209038.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年8月発売と専用説明書を確認。表紙の基本品番AHM-MVU55Aに対応します。22〜31ページで月1回のお手入れを確認しました。水タンクは給水のたびに少量の水で振り洗いします（23ページ）。給水回数を固定の日数には置き換えません。お手入れランプは約720時間の動作で点灯するため、予定前でも点灯したら清掃し、説明書21ページのリセット操作を行います。本体は水洗いしません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。",
+    "suggestions": [
+      {
+        "name": "本体の吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209038.pdf#page=23",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いせず、吹き出し口と吸気口のごみを掃除機などで吸い取ります。"
+      },
+      {
+        "name": "加湿フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209038.pdf#page=24",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。水タンクから加湿フィルターを取り出して水洗いし、取り付けます。台所用洗剤を入れず、40℃以上のお湯は使いません。フィルターを付けずに使用しません。白いかたまり・水あか・においが残る場合の部品取り外し、クエン酸／重曹の使い分け、つけ置き・すすぎ・取り付けは説明書24〜29ページを確認してください。"
+      },
+      {
+        "name": "水タンク・ファンカバー・ファンの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209038.pdf#page=30",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。説明書の取り外し手順に従い、水タンク、ファンカバー、ファンを外して、柔らかいスポンジなどで水洗いします。本体は水洗いしません。ファンカバーの矢印をロック解除に合わせ、引き出す途中で出っ張りに当たったら斜めにして外します。"
+      },
+      {
+        "name": "銀ビーズケースのお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209038.pdf#page=31",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。上側の本体を真上に持ち上げて外し、下側の水タンクの水を捨てます。銀ビーズはタンク中央に入れたままにします。銀ビーズケースが浸る量のクエン酸水溶液を水タンクに入れ、2〜5分置いて水で洗い流します。水または40℃以下のぬるま湯3Lに市販のクエン酸約20gの比率でよく溶かし、濃度を高くしません。電気部品のある本体は水洗いしません。取り外す位置と手順は説明書31ページの図を確認してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "気化式加湿器",
+    "modelNumber": "KHM-MVU601",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209039.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年8月発売と専用説明書を確認。表紙の基本品番KHM-MVU601に対応します。22〜31ページで月1回のお手入れを確認しました。水タンクは給水のたびに少量の水で振り洗いします（23ページ）。給水回数を固定の日数には置き換えません。お手入れランプは約720時間の動作で点灯するため、予定前でも点灯したら清掃し、説明書21ページのリセット操作を行います。本体は水洗いしません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。",
+    "suggestions": [
+      {
+        "name": "本体の吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209039.pdf#page=23",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いせず、吹き出し口と吸気口のごみを掃除機などで吸い取ります。"
+      },
+      {
+        "name": "加湿フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209039.pdf#page=24",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。水タンクから加湿フィルターを取り出して水洗いし、取り付けます。台所用洗剤を入れず、40℃以上のお湯は使いません。フィルターを付けずに使用しません。白いかたまり・水あか・においが残る場合の部品取り外し、クエン酸／重曹の使い分け、つけ置き・すすぎ・取り付けは説明書24〜29ページを確認してください。"
+      },
+      {
+        "name": "水タンク・ファンカバー・ファンの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209039.pdf#page=30",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。説明書の取り外し手順に従い、水タンク、ファンカバー、ファンを外して、柔らかいスポンジなどで水洗いします。本体は水洗いしません。ファンカバーの矢印をロック解除に合わせ、引き出す途中で出っ張りに当たったら斜めにして外します。"
+      },
+      {
+        "name": "銀ビーズケースのお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209039.pdf#page=31",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。上側の本体を真上に持ち上げて外し、下側の水タンクの水を捨てます。銀ビーズはタンク中央に入れたままにします。銀ビーズケースが浸る量のクエン酸水溶液を水タンクに入れ、2〜5分置いて水で洗い流します。水または40℃以下のぬるま湯3Lに市販のクエン酸約20gの比率でよく溶かし、濃度を高くしません。電気部品のある本体は水洗いしません。取り外す位置と手順は説明書31ページの図を確認してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
