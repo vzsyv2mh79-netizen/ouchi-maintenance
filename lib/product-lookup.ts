@@ -347,7 +347,7 @@ const nx500Manual = "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets
 catalog.push({
   maker: "Panasonic", name: "セパレート型コードレススティック掃除機", modelNumber: "MC-NX500K", categoryId: "vacuum",
   productUrl: "https://panasonic.jp/soji/products/MC-NX500K.html",
-  manualUrl: nx500Manual, discoveredManualUrl: nx500Manual, verifiedAt: "2026-10-09",
+  manualUrl: nx500Manual, discoveredManualUrl: nx500Manual, productLinkLabel: "公式製品ページ", manualLinkLabel: "取扱説明書（PDF）", verifiedAt: "2026-10-09",
   releaseYear: 2025, releaseSourceUrl: "https://news.panasonic.com/jp/topics/206494",
   lookupNote: "メーカー発表は2025年12月中旬発売。説明書16〜17ページの月1回の紙パック確認を提案します。交換は赤い紙パック交換ランプの約2秒間隔の点滅時で、点灯は保護装置のお知らせです。純正S型紙パックAMC-U2を使用し、紙パックケースは捨てないでください。ダストボックス・プレフィルターは吸込力が回復しないときなど、ノズル・排気口・クリーンフィルターは吸込力低下や汚れが気になるときのお手入れで、固定周期は設定していません。説明書18〜21ページを確認してください。床用ノズル全体は水洗い不可、取り外した回転ブラシは水洗い可能です。内部センサーはランプのつき方がおかしいときに柔らかい布で乾拭きします。",
   suggestions: [{ name: "紙パックのゴミのたまり具合を確認", kind: "点検", intervalDays: 30,
