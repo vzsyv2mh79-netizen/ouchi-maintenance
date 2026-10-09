@@ -1126,3 +1126,21 @@ test('P180ZX uses dedicated 2026 manual, tank lid and 830 filter',()=>{
 test('PV250ZX uses dedicated 2026 manual, tank lid and 831 filter',()=>{
  const [c]=lookup.lookupModel('MJ-PV250ZX');assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'dehumidifier-appliance');assert.match(c.lookupNote,/2026年5月22日発売/);assert.match(c.manualUrl,/zt936z280h02.pdf$/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,90,14]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=10',c.manualUrl+'#page=10',c.manualUrl+'#page=10']);assert.match(c.suggestions[1].conditions,/約30分.*洗剤・熱湯・ブラシ・もみ洗い.*平ら.*ぬれたまま.*8回/);assert.match(c.suggestions[2].conditions,/場合だけ選択.*つまり・折れ曲がり・ひび割れ.*氷点下/);assert.match(c.lookupNote,/フロートは取り外さず.*タンクふたを取り付けて.*MJPR-831VFT.*一律の交換周期は設定しません/);assert.notEqual(c.manualUrl,lookup.lookupModel('MJ-PV250YX')[0].manualUrl);assert.equal(lookup.lookupModel('MJ-PV250ZXX').length,0);
 });
+
+
+test('IJC-R65 uses its own monthly-care manual without borrowing washable-filter instructions', () => {
+ const [c] = lookup.lookupModel('ｉｊｃ－ｒ６５');
+ assert.equal(c.maker, 'アイリスオーヤマ');
+ assert.equal(c.releaseYear, 2025);
+ assert.equal(c.categoryId, 'dehumidifier-appliance');
+ assert.match(c.manualUrl, /108184.pdf$/);
+ assert.deepEqual(c.suggestions.map(x => x.intervalDays), [30,30,30]);
+ assert.deepEqual(c.suggestions.map(x => x.sourceUrl), [c.manualUrl+'#page=30',c.manualUrl+'#page=31',c.manualUrl+'#page=31']);
+ assert.match(c.suggestions[0].conditions, /本体は水洗いせず.*40℃以下.*洗剤分/);
+ assert.match(c.suggestions[1].conditions, /ふたを外して水洗い.*よく乾かし.*フロートは絶対に外しません/);
+ assert.match(c.suggestions[2].conditions, /掃除機.*ブラシ付きノズルは使いません/);
+ assert.ok(!/水洗い|つけ置き/.test(c.suggestions[2].conditions));
+ assert.ok(c.suggestions.every(x => x.conditions.includes('電源プラグを抜き')));
+ assert.equal(lookup.lookupModel('IJC-R650').length, 0);
+ assert.ok(lookup.supportedModels.includes('IJC-R65'));
+});

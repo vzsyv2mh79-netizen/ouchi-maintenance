@@ -9223,4 +9223,52 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "衣類乾燥除湿機",
+    "modelNumber": "IJC-R65",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/19",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108184.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/19",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式説明書一覧で2025年2月発売を確認。専用説明書29〜31ページで、本体・水タンクとふた・吸気口カバーのお手入れを月1回程度と確認しました。排水時はフロートを絶対に外さず、フロート室の異物を確認します。タンクのふたと排水口を閉めて奥まで確実に取り付けます（23〜24ページ）。運転停止直後のタンク取り外しは避けます。内部乾燥は運転停止後や長期間使用しない場合に行うため、固定の日数による予定は設定しません。",
+    "suggestions": [
+      {
+        "name": "本体のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108184.pdf#page=30",
+        "conditions": "運転を停止して電源プラグを抜き、ぬれた手で抜き差ししません。酸性・アルカリ性洗剤、シンナー、ベンジン、漂白剤は使いません。説明書30ページ。本体は水洗いせず、水または40℃以下のぬるま湯を含ませてよく絞った柔らかい布で拭きます。落ちにくい汚れは薄めた中性洗剤を含ませた布で拭き、その後かたく絞った布で洗剤分を拭き取ります。"
+      },
+      {
+        "name": "水タンク・水タンクふたの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108184.pdf#page=31",
+        "conditions": "運転を停止して電源プラグを抜き、ぬれた手で抜き差ししません。酸性・アルカリ性洗剤、シンナー、ベンジン、漂白剤は使いません。説明書31ページ。水タンクふたを外して水洗いし、水気を拭いてよく乾かします。フロート室内のごみや異物は洗い流します。落ちにくい汚れは中性洗剤で洗い、よくすすぎます。フロートは絶対に外しません。ふたと排水口を閉めて奥まで確実に取り付けます。"
+      },
+      {
+        "name": "吸気口カバー・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108184.pdf#page=31",
+        "conditions": "運転を停止して電源プラグを抜き、ぬれた手で抜き差ししません。酸性・アルカリ性洗剤、シンナー、ベンジン、漂白剤は使いません。説明書31ページ。吸気口カバー（エアフィルター）と本体の吸気口のほこりを掃除機で取り除きます。エアフィルターを傷めるためブラシ付きノズルは使いません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
