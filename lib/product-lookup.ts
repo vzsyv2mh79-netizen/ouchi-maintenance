@@ -7830,4 +7830,34 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "セパレート型コードレススティック掃除機",
+    "modelNumber": "MC-NX700K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-NX700K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/683/000000002777683/mc-nx700k.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2024年3月発売を確認。専用説明書印刷14〜20ページ（PDF8〜11ページ）を確認。お手入れ前は運転スイッチを切り、充電台の電源プラグを抜きます。紙パック交換は約2秒間隔の赤い点滅時に純正S型AMC-U2を使用。ケースは捨てず、交換後に本体を充電台へセットし直します。ダストボックスやプレ・スポンジフィルターは吸込力が戻らない／弱くなったとき（紙パック交換時）に清掃します。ネットフィルターを必ず戻し、底ぶたをカチッと閉めます。プレフィルターの凹凸を合わせて装着します。水洗いしたダストボックス・ネットフィルター・プレ／スポンジフィルターは風通しのよい場所で約24時間十分乾燥させます。ネットフィルターの汚れが残る場合は約1時間水につけ、水中で振って流水洗浄します。床用ノズルの回転ブラシは取り外して水洗いするタイプではなく、固く絞った布で水拭きし、ノズルカバーだけ水洗い可能です。カバーのつめを2か所の凹部に合わせます。ふとん用ノズル・ドックのクリーンフィルターは必要時に軽く水洗いでき、乾燥後に必ず戻します。センサーはクリーンランプの色が変わらないときだけ乾拭き。充電端子・排気口・本体・延長管・充電台は水洗い禁止。熱風・洗剤・ベンジン・シンナー・アルコールは使いません。清掃や紙パック交換に固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ドックの紙パックのたまり具合確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/683/000000002777683/mc-nx700k.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。ペットの毛や綿ごみが多いと、満杯でも交換ランプが点滅しない場合があるため、直接確認します。該当する場合だけ追加してください。運転スイッチを切り充電台の電源プラグを抜き、紙パックケースをゆっくり外します。ケースは捨てません。交換は固定周期ではなく状態に応じて、純正S型AMC-U2を使います。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

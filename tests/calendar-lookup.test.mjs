@@ -257,7 +257,7 @@ test('NX500K keeps monthly bag inspection separate from conditional replacement 
   assert.match(c.lookupNote, /点灯は保護装置/);
   assert.match(c.lookupNote, /床用ノズル全体は水洗い不可/);
   assert.match(c.lookupNote, /AMC-U2/);
-  assert.equal(lookup.lookupModel('MC-NX700K').length, 0);
+  assert.notEqual(lookup.lookupModel('MC-NX700K')[0].manualUrl, c.manualUrl);
   assert.equal(lookup.lookupModel('MC-NX500K-A').length, 0);
 });
 
@@ -954,4 +954,14 @@ test('SR640K and SR44K keep weekly bin inspection separate from conditional wash
  assert.match(a.manualUrl,/MC-SR640K\.pdf$/);assert.match(b.manualUrl,/MC-SR44K\.pdf$/);
  assert.match(a.lookupNote,/ふとん用ノズル.*軽く水洗い/);assert.ok(!b.lookupNote.includes('ふとん用ノズル'));
  assert.equal(lookup.lookupModel('MC-SR44KX').length,0);
+});
+
+test('NX700K retains dock S-bag and wipe-only rotating brush restrictions',()=>{
+ const [c]=lookup.lookupModel('MC-NX700K');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年3月発売/);
+ assert.match(c.manualUrl,/mc-nx700k\.pdf$/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=8');
+ assert.match(c.suggestions[0].frequency,/ペットの毛や綿ごみが多いとき/);assert.equal(c.suggestions[0].intervalDays,30);
+ assert.match(c.lookupNote,/純正S型AMC-U2.*ケースは捨てず/);assert.match(c.lookupNote,/約24時間.*約1時間/);
+ assert.match(c.lookupNote,/回転ブラシ.*固く絞った布.*カバーだけ水洗い/);assert.match(c.lookupNote,/2か所の凹部/);
+ assert.match(c.lookupNote,/クリーンランプの色が変わらないときだけ乾拭き/);assert.match(c.lookupNote,/充電端子・排気口.*水洗い禁止/);
+ assert.ok(!c.suggestions.some(x=>/清掃|交換|フィルター/.test(x.name)));assert.equal(lookup.lookupModel('MC-NX700KX').length,0);
 });
