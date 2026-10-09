@@ -1252,3 +1252,17 @@ test('2024 Iris MH60 steam humidifiers retain the explicit 2h timer cleaning set
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('AAP-AH50A keeps daily humidification care separate from non-cleanable air filters', () => {
+ const [c]=lookup.lookupModel('AAP-AH50A');assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'air-purifier');
+ assert.ok(c.manualUrl.endsWith('289205.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,1,30,30,30,730]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[38,38,40,40,41,44].map(n=>c.manualUrl+'#page='+n));
+ assert.match(c.lookupNote,/集じんフィルター・脱臭フィルターはお手入れできません.*掃除機.*水洗い/);
+ assert.match(c.lookupNote,/水がたまったとき.*固定の日数.*約3秒/);
+ assert.match(c.suggestions[1].conditions,/トレーしきり.*給水フロート.*水位フロート.*外しません/);
+ assert.match(c.suggestions[3].conditions,/外したまま運転しません.*破損.*交換/);
+ assert.match(c.suggestions[4].conditions,/分解せず.*水3L.*約18g.*溝.*後ろ/);
+ assert.match(c.suggestions[5].conditions,/1日8時間.*水質.*におい.*水が減らない.*傷み・縮み.*枠は捨てず.*5か所/);
+ assert.equal(lookup.lookupModel('AAP-AH50AX').length,0);
+});

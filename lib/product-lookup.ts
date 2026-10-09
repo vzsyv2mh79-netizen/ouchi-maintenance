@@ -9957,4 +9957,79 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "加湿空気清浄機",
+    "modelNumber": "AAP-AH50A",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2024年10月発売と専用説明書を確認。集じんフィルター・脱臭フィルターはお手入れできません。掃除機で吸ったり水洗いしたりせず、強く押したり丸めたりしません（37・42ページ）。排水トレーは水がたまったときに水を捨て、水洗いします。汚れが落ちにくいときは薄めた台所用中性洗剤を使い、十分にすすいでしっかり取り付けます（43ページ）。水がたまったときの作業は固定の日数に置き換えません。フィルターのお手入れ後はプラグを差し込み電源を入れてから、お手入れリセットボタンを約3秒押します（37ページ）。",
+    "suggestions": [
+      {
+        "name": "水タンクの水洗い",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "毎日（加湿使用時）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=38",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。水タンクを取り外して水洗いします。汚れが落ちにくい場合は薄めた台所用中性洗剤を使い、洗剤が残らないよう十分にすすぎます。"
+      },
+      {
+        "name": "加湿トレー・フロートまわりの水洗い",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "毎日（加湿使用時）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=38",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。水タンクと加湿フィルターセットを外してトレーを水洗いします。フロートまわりの汚れは細めの綿棒などで落とします。トレーしきり・給水フロート・水位フロートは外しません。お手入れ後は逆の手順で取り付けます。"
+      },
+      {
+        "name": "本体・前パネルの拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=40",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。よく絞った柔らかい布で拭きます。"
+      },
+      {
+        "name": "プレフィルターのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=40",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。前パネルとプレフィルターを取り外し、掃除機などで汚れを取ります。プレフィルターを外したまま運転しません。破損した場合は交換します。集じん・脱臭フィルターは掃除機で吸ったり水洗いしたりしません。"
+      },
+      {
+        "name": "加湿フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=41",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。分解せずに水洗いします。汚れが落ちにくい場合は水3Lにクエン酸大さじ2杯（約18g）の比率でつけ置き洗いします。取り外し・取り付け・持ち運びの際は水をこぼさないようにし、溝があるほうを後ろにして取り付けます。運転時は必ず加湿フィルターを取り付けます。"
+      },
+      {
+        "name": "加湿フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年に1回（条件付き目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/289205.pdf#page=44",
+        "conditions": "電源を切り、電源プラグを抜いてから行います。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使用しません。約2年に1回は1日8時間運転で定期的なお手入れをした場合の目安です。水質・使用状況により変わります。お手入れしてもにおいが取れない、水タンクの水が減らない、傷み・縮みがひどい場合は早めに交換します。フィルター枠は捨てず、新しいフィルターをケースの溝に差し込み、ケースの5か所のつめを組み合わせて前後を確認して取り付けます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
