@@ -772,3 +772,22 @@ test('2024 VW V uses its own manual and both divided lower-room case instruction
  }
  assert.equal(lookup.lookupModel('R-VW57VG').length,0);
 });
+
+
+test('2024 HXC V has dedicated 56-page sources and distinct freezer and vegetable case instructions', () => {
+ for(const model of ['R-HXC62V','R-HXC54V']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2024);
+  assert.match(c.manualUrl,/r_hxc62v_b\.pdf$/);assert.match(c.lookupNote,/2024年2月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[40,39,39,39,40,39,39,39,39,40].map(p=>c.manualUrl+'#page='+p));
+  const care=c.suggestions[6].conditions;
+  for(const pattern of [/野菜室の下段ケース.*しきりを外/,/「R」.*正面右下/,/小物ケース.*スリット/,/左右のつめ.*外側/,/裏返して排水/,/毛足の長い/,/潤滑剤を拭き取らない/]) assert.match(care,pattern);
+  assert.ok(!/野菜室・冷凍室下段.*しきりを外/.test(care));
+  assert.match(c.suggestions[4].conditions,/42ページ.*ケース全体/);
+  assert.match(c.suggestions[9].conditions,/54ページ/);
+  assert.match(c.lookupNote,/41ページ/);assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/真空|カメラ|切替室|製氷おそうじ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HXC62VG').length,0);
+});
