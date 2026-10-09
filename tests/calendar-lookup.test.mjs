@@ -342,6 +342,26 @@ test('Hitachi HWC X care keeps catalyst and filter restrictions and conditional 
   assert.ok(!c.suggestions.some(x=>x.name.includes('製氷おそうじ')));
   assert.match(c.lookupNote,/1週間以上不使用/);
  }
- assert.equal(lookup.lookupModel('R-HXC54X').length,0);
+ assert.equal(lookup.lookupModel('R-HXC54Y').length,0);
  assert.equal(lookup.lookupModel('R-HWC54Y').length,0);
+});
+
+
+test('Hitachi HXC X uses its own official manual and preserves care limits', () => {
+ for (const model of ['R-HXC62X','R-HXC54X']) {
+  const [c] = lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);
+  assert.match(c.manualUrl,/r_hxc62x_a\.pdf$/);
+  assert.match(c.releaseSourceUrl,new RegExp(model));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[0].conditions,/フィルター部分にはスポンジも使わず/);
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は水洗い禁止/);
+  assert.match(c.suggestions[9].frequency,/3〜4年/);
+  assert.match(c.lookupNote,/2025年2月発売/);
+  assert.match(c.lookupNote,/1週間以上不使用/);
+  assert.ok(!c.suggestions.some(x=>x.name.includes('製氷おそうじ')));
+ }
+ assert.equal(lookup.lookupModel('R-HXCC54X').length,0);
+ assert.equal(lookup.lookupModel('R-HXC62Y').length,0);
 });
