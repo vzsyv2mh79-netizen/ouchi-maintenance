@@ -1144,3 +1144,22 @@ test('IJC-R65 uses its own monthly-care manual without borrowing washable-filter
  assert.equal(lookup.lookupModel('IJC-R650').length, 0);
  assert.ok(lookup.supportedModels.includes('IJC-R65'));
 });
+
+
+test('2026 Iris dehumidifiers cite their dedicated manuals and preserve monthly cleaning restrictions', () => {
+ for (const [model,id] of [['AJ-C48A','114742'],['KJ-C481','114743']]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2026);
+  assert.equal(c.categoryId,'dehumidifier-appliance');
+  assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=32',c.manualUrl+'#page=33',c.manualUrl+'#page=33']);
+  assert.match(c.lookupNote,/2026年5月発売.*両手.*フロートを絶対に外さず/);
+  assert.match(c.suggestions[0].conditions,/本体は水洗いせず.*40℃以下/);
+  assert.match(c.suggestions[1].conditions,/水洗い.*よく乾かし.*フロートは絶対に外しません/);
+  assert.match(c.suggestions[2].conditions,/掃除機.*ブラシ付きノズルは使いません/);
+  assert.ok(!/水洗い|つけ置き/.test(c.suggestions[2].conditions));
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ assert.notEqual(lookup.lookupModel('AJ-C48A')[0].manualUrl,lookup.lookupModel('KJ-C481')[0].manualUrl);
+});
