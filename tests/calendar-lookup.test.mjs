@@ -1032,3 +1032,11 @@ test('Panasonic D humidifiers retain daily tank and monthly component care',()=>
  assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*約30分.*2〜3回/);assert.match(c.lookupNote,/約10年.*1日8時間.*FE-ZKE07.*枠は捨てません/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));assert.equal(lookup.lookupModel(model+'X').length,0);
  }assert.equal(urls.size,3);
 });
+
+
+test('Panasonic C shared manual explicitly covers both 2025 models',()=>{
+ const [a]=lookup.lookupModel('FE-KX07C'),[b]=lookup.lookupModel('FE-KX05C');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年度モデル/);assert.equal(c.releaseSourceUrl,`https://panasonic.jp/kashitsu/products/${c.modelNumber}.html`);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,30,30,30,30]);
+ assert.match(c.manualUrl,/KX07C_KX05C/);assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));assert.match(c.suggestions[2].conditions,/フロートは外しません/);assert.match(c.suggestions[3].conditions,/ぬれたまま.*赤線.*カチッ/);assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*2〜3回/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));}
+ assert.equal(a.manualUrl,b.manualUrl);assert.notEqual(a.manualUrl,lookup.lookupModel('FE-KX07D')[0].manualUrl);assert.equal(lookup.lookupModel('FE-KX07CX').length,0);
+});
