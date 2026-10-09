@@ -1,4 +1,5 @@
 "use client";
+import { ThemeControls, ThemeToggle } from "./theme-provider";
 import { PushControls } from "./push-controls";
 
 import Link from "next/link";
@@ -210,7 +211,7 @@ export function MaintenanceApp() {
 }
 
 function Topbar({ data, homeId, onSwitch }: { data: AppData; homeId: string; onSwitch: (id: string) => void }) {
-  return <header className="topbar"><div className="mobile-brand"><Logo />おうちメンテ</div><label className="home-switch"><House size={16} /><select aria-label="表示する住まい" value={homeId} onChange={(e) => onSwitch(e.target.value)}>{data.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></label></header>;
+  return <header className="topbar"><div className="mobile-brand"><Logo />おうちメンテ</div><label className="home-switch"><House size={16} /><select aria-label="表示する住まい" value={homeId} onChange={(e) => onSwitch(e.target.value)}>{data.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></label><ThemeToggle /></header>;
 }
 function Logo() { return <span className="logo-mark"><House size={17} strokeWidth={2.3} /></span>; }
 function Sidebar({ active, onChange, cloud }: { cloud: boolean; active: Tab; onChange: (tab: Tab) => void }) {
@@ -286,7 +287,7 @@ function HistoryPage({ data, onOpenProduct }: { data: AppData; onOpenProduct: (i
   return <div className="page"><PageHeading title="お手入れ履歴" subtitle="いつ、何をしたかを記録しています。" /><div className="history-card">{sorted.map((item, i) => { const product = data.products.find((p) => p.id === item.productId); const task = data.tasks.find((t) => t.id === item.taskId); if (!product || !task) return null; return <button key={item.id} className="history-row" onClick={() => onOpenProduct(product.id)}><div className="history-date"><strong>{formatShort(item.completedAt)}</strong><span>{i === 0 ? "最新" : "完了"}</span></div><span className="history-line" /><div className="history-check"><Check size={15} /></div><div className="history-copy"><span>{product.name}</span><strong>{task.name}</strong></div><ChevronRight size={18} /></button>; })}</div></div>;
 }
 function SettingsPage({ homeControls, backupData, data, onReset, onClear, cloud, busy, onRestore, onImport }: { homeControls: ReactNode; backupData: AppData; onImport: (data: AppData) => void; onRestore: (data: AppData) => void; cloud: boolean; busy: boolean; data: AppData; onReset: () => void; onClear: () => void }) {
-  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。機種変更や別のブラウザには自動で引き継がれません。ブラウザのデータ削除・プライベートブラウズの終了で失われるため、定期的にバックアップを保存してください。別のタブで記録が更新されると最新の内容を表示します。編集中のフォームは閉じるため、改めて内容を確認してください。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
+  return <div className="page narrow"><PageHeading title="設定" subtitle="おうちメンテの使い方を整えます。" /><ThemeControls />{homeControls}<div className="settings-group"><h2>おうち</h2><p>{data.homes[0].name} ・ 製品 {data.products.length}件</p></div><div className="settings-group"><h2>データ管理</h2><p><Archive size={16} /> {cloud ? "記録はアカウント専用のクラウドに保存されます。別の端末はログイン・再読み込みすると最新の記録を確認できます。" : "記録はこの端末のブラウザ内に保存されます。機種変更や別のブラウザには自動で引き継がれません。ブラウザのデータ削除・プライベートブラウズの終了で失われるため、定期的にバックアップを保存してください。別のタブで記録が更新されると最新の内容を表示します。編集中のフォームは閉じるため、改めて内容を確認してください。"}</p></div><InstallControls /><PushControls cloud={cloud} /><CalendarControls data={data} />{cloud && data.homes[0].role === "owner" && <CloudImportControls busy={busy} onImport={onImport} />}<BackupControls data={backupData} cloud={cloud} busy={busy} onRestore={onRestore} /><CloudAccount disabled={busy} />{!cloud && <><button className="reset-button" onClick={onClear}>空の状態から始める</button><button className="reset-button" onClick={onReset}>デモデータを復元</button></>}<p><Link href="/about">おうちメンテについて・使い方</Link></p><p className="version">おうちメンテ v0.1.0 ・ MVP</p></div>;
 }
 function PageHeading({ title, subtitle }: { title: string; subtitle: string }) { return <div className="page-heading"><h1>{title}</h1><p>{subtitle}</p></div>; }
 

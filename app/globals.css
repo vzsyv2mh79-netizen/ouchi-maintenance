@@ -60,3 +60,41 @@ button:focus-visible, a:focus-visible { outline: 3px solid #246bfe; outline-offs
 .settings-group .form-grid > button { grid-column: 1 / -1; min-height: 44px; }
 .settings-group .form-grid > .primary-button { font-size: 14px; }
 .settings-group .form-grid > .text-button { justify-content: center; font-size: 13px; }
+
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; --ink:#edf0f5; --muted:#a6afbb; --line:#363e49; --surface:#20252d; --bg:#14171c; --accent:#8ab4ff; }
+.theme-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:0; margin:0; border:0; }
+.theme-options label { display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; padding:10px 6px; border:1px solid var(--line); border-radius:12px; background:var(--surface); cursor:pointer; }
+.theme-options label:has(input:checked) { border-color:var(--accent); }
+.theme-options input { accent-color:var(--accent); margin:0; }
+.theme-options span { font-size:12px; color:var(--ink); }
+.theme-options label:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+.form-grid input,.form-grid select,.form-grid textarea,.search-box input { color:inherit; }
+:root[data-theme="dark"] :is(.status-card,.task-list,.home-switch,.icon-button,.product-card,.detail-meta,.maintenance-card,.history-card,.modal,.list-empty,.filter-chips button,.secondary-button,.coming-soon),
+:root[data-theme="dark"] .settings-group button:where(:not(.primary-button,.text-button,.cancel-button)),
+:root[data-theme="dark"] :is(.form-grid input,.form-grid select,.form-grid textarea,.search-box) { background:var(--surface); border-color:var(--line); }
+:root[data-theme="dark"] .search-box input { background:transparent; }
+:root[data-theme="dark"] .sidebar { background:rgba(26,30,37,.94); }
+:root[data-theme="dark"] .topbar { background:rgba(20,23,28,.9); border-color:var(--line); }
+:root[data-theme="dark"] .bottom-nav { background:rgba(26,30,37,.96); border-color:var(--line); }
+:root[data-theme="dark"] :is(.product-symbol,.product-card-icon,.product-hero-icon,.maintenance-details,.modal-header button,.cancel-button,.source-row em) { background:#2c333d; color:#c4ccd7; }
+:root[data-theme="dark"] :is(.task-row,.history-row,.history-line) { border-color:var(--line); }
+:root[data-theme="dark"] :is(.product-hero,.insight-card) { background:var(--surface); border-color:var(--line); }
+:root[data-theme="dark"] :is(.sidebar nav button,.status-label,.product-name,.product-card-copy>span,.product-card p,.product-next,.back-button,.product-hero span,.product-hero p,.detail-meta span,.kind-label,.maintenance-details span,.maintenance-details strong small,.source-row,.source-row strong,.history-date span,.history-copy span,.settings-group h2,.settings-group span,.field-hint,.version,.modal-header p,.lookup-button small,.future-feature p,.empty-state,.eyebrow,.progress-ring small,.insight-card p,.insight-arrow) { color:var(--muted); }
+:root[data-theme="dark"] .theme-options span { color:var(--ink); }
+:root[data-theme="dark"] :is(a,.text-button,.secondary-button,.bottom-nav button.active) { color:var(--accent); }
+:root[data-theme="dark"] .sidebar nav button:hover { background:#2c333d; }
+:root[data-theme="dark"] :is(.sidebar nav button.active,.lookup-button,.complete-button,.due.today,.status-card.blue .status-icon,.kind-icon,.future-feature>div) { background:#233657; color:#a7c7ff; border-color:#3b5682; }
+:root[data-theme="dark"] .lookup-button>span:first-child { background:#30466a; }
+:root[data-theme="dark"] :is(.status-card.red .status-icon,.due.overdue) { background:#482b2c; color:#ffaba7; }
+:root[data-theme="dark"] :is(.status-card.amber .status-icon,.due.soon) { background:#423720; color:#f4cc80; }
+:root[data-theme="dark"] :is(.status-card.green .status-icon,.history-check,.insight-icon) { background:#253e33; color:#91d6ad; }
+:root[data-theme="dark"] .pill { color:#91d6ad; }
+:root[data-theme="dark"] :is(.reset-button,.maintenance-details strong.attention,.form-grid label em) { color:#ffaba7; }
+:root[data-theme="dark"] .filter-chips button.selected { background:#edf0f5; color:#17202c; border-color:#edf0f5; }
+:root[data-theme="dark"] .form-grid :is(input,select,textarea):focus { border-color:var(--accent); box-shadow:0 0 0 3px #30466a; }
+:root[data-theme="dark"] .complete-button:hover { background:#34588d; color:white; }
+:root[data-theme="dark"] .toast { background:#edf0f5; color:#17202c; }
+
+.theme-toggle { flex:none; width:44px; height:44px; }
+@media(max-width:760px) { .topbar { gap:8px; } .home-switch select { max-width:100px; } .mobile-brand { font-size:13px; } }

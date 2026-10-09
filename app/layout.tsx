@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { RegisterOffline } from "@/components/install-controls";
 
 export const metadata: Metadata = {
@@ -20,8 +21,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja">
-      <body><RegisterOffline />{children}</body>
+    <html lang="ja" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: `(function(){var p="system";try{var v=localStorage.getItem("ouchi-theme");if(v==="light"||v==="dark")p=v}catch(e){}document.documentElement.dataset.themePreference=p;document.documentElement.dataset.theme=p==="dark"||(p==="system"&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"})()` }} /></head>
+      <body><ThemeProvider><RegisterOffline />{children}</ThemeProvider></body>
     </html>
   );
 }
