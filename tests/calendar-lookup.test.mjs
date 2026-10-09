@@ -565,3 +565,20 @@ test('2024 HWS V right and left models retain dedicated care and catalyst protec
  }
  assert.equal(lookup.lookupModel('R-HWS47VG').length,0);
 });
+
+
+test('2024 V four variants preserve own sources, water conditions and capacity-specific removal', () => {
+ for(const model of ['R-V38V','R-V38VL','R-V32V','R-V32VL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2024);
+  assert.match(c.manualUrl,/r_v38v_a\.pdf$/);
+  assert.match(c.lookupNote,/2024年9月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[0].conditions,/塩素を含まない水.*3日に1回/);
+  assert.match(c.suggestions[7].conditions,model.includes('38')?/上に引っ張り/:/手前に引っ張り/);
+  assert.match(c.lookupNote,/約3分/);
+  assert.ok(!c.suggestions.some(x=>/側面|氷温|製氷皿/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-V38VG').length,0);
+});
