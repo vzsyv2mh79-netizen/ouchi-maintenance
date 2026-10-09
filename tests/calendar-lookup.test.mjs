@@ -362,6 +362,25 @@ test('Hitachi HXC X uses its own official manual and preserves care limits', () 
   assert.match(c.lookupNote,/1週間以上不使用/);
   assert.ok(!c.suggestions.some(x=>x.name.includes('製氷おそうじ')));
  }
- assert.equal(lookup.lookupModel('R-HXCC54X').length,0);
+ assert.equal(lookup.lookupModel('R-HXCC54Y').length,0);
  assert.equal(lookup.lookupModel('R-HXC62Y').length,0);
+});
+
+
+test('Hitachi HXCC X retains camera condition and dedicated care page mapping', () => {
+ for (const model of ['R-HXCC62X','R-HXCC54X']) {
+  const [c] = lookup.lookupModel(model);
+  assert.match(c.manualUrl,/r_hxcc62x_a\.pdf$/);
+  assert.equal(c.releaseYear,2025);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.ok(c.suggestions.every(x=>/#page=(39|40)$/.test(x.sourceUrl)));
+  assert.match(c.suggestions[4].conditions,/42ページ/);
+  assert.match(c.suggestions[6].conditions,/43ページ/);
+  assert.match(c.suggestions[9].conditions,/58ページ/);
+  assert.match(c.lookupNote,/カメラは汚れが気になるとき/);
+  assert.match(c.lookupNote,/41ページの製氷おそうじ/);
+  assert.ok(!c.suggestions.some(x=>/カメラ|製氷おそうじ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HXCC62Y').length,0);
 });
