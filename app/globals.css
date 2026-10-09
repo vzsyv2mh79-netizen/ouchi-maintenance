@@ -95,3 +95,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #246bfe; outline-offs
 :root[data-theme="dark"] .form-grid :is(input,select,textarea):focus { border-color:var(--accent); box-shadow:0 0 0 3px #30466a; }
 :root[data-theme="dark"] .complete-button:hover { background:#34588d; color:white; }
 :root[data-theme="dark"] .toast { background:#edf0f5; color:#17202c; }
+
+.theme-toggle { flex:none; width:44px; height:44px; }
+@media(max-width:760px) { .topbar { gap:8px; } .home-switch select { max-width:100px; } .mobile-brand { font-size:13px; } }
