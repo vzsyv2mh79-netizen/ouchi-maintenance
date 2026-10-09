@@ -310,5 +310,21 @@ test('TH5 TA5 and TSK2 preserve their own dishwasher course and page evidence', 
   assert.match(c.lookupNote, /7分以上/);
  }
  assert.equal(lookup.lookupModel('NR-C33JS1').length,0);
- assert.equal(lookup.lookupModel('NR-C37ES2').length,0);
+ assert.equal(lookup.lookupModel('NR-C37ES1').length,0);
+});
+
+test('ES refrigerators use the ES manual and chiller case rather than partial-mode instructions', () => {
+ for (const model of ['NR-C33ES2','NR-C33ES2L','NR-C37ES2','NR-C37ES2L']) {
+  const [c] = lookup.lookupModel(model);
+  assert.equal(c.categoryId,'fridge');
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,90,90,90,180,365,1095]);
+  assert.ok(c.manualUrl.includes('000000003487471'));
+  assert.ok(c.suggestions[4].sourceUrl.endsWith('#page=6'));
+  assert.match(c.suggestions[4].conditions,/製氷を停止してから/);
+  assert.match(c.suggestions[3].name,/チルドルーム/);
+  assert.ok(c.suggestions.every(x=>!x.conditions.includes('PDF9') && !x.name.includes('パーシャル')));
+  assert.match(c.suggestions[6].conditions,/説明書18ページ/);
+  assert.match(c.lookupNote,/2025年7月/);
+ }
+ assert.equal(lookup.lookupModel('NR-C33ES1').length,0);
 });
