@@ -1053,3 +1053,11 @@ test('YEX120B uses dehumidifier category and own fortnightly filter/monthly tank
  const [c]=lookup.lookupModel('F-YEX120B');assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年5月30日発売/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=19'&&x.conditions.includes('電源プラグを抜き、必ず排水')));
  assert.match(c.suggestions[0].conditions,/繊維部分を強くこすったり押したりしません.*つめ.*外したまま使わず/);assert.match(c.suggestions[1].conditions,/排水口を引っ張りません.*2〜3回.*フロートは外さず.*中性洗剤/);assert.match(c.lookupNote,/内部乾燥.*固定周期は設定しません.*約1時間/);assert.ok(!c.suggestions.some(x=>/内部乾燥|交換/.test(x.name)));assert.equal(lookup.lookupModel('F-YEX120BX').length,0);
 });
+
+
+test('YEX2026 preserve distinct filter washing and tank handling',()=>{
+ const [a]=lookup.lookupModel('F-YEX200D'),[b]=lookup.lookupModel('F-YEX90D');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'dehumidifier-appliance');assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,30]);assert.match(c.lookupNote,/固定周期は設定しません.*タンクを外しません/);assert.equal(lookup.lookupModel(c.modelNumber+'X').length,0);}
+ assert.match(a.suggestions[0].conditions,/本体側フィルター.*外したフィルター.*水洗い.*左右共用.*取っ手/);assert.match(a.suggestions[1].conditions,/タンクハンドル/);assert.equal(a.suggestions[0].sourceUrl,a.manualUrl+'#page=19');
+ assert.equal(b.suggestions[0].sourceUrl,b.manualUrl+'#page=17');assert.equal(b.suggestions[1].sourceUrl,b.manualUrl+'#page=16');assert.match(b.suggestions[0].conditions,/取り付けた状態/);assert.ok(!b.suggestions[0].conditions.includes('水洗い'));assert.ok(!b.suggestions[1].conditions.includes('ハンドル'));assert.notEqual(a.manualUrl,b.manualUrl);
+});

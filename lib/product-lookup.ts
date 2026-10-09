@@ -8534,4 +8534,75 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "エコ・ハイブリッド方式 衣類乾燥除湿機",
+    "modelNumber": "F-YEX200D",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://panasonic.jp/joshitsu/products/F-YEX200D/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/655/000000004397655/F-YEX200D_web.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn260311-1",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式発表で2026年4月発売を確認。専用説明書19ページを確認。フィルターは2週間に1回程度、タンクセットは1か月に1回程度お手入れします。清掃前は電源プラグを抜き、必ず排水します。本体はかたく絞った布で拭き、水洗い・寝かせることを避けます。内部乾燥は運転後や長期間使わないときに行うことが推奨され、固定周期は設定しません。約1時間後に自動停止します。内部乾燥が終わるまでタンクを外しません（説明書23ページ）。長期保管前は内部乾燥・排水・すべての清掃を行い、ほこりよけをかぶせ、水平で安定した湿気の少ない場所に立てて保管します。",
+    "suggestions": [
+      {
+        "name": "左右フィルター・本体側フィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/655/000000004397655/F-YEX200D_web.pdf#page=19",
+        "conditions": "説明書19ページ。電源プラグを抜き、必ず排水してから行います。左右のフィルターと本体側フィルターの汚れを掃除機などで取り除きます。外したフィルターは汚れが気になるとき水洗いします。繊維部分を強くこすったり押したりしません。左右共用で、つまみを取っ手の位置に合わせ、本体のつめにフィルターの穴を差し込み、上側を押して取り付けます。フィルターを外したまま使わず、破損した場合は交換します。"
+      },
+      {
+        "name": "タンクセットのすすぎ洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/655/000000004397655/F-YEX200D_web.pdf#page=19",
+        "conditions": "説明書18〜19ページ。電源プラグを抜き、必ず排水してから行います。タンクハンドルを上げ、排水口を開けてタンクふたを引き上げます。排水口を引っ張りません。タンクとふたを水で2〜3回すすぎます。フロートは外さず、水でぬめりや軸周辺の汚れを落とします。しつこい汚れには薄めた台所用中性洗剤を使います。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "エコ・ハイブリッド方式 衣類乾燥除湿機",
+    "modelNumber": "F-YEX90D",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://panasonic.jp/joshitsu/products/F-YEX90D/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/657/000000004397657/F-YEX90D_web.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn260311-1",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式発表で2026年4月発売を確認。専用説明書17ページを確認。フィルターは2週間に1回程度、タンクセットは1か月に1回程度お手入れします。清掃前は電源プラグを抜き、必ず排水します。本体はかたく絞った布で拭き、水洗い・寝かせることを避けます。内部乾燥は運転後や長期間使わないときに行うことが推奨され、固定周期は設定しません。約1時間後に自動停止します。内部乾燥が終わるまでタンクを外しません（説明書15ページ）。長期保管前は内部乾燥・排水・すべての清掃を行い、ほこりよけをかぶせ、水平で安定した湿気の少ない場所に立てて保管します。",
+    "suggestions": [
+      {
+        "name": "吸込口（フィルター）の掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/657/000000004397657/F-YEX90D_web.pdf#page=17",
+        "conditions": "説明書17ページ。電源プラグを抜き、必ず排水してから行います。背面の吸込口（フィルター）の汚れを掃除機などで取り除きます。説明書の手順は取り付けた状態での掃除です。"
+      },
+      {
+        "name": "タンクセットのすすぎ洗い",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/397/657/000000004397657/F-YEX90D_web.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、必ず排水してから行います。排水口を開けてタンクふたを引き上げます。排水口を引っ張りません。タンクとふたを水で2〜3回すすぎます。フロートは外さず、水でぬめりや軸周辺の汚れを落とします。しつこい汚れには薄めた台所用中性洗剤を使います。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
