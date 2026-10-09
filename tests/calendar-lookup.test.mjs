@@ -484,3 +484,15 @@ test('Hitachi V X preserves three-minute ice cleaning and water-dependent tank c
  }
  assert.equal(lookup.lookupModel('R-V38Y').length,0);
 });
+
+
+test('R27X only proposes its own nonautomatic-ice care', () => {
+ const [c]=lookup.lookupModel('R-27X');
+ assert.ok(lookup.supportedModels.includes('R-27X'));
+ assert.match(c.manualUrl,/r_27x_a\.pdf$/);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,90,90,180,180]);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=10'));
+ assert.ok(!c.suggestions.some(x=>/給水|製氷|フィルター/.test(x.name)));
+ assert.match(c.suggestions[6].conditions,/蒸発皿を取り外さない/);
+ assert.equal(lookup.lookupModel('R-27XL').length,0);
+});
