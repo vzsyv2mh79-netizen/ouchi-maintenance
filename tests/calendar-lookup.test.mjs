@@ -531,3 +531,19 @@ test('2024 WY refrigerators preserve their own nine-task layout without special 
  }
  assert.equal(lookup.lookupModel('R-H54WYG').length,0);
 });
+
+
+test('2024 W exact models cite the W manual and its nine care tasks', () => {
+ for(const model of ['R-H54W','R-H49W']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.match(c.manualUrl,/r_h54w_a\.pdf$/);
+  assert.equal(c.releaseYear,2024);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.ok(!c.suggestions.some(x=>/氷温|カメラ|製氷おそうじ/.test(x.name)));
+  assert.match(c.suggestions[5].conditions,/潤滑剤を拭き取らず/);
+  assert.match(c.lookupNote,/約4分/);
+ }
+ assert.equal(lookup.lookupModel('R-H54WG').length,0);
+});
