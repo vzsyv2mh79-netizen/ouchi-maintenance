@@ -10175,4 +10175,213 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "AAP-S20C",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年9月発売を確認。共通説明書の表紙に基本品番AAP-S20Cが記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（22ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S202（28ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=23",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S202です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "AAP-S30C",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年9月発売を確認。共通説明書の表紙に基本品番AAP-S30Cが記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（22ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S302（28ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=23",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S302です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "AAP-S40A",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売を確認。共通説明書の表紙に基本品番AAP-S40Aが記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（22ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S40（28ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210171.pdf#page=23",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S40です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "KAP-S203",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年9月発売を確認。共通説明書の表紙に基本品番KAP-S203が記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（21ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S202（27ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=21",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S202です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "KAP-S303",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年9月発売を確認。共通説明書の表紙に基本品番KAP-S303が記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（21ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S302（27ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=21",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S302です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "空気清浄機",
+    "modelNumber": "KAP-S401",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/21",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売を確認。共通説明書の表紙に基本品番KAP-S401が記載されています。集じん脱臭フィルターは汚れが気になったときに取り出し、外側の網状プレフィルターについたごみを掃除機などで取り除きます。集じん脱臭フィルターは絶対に水洗いせず、強く押しません。においが気になる場合は風通しのよい部屋でしばらく運転します（21ページ）。汚れが気になったときの作業は固定の日数に置き換えません。交換用フィルターはFLS-S40（27ページ）。",
+    "suggestions": [
+      {
+        "name": "本体・吹き出し口・吸気口の掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=21",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。吹き出し口・吸気口のごみを掃除機などで吸い取ります。背面の吸気口も掃除します。その他の部分は柔らかい布などで汚れを拭きます。"
+      },
+      {
+        "name": "集じん脱臭フィルターの交換目安を確認",
+        "kind": "交換",
+        "intervalDays": 730,
+        "frequency": "約2年（使用状況による目安・予定計算は730日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/210177.pdf#page=22",
+        "conditions": "運転を停止し、ACアダプターをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。洗剤・シンナー・ベンジン・漂白剤などは使用しません。約2年はたばこを1日5本吸った場合の試験による目安で、運転頻度・設置場所・使いかたによって変わります。フィルター交換ランプが点灯したら交換します。お手入れしても煙やにおいが取れにくくなったら、ランプの点灯に関わらず早めに交換します。交換用フィルターはFLS-S40です。交換後はランプが点灯していなくても「モード」ボタンを長押ししてリセットします。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
