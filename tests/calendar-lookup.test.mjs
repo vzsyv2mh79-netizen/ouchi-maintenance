@@ -1302,3 +1302,17 @@ test('2025 Iris standard air purifiers preserve own manual offsets and condition
   assert.ok(c.suggestions[1].conditions.includes(part));assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2025 Iris humidifying air purifiers separate refill, silver case and filter care', () => {
+ for(const [model,id,page,month] of [['AAP-SH20B','210164',26,9],['AAP-SH30B','210164',26,9],['AAP-SH40A','210164',26,11],['KAP-SH202','209803',25,9],['KAP-SH302','209803',25,9],['KAP-SH401','209803',25,9]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'air-purifier');assert.ok(c.manualUrl.endsWith(id+'.pdf'));assert.ok(c.lookupNote.includes('2025年'+month+'月'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,30,730,730]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[page,page+2,page+2,page+3,page+6,page+6].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.lookupNote,/給水のたび.*外側の網状プレフィルター.*絶対に水洗いせず.*固定の日数/);
+  assert.match(c.suggestions[2].conditions,/銀ビーズケース.*2〜5分.*40℃以下.*3L.*20g/);
+  assert.match(c.suggestions[3].conditions,/台所用洗剤.*40℃以上.*取り付けずに運転しません.*30分〜2時間.*最長2時間.*重曹110g.*約60分.*混ぜて使用しません/);
+  assert.match(c.suggestions[4].conditions,/1日5本.*点灯に関わらず.*点灯していなくても.*モード.*長押し/);
+  assert.match(c.suggestions[5].conditions,/1日8時間.*水質.*水が減らない.*型くずれ.*全面.*不燃物/);
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
