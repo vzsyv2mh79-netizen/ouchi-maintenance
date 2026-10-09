@@ -355,6 +355,32 @@ catalog.push({
     conditions: "説明書16〜17ページ。ペットの毛や綿ゴミは、いっぱいでも交換ランプが点滅しない場合があるため、直接確認します。交換は赤いランプが約2秒間隔で点滅したとき。月ごとの一律交換ではありません。点灯や約0.3秒間隔の早い点滅は交換サインと異なり、説明書24ページで対処を確認してください。紙パック交換後は本体を充電台にセットし直します。" }],
 });
 
+const tz500Manual = "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/139/000000002409139/np-tz500.pdf";
+catalog.push({
+  maker: "Panasonic", name: "食器洗い乾燥機", modelNumber: "NP-TZ500", categoryId: "dishwasher",
+  productUrl: "https://panasonic.jp/dish/products/NP-TZ500.html", productLinkLabel: "公式製品ページ",
+  manualUrl: tz500Manual, discoveredManualUrl: tz500Manual, manualLinkLabel: "取扱説明書（PDF）",
+  verifiedAt: "2026-10-09", releaseYear: 2024, releaseSourceUrl: "https://news.panasonic.com/jp/press/jn240510-2",
+  lookupNote: "メーカー発表は2024年6月下旬発売。現在の機種専用説明書11〜12ページを確認しています。庫内の月2〜3回は予定計算を15日にしています。汚れが気になる場合は予定前でもお手入れしてください。洗剤は食洗機専用を使用し、庫内清掃に塩素系洗剤を使わないでください。タンク・投入経路は洗剤の種類を変えるときや1か月以上使わなかったときにもお手入れします。具体的な操作や部品の戻し方は公式の図で確認してください。",
+  suggestions: [
+    { name: "残さいフィルターの掃除", kind: "掃除", intervalDays: 7,
+      frequency: "週に1回・汚れが気になるとき", sourceKind: "取扱説明書", sourceUrl: `${tz500Manual}#page=6`,
+      conditions: "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、残さいフィルターを取り外して掃除します。お手入れ後は取り外した部品を元どおりに取り付けてください。排水口に残る水は異常ではありません。" },
+    { name: "庫内のお手入れ", kind: "掃除", intervalDays: 15,
+      frequency: "月に2〜3回（予定計算は15日）・汚れが気になるとき", sourceKind: "取扱説明書", sourceUrl: `${tz500Manual}#page=6`,
+      conditions: "説明書11ページ。食器を入れず、食洗機専用液体洗剤の自動投入を使用し、汚れレベルL5で運転します。塩素系洗剤は使用しないでください。操作の順番と洗剤補充の確認は説明書を参照し、運転終了後は分岐水栓を閉めます。" },
+    { name: "排水口カバーの掃除", kind: "掃除", intervalDays: 30,
+      frequency: "月に1回（予定計算は30日）・汚れが気になるとき", sourceKind: "取扱説明書", sourceUrl: `${tz500Manual}#page=6`,
+      conditions: "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、取り外した排水口カバーを中性洗剤を含ませた柔らかいスポンジで洗います。元どおりに取り付けてください。" },
+    { name: "本体・パッキン部のお手入れ", kind: "掃除", intervalDays: 30,
+      frequency: "月に1回（予定計算は30日）・汚れが気になるとき", sourceKind: "取扱説明書", sourceUrl: `${tz500Manual}#page=6`,
+      conditions: "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、よく絞った柔らかい布で庫内やパッキン部を拭きます。外側は漂白剤・洗剤・溶剤・ワックス・殺虫剤を使わず、水や湯を庫内に入れたり製品にかけたりしないでください。" },
+    { name: "洗剤タンク・洗剤投入経路のお手入れ", kind: "掃除", intervalDays: 90,
+      frequency: "3か月ごと（予定計算は90日）・洗剤変更時・1か月以上使わなかったとき", sourceKind: "取扱説明書", sourceUrl: `${tz500Manual}#page=7`,
+      conditions: "説明書12〜13ページ。残った洗剤の排出方法を確認し、取り外したタンクとフロートを約40℃のお湯で洗います。水や湯以外で洗わないでください。部品を正しく戻して約40℃のお湯を入れ、お手入れモード1で経路を洗います。モード2は詰まり時の対処、モード3は洗剤排出であり、通常清掃と混同しないでください。操作順と分岐水栓の開閉は公式の図を確認します。" },
+  ],
+});
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
