@@ -39,6 +39,8 @@ export const catalog: ProductCandidate[] = [{
 const humidifierManuals = [
   { models: ["HV-T55", "HV-T75"], url: "https://jp.sharp/restricted/support/manual/humid_con/hvt55_75.mn_.pdf" },
   { models: ["HV-R55", "HV-R75"], url: "https://jp.sharp/restricted/support/manual/humid_con/hvr55_75_mn.pdf" },
+  { models: ["HV-S55", "HV-S75"], url: "https://jp.sharp/restricted/support/manual/humid_con/hvs55_s75_mn.pdf" },
+  { models: ["HV-P55", "HV-P75"], url: "https://jp.sharp/support/humid_con/doc/hvp55-hvp75_mn.pdf" },
 ];
 for (const { models, url } of humidifierManuals) {
   for (const modelNumber of models) {
@@ -81,6 +83,25 @@ for (const modelNumber of ["NA-LX129CL", "NA-LX129CR"]) {
   });
 }
 
+// EE-DD35 and EE-DD50 are explicitly listed on the same manual cover.
+const steamManual = "https://www.zojirushi.co.jp/toiawase/TR_PDF/EEDD.pdf";
+for (const modelNumber of ["EE-DD35", "EE-DD50"]) {
+  catalog.push({
+    maker: "象印", name: "スチーム式加湿器", modelNumber, categoryId: "humidifier",
+    productUrl: "https://www.zojirushi.co.jp/syohin/life/humidifier/ee-dd/", manualUrl: steamManual,
+    productLinkLabel: "公式製品ページ", manualLinkLabel: "取扱説明書", verifiedAt: "2026-10-09",
+    lookupNote: "公式説明書の表紙に両品番が掲載されています。印刷18〜19ページ（PDF10ページ）の内容器洗浄とパッキン交換の目安を確認済みです。内容器洗浄は1〜2か月の幅があるため、予定は短い側の30日で計算します。水質・使用状況や汚れによって早めてください。",
+    suggestions: [
+      { name: "内容器のクエン酸洗浄", kind: "掃除", intervalDays: 30,
+        frequency: "1〜2か月に1回（予定計算は短い側の30日）", sourceKind: "取扱説明書", sourceUrl: `${steamManual}#page=10`,
+        conditions: "印刷18ページ（PDF10ページ）。クエン酸洗浄コースを使います。開始前と終了後の排水は本体が冷めてから行い、洗剤・塩素系製品と混ぜないでください。分量・操作・すすぎは説明書で確認してください。汚れ・におい・運転音が気になる場合は予定前でも実施してください。" },
+      { name: "内ぶたパッキンの交換", kind: "交換", intervalDays: 365,
+        frequency: "1年を目安（予定計算は365日）・白い変色時は早めに交換", sourceKind: "取扱説明書", sourceUrl: `${steamManual}#page=10`,
+        conditions: "印刷19ページ（PDF10ページ）。内ぶたパッキンは消耗品です。白く変色した場合は1年を待たずに交換してください。電源を抜いて冷ましてから、適合部品と取り外し・取り付け方法を説明書で確認してください。" },
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
@@ -99,6 +120,7 @@ export function officialSearchLinks(value: string) {
     { maker: "SHARP", domain: "jp.sharp" },
     { maker: "Panasonic", domain: "panasonic.jp" },
     { maker: "日立", domain: "kadenfan.hitachi.co.jp" },
+    { maker: "象印", domain: "zojirushi.co.jp" },
     { maker: "三菱電機", domain: "mitsubishielectric.co.jp" },
     { maker: "ダイキン", domain: "daikin.co.jp" },
   ].map(({ maker, domain }) => ({ maker, url: `https://www.google.com/search?q=${encodeURIComponent(`site:${domain} "${model}" 取扱説明書 お手入れ`)}` }));
