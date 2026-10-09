@@ -1071,3 +1071,8 @@ test('Sharp T190 uses weekly tank, fortnightly prefilter and monthly body care',
 test('Mitsubishi P180YX uses own spread pages and conditional continuous drain check',()=>{
  const [c]=lookup.lookupModel('MJ-P180YX');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'dehumidifier-appliance');assert.match(c.lookupNote,/2025年5月1日発売/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,90,14]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[c.manualUrl+'#page=10',c.manualUrl+'#page=11',c.manualUrl+'#page=10']);assert.match(c.suggestions[1].conditions,/約30分.*洗剤・熱湯・ブラシ・もみ洗い.*平ら.*ぬれたまま.*8回/);assert.match(c.suggestions[2].conditions,/場合だけ選択.*つまり・折れ曲がり・ひび割れ/);assert.match(c.lookupNote,/フロートは取り外さず.*MJPR-830VFT.*一律の交換周期は設定しません/);assert.equal(lookup.lookupModel('MJ-P180YXX').length,0);
 });
+
+
+test('PV250YX keeps own manual page and 831 filter instead of P180 parts',()=>{
+ const [c]=lookup.lookupModel('MJ-PV250YX');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseSourceUrl,'https://www.mitsubishielectric.co.jp/ldg/wink/ssl/displayProduct.do?pid=348076');assert.match(c.manualUrl,/zt936z266h01.pdf$/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,90,14]);assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=10'));assert.match(c.suggestions[1].conditions,/印刷19ページ.*約30分.*平ら.*8回/);assert.match(c.suggestions[2].conditions,/場合だけ選択/);assert.match(c.lookupNote,/MJPR-831VFT/);assert.ok(!c.lookupNote.includes('MJPR-830VFT'));assert.notEqual(c.manualUrl,lookup.lookupModel('MJ-P180YX')[0].manualUrl);assert.equal(lookup.lookupModel('MJ-PV250YXX').length,0);
+});
