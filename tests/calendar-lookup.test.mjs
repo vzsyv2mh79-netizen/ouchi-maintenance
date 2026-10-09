@@ -56,7 +56,7 @@ test('humidifiers and left/right washer variants use verified shared manuals wit
     assert.ok(candidate.lookupNote.includes('使用のたび'));
     assert.ok(candidate.suggestions[1].conditions.includes('予定日前'));
   }
-  for (const model of ['HV-T50','HV-T75-W','HV-S50','NA-LX129DL','NA-LX129C','NA-LX129CL-W']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['HV-T50','HV-T75-W','HV-S50','NA-LX129DLA','NA-LX129C','NA-LX129CL-W']) assert.equal(lookup.lookupModel(model).length,0);
   assert.equal(lookup.lookupModel(' ｈｖ－ｔ７５ ')[0].modelNumber,'HV-T75');
   assert.equal(new Set(lookup.supportedModels).size, lookup.supportedModels.length);
 });
@@ -139,4 +139,17 @@ test('2025 UX variants use their own manual rather than inheriting TX advice', (
     assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
   }
   for (const model of ['KI-UX70','KI-UX100-H','KI-WX100']) assert.equal(lookup.lookupModel(model).length,0);
+});
+
+test('2024 washer D variants use the D manual and weekly drain-filter evidence', () => {
+  for (const model of ['NA-LX129DL','NA-LX129DR']) {
+    const [candidate] = lookup.lookupModel(model);
+    assert.equal(candidate.releaseYear,2024);
+    assert.ok(candidate.manualUrl.endsWith('NA-LX129D-.pdf'));
+    assert.deepEqual(candidate.suggestions.map(item=>item.intervalDays),[7,30,7]);
+    assert.deepEqual(candidate.suggestions.map(item=>item.sourceUrl.split('#').at(-1)),['page=24','page=24','page=25']);
+    assert.ok(candidate.suggestions[2].conditions.includes('ブザー'));
+    assert.ok(candidate.lookupNote.includes('使用のたび'));
+  }
+  for (const model of ['NA-LX127DL','NA-LX129EL','NA-LX129DL-W']) assert.equal(lookup.lookupModel(model).length,0);
 });
