@@ -7531,4 +7531,88 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-27TV",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-27TV/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-27TV/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2023年10月発売の公式サポートとR-27TV専用説明書を確認済み。10ページの周期を提案します。側面は汚れに気づいたとき拭き、固定周期にはしません。部品の取り外し・取り付けは11ページの図で確認してください。給水タンク・自動製氷機・浄水フィルターの作業は提案しません。",
+    "suggestions": [
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書11ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。電源プラグを抜き、部品の取り外しは11ページを確認し、ぬるま湯を含ませた柔らかい布で拭きます。食洗機や熱湯を使わず、ケースの可動接触面の潤滑剤を拭き取らないでください。 上段ケースのふちは下段ケース左右のふちにのせ、下段ケース左右後側の突起を枠の角穴に入れます。枠のローラーはレール内に入れ、11ページの図で確認してください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_27tv_c.pdf#page=10",
+        "conditions": "説明書10ページ。電源プラグを抜き、脚カバーを手前に引っ張ります。調節脚を床から浮かせ、冷蔵庫をまっすぐ手前に引き出し、背面・壁・床を拭きます。傷つきやすい床は保護し、機械室に手を入れず、蒸発皿を取り外さないでください。移動方法と取り付けは図で確認してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

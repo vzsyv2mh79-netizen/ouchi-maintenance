@@ -899,3 +899,13 @@ test('2024 premium W models preserve own vacuum, ice-tray and PLATINUM divider d
  assert.ok(!g.suggestions.some(x=>/真空|製氷皿/.test(x.name)));
  assert.equal(lookup.lookupModel('R-WXC74WG').length,0);
 });
+
+test('R-27TV exact manual keeps seven care tasks without automatic ice-maker advice',()=>{
+ const [c]=lookup.lookupModel('R-27TV');assert.equal(c.releaseYear,2023);assert.match(c.lookupNote,/2023年10月発売/);
+ assert.match(c.manualUrl,/r_27tv_c\.pdf$/);assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,90,90,180,180]);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl===c.manualUrl+'#page=10'));
+ assert.ok(!c.suggestions.some(x=>/製氷|給水|フィルター|側面/.test(x.name)));
+ assert.match(c.suggestions[4].conditions,/突起.*角穴.*ローラー.*レール内/);
+ assert.match(c.suggestions[6].conditions,/機械室に手を入れず.*蒸発皿を取り外さない/);
+ assert.equal(lookup.lookupModel('R-27TVL').length,0);
+});

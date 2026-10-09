@@ -212,3 +212,7 @@ R-WXC74V/R-GXCC67V。各公式サポート2024年2月発売、各専用r_wxc74v_
 ## Hitachi WXC/GXCC W (November 2024)
 
 R-WXC74W and R-GXCC67W: exact official launch pages and dedicated r_wxc74w_a.pdf / r_gxcc67w_a.pdf cover, care, removal and parts pages independently inspected. WXC pages 40–45/57: 11 tasks; GXCC pages 41–45/58: 10 tasks. Vacuum packing and ice-tray stop/resume differ from special-chiller and PLATINUM divider assembly. Camera/electric-drawer and first-use/week-unused ice cleaning remain conditional.
+
+## Hitachi R-27TV (October 2023)
+
+Official support records October 2023; exact day is not provided there. Dedicated r_27tv_c.pdf cover and pages 10/11/15 inspected independently. Seven care tasks; no automatic ice maker or fixed side-panel cleaning. Lower-case projections/corner holes and frame rollers/rail directions preserved.
