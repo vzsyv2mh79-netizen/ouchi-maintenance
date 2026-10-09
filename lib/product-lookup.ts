@@ -7775,4 +7775,59 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "サイクロン式キャニスター掃除機",
+    "modelNumber": "MC-SR640K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-SR640K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/163/000000003745163/MC-SR640K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年10月発売を確認。専用説明書印刷12〜15ページ（PDF7〜8ページ）を確認。ゴミの量は種類によって変わるため、ゴミすてラインに達する前に捨てます。ペットの毛や綿ごみが多いと、ランプがつかなくても満杯の場合があります。清掃は吸込力が弱くなったとき／気になったとき、お手入れランプ点灯時などに行い、固定周期にはしません。切を押し電源プラグを抜きます。親ノズル本体・手元ブラシ・子ノズル・本体・ホース・延長管は水洗い禁止。回転部（ブラシ）だけ洗え、ベルト・カバーのつめ・ひらく／しまるの方向を図で確認し、十分乾燥させます。サイクロンユニットは約1時間水につけ、水中で振って流水洗浄。クリーンフィルターは軽くはたくか軽く流水で洗い、ブラシでこすりません。水洗いしたダストボックス類・ユニット・フィルターは風通しのよい場所で約24時間十分乾燥させてから戻します。熱風や洗剤・ベンジン・シンナー・アルコールは使いません。センサーはゴミ検知ランプの異常時のみ柔らかい布でから拭き、水洗い禁止。付属のふとん用ノズルは必要時に軽く水洗いでき、十分乾燥させます（印刷14ページ）。",
+    "suggestions": [
+      {
+        "name": "ダストボックスのゴミすてライン確認",
+        "kind": "点検",
+        "intervalDays": 7,
+        "frequency": "週に1度が目安（予定計算は7日）／ラインを超える前にゴミ捨て",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/163/000000003745163/MC-SR640K.pdf#page=7",
+        "conditions": "説明書印刷12〜13ページ（PDF7ページ）。切を押し電源プラグを抜き、ゴミの量を確認します。ラインを超える前に、週の予定を待たずこまめに捨ててください。本体を立てたままダストボックスを外さず、底ぶたをカチッと閉めて本体へ確実に戻します。清掃で分解した場合はネットフィルター・サイクロンユニットを図の位置に必ず戻し、ふたのフックを掛けてください。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "サイクロン式キャニスター掃除機",
+    "modelNumber": "MC-SR44K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-SR44K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/168/000000003745168/MC-SR44K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年10月発売を確認。専用説明書印刷12〜15ページ（PDF7〜8ページ）を確認。ゴミの量は種類によって変わるため、ゴミすてラインに達する前に捨てます。ペットの毛や綿ごみが多いと、ランプがつかなくても満杯の場合があります。清掃は吸込力が弱くなったとき／気になったとき、お手入れランプ点灯時などに行い、固定周期にはしません。切を押し電源プラグを抜きます。親ノズル本体・手元ブラシ・子ノズル・本体・ホース・延長管は水洗い禁止。回転部（ブラシ）だけ洗え、ベルト・カバーのつめ・ひらく／しまるの方向を図で確認し、十分乾燥させます。サイクロンユニットは約1時間水につけ、水中で振って流水洗浄。クリーンフィルターは軽くはたくか軽く流水で洗い、ブラシでこすりません。水洗いしたダストボックス類・ユニット・フィルターは風通しのよい場所で約24時間十分乾燥させてから戻します。熱風や洗剤・ベンジン・シンナー・アルコールは使いません。センサーはゴミ検知ランプの異常時のみ柔らかい布でから拭き、水洗い禁止。",
+    "suggestions": [
+      {
+        "name": "ダストボックスのゴミすてライン確認",
+        "kind": "点検",
+        "intervalDays": 7,
+        "frequency": "週に1度が目安（予定計算は7日）／ラインを超える前にゴミ捨て",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/168/000000003745168/MC-SR44K.pdf#page=7",
+        "conditions": "説明書印刷12〜13ページ（PDF7ページ）。切を押し電源プラグを抜き、ゴミの量を確認します。ラインを超える前に、週の予定を待たずこまめに捨ててください。本体を立てたままダストボックスを外さず、底ぶたをカチッと閉めて本体へ確実に戻します。清掃で分解した場合はネットフィルター・サイクロンユニットを図の位置に必ず戻し、ふたのフックを掛けてください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

@@ -942,3 +942,16 @@ test('JP890K never inherits a monthly cleaning interval from PJ models',()=>{
  assert.match(c.lookupNote,/手元ブラシ.*水洗い禁止/);assert.match(c.lookupNote,/センサー.*異常時のみ.*から拭き/);
  assert.ok(!c.suggestions.some(x=>/清掃|交換|センサー|フィルター/.test(x.name)));assert.equal(lookup.lookupModel('MC-JP890KX').length,0);
 });
+
+test('SR640K and SR44K keep weekly bin inspection separate from conditional washing',()=>{
+ const [a]=lookup.lookupModel('MC-SR640K'),[b]=lookup.lookupModel('MC-SR44K');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年10月発売/);
+ assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,7);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=7');
+ assert.match(c.suggestions[0].conditions,/予定を待たず.*立てたまま.*カチッ.*ネットフィルター・サイクロンユニット/);
+ assert.match(c.lookupNote,/固定周期にはしません/);assert.match(c.lookupNote,/約1時間.*ブラシでこすりません.*約24時間/);
+ assert.match(c.lookupNote,/手元ブラシ.*水洗い禁止/);assert.match(c.lookupNote,/センサー.*異常時のみ.*から拭き/);
+ assert.ok(!c.suggestions.some(x=>/清掃|フィルター|センサー/.test(x.name)));}
+ assert.match(a.manualUrl,/MC-SR640K\.pdf$/);assert.match(b.manualUrl,/MC-SR44K\.pdf$/);
+ assert.match(a.lookupNote,/ふとん用ノズル.*軽く水洗い/);assert.ok(!b.lookupNote.includes('ふとん用ノズル'));
+ assert.equal(lookup.lookupModel('MC-SR44KX').length,0);
+});
