@@ -1202,3 +1202,23 @@ test('Iris steam humidifiers preserve model-specific citric amounts and powered 
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2025 Iris evaporative humidifiers separate refill cleaning from monthly component care', () => {
+ for(const [model,id] of [['AHM-MVU55A','209038'],['KHM-MVU601','209039']]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');
+  assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,30]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[23,24,30,31].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.lookupNote,/2025年8月発売.*給水のたび.*固定の日数.*720時間/);
+  assert.match(c.suggestions[2].name,/水タンク/);
+  assert.match(c.suggestions[0].conditions,/本体は水洗いせず.*掃除機/);
+  assert.match(c.suggestions[1].conditions,/水洗い.*台所用洗剤.*40℃以上.*使いません/);
+  assert.match(c.suggestions[2].conditions,/水タンク、ファンカバー、ファンを外して.*水洗い.*本体は水洗いしません/);
+  assert.match(c.suggestions[3].conditions,/下側の水タンク.*中央に入れたまま.*2〜5分.*3L.*20g.*濃度を高くしません/);
+  assert.ok(c.suggestions.every(x=>x.conditions.includes('ACアダプター')));
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ assert.notEqual(lookup.lookupModel('AHM-MVU55A')[0].manualUrl,lookup.lookupModel('KHM-MVU601')[0].manualUrl);
+});
