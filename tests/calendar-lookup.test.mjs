@@ -1290,3 +1290,15 @@ test('2024 Iris ultrasonic humidifiers preserve internal-only washing and silver
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2025 Iris standard air purifiers preserve own manual offsets and conditional filter care', () => {
+ for(const [model,id,page,part] of [['AAP-S20C','210171',22,'FLS-S202'],['AAP-S30C','210171',22,'FLS-S302'],['AAP-S40A','210171',22,'FLS-S40'],['KAP-S203','210177',21,'FLS-S202'],['KAP-S303','210177',21,'FLS-S302'],['KAP-S401','210177',21,'FLS-S40']]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'air-purifier');assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,730]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[page,page+1].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.lookupNote,/汚れが気になったとき.*外側.*網状プレフィルター.*絶対に水洗いせず.*強く押しません.*固定の日数/);
+  assert.match(c.suggestions[0].conditions,/ACアダプター.*本体は水洗いしません.*背面の吸気口/);
+  assert.match(c.suggestions[1].conditions,/1日5本.*運転頻度.*ランプの点灯に関わらず.*点灯していなくても.*モード.*長押し/);
+  assert.ok(c.suggestions[1].conditions.includes(part));assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
