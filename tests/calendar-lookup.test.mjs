@@ -417,3 +417,16 @@ test('GZC67X preserves vacuum room care and conditional electric drawer cleaning
  assert.ok(!c.suggestions.some(x=>/電動引き出し|製氷おそうじ|特鮮氷温/.test(x.name)));
  assert.equal(lookup.lookupModel('R-GZC67Y').length,0);
 });
+
+
+test('WXC and GXCC retain distinct chiller and ice tray care', () => {
+ const [w]=lookup.lookupModel('R-WXC74X'); const [g]=lookup.lookupModel('R-GXCC67X');
+ assert.equal(w.suggestions.length,11); assert.equal(g.suggestions.length,10);
+ assert.equal(w.suggestions[4].name,'真空チルドルームの清掃');
+ assert.equal(g.suggestions[4].name,'特鮮氷温ルームの清掃');
+ assert.match(w.suggestions[10].conditions,/点滅中は約1分待ち/);
+ assert.match(w.suggestions[10].conditions,/スポンジ・クレンザー/);
+ assert.match(w.lookupNote,/MENU/); assert.ok(!g.lookupNote.includes('MENU'));
+ for (const c of [w,g]) assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ assert.equal(lookup.lookupModel('R-WXC74Y').length,0);
+});
