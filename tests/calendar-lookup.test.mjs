@@ -1222,3 +1222,19 @@ test('2025 Iris evaporative humidifiers separate refill cleaning from monthly co
  }
  assert.notEqual(lookup.lookupModel('AHM-MVU55A')[0].manualUrl,lookup.lookupModel('KHM-MVU601')[0].manualUrl);
 });
+
+
+test('Iris hybrid humidifiers use their own page offsets and unpowered tank soak', () => {
+ for(const [model,id,offset] of [['AHM-HUT55A','112900',0],['KHM-HUT551','112902',3]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[14,14,30,60]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[25,25,26,23].map(n=>c.manualUrl+'#page='+(n+offset)));
+  assert.match(c.lookupNote,/矢印方向.*本体は水洗いせず.*アロマ.*周期未指定.*固定の日数/);
+  assert.match(c.suggestions[0].conditions,/ブラシ.*綿棒.*やさしく.*フロート.*上下/);
+  assert.match(c.suggestions[1].conditions,/ヒーター.*布.*フェルト.*取り外して洗い/);
+  assert.match(c.suggestions[2].conditions,/ほこりがたまっていたら.*乾いた布/);
+  assert.match(c.suggestions[3].conditions,/40℃以下.*3L.*20g.*2〜5分.*濃度を高くしません/);
+  assert.doesNotMatch(c.suggestions[3].conditions,/2時間|「強」|電源を入れ/);
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
