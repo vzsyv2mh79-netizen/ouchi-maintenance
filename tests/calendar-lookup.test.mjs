@@ -450,3 +450,20 @@ test('Hitachi H X uses its own shared manual and excludes unrelated camera and d
  }
  assert.equal(lookup.lookupModel('R-H54Y').length,0);
 });
+
+
+test('HWS right and left models retain dedicated manual and catalyst restrictions', () => {
+ for (const model of ['R-HWS47X','R-HWS47XL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.match(c.manualUrl,/r_hws47x_b\.pdf$/);
+  assert.match(c.releaseSourceUrl,new RegExp(model+'/manual'));
+  assert.match(c.lookupNote,/2025年9月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は取り外さず、水洗いしない/);
+  assert.match(c.suggestions[6].conditions,/しきりを外し/);
+  assert.ok(!c.suggestions.some(x=>/製氷おそうじ|カメラ|電動/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HWS47Y').length,0);
+});
