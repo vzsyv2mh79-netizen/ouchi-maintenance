@@ -9757,4 +9757,113 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "上給水超音波ハイブリッド加湿器",
+    "modelNumber": "AHM-HUT55A",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112900.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年8月発売と専用説明書を確認。表紙の基本品番AHM-HUT55Aに対応します。使うたびに本体の残り水を説明書23ページの矢印方向から捨て、電源プラグに水をかけません。本体は水洗いせず、水タンク・ふた・蒸気筒を水洗いします。アロマトレー・アロマパッドも使用するたびに取り出して水洗いします（24ページ）。本体外側は定期的にやわらかい布で拭きます（26ページ）。毎使用と周期未指定の清掃は固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。",
+    "suggestions": [
+      {
+        "name": "本体内部・水位センサー・超音波振動子の掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112900.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。付属のブラシまたは綿棒などでやさしく掃除します。超音波振動子に汚れや傷が付くと加湿量が低下するため、傷を付けないようにします。フロートが上下にスムーズに動くことを確認します。"
+      },
+      {
+        "name": "ヒーター・カルキ防止用フェルトの掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112900.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。ヒーターの汚れをやわらかい布などで拭き取ります。カルキ防止用フェルトは取り外して洗います。"
+      },
+      {
+        "name": "吸気口の確認・ほこり取り",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112900.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。吸気口を確認し、ほこりがたまっていたら綿棒ややわらかい乾いた布などで取り除きます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112900.pdf#page=23",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。水タンクの水を捨て、水または40℃以下のぬるま湯3Lに市販のクエン酸20gの比率でよく溶かした水溶液を水タンクに入れます。2〜5分置いてから水で洗い流します。濃度を高くしません。電気部品のある本体は水洗いしません。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "上給水超音波ハイブリッド加湿器",
+    "modelNumber": "KHM-HUT551",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112902.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20?page=2",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年8月発売と専用説明書を確認。表紙の基本品番KHM-HUT551に対応します。使うたびに本体の残り水を説明書26ページの矢印方向から捨て、電源プラグに水をかけません。本体は水洗いせず、水タンク・ふた・蒸気筒を水洗いします。アロマトレー・アロマパッドも使用するたびに取り出して水洗いします（27ページ）。本体外側は定期的にやわらかい布で拭きます（29ページ）。毎使用と周期未指定の清掃は固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。",
+    "suggestions": [
+      {
+        "name": "本体内部・水位センサー・超音波振動子の掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112902.pdf#page=28",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。付属のブラシまたは綿棒などでやさしく掃除します。超音波振動子に汚れや傷が付くと加湿量が低下するため、傷を付けないようにします。フロートが上下にスムーズに動くことを確認します。"
+      },
+      {
+        "name": "ヒーター・カルキ防止用フェルトの掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112902.pdf#page=28",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。ヒーターの汚れをやわらかい布などで拭き取ります。カルキ防止用フェルトは取り外して洗います。"
+      },
+      {
+        "name": "吸気口の確認・ほこり取り",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112902.pdf#page=29",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。吸気口を確認し、ほこりがたまっていたら綿棒ややわらかい乾いた布などで取り除きます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112902.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜いてから行います。ぬれた手で抜き差ししません。本体は水洗いしません。使用直後の水は熱いため注意してください。水タンクの水を捨て、水または40℃以下のぬるま湯3Lに市販のクエン酸20gの比率でよく溶かした水溶液を水タンクに入れます。2〜5分置いてから水で洗い流します。濃度を高くしません。電気部品のある本体は水洗いしません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
