@@ -595,3 +595,23 @@ test('2024 R27V cites only its own nonautomatic-ice care', () => {
  assert.match(c.suggestions[6].conditions,/蒸発皿を取り外さない/);
  assert.equal(lookup.lookupModel('R-27VL').length,0);
 });
+
+
+test('2024 HS V variants retain their own nine tasks without HWS-only care', () => {
+ for (const model of ['R-HS47V','R-HS47VL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.equal(c.releaseYear,2024);
+  assert.match(c.releaseSourceUrl,new RegExp('/'+model+'/manual.html$'));
+  assert.match(c.manualUrl,/r_hs47v_a\.pdf$/);
+  assert.match(c.lookupNote,/2024年6月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[5].conditions,/ケース背面から水がたれる/);
+  assert.match(c.suggestions[5].conditions,/潤滑剤を拭き取らず/);
+  assert.ok(!c.suggestions.some(x=>/氷温|触媒|しきり|製氷おそうじ/.test(x.name+x.conditions)));
+  assert.match(c.lookupNote,/初回・1週間以上不使用後のみ/);
+  assert.match(c.lookupNote,/約4分/);
+ }
+ assert.equal(lookup.lookupModel('R-HS47VG').length,0);
+});
