@@ -1392,3 +1392,13 @@ test('2025 cyclone sticks do not inherit PD weekly cup or dock filter advice', (
   assert.match(c.suggestions[3].conditions,/ボタンを押さずに無理に外しません.*谷に沿って.*強く押し付け.*約24時間.*熱風/);assert.doesNotMatch(c.suggestions[3].conditions,/30分/);assert.match(c.suggestions[6].conditions,remove);assert.match(c.suggestions[6].conditions,/カチッ/);assert.ok(!c.suggestions.some(x=>x.name.includes('ドック')));assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2025 HBD-C1 and HBD-31 use dedicated handheld manuals and avoid stick-cleaner care', () => {
+ for (const [model,pdf,page] of [['HBD-C1','209089',28],['HBD-31','209088',27]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,90]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[page,page,page+1].map(n=>c.manualUrl+'#page='+n));assert.ok(c.suggestions.every(x=>!/回転ブラシ|延長パイプ|ほこり感知|ダストカップ/.test(x.name)));
+  assert.match(c.suggestions[1].conditions,/汚れている場合.*ホルダーを水洗い.*約24時間/);assert.match(c.suggestions[2].conditions,/約24時間.*必ず取り付け.*全周をすき間のない.*カバーをしっかり/);assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ const [c1]=lookup.lookupModel('HBD-C1');const [h31]=lookup.lookupModel('HBD-31');assert.match(c1.suggestions[0].name,/フレキシブルホース/);assert.doesNotMatch(h31.suggestions[0].name,/フレキシブルホース/);
+});

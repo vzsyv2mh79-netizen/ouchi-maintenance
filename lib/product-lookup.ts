@@ -11965,4 +11965,94 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式紙パックハンディクリーナー",
+  "modelNumber": "HBD-C1",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209089.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2025,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2025年7月発売、専用説明書表紙で基本品番を確認。本体などの週1回拭き掃除、月1回のホルダー点検、3か月ごとのスポンジ洗浄を区別しています。清掃後も吸引力が弱い場合はスポンジフィルターを交換してください。固定の交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・充電スタンド・すき間ノズル・フレキシブルホースの拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209089.pdf#page=28",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。よく絞った柔らかい布で本体・充電スタンド・すき間ノズル・フレキシブルホースなどを拭きます。"
+    },
+    {
+      "name": "ダストパックホルダーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209089.pdf#page=28",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを取り外してホルダーを点検します。汚れている場合は使い捨てダストパックを外し、ホルダーを水洗いします。水洗い後はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。使い捨てダストパックは取り替えます。"
+    },
+    {
+      "name": "スポンジフィルター洗浄",
+      "kind": "掃除",
+      "intervalDays": 90,
+      "frequency": "3か月に1回程度（予定計算は90日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209089.pdf#page=29",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを取り外し、収納部の奥からスポンジフィルターをつまんで取り出して水洗いします。水洗い後はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。収納部の奥に必ず取り付け、フィルターの全周をすき間のないように押し込みます。ダストパックセットを戻し、カバーをしっかり閉めます（30ページ）。"
+    }
+  ]
+} satisfies ProductCandidate);
+
+catalog.push({
+  "maker": "アイリスオーヤマ",
+  "name": "充電式紙パックハンディクリーナー",
+  "modelNumber": "HBD-31",
+  "categoryId": "vacuum",
+  "productUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "productLinkLabel": "公式製品・説明書一覧",
+  "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209088.pdf",
+  "manualLinkLabel": "取扱説明書",
+  "releaseYear": 2025,
+  "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/13?page=3",
+  "verifiedAt": "2026-10-10",
+  "lookupNote": "公式一覧で2025年7月発売、専用説明書表紙で基本品番を確認。本体などの週1回拭き掃除、月1回のホルダー点検、3か月ごとのスポンジ洗浄を区別しています。清掃後も吸引力が弱い場合はスポンジフィルターを交換してください。固定の交換年数は設定していません。",
+  "suggestions": [
+    {
+      "name": "本体・充電スタンド・すき間ノズルの拭き掃除",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "frequency": "1週間に1回程度（予定計算は7日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209088.pdf#page=27",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。よく絞った柔らかい布で本体・充電スタンド・すき間ノズルなどを拭きます。"
+    },
+    {
+      "name": "ダストパックホルダーのお手入れ",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "frequency": "1か月に1回程度（予定計算は30日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209088.pdf#page=27",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを取り外してホルダーを点検します。汚れている場合は使い捨てダストパックを外し、ホルダーを水洗いします。水洗い後はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。使い捨てダストパックは取り替えます。"
+    },
+    {
+      "name": "スポンジフィルター洗浄",
+      "kind": "掃除",
+      "intervalDays": 90,
+      "frequency": "3か月に1回程度（予定計算は90日）",
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/209088.pdf#page=28",
+      "conditions": "必ず運転を停止し、本体を充電スタンドから外して行います。本体・充電スタンド・充電アダプターには水をかけません。洗剤・シンナー・ベンジン・漂白剤・化学ぞうきんは使用しません。ダストパックセットを取り外し、収納部の奥からスポンジフィルターをつまんで取り出して水洗いします。水洗い後はよく水を切り、風通しのよい場所に約24時間置いて十分に乾かします。収納部の奥に必ず取り付け、フィルターの全周をすき間のないように押し込みます。ダストパックセットを戻し、カバーをしっかり閉めます（29ページ）。"
+    }
+  ]
+} satisfies ProductCandidate);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
