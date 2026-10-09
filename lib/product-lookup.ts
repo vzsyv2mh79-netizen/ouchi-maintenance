@@ -9471,4 +9471,181 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "AHM-MHU40A",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211209.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売と専用説明書を確認。表紙の基本品番AHM-MHU40Aに対応します。水タンクは使用するたびに水洗いします（25ページ）。使用回数を固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。クエン酸洗浄は説明書25ページに従った専用の手順で行います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211209.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞ったやわらかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211209.pdf#page=27",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を外し、やわらかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。蒸気拡散板、蒸気カバー、上ぶたは説明書28〜29ページの図と順番に従って取り付けます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211209.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸20gをコップのぬるま湯で溶かし、水タンクに入れ、残りのぬるま湯を加えます（ぬるま湯の総量2L）。続いて満水線まで水を入れます。上ぶたを閉め、この洗浄手順では電源プラグを差し込み、電源を入れて「強」で2時間運転します。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書25ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "AHM-MHU60A",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211213.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売と専用説明書を確認。表紙の基本品番AHM-MHU60Aに対応します。水タンクは使用するたびに水洗いします（25ページ）。使用回数を固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。クエン酸洗浄は説明書25ページに従った専用の手順で行います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211213.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞ったやわらかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211213.pdf#page=27",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を外し、やわらかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。蒸気拡散板、蒸気カバー、上ぶたは説明書28〜29ページの図と順番に従って取り付けます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211213.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸30gをコップのぬるま湯で溶かし、水タンクに入れ、残りのぬるま湯を加えます（ぬるま湯の総量3L）。続いて満水線まで水を入れます。上ぶたを閉め、この洗浄手順では電源プラグを差し込み、電源を入れて「強」で2時間運転します。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書25ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "KHM-MHU401",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211210.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売と専用説明書を確認。表紙の基本品番KHM-MHU401に対応します。水タンクは使用するたびに水洗いします（25ページ）。使用回数を固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。クエン酸洗浄は説明書25ページに従った専用の手順で行います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211210.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞ったやわらかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211210.pdf#page=27",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を外し、やわらかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。蒸気拡散板、蒸気カバー、上ぶたは説明書28〜29ページの図と順番に従って取り付けます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211210.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸20gをコップのぬるま湯で溶かし、水タンクに入れ、残りのぬるま湯を加えます（ぬるま湯の総量2L）。続いて満水線まで水を入れます。上ぶたを閉め、この洗浄手順では電源プラグを差し込み、電源を入れて「強」で2時間運転します。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書25ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "スチーム式加湿器",
+    "modelNumber": "KHM-MHU601",
+    "categoryId": "humidifier",
+    "productUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "productLinkLabel": "公式製品・説明書一覧",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211215.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/20",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式一覧で2025年11月発売と専用説明書を確認。表紙の基本品番KHM-MHU601に対応します。水タンクは使用するたびに水洗いします（25ページ）。使用回数を固定の日数に置き換えません。シンナー・ベンジン・酸性やアルカリ性の強い洗剤・漂白剤は使いません。クエン酸洗浄は説明書25ページに従った専用の手順で行います。",
+    "suggestions": [
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211215.pdf#page=26",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。よく絞ったやわらかい布で拭き取ります。"
+      },
+      {
+        "name": "上ぶた・蒸気カバー・蒸気拡散板の洗浄",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211215.pdf#page=27",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。上ぶたを約45度開け、着脱ボタンを押したまま斜め上に引き抜きます。蒸気カバーと蒸気拡散板を外し、やわらかいスポンジで洗い、水で流してよく乾かします。洗剤・金属へら・金属たわし・ナイロンたわし・スポンジのナイロン面・クレンザーは使いません。食器洗い乾燥機・食器乾燥器は使いません。上ぶたパッキンは外しません。蒸気拡散板、蒸気カバー、上ぶたは説明書28〜29ページの図と順番に従って取り付けます。"
+      },
+      {
+        "name": "水タンクのクエン酸洗浄",
+        "kind": "掃除",
+        "intervalDays": 60,
+        "frequency": "2か月に1回（予定計算は60日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/211215.pdf#page=25",
+        "conditions": "運転を停止し、電源プラグをコンセントから抜き、完全に冷めてからお手入れを始めます。ぬれた手でプラグを抜き差ししません。クエン酸30gをコップのぬるま湯で溶かし、水タンクに入れ、残りのぬるま湯を加えます（ぬるま湯の総量3L）。続いて満水線まで水を入れます。上ぶたを閉め、この洗浄手順では電源プラグを差し込み、電源を入れて「強」で2時間運転します。洗浄終了後、水タンクが完全に冷めてから湯を捨て、水ですすぎます。操作ボタンと順番は説明書25ページを確認してください。金属たわしや研磨剤入りスポンジは使いません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
