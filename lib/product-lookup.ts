@@ -35,6 +35,52 @@ export const catalog: ProductCandidate[] = [{
       conditions: "取扱説明書30ページ。運転を停止して電源プラグを抜き、水洗いします。汚れや臭いが気になる場合の洗剤・つけ置き手順は説明書を確認してください。" },
   ],
 }];
+// Shared manuals explicitly list both models on their covers. Do not infer siblings.
+const humidifierManuals = [
+  { models: ["HV-T55", "HV-T75"], url: "https://jp.sharp/restricted/support/manual/humid_con/hvt55_75.mn_.pdf" },
+  { models: ["HV-R55", "HV-R75"], url: "https://jp.sharp/restricted/support/manual/humid_con/hvr55_75_mn.pdf" },
+];
+for (const { models, url } of humidifierManuals) {
+  for (const modelNumber of models) {
+    catalog.push({
+      maker: "SHARP", name: "加熱気化式加湿器", modelNumber, categoryId: "humidifier",
+      productUrl: "https://jp.sharp/support/humid_con/download.html", manualUrl: url,
+      productLinkLabel: "公式説明書一覧", manualLinkLabel: "取扱説明書",
+      verifiedAt: "2026-10-09",
+      lookupNote: "この品番を掲載した公式説明書の14〜16ページで周期を確認済みです。水質・使用環境や汚れによって、目安より早くお手入れしてください。",
+      suggestions: [
+        { name: "エアフィルターの掃除", kind: "掃除", intervalDays: 14,
+          frequency: "2週間に1回程度（予定計算は14日）", sourceKind: "取扱説明書", sourceUrl: `${url}#page=15`,
+          conditions: "説明書15ページ。停止してファン停止後に電源プラグを抜き、ほこりを掃除機で取り除きます。汚れが目立つ場合の水洗い・乾燥方法は説明書で確認してください。" },
+        { name: "加湿フィルター・給水トレー・トレーカバーの掃除", kind: "掃除", intervalDays: 14,
+          frequency: "2週間に1回程度（予定計算は14日）", sourceKind: "取扱説明書", sourceUrl: `${url}#page=16`,
+          conditions: "説明書16ページ。停止してファン停止後に電源プラグを抜き、取り外して水で洗います。加湿フィルターをブラシでこすらないでください。汚れ・においが残る場合の手順は説明書で確認してください。" },
+        { name: "本体のお手入れ", kind: "掃除", intervalDays: 30,
+          frequency: "1か月に1回程度（予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${url}#page=15`,
+          conditions: "説明書15ページ。停止してファン停止後に電源プラグを抜き、柔らかい布で拭きます。本体は水洗いしないでください。" },
+      ],
+    });
+  }
+}
+const washerManual = "https://panasonic.jp/p-db/contents/manualdl/1428456489512.pdf";
+for (const modelNumber of ["NA-LX129CL", "NA-LX129CR"]) {
+  catalog.push({
+    maker: "Panasonic", name: "ドラム式洗濯乾燥機", modelNumber, categoryId: "washer",
+    productUrl: washerManual, manualUrl: washerManual,
+    productLinkLabel: "品番を確認できる公式説明書", manualLinkLabel: "取扱説明書",
+    verifiedAt: "2026-10-09",
+    lookupNote: "公式説明書の表紙に左右開き両品番が掲載されています。46ページの周期を確認済みです。乾燥フィルターは乾燥・スチーム使用のたびに確認してください（48ページ）。使用回数を日数に置き換える自動提案はしません。",
+    suggestions: [
+      { name: "ドラムの槽乾燥", kind: "掃除", intervalDays: 7,
+        frequency: "週1回程度（予定計算は7日）", sourceKind: "取扱説明書", sourceUrl: `${washerManual}#page=24`,
+        conditions: "説明書の印刷46ページ（PDF24ページ）。衣類を入れず、水栓を開け、お手入れの槽乾燥コースを選びます。詳しい操作は説明書で確認してください。" },
+      { name: "ドラムの黒カビ・におい予防", kind: "掃除", intervalDays: 30,
+        frequency: "月1回程度・槽洗浄サイン表示時（予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${washerManual}#page=24`,
+        conditions: "説明書の印刷46〜47ページ（PDF24ページ）。予防用のお手入れコースを説明書で選んでください。約60℃槽カビクリーンは洗浄剤を入れません。他の槽洗浄コースの薬剤・操作は説明書を確認し、衣類を入れないでください。サインが出た場合は予定日前でも実施してください。" },
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
