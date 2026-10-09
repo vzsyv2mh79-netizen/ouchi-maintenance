@@ -1358,3 +1358,17 @@ test('FBD-41 distinguishes cloth-free swab sensors, washable holder and quarterl
  assert.match(c.suggestions[3].conditions,/汚れている場合.*紙パックは水洗いしません/);
  assert.match(c.suggestions[4].conditions,/約24時間.*必ず取り付け.*全周をすき間のない.*カバーをしっかり/);assert.equal(lookup.lookupModel('FBD-41X').length,0);
 });
+
+
+test('FBD-D1 uses its dedicated 2026 manual for swab sensors and quarterly sponge', () => {
+ const [c]=lookup.lookupModel('FBD-D1');assert.equal(c.releaseYear,2026);assert.ok(c.manualUrl.endsWith('211190.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,90]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[31,31,32,33,34].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/左右のセンサーを綿棒/);assert.match(c.suggestions[2].conditions,/ロックスイッチを押して/);assert.match(c.suggestions[4].conditions,/約24時間.*必ず取り付け.*全周をすき間のない/);assert.equal(lookup.lookupModel('FBD-D1X').length,0);
+});
+test('HCD-23 separates two-month cup from quarterly sponge and forbids filter brushing', () => {
+ const [c]=lookup.lookupModel('HCD-23');assert.equal(c.releaseYear,2026);assert.ok(c.manualUrl.endsWith('212120.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,60,90]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[24,24,25].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/USB充電ケーブル.*排気フィルターはブラシなどでこすりません.*約24時間/);assert.match(c.suggestions[2].conditions,/全周をすき間のない.*必ず取り付け/);assert.match(c.lookupNote,/固定の交換年数は設定していません/);assert.equal(lookup.lookupModel('HCD-23X').length,0);
+});
+test('HBD-41 preserves passive head clog inspection rather than inventing rotating-brush care', () => {
+ const [c]=lookup.lookupModel('HBD-41');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('210537.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90]);
+ assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[30,31,31,31,32].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/紙パックは水洗いしません/);assert.match(c.suggestions[3].conditions,/吸い込み口と内部.*ピンセット/);assert.ok(c.suggestions.every(x=>!x.name.includes('回転ブラシ')));assert.match(c.suggestions[4].conditions,/約24時間.*全周をすき間のない.*カバーをしっかり/);assert.equal(lookup.lookupModel('HBD-41X').length,0);
+});
