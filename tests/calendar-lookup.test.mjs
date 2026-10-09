@@ -986,3 +986,12 @@ test('NX810KM preserves washable removable brush and inner-only mist tank care',
  assert.match(b.lookupNote,/床用ノズルは水洗い禁止/);assert.ok(!b.lookupNote.includes('カバーだけ水洗い'));
  assert.notEqual(a.manualUrl,b.manualUrl);assert.equal(lookup.lookupModel('MC-NS100KX').length,0);
  });
+
+test('PB61J uses own monthly-approximate cleaning and bag lamp semantics',()=>{
+ const [c]=lookup.lookupModel('MC-PB61J');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年11月発売/);assert.equal(c.suggestions.length,5);
+ assert.ok(c.suggestions.slice(0,4).every(x=>x.intervalDays===30&&x.sourceUrl===c.manualUrl+'#page=8'&&x.frequency.includes('吸込力が弱くなったとき')));
+ assert.match(c.suggestions[0].conditions,/本体は水洗い禁止.*ブラシ.*だけ.*水洗い/);assert.match(c.suggestions[0].conditions,/ベルト.*起毛布.*解錠／施錠/);
+ assert.match(c.suggestions[1].conditions,/水洗い禁止/);assert.match(c.suggestions[2].conditions,/水洗い禁止/);assert.match(c.suggestions[3].conditions,/十分乾燥.*必ず取り付け/);
+ assert.equal(c.suggestions[4].sourceUrl,c.manualUrl+'#page=7');assert.match(c.suggestions[4].conditions,/点滅はもうすぐ交換、点灯はすぐ交換/);assert.match(c.suggestions[4].conditions,/横長方向.*白ボール紙/);
+ assert.equal(lookup.lookupModel('MC-PB61JX').length,0);
+});

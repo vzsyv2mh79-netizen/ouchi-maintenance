@@ -7945,4 +7945,69 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式コードレススティック掃除機",
+    "modelNumber": "MC-PB61J",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-PB61J/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2024年11月発売を確認。専用説明書印刷12〜15ページ（PDF7〜8ページ）を確認。お手入れは吸込力が弱くなったとき（月1回程度）／気になったとき。床用ノズル本体・排気口・本体・延長管・スタンドは水洗い禁止で、回転ブラシだけ取り外して水洗いできます。フィルターは軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。紙パック交換は赤ランプの点滅がもうすぐ交換、点灯がすぐ交換で、ドック型NS/NXのランプ意味を流用しません。純正S型AMC-U2。交換自体に固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "床用ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。運転スイッチを切り、充電アダプターを抜きます。床用ノズル本体は水洗い禁止。回転部（ブラシ）だけ外して水洗いできます。絡まったごみは溝に沿ってはさみで切ります。説明書のベルト・ブラシカバー・起毛布側と解錠／施錠マークを確認して戻してください。洗ったブラシは十分乾燥させ、熱風や洗剤を使いません。"
+      },
+      {
+        "name": "排気口の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。運転スイッチを切り、充電アダプターを抜きます。排気口のごみを取り除きます。水洗い禁止です。"
+      },
+      {
+        "name": "本体・延長管・スタンドの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。運転スイッチを切り、充電アダプターを抜きます。柔らかい布を固く絞って水拭きします。本体・延長管・スタンドは水洗い禁止です。洗剤・ベンジン・シンナー・アルコールを使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。運転スイッチを切り、充電アダプターを抜きます。軽くはたいてほこりを落とすか、軽く水洗いします。洗ったら水気を切り十分乾燥させ、必ず取り付けてください。ドライヤーなどの熱風や洗剤・ベンジン・シンナー・アルコールを使いません。"
+      },
+      {
+        "name": "紙パックのたまり具合確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/873/902/000000002873902/MC-PB61J.pdf#page=7",
+        "conditions": "説明書印刷12〜13ページ（PDF7ページ）。満杯でもランプが反応しない場合があるため、この条件に当てはまる場合だけ追加してください。運転スイッチを切り、充電アダプターを抜きます。交換は固定周期ではなく、赤いランプの約2秒間隔の点滅はもうすぐ交換、点灯はすぐ交換です。純正S型AMC-U2を横長方向（A方向）に挿入し、白ボール紙を枠に沿わせて広げます。ケースはカチッと戻し紙パックを挟み込みません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
