@@ -724,3 +724,19 @@ test('2026 R27Y cites only its own nonautomatic-ice care', () => {
  assert.match(c.suggestions[6].conditions,/蒸発皿を取り外さない/);
  assert.equal(lookup.lookupModel('R-27YL').length,0);
 });
+
+
+test('KW57YJ retains dedicated switch-room care without sibling catalyst or drainage advice', () => {
+ const [c]=lookup.lookupModel('R-KW57YJ');
+ assert.ok(lookup.supportedModels.includes('R-KW57YJ'));
+ assert.equal(c.releaseYear,2026);assert.match(c.lookupNote,/2026年10月発売/);
+ assert.match(c.manualUrl,/r_kw57yj_a\.pdf$/);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+ assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ assert.match(c.suggestions[6].conditions,/切替室.*しきりを外/);
+ assert.match(c.suggestions[6].conditions,/「R」.*正面右下/);
+ assert.match(c.suggestions[4].conditions,/ケース全体/);
+ assert.match(c.lookupNote,/5秒以上/);assert.match(c.lookupNote,/約4分/);
+ assert.ok(!c.suggestions.some(x=>/触媒|裏返|毛足|真空/.test(x.conditions)));
+ assert.equal(lookup.lookupModel('R-KW57Y').length,0);
+});
