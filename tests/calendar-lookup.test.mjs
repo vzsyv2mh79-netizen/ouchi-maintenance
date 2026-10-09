@@ -403,3 +403,17 @@ test('Hitachi VWC X uses independently verified VWC evidence and exact matching'
  assert.equal(lookup.lookupModel('R-VWC57Y').length,0);
  assert.equal(lookup.lookupModel('R-VW50X').length,0);
 });
+
+
+test('GZC67X preserves vacuum room care and conditional electric drawer cleaning', () => {
+ const [c]=lookup.lookupModel('R-GZC67X');
+ assert.match(c.manualUrl,/r_gzc67x_a\.pdf$/);
+ assert.equal(c.suggestions.length,10);
+ assert.equal(c.suggestions[4].name,'真空氷温ルームの清掃');
+ assert.match(c.suggestions[4].conditions,/自然乾燥/);
+ assert.match(c.suggestions[9].conditions,/57ページ/);
+ assert.match(c.lookupNote,/リンク部を動かさない/);
+ assert.match(c.lookupNote,/MENU.*Ice Maker/);
+ assert.ok(!c.suggestions.some(x=>/電動引き出し|製氷おそうじ|特鮮氷温/.test(x.name)));
+ assert.equal(lookup.lookupModel('R-GZC67Y').length,0);
+});
