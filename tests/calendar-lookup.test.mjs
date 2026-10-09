@@ -465,7 +465,7 @@ test('HWS right and left models retain dedicated manual and catalyst restriction
   assert.match(c.suggestions[6].conditions,/しきりを外し/);
   assert.ok(!c.suggestions.some(x=>/製氷おそうじ|カメラ|電動/.test(x.name)));
  }
- assert.equal(lookup.lookupModel('R-HWS47Y').length,0);
+ assert.equal(lookup.lookupModel('R-HWS47XX').length,0);
 });
 
 
@@ -673,4 +673,24 @@ test('2026 H Y models retain their own chiller and drainage care without catalys
   assert.match(c.lookupNote,/約4分/);
  }
  assert.equal(lookup.lookupModel('R-H54YG').length,0);
+});
+
+
+test('2026 HWS Y variants preserve dedicated sources and catalyst safeguards', () => {
+ for(const model of ['R-HWS47Y','R-HWS47YL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2026);
+  assert.match(c.lookupNote,/2026年8月発売/);
+  assert.match(c.manualUrl,/r_hws47y_a\.pdf$/);
+  assert.equal(c.releaseSourceUrl,'https://kadenfan.hitachi.co.jp/support/rei/item/'+model+'/manual.html');
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は取り外さず、水洗いしない/);
+  assert.match(c.suggestions[6].conditions,/しきりを外し/);
+  assert.match(c.suggestions[6].conditions,/裏返して排水/);
+  assert.ok(!c.suggestions.some(x=>/真空|カメラ|製氷おそうじ/.test(x.name)));
+  assert.match(c.lookupNote,/初回・1週間以上不使用後のみ/);
+  assert.match(c.lookupNote,/約4分/);
+ }
+ assert.equal(lookup.lookupModel('R-HWS47YG').length,0);
 });
