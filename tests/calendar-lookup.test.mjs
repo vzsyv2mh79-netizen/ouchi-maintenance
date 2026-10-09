@@ -1423,3 +1423,14 @@ test('SBD-200PN follows monthly sensor wiping rather than the overview wash labe
 test('SCD-P3P requires thirty-minute exhaust soak without brushing and no invented sensor/mop task', () => {
  const [c]=lookup.lookupModel('SCD-P3P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209002.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[35,36,40,41].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/約30分.*流水.*ブラシなどでこすりません.*約24時間.*熱風.*背面の穴.*フィルター類を忘れず/);assert.ok(c.suggestions.every(x=>!/センサー|モップ|延長パイプ/.test(x.name)));assert.match(c.suggestions[3].conditions,/押し下げて手前.*24時間.*カチッ/);assert.equal(lookup.lookupModel('SCD-P3PX').length,0);
 });
+
+
+test('SBD-T3P keeps weekly mop, quarterly sponge and its click-fit brush cover', () => {
+ const [c]=lookup.lookupModel('SBD-T3P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209850.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,30,30,30,30,30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,41,41,42,42,43,44,45,46].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[6].conditions,/スライド.*24時間.*前端内側.*カチッ/);assert.doesNotMatch(c.suggestions[6].conditions,/スライドさせて固定/);assert.match(c.suggestions[8].conditions,/24時間.*全周をすき間のない.*必ず取り付け/);assert.equal(lookup.lookupModel('SBD-T3PX').length,0);
+});
+test('SCD-L4P uses a press-release upper-hole cup without the U2P soak or split', () => {
+ const [c]=lookup.lookupModel('SCD-L4P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209220.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[42,42,42,43,46,46,47,48].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[3].conditions,/ボタンを押して.*谷に沿って.*強く押し付け.*24時間.*熱風.*上側の穴/);assert.doesNotMatch(c.suggestions[3].conditions,/30分|反時計|下端/);assert.match(c.suggestions[6].conditions,/スライドさせて固定/);assert.equal(lookup.lookupModel('SCD-L4PX').length,0);
+});
+test('SCD-U2P uses a slide-release lower-tab cup and monthly mop', () => {
+ const [c]=lookup.lookupModel('SCD-U2P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('208375.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,41,42,48,49,46,48].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].conditions,/ボタンをスライド.*反時計回り.*汚れが気になる場合.*30分.*24時間.*時計回り.*下端の凸部.*確実に閉まって/);assert.doesNotMatch(c.suggestions[2].conditions,/上側の穴|ボタンを押して/);assert.match(c.suggestions[5].conditions,/押し下げて手前.*上に引き上げ.*回転軸.*カチッ/);assert.equal(lookup.lookupModel('SCD-U2PX').length,0);
+});
