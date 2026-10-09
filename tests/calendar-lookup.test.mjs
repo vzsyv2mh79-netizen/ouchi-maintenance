@@ -328,3 +328,20 @@ test('ES refrigerators use the ES manual and chiller case rather than partial-mo
  }
  assert.equal(lookup.lookupModel('NR-C33ES1').length,0);
 });
+
+test('Hitachi HWC X care keeps catalyst and filter restrictions and conditional ice cleaning', () => {
+ for (const model of ['R-HWC62X','R-HWC54X','R-HWC49X']) {
+  const [c] = lookup.lookupModel(model);
+  assert.equal(c.maker,'日立');
+  assert.equal(c.releaseYear,2025);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.match(c.suggestions[0].conditions,/フィルター部分にはスポンジも使わず/);
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は水洗い禁止/);
+  assert.match(c.suggestions[9].frequency,/3〜4年/);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.ok(!c.suggestions.some(x=>x.name.includes('製氷おそうじ')));
+  assert.match(c.lookupNote,/1週間以上不使用/);
+ }
+ assert.equal(lookup.lookupModel('R-HXC54X').length,0);
+ assert.equal(lookup.lookupModel('R-HWC54Y').length,0);
+});
