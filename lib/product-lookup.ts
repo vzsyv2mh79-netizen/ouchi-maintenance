@@ -252,6 +252,42 @@ for (const modelNumber of ["KI-UX100", "KI-UX75"]) {
   });
 }
 
+// Each model's official support page links to the care index used below.
+const sharpCareBase = "https://jp.sharp/support/air_purifier/mt_doc/";
+for (const [modelNumber, releaseYear] of [["KI-TX70", 2024], ["KI-UX70", 2025], ["KI-WX70", 2026], ["KI-WX75", 2026], ["KI-WX100", 2026]] as const) {
+  const large = modelNumber === "KI-WX75" || modelNumber === "KI-WX100";
+  const modelSupport = `https://cs.sharp.co.jp/select/contents?productId=${modelNumber}`;
+  catalog.push({
+    maker: "SHARP", name: "加湿空気清浄機", modelNumber, categoryId: "air-purifier",
+    productUrl: modelSupport, productLinkLabel: "発売時期・お手入れの公式案内",
+    manualUrl: `https://jp.sharp/support/download/members/?productId=${modelNumber}`, manualLinkLabel: "品番別の説明書を探す",
+    releaseYear, releaseSourceUrl: modelSupport, verifiedAt: "2026-10-09",
+    lookupNote: `${releaseYear}年9月発売と公式機種別サポートに掲載。そこから案内されるお手入れページ（${large ? "care_index08" : "care_index04"}）で内容と周期を確認しています。PDFの自動抽出結果ではありません。タンクは給水のたび、集じん・脱臭フィルターは汚れや吹出口のにおいが気になるときに確認してください。これらの条件を固定日数に置き換えません。`,
+    suggestions: [
+      { name: "本体のお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}care_hontai_01.html`,
+        conditions: "公式お手入れページ。停止して電源プラグを抜き、柔らかい布で拭きます。本体は水洗いせず、キャスター付きの場合はキャスターも確認してください。" },
+      { name: "加湿フィルター・トレーのお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）・汚れやにおいが気になるとき", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}${large ? "filter_humi_care06" : "filter_humi_care03"}.html`,
+        conditions: large
+          ? "停止して電源プラグを抜き、水洗いします。トレーシキリとローラーも洗い、フロートは外さないでください。使い捨て加湿プレフィルターは汚れていれば交換し、フィルターに力を入れすぎないでください。白色の面を本体正面側にして、公式の図で取り付けを確認します。汚れ・におい時は予定前でも確認してください。"
+          : "停止して電源プラグを抜き、水洗いします。加湿フィルターを分解せず、フロートは外さないでください。汚れた使い捨て加湿プレフィルターは交換してください。お手入れ後のランプ消灯操作と、汚れ・においが残る場合のつけ置き方法は公式の図で確認します。汚れ・におい時は予定前でも確認してください。" },
+      ...(large ? [
+        { name: "センサー部のお手入れ", kind: "掃除" as const, intervalDays: 30,
+          frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式" as const, sourceUrl: `${sharpCareBase}sensor_care05.html`,
+          conditions: "停止して電源プラグを抜き、ほこりを掃除機で取ります。汚れ・におい時にセンサーフィルターを水洗いしたら、十分乾かしてから取り付けてください。" },
+        { name: "後ろパネルのお手入れ", kind: "掃除" as const, intervalDays: 30,
+          frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式" as const, sourceUrl: `${sharpCareBase}panel_care03.html`,
+          conditions: "停止して電源プラグを抜き、ほこりを掃除機で取ります。パネルに力を加えすぎないでください。汚れ・においがある場合の洗浄は公式案内に従い、十分すすいで陰干しします。" },
+      ] : [
+        { name: "後ろパネル・センサー部のお手入れ", kind: "掃除" as const, intervalDays: 30,
+          frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式" as const, sourceUrl: `${sharpCareBase}sensor_panel_care02.html`,
+          conditions: "停止して電源プラグを抜き、ほこりを掃除機で取ります。汚れ・においがある場合の洗浄方法は公式案内を確認し、洗った部品は十分乾かして取り付けてください。集じん・脱臭フィルターは水洗い・天日干ししないでください。" },
+      ]),
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
