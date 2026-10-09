@@ -381,6 +381,168 @@ catalog.push({
   ],
 });
 
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "食器洗い乾燥機",
+    "modelNumber": "NP-TH5",
+    "categoryId": "dishwasher",
+    "productUrl": "https://panasonic.jp/dish/products/NP-TH5.html",
+    "productLinkLabel": "公式製品ページ",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf",
+    "discoveredManualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-09",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn240510-2",
+    "lookupNote": "メーカー発表は2024年6月下旬発売。現在の説明書11〜13ページを確認しています。庫内の月2〜3回は予定計算を15日にしています。気になる汚れは予定前でもお手入れしてください。食洗機専用洗剤を使用し、塩素系洗剤は使用しないでください。念入りな庫内清掃には80℃すすぎを選べます。自動投入タンクの清掃は提案していません。",
+    "suggestions": [
+      {
+        "name": "残さいフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=6",
+        "conditions": "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、フィルターを取り外してAとBに分け、柔らかいブラシなどで掃除します。元どおり取り付け、カチッと音がするまで回してください。フィルターAのみ下かごを取り付けたまま取り外せます。"
+      },
+      {
+        "name": "排水口カバーの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書12ページ。運転終了後30分以上たってから電源プラグを抜き、下かごと残さいフィルターを取り出してカバーを外します。中性洗剤を含ませた柔らかいスポンジで洗い、元どおりに取り付けます。"
+      },
+      {
+        "name": "本体・パッキン部のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書12ページ。運転終了後30分以上たってから電源プラグを抜き、よく絞った柔らかい布で庫内やパッキン部を拭きます。パッキンは引っぱらないでください。外側は漂白剤・洗剤・溶剤・ワックス・殺虫剤などを使わず、水や湯を庫内に入れたり製品にかけたりしないでください。"
+      },
+      {
+        "name": "庫内のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 15,
+        "frequency": "月に2〜3回（予定計算は15日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書13ページ。食器を入れず、通常の目安量の2倍の食洗機専用洗剤を入れ、分岐水栓を開けてお手入れコースで運転します。洗いの途中の2回の停止は蒸気で汚れを浮かすためです。塩素系洗剤は使用しないでください。運転終了後は分岐水栓を閉めます。パッキン部など洗浄水の当たらない箇所は別途拭き掃除します。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "食器洗い乾燥機",
+    "modelNumber": "NP-TA5",
+    "categoryId": "dishwasher",
+    "productUrl": "https://panasonic.jp/dish/products/NP-TA5.html",
+    "productLinkLabel": "公式製品ページ",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf",
+    "discoveredManualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-09",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn240510-2",
+    "lookupNote": "メーカー発表は2024年6月下旬発売。現在の説明書11〜13ページを確認しています。庫内の月2〜3回は予定計算を15日にしています。気になる汚れは予定前でもお手入れしてください。食洗機専用洗剤を使用し、塩素系洗剤は使用しないでください。80℃すすぎはこの機種の機能ではありません。自動投入タンクの清掃は提案していません。",
+    "suggestions": [
+      {
+        "name": "残さいフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=6",
+        "conditions": "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、フィルターを取り外してAとBに分け、柔らかいブラシなどで掃除します。元どおり取り付け、カチッと音がするまで回してください。フィルターAのみ下かごを取り付けたまま取り外せます。"
+      },
+      {
+        "name": "排水口カバーの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書12ページ。運転終了後30分以上たってから電源プラグを抜き、下かごと残さいフィルターを取り出してカバーを外します。中性洗剤を含ませた柔らかいスポンジで洗い、元どおりに取り付けます。"
+      },
+      {
+        "name": "本体・パッキン部のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書12ページ。運転終了後30分以上たってから電源プラグを抜き、よく絞った柔らかい布で庫内やパッキン部を拭きます。パッキンは引っぱらないでください。外側は漂白剤・洗剤・溶剤・ワックス・殺虫剤などを使わず、水や湯を庫内に入れたり製品にかけたりしないでください。"
+      },
+      {
+        "name": "庫内のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 15,
+        "frequency": "月に2〜3回（予定計算は15日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/409/137/000000002409137/np-th5_np-ta5.pdf#page=7",
+        "conditions": "説明書13ページ。食器を入れず、通常の目安量の2倍の食洗機専用洗剤を入れ、分岐水栓を開けてお手入れコースで運転します。洗いの途中の2回の停止は蒸気で汚れを浮かすためです。塩素系洗剤は使用しないでください。運転終了後は分岐水栓を閉めます。パッキン部など洗浄水の当たらない箇所は別途拭き掃除します。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "スリムタイプ食器洗い乾燥機",
+    "modelNumber": "NP-TSK2",
+    "categoryId": "dishwasher",
+    "productUrl": "https://panasonic.jp/dish/products/NP-TSK2.html",
+    "productLinkLabel": "公式製品ページ",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf",
+    "discoveredManualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-09",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://news.panasonic.com/jp/press/jn250821-4",
+    "lookupNote": "メーカー発表は2025年10月中旬発売。現在の説明書10〜12ページを確認しています。庫内の月2〜3回は予定計算を15日にしています。気になる汚れは予定前でもお手入れしてください。食洗機専用洗剤を使用し、塩素系洗剤は使用しないでください。念入りな庫内清掃には80℃すすぎを選べます。自動投入タンクの清掃は提案していません。",
+    "suggestions": [
+      {
+        "name": "残さいフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf#page=6",
+        "conditions": "説明書10ページ。運転終了後30分以上たってから電源プラグを抜き、フィルターを取り外してAとBに分け、柔らかいブラシなどで掃除します。元どおり取り付け、カチッと音がするまで回してください。下かごは左に回転させるか取り外してから作業します。"
+      },
+      {
+        "name": "排水口カバーの掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf#page=6",
+        "conditions": "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、下かごと残さいフィルターを取り出してカバーを外します。中性洗剤を含ませた柔らかいスポンジで洗い、元どおりに取り付けます。"
+      },
+      {
+        "name": "本体・パッキン部のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf#page=6",
+        "conditions": "説明書11ページ。運転終了後30分以上たってから電源プラグを抜き、よく絞った柔らかい布で庫内やパッキン部を拭きます。パッキンは引っぱらないでください。外側は漂白剤・洗剤・溶剤・ワックス・殺虫剤などを使わず、水や湯を庫内に入れたり製品にかけたりしないでください。"
+      },
+      {
+        "name": "庫内のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 15,
+        "frequency": "月に2〜3回（予定計算は15日）・汚れが気になるとき",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/634/037/000000003634037/np-tsk2.pdf#page=7",
+        "conditions": "説明書12ページ。食器を入れず、通常の目安量の2倍の食洗機専用洗剤を入れ、分岐水栓を開けて汚れレベルL3で運転します。粉末・液体は約10g、タブレットは大きさにより個数が異なります。塩素系洗剤は使用しないでください。運転終了後は分岐水栓を閉めます。パッキン部など洗浄水の当たらない箇所は別途拭き掃除します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }

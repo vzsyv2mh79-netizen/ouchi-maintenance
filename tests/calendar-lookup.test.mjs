@@ -273,5 +273,22 @@ test('TZ500 keeps dedicated dishwasher schedules and detergent modes distinct', 
   assert.match(c.suggestions[4].conditions, /モード2は詰まり時/);
   assert.match(c.suggestions[4].conditions, /モード3は洗剤排出/);
   assert.equal(lookup.lookupModel('NP-TZ300').length, 0);
-  assert.equal(lookup.lookupModel('NP-TH5').length, 0);
+  assert.equal(lookup.lookupModel('NP-TH4').length, 0);
+});
+
+test('TH5 TA5 and TSK2 preserve their own dishwasher course and page evidence', () => {
+ for (const model of ['NP-TH5','NP-TA5','NP-TSK2']) {
+  const [c] = lookup.lookupModel(model);
+  assert.equal(c.categoryId, 'dishwasher');
+  assert.deepEqual(c.suggestions.map(t => t.intervalDays), [7,30,30,15]);
+  assert.ok(c.suggestions.every(t => t.sourceKind === '取扱説明書' && !t.name.includes('洗剤タンク')));
+  const slim = model === 'NP-TSK2';
+  assert.equal(c.releaseYear, slim ? 2025 : 2024);
+  assert.ok(c.manualUrl.endsWith(slim ? '/np-tsk2.pdf' : '/np-th5_np-ta5.pdf'));
+  assert.ok(c.suggestions[1].sourceUrl.endsWith(slim ? '#page=6' : '#page=7'));
+  assert.ok(c.suggestions[3].conditions.includes(slim ? '汚れレベルL3' : 'お手入れコース'));
+  assert.match(c.suggestions[3].conditions, /2倍/);
+ }
+ assert.match(lookup.lookupModel('NP-TA5')[0].lookupNote, /80℃すすぎはこの機種の機能ではありません/);
+ assert.equal(lookup.lookupModel('NP-TSK1').length, 0);
 });
