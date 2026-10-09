@@ -1372,3 +1372,23 @@ test('HBD-41 preserves passive head clog inspection rather than inventing rotati
  const [c]=lookup.lookupModel('HBD-41');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('210537.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90]);
  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[30,31,31,31,32].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/紙パックは水洗いしません/);assert.match(c.suggestions[3].conditions,/吸い込み口と内部.*ピンセット/);assert.ok(c.suggestions.every(x=>!x.name.includes('回転ブラシ')));assert.match(c.suggestions[4].conditions,/約24時間.*全周をすき間のない.*カバーをしっかり/);assert.equal(lookup.lookupModel('HBD-41X').length,0);
 });
+
+
+test('2025 paper-pack sticks preserve each brush removal and weekly mop/monthly case split', () => {
+ for (const [model,pdf,days,pages,remove,restore] of [
+  ['SBD-78DCBLP','210913',[7,7,30,30,30,30,30,90],[37,37,38,38,39,40,41,42],/押し下げて後ろに引き.*横側から引き出し/,/内側に引っかけて固定/],
+  ['SBD-202P','209762',[7,7,7,30,30,30,30,30,90],[42,42,42,43,43,44,45,46,47],/ロックスイッチをスライド/,/押し込みながらロックスイッチをスライド/],
+  ['SBD-78P','210062',[7,30,30,30,30,90],[33,34,34,35,36,38],/押し下げて手前に引き/,/カチッ/]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),days);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));
+  const b=c.suggestions.find(x=>x.name==='回転ブラシのお手入れ');assert.match(b.conditions,remove);assert.match(b.conditions,restore);assert.match(b.conditions,/約24時間/);
+  assert.match(c.suggestions.at(-1).conditions,/約24時間.*必ず取り付け.*全周をすき間のない/);
+  if(model!=='SBD-78P'){assert.equal(c.suggestions.find(x=>x.name==='静電モップのお手入れ').intervalDays,7);assert.equal(c.suggestions.find(x=>x.name==='モップ帯電ケースのお手入れ').intervalDays,30);}else assert.ok(!c.suggestions.some(x=>x.name.includes('モップ')));
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
+test('2025 cyclone sticks do not inherit PD weekly cup or dock filter advice', () => {
+ for(const [model,pdf,pages,remove] of [['SCD-230P','210307',[42,42,42,43,47,47,48,49],/つめを押し上げ/],['SCD-124P','209066',[43,43,43,44,48,48,49,50],/ロックスイッチを横にスライド/]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.suggestions[3].conditions,/ボタンを押さずに無理に外しません.*谷に沿って.*強く押し付け.*約24時間.*熱風/);assert.doesNotMatch(c.suggestions[3].conditions,/30分/);assert.match(c.suggestions[6].conditions,remove);assert.match(c.suggestions[6].conditions,/カチッ/);assert.ok(!c.suggestions.some(x=>x.name.includes('ドック')));assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
