@@ -203,3 +203,20 @@ test('new Sharp variants cite the care route explicitly linked by each official 
  assert.equal(lookup.lookupModel('ＫＩ－ＷＸ７０')[0].releaseYear,2026);
  assert.ok(lookup.lookupModel('KI-UX75')[0].suggestions.every(x=>x.sourceKind==='取扱説明書'));
 });
+
+
+test('S50 variants retain their independent yearly humidifier and sensor evidence', () => {
+ for(const [model,year,hum,sensor] of [['KI-TS50',2024,'01','01'],['KI-US50',2025,'07','06'],['KI-WS50',2026,'07','06']]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,year);
+  assert.equal(c.releaseSourceUrl,`https://cs.sharp.co.jp/select/contents?productId=${model}`);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,30]);
+  assert.ok(c.suggestions.every(x=>x.sourceKind==='メーカー公式'));
+  assert.ok(c.suggestions[1].sourceUrl.endsWith(`filter_humi_care${hum}.html`));
+  assert.ok(c.suggestions[2].sourceUrl.endsWith(`sensor_care${sensor}.html`));
+  assert.ok(c.suggestions[3].sourceUrl.endsWith('panel_care01.html'));
+  assert.ok(c.lookupNote.includes('給水のたび'));
+  assert.equal(c.discoveredManualUrl,undefined);
+ }
+ for(const model of ['KI-US40','KI-WS60','KI-TS50-W']) assert.equal(lookup.lookupModel(model).length,0);
+});
