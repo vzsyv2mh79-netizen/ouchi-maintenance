@@ -83,6 +83,28 @@ for (const modelNumber of ["NA-LX129CL", "NA-LX129CR"]) {
   });
 }
 
+const washerDManual = "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/671/523/000000002671523/%E5%8F%96%E6%89%B1%E8%AA%AC%E6%98%8E%E6%9B%B8-NA-LX129D-.pdf";
+for (const modelNumber of ["NA-LX129DL", "NA-LX129DR"]) {
+  catalog.push({
+    maker: "Panasonic", name: "ドラム式洗濯乾燥機", modelNumber, categoryId: "washer",
+    productUrl: "https://news.panasonic.com/jp/press/jn240827-3", manualUrl: washerDManual,
+    productLinkLabel: "品番・発売時期を確認できる公式発表", manualLinkLabel: "取扱説明書",
+    releaseYear: 2024, releaseSourceUrl: "https://news.panasonic.com/jp/press/jn240827-3", verifiedAt: "2026-10-09",
+    lookupNote: "2024年10月上旬発売の公式発表。D型公式説明書の表紙に左右開き両品番が掲載されています。46ページの周期を確認済みです。乾燥フィルターは乾燥・スチーム使用のたびに確認してください（48ページ）。使用回数を日数に置き換える自動提案はしません。",
+    suggestions: [
+      { name: "ドラムの槽乾燥", kind: "掃除", intervalDays: 7,
+        frequency: "週1回程度（予定計算は7日）", sourceKind: "取扱説明書", sourceUrl: `${washerDManual}#page=24`,
+        conditions: "説明書の印刷46ページ（PDF24ページ）。衣類を入れず、水栓を開け、お手入れの槽乾燥コースを選びます。詳しい操作は説明書で確認してください。" },
+      { name: "ドラムの黒カビ・におい予防", kind: "掃除", intervalDays: 30,
+        frequency: "月1回程度・槽洗浄サイン表示時（予定計算は30日）", sourceKind: "取扱説明書", sourceUrl: `${washerDManual}#page=24`,
+        conditions: "説明書の印刷46〜47ページ（PDF24ページ）。予防用のお手入れコースを説明書で選んでください。約60℃槽カビクリーンは洗浄剤を入れません。他の槽洗浄コースの薬剤・操作は説明書を確認し、衣類を入れないでください。サインが出た場合は予定日前でも実施してください。" },
+      { name: "排水フィルターの掃除", kind: "掃除", intervalDays: 7,
+        frequency: "週1回程度・お手入れサイン表示時（予定計算は7日）", sourceKind: "取扱説明書", sourceUrl: `${washerDManual}#page=25`,
+        conditions: "印刷49ページ（PDF25ページ）。運転終了後、先に脱水して槽の水を抜き、容器で残水を受けてからゴミを取ります。ブザーが鳴る場合や運転中は外さないでください。取り付けは説明書に従い確実に締め、サイン表示時は予定前でも確認してください。" },
+    ],
+  });
+}
+
 // EE-DD35 and EE-DD50 are explicitly listed on the same manual cover.
 const steamManual = "https://www.zojirushi.co.jp/toiawase/TR_PDF/EEDD.pdf";
 for (const modelNumber of ["EE-DD35", "EE-DD50"]) {
