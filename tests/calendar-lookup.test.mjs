@@ -547,3 +547,21 @@ test('2024 W exact models cite the W manual and its nine care tasks', () => {
  }
  assert.equal(lookup.lookupModel('R-H54WG').length,0);
 });
+
+
+test('2024 HWS V right and left models retain dedicated care and catalyst protection', () => {
+ for(const model of ['R-HWS47V','R-HWS47VL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));
+  assert.equal(c.releaseYear,2024);
+  assert.match(c.manualUrl,/r_hws47v_a\.pdf$/);
+  assert.match(c.lookupNote,/2024年10月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は取り外さず、水洗いしない/);
+  assert.match(c.suggestions[6].conditions,/しきりを外し/);
+  assert.match(c.lookupNote,/約4分/);
+  assert.ok(!c.suggestions.some(x=>/製氷おそうじ|カメラ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HWS47VG').length,0);
+});
