@@ -636,3 +636,23 @@ test('2026 HWC Y models retain dedicated sources and vegetable case safeguards',
  }
  assert.equal(lookup.lookupModel('R-HWC62YG').length,0);
 });
+
+
+test('2026 HZC Y preserves vacuum room care and dedicated manual evidence', () => {
+ for (const model of ['R-HZC62Y','R-HZC54Y']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2026);
+  assert.match(c.lookupNote,/2026年2月発売/);
+  assert.match(c.manualUrl,/r_hzc62y_b_00\.pdf$/);
+  assert.equal(c.releaseSourceUrl,'https://kadenfan.hitachi.co.jp/support/rei/item/'+model+'/manual.html');
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.equal(c.suggestions[4].name,'真空氷温ルームの清掃');
+  assert.match(c.suggestions[4].conditions,/自然乾燥/);
+  assert.match(c.suggestions[4].conditions,/LED庫内灯部分はやさしく/);
+  assert.match(c.suggestions[4].conditions,/ハンドルを下げてロック/);
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は取り外さず/);
+  assert.ok(!c.suggestions.some(x=>/特鮮|製氷おそうじ|カメラ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-HZC49Y').length,0);
+});

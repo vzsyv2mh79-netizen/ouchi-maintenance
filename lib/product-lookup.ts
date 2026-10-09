@@ -4568,4 +4568,220 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+// R-HZC62Y/54Y: dedicated cover and care pages 35–39/50 independently verified.
+catalog.push(...[
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-HZC62Y",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HZC62Y/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HZC62Y/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2026年2月発売の各公式サポートと、2品番を明記した専用共通説明書を確認済み。35〜36ページの周期を提案します。製氷おそうじは初回・1週間以上不使用後のみ（37ページ）で定期予定にはしません。通電状態で給水タンクを満水・正しい位置にセットし、氷を取り除き、冷蔵室以外のドアを閉めて製氷ボタンを5秒以上押します。冷蔵室も閉め、約4分終了まで全ドアを開けません。終了後は説明書の図に従って排水し、タオルを取り除きます。機械部に手を入れないでください。物理的なお手入れは電源プラグを抜いて行ってください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "真空氷温ルームの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。電源プラグを抜き、食品を出し、38ページの図に従ってケースを外し、アルミトレイ・真空容器・パッキングと受け部をぬるま湯を含ませた柔らかい布で拭きます。洗剤は使わず、LED庫内灯部分はやさしく拭いてください。パッキングの汚れがひどいときは柔らかいスポンジなどで水洗いし、水分を拭き取り自然乾燥させます（汚れ時のみで別の定期予定にはしません）。取り付け後はパッキングの緩みやケースのがたつきを確認し、ハンドルを下げてロックしてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書38ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。電源プラグを抜き、食品を出して38〜39ページの図に従って外し、ぬるま湯を含ませた柔らかい布で拭きます。野菜室のプラチナ触媒は取り外さず、水洗いしないでください。下段ケースを外す前にしきりを外します。下段ケース背面からの水垂れに注意し、水洗いした場合は裏返して排水し十分に乾かします。歯ブラシやたわしなど毛足の長いものを使わず、ケースやレールの潤滑剤を拭き取らないでください。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・側面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。脚カバーを外し調節脚を上げて冷蔵庫を手前に引き出す方法は、説明書の図と移動時の注意を確認してください。傷つきやすい床は板などで保護し、無理に動かさないでください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書50ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  },
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-HZC54Y",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HZC54Y/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-HZC54Y/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2026年2月発売の各公式サポートと、2品番を明記した専用共通説明書を確認済み。35〜36ページの周期を提案します。製氷おそうじは初回・1週間以上不使用後のみ（37ページ）で定期予定にはしません。通電状態で給水タンクを満水・正しい位置にセットし、氷を取り除き、冷蔵室以外のドアを閉めて製氷ボタンを5秒以上押します。冷蔵室も閉め、約4分終了まで全ドアを開けません。終了後は説明書の図に従って排水し、タオルを取り除きます。機械部に手を入れないでください。物理的なお手入れは電源プラグを抜いて行ってください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "真空氷温ルームの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。電源プラグを抜き、食品を出し、38ページの図に従ってケースを外し、アルミトレイ・真空容器・パッキングと受け部をぬるま湯を含ませた柔らかい布で拭きます。洗剤は使わず、LED庫内灯部分はやさしく拭いてください。パッキングの汚れがひどいときは柔らかいスポンジなどで水洗いし、水分を拭き取り自然乾燥させます（汚れ時のみで別の定期予定にはしません）。取り付け後はパッキングの緩みやケースのがたつきを確認し、ハンドルを下げてロックしてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書38ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。電源プラグを抜き、食品を出して38〜39ページの図に従って外し、ぬるま湯を含ませた柔らかい布で拭きます。野菜室のプラチナ触媒は取り外さず、水洗いしないでください。下段ケースを外す前にしきりを外します。下段ケース背面からの水垂れに注意し、水洗いした場合は裏返して排水し十分に乾かします。歯ブラシやたわしなど毛足の長いものを使わず、ケースやレールの潤滑剤を拭き取らないでください。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・側面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=35",
+        "conditions": "説明書35ページ。物理的な清掃・交換は電源プラグを抜いて行います。脚カバーを外し調節脚を上げて冷蔵庫を手前に引き出す方法は、説明書の図と移動時の注意を確認してください。傷つきやすい床は板などで保護し、無理に動かさないでください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_hzc62y_b_00.pdf#page=36",
+        "conditions": "説明書36ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書50ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
