@@ -2364,4 +2364,399 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+
+// V38X/XL and V32X/XL: own manual cover and care diagrams verified.
+catalog.push(...[
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-V38X",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V38X/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V38X/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2025年9月発売の各公式サポートと、4品番を明記したV型専用説明書を確認済み。16・18ページの周期を提案します。側面は汚れに気づいたとき拭き、固定周期にはしません。17ページの製氷おそうじは初回・1週間以上不使用後のみ。通電状態でタンク満水・正しい位置、貯氷コーナーが空かを確認し、冷蔵室以外を閉めて自動製氷ボタンを5秒以上押します。音と点滅を確認して冷蔵室も閉め、約3分全ドアを開けません。終了後の排水は17ページの図に従ってください。製氷皿は取り外せず、機械部には手を入れないでください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。 ミネラルウォーター・井戸水・浄水器の水・湯冷ましなど塩素を含まない水を使う場合は3日に1回に予定を調整してください。ふたは後側から取り付け、すき間なく平行に閉めます（18ページ）。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書7・9ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、部品の取り外しは7・9ページを確認し、ぬるま湯を含ませた柔らかい布で拭きます。食洗機や熱湯を使わず、ケースの可動接触面の潤滑剤を拭き取らないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、冷凍室ドアを開けて脚カバーを上に引っ張ります。調節脚を床から浮かせ、冷蔵庫をまっすぐ手前に引き出し、背面・壁・床を拭きます。傷つきやすい床は保護し、機械室に手を入れず、部品を取り外さないでください。移動方法と取り付けは図で確認してください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書23ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  },
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-V38XL",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V38XL/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V38XL/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2025年9月発売の各公式サポートと、4品番を明記したV型専用説明書を確認済み。16・18ページの周期を提案します。側面は汚れに気づいたとき拭き、固定周期にはしません。17ページの製氷おそうじは初回・1週間以上不使用後のみ。通電状態でタンク満水・正しい位置、貯氷コーナーが空かを確認し、冷蔵室以外を閉めて自動製氷ボタンを5秒以上押します。音と点滅を確認して冷蔵室も閉め、約3分全ドアを開けません。終了後の排水は17ページの図に従ってください。製氷皿は取り外せず、機械部には手を入れないでください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。 ミネラルウォーター・井戸水・浄水器の水・湯冷ましなど塩素を含まない水を使う場合は3日に1回に予定を調整してください。ふたは後側から取り付け、すき間なく平行に閉めます（18ページ）。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書7・9ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、部品の取り外しは7・9ページを確認し、ぬるま湯を含ませた柔らかい布で拭きます。食洗機や熱湯を使わず、ケースの可動接触面の潤滑剤を拭き取らないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、冷凍室ドアを開けて脚カバーを上に引っ張ります。調節脚を床から浮かせ、冷蔵庫をまっすぐ手前に引き出し、背面・壁・床を拭きます。傷つきやすい床は保護し、機械室に手を入れず、部品を取り外さないでください。移動方法と取り付けは図で確認してください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書23ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  },
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-V32X",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V32X/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V32X/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2025年9月発売の各公式サポートと、4品番を明記したV型専用説明書を確認済み。16・18ページの周期を提案します。側面は汚れに気づいたとき拭き、固定周期にはしません。17ページの製氷おそうじは初回・1週間以上不使用後のみ。通電状態でタンク満水・正しい位置、貯氷コーナーが空かを確認し、冷蔵室以外を閉めて自動製氷ボタンを5秒以上押します。音と点滅を確認して冷蔵室も閉め、約3分全ドアを開けません。終了後の排水は17ページの図に従ってください。製氷皿は取り外せず、機械部には手を入れないでください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。 ミネラルウォーター・井戸水・浄水器の水・湯冷ましなど塩素を含まない水を使う場合は3日に1回に予定を調整してください。ふたは後側から取り付け、すき間なく平行に閉めます（18ページ）。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書7・9ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、部品の取り外しは7・9ページを確認し、ぬるま湯を含ませた柔らかい布で拭きます。食洗機や熱湯を使わず、ケースの可動接触面の潤滑剤を拭き取らないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、脚カバーを手前に引っ張ります。調節脚を床から浮かせ、冷蔵庫をまっすぐ手前に引き出し、背面・壁・床を拭きます。傷つきやすい床は保護し、機械室に手を入れず、部品を取り外さないでください。移動方法と取り付けは図で確認してください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書23ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  },
+  {
+    "maker": "日立",
+    "productLinkLabel": "公式説明書一覧",
+    "name": "冷凍冷蔵庫",
+    "modelNumber": "R-V32XL",
+    "categoryId": "fridge",
+    "productUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V32XL/manual.html",
+    "manualUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/R-V32XL/manual.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "2025年9月発売の各公式サポートと、4品番を明記したV型専用説明書を確認済み。16・18ページの周期を提案します。側面は汚れに気づいたとき拭き、固定周期にはしません。17ページの製氷おそうじは初回・1週間以上不使用後のみ。通電状態でタンク満水・正しい位置、貯氷コーナーが空かを確認し、冷蔵室以外を閉めて自動製氷ボタンを5秒以上押します。音と点滅を確認して冷蔵室も閉め、約3分全ドアを開けません。終了後の排水は17ページの図に従ってください。製氷皿は取り外せず、機械部には手を入れないでください。",
+    "suggestions": [
+      {
+        "name": "給水タンク・浄水フィルターの水洗い",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。取り外した各部品を水洗いします。洗剤は使わず、フィルター部分にはスポンジも使わずやさしく流水で洗います。長期不使用時はフィルターも十分乾燥させてください。 ミネラルウォーター・井戸水・浄水器の水・湯冷ましなど塩素を含まない水を使う場合は3日に1回に予定を調整してください。ふたは後側から取り付け、すき間なく平行に閉めます（18ページ）。"
+      },
+      {
+        "name": "ドア表面の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。柔らかい布をぬるま湯で湿らせて拭き、乾いた布で仕上げます。汚れに気づいたら予定日前でも拭き取ってください。"
+      },
+      {
+        "name": "ドアパッキングの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で汚れを拭き取ります。汚れやすいため、日頃から確認してください。"
+      },
+      {
+        "name": "汁受け部の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。ぬるま湯を含ませた柔らかい布で拭きます。汁がたまったり汚れたりした場合は、その都度取り除いてください。"
+      },
+      {
+        "name": "棚・ポケットの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。説明書7・9ページの方法で外し、ぬるま湯を含ませた柔らかい布で拭きます。樹脂部品を食洗機や熱湯で洗わないでください。"
+      },
+      {
+        "name": "収納ケースの清掃",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、部品の取り外しは7・9ページを確認し、ぬるま湯を含ませた柔らかい布で拭きます。食洗機や熱湯を使わず、ケースの可動接触面の潤滑剤を拭き取らないでください。"
+      },
+      {
+        "name": "電源プラグのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。物理的な清掃・交換は電源プラグを抜いて行います。コンセントから抜いた電源プラグを、乾いた布で拭いてほこりを取り除きます。"
+      },
+      {
+        "name": "冷蔵庫の背面・床の清掃",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "年に1〜2回（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=16",
+        "conditions": "説明書16ページ。電源プラグを抜き、脚カバーを手前に引っ張ります。調節脚を床から浮かせ、冷蔵庫をまっすぐ手前に引き出し、背面・壁・床を拭きます。傷つきやすい床は保護し、機械室に手を入れず、部品を取り外さないでください。移動方法と取り付けは図で確認してください。"
+      },
+      {
+        "name": "製氷用浄水フィルターの交換",
+        "kind": "交換",
+        "intervalDays": 1095,
+        "frequency": "約3〜4年が目安（予定計算は1095日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://kadenfan.hitachi.co.jp/support/rei/item/docs/r_v38x_a.pdf#page=18",
+        "conditions": "説明書18ページ。物理的な清掃・交換は電源プラグを抜いて行います。交換部品は説明書23ページで確認します。既に使用している場合は、使用開始日や交換履歴に合わせて予定を調整してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
