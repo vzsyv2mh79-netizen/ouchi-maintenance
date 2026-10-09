@@ -1022,3 +1022,13 @@ test('JP880K preserves wipe-only brush and monthly bag inspection from its FAQ',
  assert.match(c.lookupNote,/クリーンランプ.*乾拭き.*水洗い禁止/);assert.match(c.lookupNote,/固定周期を設定しません/);assert.ok(!c.lookupNote.includes('ベルト'));
  assert.equal(lookup.lookupModel('MC-JP880KX').length,0);
 });
+
+
+test('Panasonic D humidifiers retain daily tank and monthly component care',()=>{
+ const models=['FE-KX07D','FE-KX05D','FE-KF07D'];const urls=new Set();
+ for(const model of models){const [c]=lookup.lookupModel(model);assert.equal(c.categoryId,'humidifier');assert.equal(c.releaseYear,2026);assert.match(c.lookupNote,/2026年9月発売/);urls.add(c.manualUrl);
+ assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[1,30,30,30,30]);assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')&&x.conditions.includes('電源プラグを抜いて')));
+ assert.match(c.suggestions[2].conditions,/フロートは外しません.*本体から直接排水しません/);assert.match(c.suggestions[3].conditions,/押し洗い.*ブラシ.*洗濯機・乾燥機.*ぬれたまま.*赤線.*カチッ/);
+ assert.match(c.suggestions[4].conditions,/ユニット部分だけ.*分解せず.*約30分.*2〜3回/);assert.match(c.lookupNote,/約10年.*1日8時間.*FE-ZKE07.*枠は捨てません/);assert.ok(!c.suggestions.some(x=>x.kind==='交換'));assert.equal(lookup.lookupModel(model+'X').length,0);
+ }assert.equal(urls.size,3);
+});
