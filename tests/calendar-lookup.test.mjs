@@ -1327,3 +1327,12 @@ test('2026 Iris vacuums preserve model-specific exhaust washing and power isolat
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2026 SCD-R5PD separates weekly cup, monthly brush and dock maintenance', () => {
+ const [c]=lookup.lookupModel('SCD-R5PD');assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'vacuum');assert.ok(c.manualUrl.endsWith('214991.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,30,60,60,60]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[37,38,41,41,42,34,44,44].map(n=>c.manualUrl+'#page='+n));
+ assert.match(c.suggestions[1].conditions,/スポンジフィルターの汚れ.*約30分.*クリーニングブラシ.*谷に沿って.*強く押し付け.*約24時間/);
+ assert.match(c.suggestions[4].conditions,/ロックスイッチをスライド.*ブラシの溝.*約24時間.*前端内側/);
+ assert.match(c.suggestions[5].conditions,/運転中.*取り外しません.*ごみ箱の上.*フィルター類を忘れず/);
+ assert.match(c.suggestions[6].conditions,/スポンジフィルターは軽くはたいて水洗い.*不織布フィルターは水洗いの対象に含めず交換/);assert.equal(c.suggestions[7].kind,'交換');assert.match(c.suggestions[7].frequency,/早い側の60日/);assert.match(c.lookupNote,/固定の交換年数は設定していません/);assert.equal(lookup.lookupModel('SCD-R5PDX').length,0);
+});
