@@ -909,3 +909,14 @@ test('R-27TV exact manual keeps seven care tasks without automatic ice-maker adv
  assert.match(c.suggestions[6].conditions,/機械室に手を入れず.*蒸発皿を取り外さない/);
  assert.equal(lookup.lookupModel('R-27TVL').length,0);
 });
+
+test('MC-PJ25A uses its own two conditional monthly care suggestions, never bag/filter intervals',()=>{
+ const [c]=lookup.lookupModel('MC-PJ25A');assert.equal(c.releaseYear,2026);assert.match(c.lookupNote,/2026年2月発売/);
+ assert.match(c.manualUrl,/MC-PJ25A\.pdf$/);assert.equal(c.suggestions.length,2);
+ assert.ok(c.suggestions.every(x=>x.intervalDays===30 && x.sourceUrl===c.manualUrl+'#page=7' && x.frequency.includes('吸込力が弱くなったとき')));
+ assert.match(c.suggestions[0].conditions,/陰干し.*ドライヤー.*洗剤/);
+ assert.match(c.suggestions[1].conditions,/水洗い禁止/);
+ assert.match(c.lookupNote,/紙パック交換後も吸込力が戻らないとき.*もみ洗い.*洗濯機.*十分乾燥/);
+ assert.match(c.lookupNote,/フィルター清掃や紙パック交換を固定周期にはしません/);
+ assert.equal(lookup.lookupModel('MC-PJ25AJ').length,0);
+});

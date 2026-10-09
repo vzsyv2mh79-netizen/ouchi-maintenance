@@ -7615,4 +7615,43 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式キャニスター掃除機",
+    "modelNumber": "MC-PJ25A",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-PJ25A/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/051/453/000000004051453/MC-PJ25A.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2026年2月発売を確認。専用説明書の印刷12〜13ページ（PDF7ページ）では吸込力が弱くなったとき（月1回程度）／気になったときのお手入れです。フィルターは紙パック交換後も吸込力が戻らないときだけ、軽くはたくか軽く水洗いし、もみ洗い・洗濯機洗いをせず十分乾燥させ、ガイド内側に必ず再装着します（印刷13ページ）。紙パックは交換ランプの点灯・点滅時に純正M型Vタイプを使い、挿入方向を合わせます（印刷10〜11ページ）。フィルター清掃や紙パック交換を固定周期にはしません。",
+    "suggestions": [
+      {
+        "name": "床用ノズルの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/051/453/000000004051453/MC-PJ25A.pdf#page=7",
+        "conditions": "説明書印刷12ページ（PDF7ページ）。切を押し電源プラグを抜く。絡まった髪の毛はピンセット等で取り除き、絡まったゴミは溝に沿ってはさみで切る。汚れがひどい場合のブラシカバーと回転部の脱着は図のひらく／しまる方向に従う。水洗い後は水を切り陰干しし、ドライヤーや洗剤を使わない。"
+      },
+      {
+        "name": "本体・ホース・延長管の清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "吸込力が弱くなったとき（月1回程度）／気になったとき（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/004/051/453/000000004051453/MC-PJ25A.pdf#page=7",
+        "conditions": "説明書印刷13ページ（PDF7ページ）。切を押し電源プラグを抜き、柔らかい布で水拭きする。本体・ホース・延長管は水洗い禁止。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
