@@ -39,3 +39,24 @@ test('additional model uses its own manual evidence and discovery never fabricat
   assert.equal(lookup.officialSearchLinks(' ＫＩ－ＲＸ１００ ')[0].maker, 'SHARP');
   assert.ok(decodeURIComponent(lookup.officialSearchLinks('KI-RX100')[0].url).includes('site:jp.sharp "KI-RX100"'));
 });
+
+test('humidifiers and left/right washer variants use verified shared manuals without matching siblings', () => {
+  for (const model of ['HV-T55','HV-T75','HV-R55','HV-R75']) {
+    const [candidate] = lookup.lookupModel(model);
+    assert.equal(candidate.categoryId, 'humidifier');
+    assert.deepEqual(candidate.suggestions.map(item => item.intervalDays), [14,14,30]);
+    assert.ok(candidate.manualUrl.includes(model.includes('-T') ? 'hvt55_75' : 'hvr55_75'));
+    assert.ok(candidate.suggestions.every(item => item.sourceKind === '取扱説明書' && /#page=1[56]$/.test(item.sourceUrl)));
+  }
+  for (const model of ['NA-LX129CL','NA-LX129CR']) {
+    const [candidate] = lookup.lookupModel(model);
+    assert.equal(candidate.categoryId, 'washer');
+    assert.deepEqual(candidate.suggestions.map(item => item.intervalDays), [7,30]);
+    assert.ok(candidate.suggestions.every(item => item.sourceUrl.endsWith('#page=24')));
+    assert.ok(candidate.lookupNote.includes('使用のたび'));
+    assert.ok(candidate.suggestions[1].conditions.includes('予定日前'));
+  }
+  for (const model of ['HV-T50','HV-T75-W','HV-S75','NA-LX129DL','NA-LX129C','NA-LX129CL-W']) assert.equal(lookup.lookupModel(model).length,0);
+  assert.equal(lookup.lookupModel(' ｈｖ－ｔ７５ ')[0].modelNumber,'HV-T75');
+  assert.equal(new Set(lookup.supportedModels).size, lookup.supportedModels.length);
+});
