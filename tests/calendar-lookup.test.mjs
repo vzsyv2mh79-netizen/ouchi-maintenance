@@ -123,5 +123,20 @@ test('TX100/TX75 use their 2024 shared manual without inventing usage-based sche
     assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
     assert.ok(candidate.suggestions[2].conditions.includes('水洗い・天日干ししない'));
   }
-  for (const model of ['KI-TX70','KI-TX100-H','KI-UX100']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['KI-TX70','KI-TX100-H','KI-UX70']) assert.equal(lookup.lookupModel(model).length,0);
+});
+
+test('2025 UX variants use their own manual rather than inheriting TX advice', () => {
+  for (const model of ['KI-UX100','KI-UX75']) {
+    const [candidate] = lookup.lookupModel(model);
+    assert.equal(candidate.releaseYear,2025);
+    assert.ok(candidate.releaseSourceUrl.endsWith('/lineup/'));
+    assert.ok(candidate.manualUrl.includes('kiux100-ux75_mn.pdf'));
+    assert.ok(candidate.lookupNote.includes('2025年度'));
+    assert.deepEqual(candidate.suggestions.map(item => item.intervalDays),[30,30,30]);
+    assert.deepEqual(candidate.suggestions.map(item => item.sourceUrl.split('#').at(-1)),['page=24','page=24','page=26']);
+    assert.ok(candidate.suggestions.every(item => item.sourceUrl.startsWith(candidate.manualUrl+'#')));
+    assert.ok(candidate.suggestions[1].conditions.includes('予定前'));
+  }
+  for (const model of ['KI-UX70','KI-UX100-H','KI-WX100']) assert.equal(lookup.lookupModel(model).length,0);
 });
