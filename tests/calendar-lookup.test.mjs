@@ -220,3 +220,23 @@ test('S50 variants retain their independent yearly humidifier and sensor evidenc
  }
  for(const model of ['KI-US40','KI-WS60','KI-TS50-W']) assert.equal(lookup.lookupModel(model).length,0);
 });
+
+
+test('D50 variants cite the explicit dehumidifier care route and retain both trays', () => {
+ for(const [model,year] of [['KI-SD50',2024],['KI-TD50',2025],['KI-UD50',2026]]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,year);
+  assert.equal(c.name,'除加湿空気清浄機');
+  assert.equal(c.releaseSourceUrl,`https://cs.sharp.co.jp/select/contents?productId=${model}`);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,30]);
+  assert.ok(c.suggestions.every(x=>x.sourceKind==='メーカー公式'));
+  assert.ok(c.suggestions[1].sourceUrl.endsWith('kild50/filter_humi_care_kild50.html'));
+  assert.ok(c.suggestions[1].conditions.includes('上段') && c.suggestions[1].conditions.includes('下段'));
+  assert.ok(c.suggestions[2].sourceUrl.endsWith('sensor_care04.html'));
+  assert.ok(c.suggestions[3].sourceUrl.endsWith('panel_care02.html'));
+  assert.ok(c.lookupNote.includes('一体型') && c.lookupNote.includes('水洗い・天日干ししない'));
+  assert.equal(c.discoveredManualUrl,undefined);
+ }
+ for(const model of ['KI-VD50','KI-UD70','KI-UD50-W']) assert.equal(lookup.lookupModel(model).length,0);
+ assert.ok(lookup.lookupModel('KI-US50')[0].suggestions[1].sourceUrl.endsWith('filter_humi_care07.html'));
+});

@@ -317,6 +317,32 @@ for (const [modelNumber, releaseYear] of [["KI-TS50", 2024], ["KI-US50", 2025], 
   });
 }
 
+// The official pages for all three D50 variants link explicitly to care_kild50.
+for (const [modelNumber, releaseYear] of [["KI-SD50", 2024], ["KI-TD50", 2025], ["KI-UD50", 2026]] as const) {
+  const support = `https://cs.sharp.co.jp/select/contents?productId=${modelNumber}`;
+  catalog.push({
+    maker: "SHARP", name: "除加湿空気清浄機", modelNumber, categoryId: "air-purifier",
+    productUrl: support, productLinkLabel: "発売時期・お手入れの公式案内",
+    manualUrl: `https://jp.sharp/support/download/members/?productId=${modelNumber}`, manualLinkLabel: "品番別の説明書を探す",
+    releaseYear, releaseSourceUrl: support, verifiedAt: "2026-10-09",
+    lookupNote: `${releaseYear}年4月発売と公式機種別サポートに掲載。機種別の公式お手入れ案内で、加湿・除湿トレーを含む内容と周期を確認しています。集じん・脱臭一体型フィルターは汚れや吹出口のにおいが気になるときに確認し、水洗い・天日干ししないでください。汚れの条件を固定日数に置き換えません。`,
+    suggestions: [
+      { name: "本体のお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}care_hontai.html`,
+        conditions: "停止して電源プラグを抜き、柔らかい布で拭きます。本体の水洗いや分解清掃はしないでください。キャスター付きの場合はキャスターも確認します。" },
+      { name: "加湿フィルター・加湿／除湿トレーのお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）・汚れやにおいが気になるとき", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}kild50/filter_humi_care_kild50.html`,
+        conditions: "停止して電源プラグを抜き、トレーの水を捨ててから加湿フィルターと上段の加湿トレー・下段の除湿トレーを水洗いします。加湿フィルターは分解しないでください。フックやキャップ、ハンドルの戻し方と、清掃後のリセットボタン操作は公式の図で確認します。汚れ・におい時は予定前でも確認してください。" },
+      { name: "センサー部のお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}sensor_care04.html`,
+        conditions: "停止して電源プラグを抜き、操作部のニオイセンサーと本体側面の温度・湿度センサーのほこりを掃除機で取ります。温度・湿度センサーのフィルターを水洗いした場合は十分に乾かしてください。詳しい位置は公式の図で確認します。" },
+      { name: "後ろパネルのお手入れ", kind: "掃除", intervalDays: 30,
+        frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}panel_care02.html`,
+        conditions: "停止して電源プラグを抜き、ほこりを掃除機で取ります。汚れ・においがある場合の洗浄は公式案内に従い、台所用中性洗剤を十分すすいで陰干しします。一体型の集じん・脱臭フィルターを水洗いしないでください。" },
+    ],
+  });
+}
+
 export function normalizeModel(value: string) {
   return value.normalize("NFKC").trim().toUpperCase().replace(/[‐‑‒–—−ー]/g, "-").replace(/\s+/g, "");
 }
