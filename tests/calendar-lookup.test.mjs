@@ -292,3 +292,23 @@ test('TH5 TA5 and TSK2 preserve their own dishwasher course and page evidence', 
  assert.match(lookup.lookupModel('NP-TA5')[0].lookupNote, /80℃すすぎはこの機種の機能ではありません/);
  assert.equal(lookup.lookupModel('NP-TSK1').length, 0);
 });
+
+ test('2025 fridge variants retain distinct powered and unplugged care requirements', () => {
+ for (const model of ['NR-C33JS2','NR-C33JS2L','NR-C37WS2','NR-C37WS2L']) {
+  const [c] = lookup.lookupModel(model.toLowerCase());
+  assert.equal(c.categoryId, 'fridge');
+  assert.equal(c.releaseYear, 2025);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays), [7,90,90,90,180,365,1095]);
+  assert.ok(c.manualUrl.includes('NR-C37WS2_C37WS2L_C33JS2_C33JS2L'));
+  assert.match(c.suggestions[0].conditions, /水道水以外/);
+  assert.match(c.suggestions[3].conditions, /潤滑剤は拭き取らない/);
+  assert.match(c.suggestions[4].conditions, /電源を入れた状態/);
+  assert.match(c.suggestions[4].conditions, /取り外せません/);
+  assert.ok(c.suggestions[4].sourceUrl.endsWith('#page=8'));
+  assert.ok(c.suggestions.filter((_,i)=>i!==4).every(x=>x.sourceUrl.endsWith('#page=9')));
+  assert.match(c.suggestions[6].conditions, /使用開始日/);
+  assert.match(c.lookupNote, /7分以上/);
+ }
+ assert.equal(lookup.lookupModel('NR-C33JS1').length,0);
+ assert.equal(lookup.lookupModel('NR-C37ES2').length,0);
+});
