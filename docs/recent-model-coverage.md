@@ -224,3 +224,7 @@ Official rendered https://panasonic.jp/soji/products.html explicitly shows Febru
 ## Panasonic MC-PJ250G / MC-PJ25G
 
 Official rendered product list: August 2025. Each support-linked dedicated PDF cover and PDF7–9 (printed12–17) independently inspected. Three reduced-suction/dirty monthly-approximate suggestions. Parent nozzle body and child nozzle no-waterwash; only rotating brush may be washed, belt/cover reassembly and shade-dry preserved. PJ250G sensor only for abnormal detection lamp, no sensor on PJ25G. Bag and filter condition-only notes.
+
+## Panasonic MC-JP890K
+
+Official rendered product list: October 2025. Dedicated support-linked PDF cover and PDF7–8 (printed12–15) inspected independently. Care has reduced-suction/dirty conditions without a monthly interval; do not inherit PJ monthly cleaning. One monthly bag-fill inspection only for pet hair/cotton-heavy use. Powered nozzle body, hand brush, child nozzle, hose/body/extension and sensor no-waterwash. Brush/filter permitted wash with full dry and own guide/groove reassembly. Bag replacement, filter and abnormal sensor remain condition-only.

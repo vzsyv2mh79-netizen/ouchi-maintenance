@@ -7745,4 +7745,34 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "紙パック式キャニスター掃除機",
+    "modelNumber": "MC-JP890K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-JP890K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/157/000000003745157/MC-JP890K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年10月発売を確認。専用説明書印刷14〜15ページ（PDF8ページ）では吸込力が弱くなったとき／気になったときのお手入れで、月1回の清掃とは記載されていません。切を押し電源プラグを抜きます。親ノズル本体・手元ブラシ・子ノズル・本体・ホース・延長管は水洗い禁止。回転部（ブラシ）だけ水洗いでき、ベルト・カバーのつめ・ひらく／しまる方向を図で確認し、十分乾燥させます。熱風や洗剤・ベンジン・シンナー・アルコールは使いません。センサーはゴミ検知ランプの異常時のみ柔らかい布でから拭きし、水洗い禁止。フィルターは紙パック交換後も吸込力が戻らないときだけ軽くはたくか軽く水洗いし、押し洗いします。もみ洗い・洗濯機洗いをせず十分乾燥させ、図の印を上側に、ガイド（ゴム部）と溝の内側に再装着します。紙パックはランプの点滅・点灯時に純正M型Vタイプを使用し、挿入方向を合わせます（印刷12〜13ページ）。清掃・フィルター・紙パック交換を固定周期にはしません。",
+    "suggestions": [
+      {
+        "name": "紙パックのたまり具合の確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/745/157/000000003745157/MC-JP890K.pdf#page=7",
+        "conditions": "説明書印刷12〜13ページ（PDF7ページ）。ペットの毛や綿ごみが多いと、満杯でも紙パック交換ランプが反応しない場合があるため、直接たまり具合を確認します。この条件に当てはまる場合だけ追加してください。切を押し電源プラグを抜きます。交換自体は固定周期ではなくランプ・たまり具合で判断し、純正M型Vタイプを使用します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

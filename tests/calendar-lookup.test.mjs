@@ -932,3 +932,13 @@ test('PJ250G and PJ25G preserve dedicated powered-nozzle care and conditional se
  assert.match(a.lookupNote,/ゴミ検知ランプ.*内部センサー.*から拭き.*水洗い禁止/);assert.ok(!b.lookupNote.includes('センサー'));
  assert.equal(lookup.lookupModel('MC-PJ250GX').length,0);
 });
+
+test('JP890K never inherits a monthly cleaning interval from PJ models',()=>{
+ const [c]=lookup.lookupModel('MC-JP890K');assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年10月発売/);
+ assert.match(c.manualUrl,/MC-JP890K\.pdf$/);assert.equal(c.suggestions.length,1);
+ assert.match(c.suggestions[0].frequency,/ペットの毛や綿ごみが多いとき/);assert.equal(c.suggestions[0].intervalDays,30);
+ assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=7');assert.match(c.suggestions[0].conditions,/条件に当てはまる場合だけ/);
+ assert.match(c.lookupNote,/月1回の清掃とは記載されていません/);assert.match(c.lookupNote,/ガイド（ゴム部）と溝の内側/);
+ assert.match(c.lookupNote,/手元ブラシ.*水洗い禁止/);assert.match(c.lookupNote,/センサー.*異常時のみ.*から拭き/);
+ assert.ok(!c.suggestions.some(x=>/清掃|交換|センサー|フィルター/.test(x.name)));assert.equal(lookup.lookupModel('MC-JP890KX').length,0);
+});
