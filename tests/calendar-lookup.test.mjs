@@ -1163,3 +1163,23 @@ test('2026 Iris dehumidifiers cite their dedicated manuals and preserve monthly 
  }
  assert.notEqual(lookup.lookupModel('AJ-C48A')[0].manualUrl,lookup.lookupModel('KJ-C481')[0].manualUrl);
 });
+
+
+test('2026 Iris evaporative humidifiers separate refill cleaning from monthly component care', () => {
+ for(const [model,id] of [['AHM-MVU35A','214884'],['KHM-MVU401','214882']]) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'humidifier');
+  assert.ok(c.manualUrl.endsWith(id+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,30,30,30]);
+  assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[23,24,30,31].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.lookupNote,/2026年9月発売.*給水のたび.*固定の日数.*720時間/);
+  assert.ok(!c.suggestions.some(x=>/水タンク/.test(x.name)));
+  assert.match(c.suggestions[0].conditions,/本体は水洗いせず.*掃除機/);
+  assert.match(c.suggestions[1].conditions,/水洗い.*台所用洗剤.*40℃以上.*使いません/);
+  assert.match(c.suggestions[2].conditions,/ファンを外して.*水洗い.*本体は水洗いしません/);
+  assert.match(c.suggestions[3].conditions,/下側の水タンク.*中央に入れたまま.*2〜5分.*2L.*15g.*濃度を高くしません/);
+  assert.ok(c.suggestions.every(x=>x.conditions.includes('ACアダプター')));
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ assert.notEqual(lookup.lookupModel('AHM-MVU35A')[0].manualUrl,lookup.lookupModel('KHM-MVU401')[0].manualUrl);
+});
