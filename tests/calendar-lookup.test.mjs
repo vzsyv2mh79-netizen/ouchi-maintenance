@@ -995,3 +995,14 @@ test('PB61J uses own monthly-approximate cleaning and bag lamp semantics',()=>{
  assert.equal(c.suggestions[4].sourceUrl,c.manualUrl+'#page=7');assert.match(c.suggestions[4].conditions,/点滅はもうすぐ交換、点灯はすぐ交換/);assert.match(c.suggestions[4].conditions,/横長方向.*白ボール紙/);
  assert.equal(lookup.lookupModel('MC-PB61JX').length,0);
 });
+
+test('SB35K and SB55K use weekly bin inspection without invented cleaning or sensor intervals',()=>{
+ const [a]=lookup.lookupModel('MC-SB35K'),[b]=lookup.lookupModel('MC-SB55K');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2025);assert.match(c.lookupNote,/2025年8月発売/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,7);
+ assert.match(c.suggestions[0].conditions,/予定を待たず.*ネットフィルター.*カチッ/);assert.match(c.lookupNote,/約30分.*プリーツフィルター.*ブラシでこすりません.*約24時間/);
+ assert.match(c.lookupNote,/回転ブラシだけ.*ベルト.*起毛布/);assert.match(c.lookupNote,/固定周期を設定しません/);}
+ assert.equal(a.suggestions[0].sourceUrl,a.manualUrl+'#page=7');assert.equal(b.suggestions[0].sourceUrl,b.manualUrl+'#page=9');
+ assert.match(a.lookupNote,/充電アダプターを抜き/);assert.match(a.lookupNote,/標準運転ではランプは光りません/);assert.ok(!a.lookupNote.includes('センサー'));
+ assert.match(b.lookupNote,/充電台から本体を外し/);assert.match(b.lookupNote,/同時点滅/);assert.match(b.lookupNote,/センサー.*乾拭き.*水洗い禁止/);
+ assert.notEqual(a.manualUrl,b.manualUrl);assert.equal(lookup.lookupModel('MC-SB55KX').length,0);
+});
