@@ -1,6 +1,6 @@
 import type { MaintenanceTask } from "./types";
 export type VerifiedSuggestion = Pick<MaintenanceTask, "name" | "kind" | "intervalDays" | "sourceKind" | "sourceUrl"> & { frequency: string; conditions: string };
-export type ProductCandidate = { maker: string; name: string; modelNumber: string; categoryId: string; productUrl: string; manualUrl: string; discoveredManualUrl?: string; productLinkLabel?: string; manualLinkLabel?: string; verifiedAt: string; lookupNote?: string; suggestions: VerifiedSuggestion[] };
+export type ProductCandidate = { maker: string; name: string; modelNumber: string; categoryId: string; productUrl: string; manualUrl: string; discoveredManualUrl?: string; productLinkLabel?: string; manualLinkLabel?: string; verifiedAt: string; releaseYear?: number; releaseSourceUrl?: string; lookupNote?: string; suggestions: VerifiedSuggestion[] };
 
 // Curated model-specific evidence. Future search providers must return candidates
 // with citations for human verification; generated text never enters this catalog.
@@ -100,6 +100,34 @@ for (const modelNumber of ["EE-DD35", "EE-DD50"]) {
         conditions: "印刷19ページ（PDF10ページ）。内ぶたパッキンは消耗品です。白く変色した場合は1年を待たずに交換してください。電源を抜いて冷ましてから、適合部品と取り外し・取り付け方法を説明書で確認してください。" },
     ],
   });
+}
+
+// Release years and model covers are verified separately from maintenance intervals.
+// These six manuals each explicitly cover both 35 and 50 variants.
+const recentSteamManuals = [
+  { family: "DE", year: 2024 }, { family: "DF", year: 2025 }, { family: "DG", year: 2026 },
+  { family: "RT", year: 2024 }, { family: "RU", year: 2025 }, { family: "RV", year: 2026 },
+];
+for (const { family, year } of recentSteamManuals) {
+  const code = `EE${family}`;
+  const url = `https://www.zojirushi.co.jp/toiawase/TR_PDF/${code}.pdf`;
+  const supportUrl = `https://www.zojirushi.co.jp/toiawase/manual/${code.toLowerCase()}35-${code.toLowerCase()}50/`;
+  for (const capacity of [35, 50]) {
+    catalog.push({
+      maker: "象印", name: "スチーム式加湿器", modelNumber: `EE-${family}${capacity}`, categoryId: "humidifier",
+      productUrl: supportUrl, manualUrl: url, productLinkLabel: "品番・発売年を確認できる公式ページ", manualLinkLabel: "取扱説明書",
+      releaseYear: year, releaseSourceUrl: supportUrl, verifiedAt: "2026-10-09",
+      lookupNote: `${year}年発売。公式説明書の表紙で対象品番、印刷18・20ページ（PDF10・11ページ）で洗浄・交換の目安を確認済みです。洗浄の1〜2か月という幅を、予定計算では短い側の30日にしています。`,
+      suggestions: [
+        { name: "内容器のクエン酸洗浄", kind: "掃除", intervalDays: 30,
+          frequency: "1〜2か月に1回（予定計算は短い側の30日）", sourceKind: "取扱説明書", sourceUrl: `${url}#page=10`,
+          conditions: "印刷18ページ（PDF10ページ）。専用のクエン酸洗浄コースを使います。塩素系洗剤と混ぜないでください。開始前と終了後の排水は本体が冷めてから行い、分量・操作・すすぎはこの品番の説明書で確認してください。水質や使用状況、汚れ・におい・運転音によっては予定前に実施してください。" },
+        { name: "内ぶたパッキンの交換", kind: "交換", intervalDays: 365,
+          frequency: "1年を目安（予定計算は365日）・白い変色時は早めに交換", sourceKind: "取扱説明書", sourceUrl: `${url}#page=11`,
+          conditions: "印刷20ページ（PDF11ページ）。消耗品のため1年を目安に交換します。白く変色した場合は1年を待たず交換してください。電源を抜いて冷ましてから、適合部品と取り付け方法をこの品番の説明書で確認してください。" },
+      ],
+    });
+  }
 }
 
 export function normalizeModel(value: string) {

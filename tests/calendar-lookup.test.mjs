@@ -84,9 +84,29 @@ test('additional humidifier advice is limited to the manuals explicitly listing 
     assert.ok(candidate.suggestions[1].conditions.includes('1年を待たず'));
     assert.ok(candidate.suggestions.every(item => item.sourceKind === '取扱説明書' && item.sourceUrl.endsWith('EEDD.pdf#page=10')));
   }
-  for (const model of ['HV-S30','HV-P30','HV-P75-W','EE-DD5','EE-DD50-WA','EE-DE50','EE-DC50']) {
+  for (const model of ['HV-S30','HV-P30','HV-P75-W','EE-DD5','EE-DD50-WA','EE-DE51','EE-DC50']) {
     assert.equal(lookup.lookupModel(model).length, 0);
   }
   assert.equal(lookup.lookupModel(' ｅｅ－ｄｄ５０ ')[0].modelNumber, 'EE-DD50');
-  assert.equal(new Set(lookup.supportedModels).size, 14);
+  assert.equal(new Set(lookup.supportedModels).size, lookup.supportedModels.length);
+});
+
+test('2024–2026 steam humidifiers retain their own release evidence and revised PDF page mapping', () => {
+  for (const [family, year] of [['DE',2024],['DF',2025],['DG',2026],['RT',2024],['RU',2025],['RV',2026]]) {
+    for (const capacity of [35,50]) {
+      const [candidate] = lookup.lookupModel(`EE-${family}${capacity}`);
+      assert.equal(candidate.releaseYear, year);
+      assert.ok(candidate.releaseSourceUrl.includes(`ee${family.toLowerCase()}35-ee${family.toLowerCase()}50`));
+      assert.ok(candidate.manualUrl.endsWith(`EE${family}.pdf`));
+      assert.deepEqual(candidate.suggestions.map(item => item.intervalDays), [30,365]);
+      assert.ok(candidate.suggestions[0].sourceUrl.endsWith(`#page=10`));
+      assert.ok(candidate.suggestions[1].sourceUrl.endsWith(`#page=11`));
+      assert.ok(candidate.suggestions[0].frequency.includes('1〜2か月'));
+      assert.ok(candidate.suggestions[1].conditions.includes('印刷20ページ'));
+    }
+  }
+  // The older DD manual has the gasket on PDF10; do not overwrite its evidence.
+  assert.ok(lookup.lookupModel('EE-DD50')[0].suggestions[1].sourceUrl.endsWith('#page=10'));
+  for (const model of ['EE-DG5','EE-DG50-WA','EE-DG60','EE-RV30','EE-DE50DS']) assert.equal(lookup.lookupModel(model).length,0);
+  assert.equal(lookup.lookupModel(' ｅｅ－ｄｇ５０ ')[0].releaseYear,2026);
 });
