@@ -1415,3 +1415,11 @@ test('SCD-R4P uses monthly mop and split cyclone with its own thirty-minute soak
 test('FCA-31PZ1 uses weekly swab sensors and monthly passive bedding head care', () => {
  const [c]=lookup.lookupModel('FCA-31PZ1');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209040.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[24,24,25].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/電源プラグを抜いて.*左右のダニちりセンサーを綿棒/);assert.match(c.suggestions[2].conditions,/毛取りブラシ.*ピンセット.*たたきパッド.*柔らかいブラシ/);assert.ok(c.suggestions.every(x=>!x.name.includes('回転ブラシ')&&!x.name.includes('ダストカップ')));assert.match(c.lookupNote,/使い捨てフィルターを外して捨て.*日陰.*洗濯機・ドライヤー.*左右のレバー.*固定周期/);assert.doesNotMatch(c.lookupNote,/24時間|30分/);assert.equal(lookup.lookupModel('FCA-31PZ1X').length,0);
 });
+
+
+test('SBD-200PN follows monthly sensor wiping rather than the overview wash label', () => {
+ const [c]=lookup.lookupModel('SBD-200PN');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('208703.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[29,30,31,31,32,34,35].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/アダプターを本体から抜いて.*左右.*綿棒.*水洗いせず/);assert.match(c.suggestions[4].conditions,/押し下げて手前.*24時間.*カチッ/);assert.match(c.suggestions[6].conditions,/全周をすき間のない.*必ず取り付け/);assert.equal(lookup.lookupModel('SBD-200PNX').length,0);
+});
+test('SCD-P3P requires thirty-minute exhaust soak without brushing and no invented sensor/mop task', () => {
+ const [c]=lookup.lookupModel('SCD-P3P');assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith('209002.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[35,36,40,41].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[1].conditions,/約30分.*流水.*ブラシなどでこすりません.*約24時間.*熱風.*背面の穴.*フィルター類を忘れず/);assert.ok(c.suggestions.every(x=>!/センサー|モップ|延長パイプ/.test(x.name)));assert.match(c.suggestions[3].conditions,/押し下げて手前.*24時間.*カチッ/);assert.equal(lookup.lookupModel('SCD-P3PX').length,0);
+});
