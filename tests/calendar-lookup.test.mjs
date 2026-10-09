@@ -482,7 +482,7 @@ test('Hitachi V X preserves three-minute ice cleaning and water-dependent tank c
   assert.match(c.suggestions[7].conditions,model.includes('38')?/上に引っ張り/:/手前に引っ張り/);
   assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
  }
- assert.equal(lookup.lookupModel('R-V38Y').length,0);
+ assert.equal(lookup.lookupModel('R-V38XX').length,0);
 });
 
 
@@ -693,4 +693,21 @@ test('2026 HWS Y variants preserve dedicated sources and catalyst safeguards', (
   assert.match(c.lookupNote,/約4分/);
  }
  assert.equal(lookup.lookupModel('R-HWS47YG').length,0);
+});
+
+
+test('2026 V four variants preserve own sources, water conditions and capacity-specific removal', () => {
+ for(const model of ['R-V38Y','R-V38YL','R-V32Y','R-V32YL']) {
+  const [c]=lookup.lookupModel(model);
+  assert.ok(lookup.supportedModels.includes(model));assert.equal(c.releaseYear,2026);
+  assert.match(c.manualUrl,/r_v38y_a\.pdf$/);
+  assert.match(c.lookupNote,/2026年8月発売/);
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[0].conditions,/塩素を含まない水.*3日に1回/);
+  assert.match(c.suggestions[7].conditions,model.includes('38')?/上に引っ張り/:/手前に引っ張り/);
+  assert.match(c.lookupNote,/約3分/);
+  assert.ok(!c.suggestions.some(x=>/側面|氷温|製氷皿/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-V38YG').length,0);
 });
