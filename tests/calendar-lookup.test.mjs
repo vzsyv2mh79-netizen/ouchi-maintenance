@@ -384,3 +384,22 @@ test('Hitachi HXCC X retains camera condition and dedicated care page mapping', 
  }
  assert.equal(lookup.lookupModel('R-HXCC62Y').length,0);
 });
+
+
+test('Hitachi VWC X uses independently verified VWC evidence and exact matching', () => {
+ for (const model of ['R-VWC57X','R-VWC50X']) {
+  const [c] = lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2025);
+  assert.match(c.manualUrl,/r_vwc57x_a\.pdf$/);
+  assert.match(c.releaseSourceUrl,new RegExp(model));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,90,90,180,180,1095]);
+  assert.ok(c.suggestions.every(x=>x.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[0].conditions,/フィルター部分にはスポンジも使わず/);
+  assert.match(c.suggestions[6].conditions,/プラチナ触媒は水洗い禁止/);
+  assert.match(c.suggestions[9].frequency,/3〜4年/);
+  assert.match(c.lookupNote,/VWC専用/);
+  assert.ok(!c.suggestions.some(x=>/カメラ|製氷おそうじ/.test(x.name)));
+ }
+ assert.equal(lookup.lookupModel('R-VWC57Y').length,0);
+ assert.equal(lookup.lookupModel('R-VW50X').length,0);
+});
