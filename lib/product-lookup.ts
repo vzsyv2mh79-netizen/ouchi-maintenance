@@ -8887,4 +8887,52 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "三菱電機",
+    "name": "衣類乾燥除湿機",
+    "modelNumber": "MJ-PV250WX",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://www.mitsubishielectric.co.jp/ldg/wink/ssl/displayProduct.do?pid=335544",
+    "productLinkLabel": "公式製品情報",
+    "manualUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z262h01.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.mitsubishielectric.co.jp/ldg/wink/ssl/displayProduct.do?pid=335544",
+    "verifiedAt": "2026-10-10",
+    "lookupNote": "公式製品情報で2024年4月22日発売を確認。専用説明書の印刷19ページ（PDF10ページ）を確認。吸込口・フィルターカバー・エアフィルター・センサー部は2週間に1回程度、エアフィルターのつけ置き洗いは3か月に1回程度行います。運転スイッチを切にして電源プラグを抜いてから行います。タンク・本体は汚れたときに柔らかい布で乾拭きします。タンクの汚れが落ちないときは水かぬるま湯で洗い、乾いた布で拭きます。フロートは取り外さず、排水ガードを取り付けてから本体にセットします。エアフィルターMJPR-831VFTの寿命目安は2年ですが使用状況によって異なり、つけ置き洗い8回、煙で茶色くなる、ほこりで黒ずむ場合に交換します。一律の交換周期は設定しません。",
+    "suggestions": [
+      {
+        "name": "吸込口・フィルター・センサー部の掃除",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z262h01.pdf#page=10",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷19ページ。フィルターカバーを外し、吸込口・センサー部を掃除機で清掃します。カバーからエアフィルターを取り出し、汚れを掃除機で吸い取ります。汚れがひどい場合は水かぬるま湯で洗い流してよく乾燥させ、エアフィルターとカバーを戻します。洗剤などは使いません。フィルターカバーは破損や破れがない限り交換不要です。"
+      },
+      {
+        "name": "エアフィルターのつけ置き洗い",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回程度（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z262h01.pdf#page=10",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷19ページ。エアフィルターを取り出し、水かぬるま湯で約30分つけ置き洗いします。洗剤・熱湯・ブラシ・もみ洗いを避け、洗濯ばさみでつるさず平らな場所で乾かします。ぬれたまま使いません。エアフィルターとカバーを戻します。つけ置き洗いは8回程度が限度で、8回洗ったら新しいエアフィルターに交換します。"
+      },
+      {
+        "name": "連続排水時のホース・フィルター点検",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "連続排水または無人で長時間使用する場合、2週間に1回程度（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://dl.mitsubishielectric.co.jp/dl/ldg/wink/ssl/wink_doc/m_contents/wink/MA_IB/zt936z262h01.pdf#page=10",
+        "conditions": "運転スイッチを切にして電源プラグを抜いてから行います。印刷18ページ。連続排水または無人で長時間使用する場合だけ選択してください。ホースのつまり・折れ曲がり・ひび割れなどの劣化とエアフィルターの汚れを確認します。ホース周囲が氷点下になる場所では連続排水しません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
