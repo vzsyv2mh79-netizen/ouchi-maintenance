@@ -7890,4 +7890,59 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "セパレート型コードレススティック掃除機",
+    "modelNumber": "MC-NS100K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-NS100K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/000/386/015/000000000386015/mc-ns100k.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2023年11月発売を確認。専用説明書と共通のお手入れガイドを確認。お手入れ前は運転スイッチを切り充電台の電源プラグを抜きます。紙パックは約2秒間隔の赤い点滅時に純正S型AMC-U2で交換。ケースは捨てず、交換後に本体を充電台にセットし直します。フィルターケースは吸込力が回復しない／弱くなったとき（紙パック交換時）に清掃します。フィルター類は軽くはたき、歯ブラシなどでこすりません。水洗い時は約30分水につけ、水中で振って洗い、風通しのよい場所で約24時間十分乾燥させます。スポンジの切り欠きを合わせ、少し長くなっても押し込みません。不織布フィルターのゴムが外れたら凸部をゴムの溝にはめます。ケースのつめを本体の凹部に合わせカチッと戻します。床用ノズル本体は水洗い禁止。回転ブラシは固く絞った布で水拭きし、ノズルカバーだけ水洗いできます。カバーのつめを2か所の凹部に合わせます。プレフィルターとドックのクリーンフィルターは必要時に軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。センサーはクリーンランプの色が変わらないときだけ柔らかい布で乾拭き。充電端子・吸気路・排気口・吸気口・本体・ハンドル・充電台は水洗い禁止。熱風・洗剤・ベンジン・シンナー・アルコールを使いません。青・赤ランプが同時点滅したらまずドックへ戻し、それでも消えない／吸込力が回復しなければケースを手入れします。清掃や紙パック交換に固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ドックの紙パックのたまり具合確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/000/386/015/000000000386015/mc-ns100k.pdf#page=8",
+        "conditions": "説明書印刷14〜15ページ（PDF8ページ）。ペットの毛や綿ごみが多いと、満杯でも交換ランプが点滅しない場合があります。この条件に当てはまる場合だけ追加してください。運転スイッチを切り充電台の電源プラグを抜き、ケースをゆっくり外して直接確認します。ケースは捨てません。交換自体は固定周期ではなく状態に応じて純正S型AMC-U2を使います。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "セパレート型コードレススティック掃除機",
+    "modelNumber": "MC-NS70F",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-NS70F/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/000/386/016/000000000386016/mc-ns70f.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2023年11月発売を確認。専用説明書と共通のお手入れガイドを確認。お手入れ前は運転スイッチを切り充電台の電源プラグを抜きます。紙パックは約2秒間隔の赤い点滅時に純正S型AMC-U2で交換。ケースは捨てず、交換後に本体を充電台にセットし直します。フィルターケースは吸込力が回復しない／弱くなったとき（紙パック交換時）に清掃します。フィルター類は軽くはたき、歯ブラシなどでこすりません。水洗い時は約30分水につけ、水中で振って洗い、風通しのよい場所で約24時間十分乾燥させます。スポンジの切り欠きを合わせ、少し長くなっても押し込みません。不織布フィルターのゴムが外れたら凸部をゴムの溝にはめます。ケースのつめを本体の凹部に合わせカチッと戻します。床用ノズルは水洗い禁止。巻きついたごみはピンセットやはさみで取り除きます。プレフィルターとドックのクリーンフィルターは必要時に軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。センサーはクリーンランプの色が変わらないときだけ柔らかい布で乾拭き。充電端子・吸気路・排気口・吸気口・本体・ハンドル・充電台は水洗い禁止。熱風・洗剤・ベンジン・シンナー・アルコールを使いません。青・赤ランプが同時点滅したらまずドックへ戻し、それでも消えない／吸込力が回復しなければケースを手入れします。清掃や紙パック交換に固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ドックの紙パックのたまり具合確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/000/386/016/000000000386016/mc-ns70f.pdf#page=9",
+        "conditions": "説明書印刷16〜17ページ（PDF9ページ）。ペットの毛や綿ごみが多いと、満杯でも交換ランプが点滅しない場合があります。この条件に当てはまる場合だけ追加してください。運転スイッチを切り充電台の電源プラグを抜き、ケースをゆっくり外して直接確認します。ケースは捨てません。交換自体は固定周期ではなく状態に応じて純正S型AMC-U2を使います。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

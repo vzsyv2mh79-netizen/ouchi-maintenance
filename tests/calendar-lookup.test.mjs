@@ -975,3 +975,14 @@ test('NX810KM preserves washable removable brush and inner-only mist tank care',
  assert.match(c.lookupNote,/約24時間.*約1時間/);assert.match(c.lookupNote,/充電端子・排気口.*水洗い禁止/);
  assert.notEqual(c.manualUrl,lookup.lookupModel('MC-NX700K')[0].manualUrl);assert.equal(lookup.lookupModel('MC-NX810K').length,0);
 });
+
+ test('NS100K and NS70F keep own manual pages and nozzle wash restrictions',()=>{
+ const [a]=lookup.lookupModel('MC-NS100K'),[b]=lookup.lookupModel('MC-NS70F');
+ for(const c of [a,b]){assert.equal(c.releaseYear,2023);assert.match(c.lookupNote,/2023年11月発売/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,30);
+ assert.match(c.suggestions[0].conditions,/条件に当てはまる場合だけ/);assert.match(c.lookupNote,/約30分.*約24時間/);assert.match(c.lookupNote,/切り欠き.*押し込みません/);
+ assert.match(c.lookupNote,/青・赤ランプ.*まずドック/);assert.match(c.lookupNote,/固定周期を設定しません/);}
+ assert.equal(a.suggestions[0].sourceUrl,a.manualUrl+'#page=8');assert.equal(b.suggestions[0].sourceUrl,b.manualUrl+'#page=9');
+ assert.match(a.lookupNote,/回転ブラシは固く絞った布.*カバーだけ水洗い/);assert.match(a.lookupNote,/2か所の凹部/);
+ assert.match(b.lookupNote,/床用ノズルは水洗い禁止/);assert.ok(!b.lookupNote.includes('カバーだけ水洗い'));
+ assert.notEqual(a.manualUrl,b.manualUrl);assert.equal(lookup.lookupModel('MC-NS100KX').length,0);
+ });

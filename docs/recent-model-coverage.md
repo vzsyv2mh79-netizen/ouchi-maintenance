@@ -240,3 +240,7 @@ Official rendered list: March2024. Dedicated manual cover and PDF8–11 (printed
 ## Panasonic MC-NX810KM
 
 Official rendered list: October2024. Dedicated manual cover and PDF9–12 (printed16–23), both care-notice pages and mist/tank notice independently inspected. Conditional pet/cotton-heavy monthly S-type dock bag inspection only. Unlike NX700K, brush removable/washable with belt/cover/lock marks; tank interior wash-only, contacts cotton swab without pressure. Room-temperature tap water only, discard after cleaning. Filters/bin24h dry/net1h soak. Condition-based care has no invented intervals.
+
+## Panasonic MC-NS100K / MC-NS70F
+
+Official rendered list: November2023. Own manual covers and care pages (NS100K PDF8–11; NS70F PDF9–12) and both shared care-guide pages inspected. Each gets only conditional pet/cotton-heavy monthly bag-fill inspection, with own page8/page9. S-type AMC-U2; retain case/reseat. Case30min soak/24h dry, sponge notch/no extra pushing and nonwoven rubber groove reassembly. NS100K rotating brush wipe-only, cover-only wash/two recesses; NS70F entire floor nozzle no-waterwash. Conditional cleaning/sensor and dock-first lamp recovery do not become scheduled cleaning tasks.
