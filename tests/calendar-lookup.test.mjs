@@ -965,3 +965,13 @@ test('NX700K retains dock S-bag and wipe-only rotating brush restrictions',()=>{
  assert.match(c.lookupNote,/クリーンランプの色が変わらないときだけ乾拭き/);assert.match(c.lookupNote,/充電端子・排気口.*水洗い禁止/);
  assert.ok(!c.suggestions.some(x=>/清掃|交換|フィルター/.test(x.name)));assert.equal(lookup.lookupModel('MC-NX700KX').length,0);
 });
+
+test('NX810KM preserves washable removable brush and inner-only mist tank care',()=>{
+ const [c]=lookup.lookupModel('MC-NX810KM');assert.equal(c.releaseYear,2024);assert.match(c.lookupNote,/2024年10月発売/);
+ assert.match(c.manualUrl,/MC-NX810KM\.pdf$/);assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=9');
+ assert.match(c.suggestions[0].frequency,/ペットの毛や綿ごみが多いとき/);assert.equal(c.suggestions[0].intervalDays,30);
+ assert.match(c.lookupNote,/回転ブラシは外して水洗い可能.*解錠／施錠/);assert.match(c.lookupNote,/タンクは内側だけ水洗い可能/);
+ assert.match(c.lookupNote,/綿棒.*強く押しつけません.*タンクの水を捨て/);assert.match(c.lookupNote,/常温の水道水以外は入れず/);
+ assert.match(c.lookupNote,/約24時間.*約1時間/);assert.match(c.lookupNote,/充電端子・排気口.*水洗い禁止/);
+ assert.notEqual(c.manualUrl,lookup.lookupModel('MC-NX700K')[0].manualUrl);assert.equal(lookup.lookupModel('MC-NX810K').length,0);
+});
