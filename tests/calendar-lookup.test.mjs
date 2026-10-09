@@ -151,7 +151,7 @@ test('2024 washer D variants use the D manual and weekly drain-filter evidence',
     assert.ok(candidate.suggestions[2].conditions.includes('ブザー'));
     assert.ok(candidate.lookupNote.includes('使用のたび'));
   }
-  for (const model of ['NA-LX127DL','NA-LX129FL','NA-LX129DL-W']) assert.equal(lookup.lookupModel(model).length,0);
+  for (const model of ['NA-LX127DL','NA-LX129GL','NA-LX129DL-W']) assert.equal(lookup.lookupModel(model).length,0);
 });
 
 test('2025 washers cite the main manual and separate care guide for each task', () => {
@@ -164,5 +164,23 @@ test('2025 washers cite the main manual and separate care guide for each task', 
   assert.ok(c.suggestions[3].sourceUrl.includes('3642461') && c.suggestions[3].sourceUrl.endsWith('#page=5'));
   assert.ok(c.suggestions[3].conditions.includes('1か月以上'));
  }
- for (const m of ['NA-LX127EL','NA-LX129FL','NA-LX129ER-W']) assert.equal(lookup.lookupModel(m).length,0);
+ for (const m of ['NA-LX127EL','NA-LX129GL','NA-LX129ER-W']) assert.equal(lookup.lookupModel(m).length,0);
+});
+
+
+test('2026 washers retain F-specific filter schedules and do not inherit E tank intervals', () => {
+ for (const model of ['NA-LX129FL','NA-LX129FR']) {
+  const [c]=lookup.lookupModel(model);
+  assert.equal(c.releaseYear,2026);
+  assert.ok(c.releaseSourceUrl.endsWith('jn260820-1'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,7,7]);
+  assert.ok(c.suggestions.slice(0,2).every(x=>x.sourceUrl.endsWith('NA-LX129F.pdf#page=19')));
+  assert.ok(c.suggestions[2].sourceUrl.includes('4498753') && c.suggestions[2].sourceUrl.endsWith('#page=6'));
+  assert.ok(c.suggestions[3].sourceUrl.includes('4498753') && c.suggestions[3].sourceUrl.endsWith('#page=7'));
+  assert.ok(c.suggestions[3].name.includes('サブフィルター'));
+  assert.ok(!c.suggestions.some(x=>x.name.includes('タンク')));
+  assert.ok(c.lookupNote.includes('乾燥のたび') && c.lookupNote.includes('種類変更時'));
+ }
+ assert.equal(lookup.lookupModel('NA-LX129ER')[0].suggestions.at(-1).intervalDays,90);
+ for(const m of ['NA-LX127FL','NA-LX129GL','NA-LX129FR-W']) assert.equal(lookup.lookupModel(m).length,0);
 });
