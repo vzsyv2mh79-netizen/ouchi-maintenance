@@ -232,3 +232,7 @@ Official rendered product list: October 2025. Dedicated support-linked PDF cover
 ## Panasonic MC-SR640K / MC-SR44K
 
 Official rendered list: October 2025 for both. Dedicated manual covers, PDF7–8 (printed12–15) and each two-page supplemental notice independently rendered/inspected. Weekly bin-line inspection; empty before line without waiting for schedule. No fixed cleaning/filter/sensor cycle. Bin assembly requires net filter/cyclone unit and lid hooks. Unit one-hour soak; clean filter no brush scrubbing; wash parts air-dry about24h. Nozzle body/hand brush/child nozzle/body/hose/extension/sensor no-waterwash. Only SR640K has washable futon nozzle.
+
+## Panasonic MC-NX700K
+
+Official rendered list: March2024. Dedicated manual cover and PDF8–11 (printed14–21), and both supplemental notice pages independently inspected. Conditional pet/cotton-heavy monthly dock-bag inspection only. S-type AMC-U2 on lamp signal, retain case/reseat cleaner; no invented cleaning cycle. Brush is wipe-only and cover wash-only, unlike SR removable washable brush. Filters/bin air-dry24h; net filter soak1h if needed. Dock terminals/exhaust no-waterwash and reassembly preserved.
