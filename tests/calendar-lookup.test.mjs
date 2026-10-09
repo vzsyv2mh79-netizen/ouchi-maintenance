@@ -1454,3 +1454,8 @@ test('2024 122PMA and R3P cups split cyclones and monthly mop without invented w
 test('SCD-L3PD keeps weekly cup, no split, and distinct dock wash versus replacement',()=>{
  const[c]=lookup.lookupModel('SCD-L3PD');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('206147.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,7,30,30,30,60,60,60]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[40,40,40,41,44,44,45,47,47,37].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[3].conditions,/ドックの運転を停止.*メッシュ.*30分.*谷に沿って.*24時間/);assert.doesNotMatch(c.suggestions[3].conditions,/上下に分解|反時計/);assert.match(c.suggestions[7].conditions,/スポンジは軽くはたいて水洗い.*24時間.*忘れず/);assert.equal(c.suggestions[8].kind,'交換');assert.match(c.suggestions[8].frequency,/2〜3か月.*60日/);assert.match(c.suggestions[9].conditions,/運転中.*外しません.*上に引いて.*側面.*カチッ.*忘れず/);assert.equal(lookup.lookupModel('SCD-L3PDX').length,0);
 });
+
+
+test('SCD-185PM preserves dedicated monthly cup and mop care without invented sensor',()=>{
+ const[c]=lookup.lookupModel('SCD-185PM');assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith('202401.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[41,42,45,45,46,47].map(n=>c.manualUrl+'#page='+n));assert.ok(c.suggestions.every(x=>!/センサー/.test(x.name)));assert.match(c.suggestions[1].conditions,/反時計回り.*30分.*谷に沿って.*24時間.*熱風.*時計回り.*上側の穴/);assert.match(c.suggestions.at(-1).conditions,/ボタン.*水洗い.*ケース/);assert.equal(lookup.lookupModel('SCD-185PMX').length,0);
+});
