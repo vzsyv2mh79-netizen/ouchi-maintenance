@@ -262,7 +262,7 @@ for (const [modelNumber, releaseYear] of [["KI-TX70", 2024], ["KI-UX70", 2025], 
     productUrl: modelSupport, productLinkLabel: "発売時期・お手入れの公式案内",
     manualUrl: `https://jp.sharp/support/download/members/?productId=${modelNumber}`, manualLinkLabel: "品番別の説明書を探す",
     releaseYear, releaseSourceUrl: modelSupport, verifiedAt: "2026-10-09",
-    lookupNote: `${releaseYear}年9月発売と公式機種別サポートに掲載。そこから案内されるお手入れページ（${large ? "care_index08" : "care_index04"}）で内容と周期を確認しています。PDFの自動抽出結果ではありません。タンクは給水のたび、集じん・脱臭フィルターは汚れや吹出口のにおいが気になるときに確認してください。これらの条件を固定日数に置き換えません。`,
+    lookupNote: `${releaseYear}年9月発売と公式機種別サポートに掲載。機種別の公式お手入れ案内で、内容と周期を確認しています。タンクは給水のたび、集じん・脱臭フィルターは汚れや吹出口のにおいが気になるときに確認してください。これらの条件を固定日数に置き換えません。`,
     suggestions: [
       { name: "本体のお手入れ", kind: "掃除", intervalDays: 30,
         frequency: "約1か月に1回（予定計算は30日）", sourceKind: "メーカー公式", sourceUrl: `${sharpCareBase}care_hontai_01.html`,

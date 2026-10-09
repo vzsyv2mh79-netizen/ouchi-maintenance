@@ -191,7 +191,7 @@ test('new Sharp variants cite the care route explicitly linked by each official 
   const [c]=lookup.lookupModel(model);
   assert.equal(c.releaseYear,year);
   assert.equal(c.releaseSourceUrl,`https://cs.sharp.co.jp/select/contents?productId=${model}`);
-  assert.ok(c.lookupNote.includes(large?'care_index08':'care_index04'));
+  assert.ok(c.lookupNote.includes('機種別の公式お手入れ案内'));
   assert.equal(c.discoveredManualUrl,undefined);
   assert.equal(c.suggestions.length,large?4:3);
   assert.ok(c.suggestions.every(x=>x.intervalDays===30 && x.sourceKind==='メーカー公式' && x.sourceUrl.endsWith('.html')));
