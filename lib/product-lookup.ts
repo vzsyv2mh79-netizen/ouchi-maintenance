@@ -8010,4 +8010,58 @@ catalog.push(...[
     ]
   }
 ] satisfies ProductCandidate[]);
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "サイクロン式コードレススティック掃除機",
+    "modelNumber": "MC-SB35K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-SB35K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/590/956/000000003590956/MC-SB35K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年8月発売を確認。専用説明書を確認。お手入れ前は「切」を押し、充電アダプターを抜きます。ゴミ捨てはラインを超える前にこまめに行います。ダストボックス清掃はゴミを捨てても吸込力が戻らないとき、または赤いお手入れランプが点灯したとき。標準運転ではランプは光りません。ネットフィルターを外してごみを捨て、プリーツフィルターを図の向きで戻し、ネットフィルターをダストカップに戻して本体にカチッと装着します。水洗いする場合はネットフィルターを約30分水につけ、プリーツフィルターは流水で洗い、ブラシでこすりません。洗った部品は風通しのよい場所で約24時間十分乾燥させます。床用ノズル本体・排気口・本体・延長管・スタンドは水洗い禁止。回転ブラシだけ取り外して水洗いでき、ベルト・カバー・起毛布側と解錠／施錠マークを確認して戻します。プレフィルターは軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。熱風・洗剤・ベンジン・シンナー・アルコールを使いません。清掃は吸込力が弱くなったとき／気になったときで、固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ダストボックスのゴミすてライン確認",
+        "kind": "点検",
+        "intervalDays": 7,
+        "frequency": "週に1度が目安（予定計算は7日）／ラインを超える前にゴミ捨て",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/590/956/000000003590956/MC-SB35K.pdf#page=7",
+        "conditions": "説明書印刷12〜13ページ（PDF7ページ）。「切」を押し、充電アダプターを抜きます。ゴミの種類によってたまり方が違うため、予定を待たずラインを超える前に捨てます。ペットの毛や綿ごみが多いとランプが反応しない場合もあるため直接確認してください。ネットフィルターをダストカップに戻して本体に確実にカチッと装着します。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "サイクロン式コードレススティック掃除機",
+    "modelNumber": "MC-SB55K",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-SB55K/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/590/953/000000003590953/MC-SB55K.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2025年8月発売を確認。専用説明書を確認。お手入れ前は「切」を押し、充電台から本体を外します。ゴミ捨てはラインを超える前にこまめに行います。ダストボックス清掃はゴミを捨てても吸込力が戻らないとき、または操作部の青色・赤色ランプが同時点滅して吸わなくなったとき。ネットフィルターを外してごみを捨て、プリーツフィルターを図の向きで戻し、ネットフィルターをダストカップに戻して本体にカチッと装着します。水洗いする場合はネットフィルターを約30分水につけ、プリーツフィルターは流水で洗い、ブラシでこすりません。洗った部品は風通しのよい場所で約24時間十分乾燥させます。床用ノズル本体・排気口・本体・延長管・充電台は水洗い禁止。回転ブラシだけ取り外して水洗いでき、ベルト・カバー・起毛布側と解錠／施錠マークを確認して戻します。プレフィルターは軽くはたくか軽く水洗いし、十分乾燥後に必ず戻します。ゴミ検知ランプのつき方がおかしいときのみ、内部センサーを柔らかい布で乾拭きします。センサーは水洗い禁止です。熱風・洗剤・ベンジン・シンナー・アルコールを使いません。清掃は吸込力が弱くなったとき／気になったときで、固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ダストボックスのゴミすてライン確認",
+        "kind": "点検",
+        "intervalDays": 7,
+        "frequency": "週に1度が目安（予定計算は7日）／ラインを超える前にゴミ捨て",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/003/590/953/000000003590953/MC-SB55K.pdf#page=9",
+        "conditions": "説明書印刷16〜17ページ（PDF9ページ）。「切」を押し、充電台から本体を外します。ゴミの種類によってたまり方が違うため、予定を待たずラインを超える前に捨てます。ペットの毛や綿ごみが多いとランプが反応しない場合もあるため直接確認してください。ネットフィルターをダストカップに戻して本体に確実にカチッと装着します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

@@ -248,3 +248,7 @@ Official rendered list: November2023. Own manual covers and care pages (NS100K P
 ## Panasonic MC-PB61J
 
 Official rendered list: November2024. Dedicated cover and PDF7–8 (printed12–15) independently visually inspected. Four reduced-suction/dirty monthly-approximate cleaning tasks and optional pet/cotton-heavy monthly bag-fill check. Brush-only washing; nozzle/body/extension/stand/exhaust no-waterwash. Filter wash fully dry/reinstall. Own belt/felt-side/lock reassembly and S-bag A-direction/cardboard/click preserved. Flashing means soon, steady light means immediate replacement; do not inherit dock-model lamp semantics.
+
+## Panasonic MC-SB35K / MC-SB55K
+
+Official rendered list: August2025. Dedicated covers and care/parts independently visually inspected: SB35K PDF7–8 printed12–15; SB55K PDF9–10 printed16–19. Weekly bin-line inspection only; condition-based cleaning has no fixed intervals. Net filter30min soak, pleated filter running water/no brushing, washed bin/filter24h air dry, exact reassembly. Brush-only washing with belt/felt-side/lock marks; body/exhaust no-waterwash. SB35K adapter unplug/red care lamp/standard no-light differs from SB55K removal from charging stand/blue-red simultaneous flashing and abnormal-only dry sensor care.
