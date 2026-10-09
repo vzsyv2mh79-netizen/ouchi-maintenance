@@ -7860,4 +7860,34 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+
+
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "セパレート型コードレススティック掃除機",
+    "modelNumber": "MC-NX810KM",
+    "categoryId": "vacuum",
+    "productUrl": "https://panasonic.jp/soji/products/MC-NX810KM/support.html",
+    "productLinkLabel": "公式サポート",
+    "manualUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/673/000000002777673/MC-NX810KM.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://panasonic.jp/soji/products.html",
+    "verifiedAt": "2026-10-09",
+    "lookupNote": "公式商品一覧で2024年10月発売を確認。専用説明書印刷16〜23ページ（PDF9〜12ページ）と付属注意書きを確認。お手入れ前は運転スイッチを切り、充電台の電源プラグを抜きます。紙パックは約2秒間隔の赤い点滅時に純正S型AMC-U2で交換し、ケースは捨てず、本体を充電台にセットし直します。ダストボックスとプレ／スポンジフィルターは吸込力が戻らない／弱くなったとき（紙パック交換時）に清掃。ネットフィルターを必ず戻し、底ぶたをカチッと閉め、プレフィルターの凹凸を合わせます。洗ったダストボックス・ネットフィルター・プレ／スポンジフィルターは風通しのよい場所で約24時間十分乾燥させます。ネットフィルターの汚れが残るときは約1時間水につけ、水中で振って流水洗浄します。床用ノズル本体は水洗い禁止で、回転ブラシは外して水洗い可能です。ベルト、カバーのつめ、図の解錠／施錠マークを合わせて戻し、十分乾燥させます。給水タンクは内側だけ水洗い可能。接点の水滴・ほこりは綿棒で除き、強く押しつけません。掃除後はタンクの水を捨てます。常温の水道水以外は入れず、ミスト吹出口も綿棒で手入れします。ふとん用ノズル・ドックのクリーンフィルターは必要時に軽く水洗いでき、乾燥後に戻します。センサーはクリーンランプの色が変わらないときのみ乾拭き。充電端子・排気口・本体・延長管・充電台は水洗い禁止。熱風・洗剤・ベンジン・シンナー・アルコールは使いません。清掃・紙パック交換に固定周期を設定しません。",
+    "suggestions": [
+      {
+        "name": "ドックの紙パックのたまり具合確認（ペットの毛・綿ごみが多い場合）",
+        "kind": "点検",
+        "intervalDays": 30,
+        "frequency": "ペットの毛や綿ごみが多いとき：月1回（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://panasonic.jp/content/dam/panasonic/jp/ja/pim-assets/support/manual/000/000/002/777/673/000000002777673/MC-NX810KM.pdf#page=9",
+        "conditions": "説明書印刷16〜17ページ（PDF9ページ）。ペットの毛や綿ごみが多いと、満杯でも交換ランプが点滅しない場合があるため直接確認します。該当する場合だけ追加してください。運転スイッチを切り、充電台の電源プラグを抜きます。ケースをゆっくり外し、ケースは捨てません。交換は固定周期ではなく状態に応じて純正S型AMC-U2を使用します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
