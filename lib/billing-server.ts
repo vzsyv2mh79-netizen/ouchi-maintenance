@@ -15,9 +15,7 @@ export async function verifyBillingTransaction(jws:string,config:NonNullable<Ret
  const value=await billingVerifier(config).verifyAndDecodeTransaction(jws);
  return normalizeAppleTransaction(value as unknown as Record<string,unknown>,config.bundleId);
 }
-export async function readBillingBody(request:Request){
- if(Number(request.headers.get('content-length')??0)>65536)throw new Error('Payload too large');const body=await request.text();if(Buffer.byteLength(body)>65536)throw new Error('Payload too large');return JSON.parse(body) as Record<string,unknown>;
-}
+export {readBillingBody} from './billing-body';
 
 /** Auth.getUser must already have verified this exact bearer and user. */
 export async function verifiedPurchaseAccount(db:ReturnType<typeof billingDatabase>,token:string,user:string){
