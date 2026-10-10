@@ -1518,3 +1518,14 @@ test('2024 OSH 10kg variants use dedicated manuals and preserve one-tank-at-a-ti
  }
  assert.match(lookup.lookupModel('TCW-100A01-W')[0].suggestions[1].conditions,/洗剤2と柔軟剤1/);assert.match(lookup.lookupModel('ITW-100A01-W')[0].suggestions[1].conditions,/洗剤と柔軟剤/);
 });
+
+
+test('2026 Iris washers preserve model-specific weekly drying and tank refill instructions', () => {
+ const cases=[['ITW-A1053H-W','115287',80,81,82,true],['ITW-F853H-W','115286',79,80,81,true],['ITW-F1003H-W','115285',72,73,74,false],['ITW-F803H-W','115284',73,74,75,false],['ITW-H1003H-W','113757',64,65,null,false],['ITW-H803H-W','113756',64,65,null,false]];
+ for(const [model,pdf,wash,dry,tank,clean] of cases){
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2026);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),tank?[30,7,90]:[30]);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page='+wash);assert.match(c.suggestions[0].conditions,/給水終了後.*一時停止.*表示の分量.*糸くずフィルター/);
+  if(tank){assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page='+dry);assert.equal(c.suggestions[2].sourceUrl,c.manualUrl+'#page='+tank);assert.match(c.suggestions[2].conditions,/ふたを水洗い.*40℃以下.*洗剤と柔軟剤.*3秒以上.*水分をしっかり切り.*27〜29ページ.*30ページ/);assert.doesNotMatch(c.suggestions[2].conditions,/内部にも液剤を充填/);if(clean)assert.match(c.suggestions[1].conditions,/槽クリーン.*洗いとすすぎ.*0/);else assert.match(c.suggestions[1].conditions,/「槽乾燥」コース/);}
+  else{assert.match(c.lookupNote,/日数指定はありません/);assert.ok(!c.suggestions.some(t=>t.name.includes('タンク')||t.name.includes('槽乾燥')));}
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
