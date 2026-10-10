@@ -30,6 +30,9 @@ jobs:
         env:
           OUCHI_REAL_AUTH_TEST: 'true'
         run: node --test tests/auth-server.integration.mjs
+      - name: Diagnose disposable Auth failures
+        if: failure()
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml logs --no-color --tail 120 auth db
       - name: Remove only this run's disposable containers and volumes
         if: always()
         run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml down --volumes
