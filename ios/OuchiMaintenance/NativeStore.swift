@@ -13,6 +13,7 @@ import OuchiCore
     @Published private(set) var showingOfflineSnapshot = false
     private var snapshotAccount: UUID?
     private var snapshotStorage: HouseholdSnapshotStorage?
+    private var pendingAttachmentStorage: PendingAttachmentStorage?
     @Published private(set) var signedIn = false
     @Published private(set) var busy = false
     @Published var message: String?
@@ -52,6 +53,7 @@ import OuchiCore
         if let address, let url = URL(string: address), let key,
            let config = try? CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: isolatedDevelopment) {
             isolatedDevelopmentEnabled = isolatedDevelopment
+            if isolatedDevelopment { pendingAttachmentStorage = PendingAttachmentStorage() }
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
@@ -114,13 +116,36 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             guard expected == generation else { return false }
+            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            guard expected == generation, binding.account == credentials.user.id, let storage = pendingAttachmentStorage else { return false }
+            let pending = try PendingAttachment(account: binding.account, epoch: binding.epoch, product: product, id: attachment, bytes: bytes, mime: mime)
+            if let existing = try storage.read(account: binding.account, epoch: binding.epoch) {
+                guard existing.id == attachment, existing.product == product, existing.bytes == bytes, existing.mime == mime else { throw CloudError.invalidInput }
+            }
+            try storage.write(pending)
             try await DevelopmentAttachmentAPI().upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
             guard expected == generation else { return false }
+            try pendingAttachmentStorage?.write(nil)
             message = "テスト用ファイルの保存をサーバーで確認しました。"
             return true
         } catch {
             if expected == generation { message = "保存完了を確認できません。ファイルを選び直さず、同じ添付IDで再確認してください。" }
             return false
+        }
+    }
+    func resumeDevelopmentAttachment() async -> PendingAttachment? {
+        guard developmentLifecycleConfigured, let session, let storage = pendingAttachmentStorage else { return nil }
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            guard expected == generation, binding.account == credentials.user.id else { return nil }
+            let pending = try storage.read(account: binding.account, epoch: binding.epoch)
+            guard expected == generation else { return nil }
+            return pending
+        } catch {
+            if expected == generation { message = "再送用ファイルを確認できません。通信と現在の登録を確認してください。" }
+            return nil
         }
     }
     func developmentAttachmentUsage() async -> DevelopmentAttachmentAPI.Usage? {
@@ -277,13 +302,15 @@ import OuchiCore
                 return true
             } catch { return false }
         }
+        var pendingRemoved = true
+        do { try pendingAttachmentStorage?.write(nil) } catch { pendingRemoved = false }
         let backupRemoved = remove(exportURL)
         let calendarRemoved = remove(calendarURL)
         let attachmentRemoved = remove(attachmentExportURL)
         if backupRemoved { exportURL = nil }
         if calendarRemoved { calendarURL = nil }
         if attachmentRemoved { attachmentExportURL = nil }
-        return backupRemoved && calendarRemoved && attachmentRemoved
+        return pendingRemoved && backupRemoved && calendarRemoved && attachmentRemoved
     }
     func prepareExport() {
         guard !busy, let household else { return }

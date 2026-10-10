@@ -862,6 +862,7 @@ private struct DevelopmentAttachmentView: View {
                 if let bytes {
                     Text(filename)
                     Text("\(bytes.count)バイト / 添付ID: \(attachmentID.uuidString)").font(.caption)
+                    Text("送信を確認したファイルは、保存完了の確認まで端末内に保持します。ログアウトすると端末の再送用ファイルを消去します。")
                     Button("保存・同じIDで再確認") { confirmUpload = true }.disabled(store.busy)
                 }
                 if let status { Text(status) }
@@ -898,6 +899,13 @@ private struct DevelopmentAttachmentView: View {
         }
         .task(id: productID) {
             savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
+            if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
+                guard !Task.isCancelled else { return }
+                let pendingProduct = pending.product.uuidString.lowercased()
+                guard store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == pendingProduct }) == true else { return }
+                bytes = pending.bytes; mime = pending.mime; filename = "確認待ちのテスト用ファイル"; attachmentID = pending.id
+                if productID.lowercased() != pendingProduct { productID = pendingProduct; return }
+            }
             let usage = await store.developmentAttachmentUsage()
             guard !Task.isCancelled else { return }
             attachmentUsage = usage

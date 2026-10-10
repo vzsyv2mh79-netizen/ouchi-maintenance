@@ -86,6 +86,8 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const downloadRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${objectID}`,{headers:{authorization:'Bearer '+bearer}});
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...event,signedAt:event.signedAt+1,expiresAt:Date.now()-1}})).error,null);
   const retained=await attachmentGET(downloadRequest(token));assert.equal(retained.status,200);assert.equal(retained.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await retained.arrayBuffer()),Buffer.from(bytes));
+  const bindingRequest=bearer=>new Request('http://127.0.0.1:3000/api/development/product-attachments?binding=true',{headers:{authorization:'Bearer '+bearer}});
+  assert.deepEqual(await (await attachmentGET(bindingRequest(token))).json(),{account:id,epoch:initialBinding.data});
   const usageRequest=bearer=>new Request('http://127.0.0.1:3000/api/development/product-attachments?usage=true',{headers:{authorization:'Bearer '+bearer}});
   const actualUsage=await attachmentGET(usageRequest(token));assert.equal(actualUsage.status,200);const usage=(await actualUsage.json()).usage;assert.equal(usage.usedBytes,104857600);assert.equal(usage.usedFiles,20);assert.equal(usage.reservedFiles,18);
   const listRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}`,{headers:{authorization:'Bearer '+bearer}});
@@ -110,7 +112,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
-  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);assert.equal((await attachmentGET(downloadRequest(token))).status,401);
+  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);assert.equal((await attachmentGET(downloadRequest(token))).status,401);assert.equal((await attachmentGET(bindingRequest(token))).status,401);
   const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);

@@ -153,6 +153,24 @@ public struct DevelopmentAttachmentAPI: Sendable {
             #endif
         }
     }
+    public struct Binding: Decodable, Sendable {
+        public let account: UUID
+        public let epoch: UUID
+    }
+    public func binding(token: String) async throws -> Binding {
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        let url = URL(string: "http://127.0.0.1:3000/api/development/product-attachments?binding=true")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        let value = try JSONDecoder().decode(Binding.self, from: body)
+        let nilID = "00000000-0000-0000-0000-000000000000"
+        guard value.account != value.epoch, value.account.uuidString != nilID, value.epoch.uuidString != nilID else { throw CloudError.malformedResponse }
+        return value
+    }
     public struct Usage: Decodable, Sendable {
         public let usedBytes: Int
         public let usedFiles: Int

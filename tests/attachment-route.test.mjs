@@ -28,6 +28,7 @@ test('actual attachment route refuses production/shared config and wires authent
   h.items=[{id,size:8,mime:'image/png',createdAt:new Date().toISOString(),user:'must-not-expose'}];
   const listing=()=>GET(new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${product}`,{headers:{authorization:'Bearer '+token}}));
   const listed=await listing();assert.equal(listed.status,200);assert.deepEqual(Object.keys((await listed.json()).items[0]).sort(),['createdAt','id','mime','size']);
+  const currentBinding=await GET(new Request('http://127.0.0.1:3000/api/development/product-attachments?binding=true',{headers:{authorization:'Bearer '+token}}));assert.deepEqual(await currentBinding.json(),{account:user,epoch});
   h.usage={usedBytes:8,usedFiles:1,reservedBytes:0,reservedFiles:0,limitBytes:104857600,limitFiles:100,fileLimitBytes:5242880};
   const usageRequest=()=>GET(new Request('http://127.0.0.1:3000/api/development/product-attachments?usage=true',{headers:{authorization:'Bearer '+token}}));
   assert.deepEqual((await (await usageRequest()).json()).usage,h.usage);h.usage.reservedBytes=9;assert.equal((await usageRequest()).status,503);

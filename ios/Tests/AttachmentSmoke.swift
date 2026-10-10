@@ -45,6 +45,15 @@ import OuchiCore
   }
   let usage=try await usageAPI.usage(token:"synthetic");precondition(usage.usedBytes==8 && usage.reservedFiles==1)
   let account=UUID(),epoch=UUID()
+  let bindingAPI=DevelopmentAttachmentAPI { request in
+   precondition(request.url?.query=="binding=true")
+   return (Data("{\"account\":\"\(account.uuidString)\",\"epoch\":\"\(epoch.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  let binding=try await bindingAPI.binding(token:"synthetic");precondition(binding.account==account && binding.epoch==epoch)
+  let invalidBinding=DevelopmentAttachmentAPI { request in
+   (Data("{\"account\":\"\(account.uuidString)\",\"epoch\":\"\(account.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  do { _=try await invalidBinding.binding(token:"synthetic");fatalError("Auth ID used as enrollment") } catch { precondition(error as? CloudError == .malformedResponse) }
   let pending=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:bytes,mime:"image/png")
   let serialized=try pending.encode(),restored=try PendingAttachment.decode(serialized,account:account,epoch:epoch)
   precondition(restored.id==attachment && restored.product==product && restored.bytes==bytes)
