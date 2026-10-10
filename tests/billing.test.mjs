@@ -23,3 +23,17 @@ test('tips accept only consumable transactions and never grant subscription righ
  const value=b.normalizeAppleTransaction(tip,'test.ouchi');assert.equal(b.entitlementFromTransactions([value],100).plan,'free');
  for(const type of ['Auto-Renewable Subscription','Non-Consumable',undefined])assert.throws(()=>b.normalizeAppleTransaction({...tip,type},'test.ouchi'));
 });
+test('explicit environment scope never combines Sandbox and Production entitlements',()=>{
+ const sandbox=b.normalizeAppleTransaction(input,'test.ouchi');
+ const production=b.normalizeAppleTransaction({...input,environment:'Production',signedDate:150},'test.ouchi','Production');
+ assert.throws(()=>b.normalizeAppleTransaction(input,'test.ouchi','Production'));
+ assert.throws(()=>b.normalizeAppleTransaction({...input,environment:'Production'},'test.ouchi'));
+ assert.throws(()=>b.normalizeAppleTransaction({...input,environment:'Other'},'test.ouchi','Other'));
+ assert.equal(b.entitlementFromTransactions([production],100).plan,'free');
+ assert.equal(b.entitlementFromTransactions([sandbox],100,'Production').plan,'free');
+ assert.equal(b.entitlementFromTransactions([sandbox,{...production,revokedAt:120}],150).plan,'premium');
+ assert.equal(b.entitlementFromTransactions([sandbox,{...production,revokedAt:120}],150,'Production').plan,'free');
+ assert.equal(b.entitlementFromTransactions([production],100,'Production').plan,'premium');
+ assert.equal(b.canStartSubscription([production],100,'Production'),false);
+ assert.equal(b.canStartSubscription([production],200,'Production'),true);
+});
