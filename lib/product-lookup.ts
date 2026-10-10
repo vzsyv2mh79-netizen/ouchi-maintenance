@@ -15088,4 +15088,183 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+catalog.push(...[
+  {
+    "maker": "iRobot",
+    "name": "ルンバ コンボ 2 Essential + AutoEmpty 充電ステーション（ホワイト）",
+    "modelNumber": "Y051260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://www.irobot-jp.com/roombacombo/2essentialrobot/index.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20240829_01.pdf",
+    "lookupNote": "2024年9月20日発売。専用説明書17〜22ページで本体と充電ステーションの周期を確認。水タンクは清掃後毎回空にし、モップは拭き掃除後に冷たい水で手洗いして自然乾燥します。ダスト容器は必要に応じて空にし、水洗いしません。紙パックはLEDランプやiRobot Homeアプリのお知らせで交換し、最大60日分の収納能力を交換周期として扱いません。交換目安はフィルター・エッジブラシ・モップ3〜6か月、メインブラシ6〜12か月で、使用状況や損耗によって変わるため固定日数にはしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "週1回（ペットがいる家庭では週2回。予定計算は7日）",
+        "conditions": "停止してお手入れします。ダスト容器のフタを開いてフィルターを外し、お手入れツールでごみを取り除いて戻します。水ですすぐ場合は完全に乾かしてから取り付けます。頻繁なすすぎは推奨されません。ダスト容器はすすいだり水に浸したりしません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=19",
+        "frequency": "週1回を目安（予定計算は7日）",
+        "conditions": "停止してお手入れします。ブラシフレーム取り外しレバーを押してフレームを外し、お手入れツールでブラシの髪の毛やごみを取り除き、ブラシとフレームを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=19",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。ブラシを取り外し、お手入れツールで髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。お手入れツールで前輪の髪の毛やごみを取り除きます。お手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。乾いた清潔な布で拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "停止してお手入れします。乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=21",
+        "frequency": "月1回（予定計算は30日）",
+        "conditions": "停止してお手入れします。異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションのブロワーカバーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=22",
+        "frequency": "月1回（予定計算は30日）",
+        "conditions": "停止してお手入れします。糸くずやごみが絡んでいないか点検し、乾いた清潔な布で付着物を取り除きます。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ コンボ 2 Essential + AutoEmpty 充電ステーション（ブラック）",
+    "modelNumber": "Y051060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://www.irobot-jp.com/roombacombo/2essentialrobot/index.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20240829_01.pdf",
+    "lookupNote": "2024年9月20日発売。専用説明書17〜22ページで本体と充電ステーションの周期を確認。水タンクは清掃後毎回空にし、モップは拭き掃除後に冷たい水で手洗いして自然乾燥します。ダスト容器は必要に応じて空にし、水洗いしません。紙パックはLEDランプやiRobot Homeアプリのお知らせで交換し、最大60日分の収納能力を交換周期として扱いません。交換目安はフィルター・エッジブラシ・モップ3〜6か月、メインブラシ6〜12か月で、使用状況や損耗によって変わるため固定日数にはしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "週1回（ペットがいる家庭では週2回。予定計算は7日）",
+        "conditions": "停止してお手入れします。ダスト容器のフタを開いてフィルターを外し、お手入れツールでごみを取り除いて戻します。水ですすぐ場合は完全に乾かしてから取り付けます。頻繁なすすぎは推奨されません。ダスト容器はすすいだり水に浸したりしません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=19",
+        "frequency": "週1回を目安（予定計算は7日）",
+        "conditions": "停止してお手入れします。ブラシフレーム取り外しレバーを押してフレームを外し、お手入れツールでブラシの髪の毛やごみを取り除き、ブラシとフレームを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=19",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。ブラシを取り外し、お手入れツールで髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。お手入れツールで前輪の髪の毛やごみを取り除きます。お手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "停止してお手入れします。乾いた清潔な布で拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=18",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "停止してお手入れします。乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=21",
+        "frequency": "月1回（予定計算は30日）",
+        "conditions": "停止してお手入れします。異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションのブロワーカバーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGCombo2EssentialAutoEmptyJP.pdf#page=22",
+        "frequency": "月1回（予定計算は30日）",
+        "conditions": "停止してお手入れします。糸くずやごみが絡んでいないか点検し、乾いた清潔な布で付着物を取り除きます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
