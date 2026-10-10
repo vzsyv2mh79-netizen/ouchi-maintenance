@@ -114,21 +114,32 @@ import OuchiCore
         if expected == generation { busy = false }
     }
     func signOut() async {
+        guard !busy else { return }
+        busy = true; message = nil
+        defer { busy = false }
         generation += 1
-        try? snapshotStorage?.write(nil); snapshotAccount = nil; showingOfflineSnapshot = false
+        var localCleanupFailed = false
+        do { try snapshotStorage?.write(nil) }
+        catch { localCleanupFailed = true }
+        snapshotAccount = nil; showingOfflineSnapshot = false
         remindersEnabled = false
         household = nil; signedIn = false; busy = true
         await reminders.reset(clearPreference: true)
         purchases.stopObserving(); purchases.persist = nil
         billingAccount = nil; sandboxEntitlement = nil
-        household = nil; homeID = ""; signedIn = false; busy = false
+        household = nil; homeID = ""; signedIn = false
         clearFamily()
-        if let exportURL { try? FileManager.default.removeItem(at: exportURL) }
-        exportURL = nil
-        if let calendarURL { try? FileManager.default.removeItem(at: calendarURL) }
-        calendarURL = nil
+        for url in [exportURL, calendarURL].compactMap({ $0 }) {
+            do {
+                if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            } catch { localCleanupFailed = true }
+        }
+        exportURL = nil; calendarURL = nil
         do { try await session?.signOut() }
         catch { message = "この端末のログイン情報を削除できませんでした。もう一度お試しください。" }
+        if localCleanupFailed {
+            message = (message.map { $0 + "\n" } ?? "") + "端末内の保存記録や一時ファイルを一部削除できませんでした。アプリを開き直して、再度ログアウトしてください。"
+        }
     }
     func prepareExport() {
         guard !busy, let household else { return }
