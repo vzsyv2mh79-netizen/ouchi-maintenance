@@ -17623,6 +17623,8 @@ catalog.push(...[
     "modelNumber": "ADW-L40B",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/l40b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17656,6 +17658,8 @@ catalog.push(...[
     "modelNumber": "ADW-L40B(W)",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/l40b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17689,6 +17693,8 @@ catalog.push(...[
     "modelNumber": "ADW-L40B(H)",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/l40b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-L40B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17722,6 +17728,8 @@ catalog.push(...[
     "modelNumber": "ADW-M28B",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/m28b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17755,6 +17763,8 @@ catalog.push(...[
     "modelNumber": "ADW-M28B(W)",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/m28b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17788,6 +17798,8 @@ catalog.push(...[
     "modelNumber": "ADW-M28B(H)",
     "categoryId": "dishwasher",
     "productUrl": "https://aqua-has.com/product/m28b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualLinkLabel": "取扱説明書",
     "manualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "discoveredManualUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf",
     "verifiedAt": "2026-10-10",
@@ -17812,6 +17824,59 @@ catalog.push(...[
         "sourceKind": "取扱説明書",
         "sourceUrl": "https://aqua-has.com/wp-content/uploads/2026/05/ADW-M28B_manual.pdf#page=26",
         "conditions": "本体を運転して行う清掃です。給水して電源を入れ、念入りボタンを長押しします。食器を入れず、市販の庫内クリーナーを洗剤投入場所に入れ、投入量はクリーナーの使用方法に従います。ドアを閉じてスタート／一時停止をタッチ。塩素系洗剤は使用禁止です。ドアパッキンなど洗浄水が当たらない部分やトマト系の色素汚れは落とせません。終了後、手で触れる清掃は30分以上待って電源プラグを抜きます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
+catalog.push(...[
+  {
+    "maker": "TOSHIBA",
+    "name": "食器洗い乾燥機（ホワイト）",
+    "modelNumber": "DWS-33B",
+    "categoryId": "dishwasher",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/dish-drye/dws-33b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1128&id=2522&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://shop.toshiba-lifestyle.com/jp/shop/g/g92012630Z00245-ha/",
+    "lookupNote": "2025年7月15日発売。DWS-33Bを明記した公式FAQで残菜フィルターのお手入れを確認しています。説明書PDFの全項目を確認した案内ではありません。取り外し前にお手元の説明書の安全上の注意と清掃前の操作を確認してください。残菜フィルターは使用の度に清掃します。円筒フィルターを左に回して持ち上げ、残菜を捨てて洗い、汚れがひどい場合はブラシを使います。キャップを外して内側を洗い、円筒フィルターが外れたら元に戻します。フィルター下の残水は異常ではなく、残菜がたまっていれば取り除きます。気になる残水は布で拭き取ります。赤い汚れが気になるときは円筒フィルターを天日干しすると赤みが緩和します。▼印と⇒印を合わせて右に回し、がたつかず固定されたことを確認します。2日以上運転しない場合は食器を取り出して残菜フィルターを掃除してください。2日は不使用条件で清掃周期ではありません。使用していないときはドアを閉めてください。乾きが悪いときは乾燥運転を延長する公式案内があります。庫内洗浄やノズル清掃の周期はこのFAQでは確認できないため、固定日数を提案しません。",
+    "suggestions": [
+      {
+        "name": "残菜フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "使用ごと（予定計算は1日。毎回のお手入れ）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1128&id=2522&page=1",
+        "conditions": "清掃前の操作と安全上の注意はお手元の説明書を確認してください。円筒フィルターを左に回して持ち上げ、残菜を捨てて洗います。汚れがひどいときはブラシで落とし、キャップを外して内側も洗います。外れた円筒フィルターは元どおりに戻し、▼印と⇒印を合わせて右に回して固定を確認してください。"
+      }
+    ]
+  },
+  {
+    "maker": "TOSHIBA",
+    "name": "食器洗い乾燥機（ホワイト）",
+    "modelNumber": "DWS-33B(W)",
+    "categoryId": "dishwasher",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/dish-drye/dws-33b/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1128&id=2522&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://shop.toshiba-lifestyle.com/jp/shop/g/g92012630Z00245-ha/",
+    "lookupNote": "2025年7月15日発売。DWS-33Bを明記した公式FAQで残菜フィルターのお手入れを確認しています。説明書PDFの全項目を確認した案内ではありません。取り外し前にお手元の説明書の安全上の注意と清掃前の操作を確認してください。残菜フィルターは使用の度に清掃します。円筒フィルターを左に回して持ち上げ、残菜を捨てて洗い、汚れがひどい場合はブラシを使います。キャップを外して内側を洗い、円筒フィルターが外れたら元に戻します。フィルター下の残水は異常ではなく、残菜がたまっていれば取り除きます。気になる残水は布で拭き取ります。赤い汚れが気になるときは円筒フィルターを天日干しすると赤みが緩和します。▼印と⇒印を合わせて右に回し、がたつかず固定されたことを確認します。2日以上運転しない場合は食器を取り出して残菜フィルターを掃除してください。2日は不使用条件で清掃周期ではありません。使用していないときはドアを閉めてください。乾きが悪いときは乾燥運転を延長する公式案内があります。庫内洗浄やノズル清掃の周期はこのFAQでは確認できないため、固定日数を提案しません。",
+    "suggestions": [
+      {
+        "name": "残菜フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "使用ごと（予定計算は1日。毎回のお手入れ）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1128&id=2522&page=1",
+        "conditions": "清掃前の操作と安全上の注意はお手元の説明書を確認してください。円筒フィルターを左に回して持ち上げ、残菜を捨てて洗います。汚れがひどいときはブラシで落とし、キャップを外して内側も洗います。外れた円筒フィルターは元どおりに戻し、▼印と⇒印を合わせて右に回して固定を確認してください。"
       }
     ]
   }
