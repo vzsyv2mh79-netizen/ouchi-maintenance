@@ -482,3 +482,12 @@ HBD-C1/HBD-31。公式一覧 https://www.irisohyama.co.jp/products/manual/13?pag
 
 ## 2023年 SCD-123P / SCD-L3P / SCD-122PM
 manual13page5発売年月2023-12/12/11、専用299188/299189/299995表紙・清掃37〜44/39〜46/36〜43本文・全図確認。123P/L3P各7項目週次本体/センサー・月次カップ/風路/ヘッド/ブラシ/モップ。L3Pマルチパワー対応。122PMは3周期項目のみ（7/7/60日）；風路・ヘッド・ブラシ・モップは汚れ時なので固定周期を作らず候補説明に案内。3機種とも30分浸漬の記載なし。カップCCW分解/CW組立/24h/熱風禁止/上側穴クリック。123P-HC別299979未検証で別品番候補を増やさない。確認2026-10-10。
+
+
+## 2026-10-10: Panasonic public dishwasher care
+
+- NP-TSP2 (September 2026): official model-applicable product care page gives weekly residual filter (twice-daily use) and interior 2–3 times per month, scheduled every 15 days. Tank cleaner is condition-based and stays in the note without a fixed interval. https://panasonic.jp/dish/feature/SLIM/wash.html
+- NP-TCR5 (November 2023): tabletop FAQ gives weekly residual filter and monthly exterior/seal and filter-underneath care. Model-specific product page confirms filter removal/washing and debris removal below. Interior cleaning is standard course only when dirty, not an invented monthly schedule. https://panasonic.jp/dish/products/NP-TCR5.html ; https://jpn.faq.panasonic.com/app/answers/detail/a_id/62136/p/1776/related/1 ; https://jpn.faq.panasonic.com/app/answers/detail/a_id/26688/kw/%E6%8E%92%E6%B0%B4/p/1777
+- Release months: https://panasonic.jp/dish/comparison.html ; NP-TSP2 launch announcement https://news.panasonic.com/jp/topics/206815
+- Sources are labeled manufacturer official, with “公式お手入れ案内” rather than a claimed verified PDF. Dedicated manual figures and additional model-specific care remain a follow-up. No unchecked manual disassembly or chemical soaking instructions are copied.
+- NP-TMLK1 remains pending; do not infer TML1 care solely from shared family or appearance.

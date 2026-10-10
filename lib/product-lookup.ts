@@ -13663,4 +13663,84 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+catalog.push(...[
+  {
+    "maker": "Panasonic",
+    "name": "タンク式スリムタイプ食器洗い乾燥機",
+    "modelNumber": "NP-TSP2",
+    "categoryId": "dishwasher",
+    "productUrl": "https://panasonic.jp/dish/products/NP-TSP2.html",
+    "productLinkLabel": "公式製品ページ",
+    "manualUrl": "https://panasonic.jp/dish/feature/SLIM/wash.html",
+    "manualLinkLabel": "公式お手入れ案内",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://panasonic.jp/dish/comparison.html",
+    "lookupNote": "公式比較表で2026年9月発売を確認。公式製品ページのお手入れ案内に基づく提案です。月2〜3回の庫内清掃は予定計算を15日にしています。給水タンクは汚れが気になったときに専用クリーナーで清掃し、固定周期は設定していません。作業前にお手持ちの説明書で安全上の注意と取り外し・取り付け方法を確認してください。",
+    "suggestions": [
+      {
+        "name": "残さいフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回程度（1日2回使用時・予定計算は7日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://panasonic.jp/dish/feature/SLIM/wash.html",
+        "conditions": "フィルターを外し、小さいブラシで付着した汚れを取り除きます。使用回数や汚れの状態に応じて予定前でも掃除してください。作業は運転終了後に庫内が冷えてから行い、取り付け方法はお手持ちの説明書で確認してください。"
+      },
+      {
+        "name": "庫内のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 15,
+        "frequency": "月に2〜3回（予定計算は15日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://panasonic.jp/dish/feature/SLIM/wash.html",
+        "conditions": "食器を入れず、通常の使用量の2倍の食器洗い機専用洗剤を入れ、設定ボタンで汚れレベル3を選んで運転します。給水タンクの汚れの清掃とは別の作業です。"
+      }
+    ]
+  },
+  {
+    "maker": "Panasonic",
+    "name": "プチタイプ食器洗い乾燥機",
+    "modelNumber": "NP-TCR5",
+    "categoryId": "dishwasher",
+    "productUrl": "https://panasonic.jp/dish/products/NP-TCR5.html",
+    "productLinkLabel": "公式製品ページ",
+    "manualUrl": "https://jpn.faq.panasonic.com/app/answers/detail/a_id/26688/kw/%E6%8E%92%E6%B0%B4/p/1777",
+    "manualLinkLabel": "公式お手入れ案内",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://panasonic.jp/dish/comparison.html",
+    "lookupNote": "公式比較表で2023年11月発売を確認。周期は卓上型食洗機の公式FAQ、フィルターの洗い方はこの品番の公式製品ページを参照しています。庫内は汚れたときに標準コースで清掃します。固定周期の庫内清掃や、他機種の汚れレベル3・自動投入タンクの清掃は提案していません。作業前にお手持ちの説明書で安全上の注意と取り外し・取り付け方法を確認してください。",
+    "suggestions": [
+      {
+        "name": "残さいフィルターの掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週に1回・運転終了後に残さいがあるとき",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jpn.faq.panasonic.com/app/answers/detail/a_id/62136/p/1776/related/1",
+        "conditions": "この品番の公式製品ページでは、フィルターを外し、残さいを捨てて水洗いし、落ちにくい汚れをブラシで落とす方法を案内しています。取り外した下に残さいがあれば除きます。作業は庫内が冷えてから行い、お手入れ後は元どおり取り付けてください。"
+      },
+      {
+        "name": "本体の外側・パッキンのお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jpn.faq.panasonic.com/app/answers/detail/a_id/26688/kw/%E6%8E%92%E6%B0%B4/p/1777",
+        "conditions": "かごを取り出し、よく絞った柔らかい布でパッキン、パッキンが当たる面、ドアのふちに付いた汚れを拭き取ります。安全上の注意はお手持ちの説明書で確認してください。"
+      },
+      {
+        "name": "残さいフィルター下のお手入れ",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月に1回（予定計算は30日）・汚れが気になるとき",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jpn.faq.panasonic.com/app/answers/detail/a_id/62136/p/1776/related/1",
+        "conditions": "フィルターの下に残さいや汚れがないか確認します。柔らかいブラシなどでお手入れし、柔らかい布で拭いてからフィルターを元どおり取り付けます。取り外せない部品を外さず、形状や安全上の注意はこの品番の説明書で確認してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

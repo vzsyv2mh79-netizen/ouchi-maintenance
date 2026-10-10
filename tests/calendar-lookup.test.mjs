@@ -1474,3 +1474,17 @@ test('2023 Iris 123P/L3P preserve monthly care without later thirty-minute soak'
 test('SCD-122PM cup is two-monthly and conditional care never receives invented schedules',()=>{
  const[c]=lookup.lookupModel('SCD-122PM');assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith('299995.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,60]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[37,37,38].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].frequency,/2か月/);assert.doesNotMatch(c.suggestions[2].conditions,/30分/);assert.match(c.lookupNote,/汚れが目立ってきたら.*固定周期.*41〜43/);assert.equal(lookup.lookupModel('SCD-122PMX').length,0);
 });
+
+
+test('public Panasonic dish care keeps conditional tasks unscheduled and exact model citations',()=>{
+ const[a]=lookup.lookupModel('np-tsp2');const[b]=lookup.lookupModel(' ＮＰ－ＴＣＲ５ ');
+ assert.equal(a.releaseYear,2026);assert.equal(b.releaseYear,2023);
+ assert.deepEqual(a.suggestions.map(x=>x.intervalDays),[7,15]);assert.deepEqual(b.suggestions.map(x=>x.intervalDays),[7,30,30]);
+ assert.ok([...a.suggestions,...b.suggestions].every(x=>x.sourceKind==='メーカー公式' && !x.sourceUrl.includes('.pdf')));
+ assert.equal(a.manualLinkLabel,'公式お手入れ案内');assert.equal(b.manualLinkLabel,'公式お手入れ案内');assert.equal(a.discoveredManualUrl,undefined);
+ assert.match(a.suggestions[0].frequency,/1日2回/);assert.match(a.suggestions[1].conditions,/2倍.*汚れレベル3/);
+ assert.match(a.lookupNote,/給水タンク.*汚れが気になった.*固定周期/);assert.ok(a.suggestions.every(x=>!x.name.includes('タンク')));
+ assert.match(b.lookupNote,/庫内は汚れたときに標準コース/);assert.ok(b.suggestions.every(x=>!x.name.includes('庫内')));
+ assert.ok(b.suggestions.every(x=>!/汚れレベル3|自動投入/.test(x.conditions)));
+ assert.equal(lookup.lookupModel('NP-TSP2X').length,0);assert.equal(lookup.lookupModel('NP-TCR5X').length,0);assert.equal(lookup.lookupModel('NP-TMLK1').length,0);
+});
