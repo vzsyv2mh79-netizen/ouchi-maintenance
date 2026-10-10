@@ -31,6 +31,12 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await write({...event,signedAt:101,revokedAt:101})).data,'updated');assert.equal((await write(event)).data,'ignored');
   assert.equal((await write({...event,environment:'Production'})).data,'inserted');
   assert.ok((await user.rpc('apply_maintenance_verified_transaction',{payload:event,proof_sha256:'a'.repeat(64)})).error);
+  // Renewal notification lookup is service-only and carries no entitlement grant.
+  const originalArgs={target_environment:'Sandbox',target_original:'10'};
+  const original=await admin.rpc('read_maintenance_original_transaction',originalArgs);assert.equal(original.error,null);assert.equal(original.data.transactionId,'100');assert.equal(original.data.accountToken,binding.data);assert.equal(original.data.revokedAt,101);
+  assert.ok((await user.rpc('read_maintenance_original_transaction',originalArgs)).error);
+  const absentOriginal=await admin.rpc('read_maintenance_original_transaction',{...originalArgs,target_original:'999'});assert.equal(absentOriginal.error,null);assert.equal(absentOriginal.data,null);
+  const productionOriginal=await admin.rpc('read_maintenance_original_transaction',{...originalArgs,target_environment:'Production'});assert.equal(productionOriginal.error,null);assert.equal(productionOriginal.data.environment,'Production');
   const readArgs={target_user:id,verified_session:claims.session_id,target_epoch:binding.data,target_environment:'Sandbox'};
   const seedRead=()=>admin.rpc('read_maintenance_reconciliation_seed',readArgs);
   const seed=await seedRead();assert.equal(seed.error,null);assert.equal(seed.data.transactionId,'100');assert.equal(seed.data.accountToken,binding.data);
