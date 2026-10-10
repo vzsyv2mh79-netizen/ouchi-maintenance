@@ -28,9 +28,9 @@ AC0F0516646E205EE4359123 = { isa = XCSwiftPackageProductDependency; package = 4F
 BCE16DD0260827ECF338C787 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000002,CDC23E4B34E6A9538E18FF32,33D15A774F6A6E4F0A42E71C,071B0FF10D3323D1249BDC9F,FF78EE86ED8CBF1E0F3A1F68,735AD2FC377217521B160C09,); runOnlyForDeploymentPostprocessing = 0; };
 0189424A5A60FED329FA868E = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000004,CF8A4D27E1C506A7C75A76BE,); runOnlyForDeploymentPostprocessing = 0; };
 7561BFB015D8F536760CB671 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (5F4C0158DC37F7425F47E939,); runOnlyForDeploymentPostprocessing = 0; };
-89E1FD6268CC0F221A2BE178 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Debug; };
+89E1FD6268CC0F221A2BE178 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; ONLY_ACTIVE_ARCH = YES; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
 7082CC0B6FC1282FCEABD07A = { isa = XCBuildConfiguration; baseConfigurationReference = DFBA7AADE0868074C2861C98; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; }; name = Debug; };
-E6DE6C99132752C914FEF632 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Release; };
+E6DE6C99132752C914FEF632 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; ONLY_ACTIVE_ARCH = NO; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
 639A7CA24D39909E713B47F7 = { isa = XCBuildConfiguration; baseConfigurationReference = DFBA7AADE0868074C2861C98; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
 862894B703A6DEDF96A9DD6C = { isa = XCConfigurationList; buildConfigurations = (89E1FD6268CC0F221A2BE178,E6DE6C99132752C914FEF632,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 C57128001CE614BF8549D6BB = { isa = XCConfigurationList; buildConfigurations = (7082CC0B6FC1282FCEABD07A,639A7CA24D39909E713B47F7,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
