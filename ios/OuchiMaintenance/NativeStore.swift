@@ -55,7 +55,8 @@ import OuchiCore
         }
     }
     func signUp(email: String, password: String) async {
-        guard !busy, let session else { return }
+        guard !busy else { return }
+        guard let session else { message = "クラウド接続の設定が必要です。"; return }
         busy = true; message = nil
         let expected = generation
         do {
@@ -67,7 +68,8 @@ import OuchiCore
         } catch { if expected == generation { busy = false; message = "登録を完了できませんでした。入力内容を確認し、メール送信の上限の場合は時間をおいてお試しください。" } }
     }
     func requestPasswordReset(email: String) async {
-        guard !busy, let api else { return }
+        guard !busy else { return }
+        guard let api else { message = "クラウド接続の設定が必要です。"; return }
         busy = true; message = nil
         let expected = generation
         do {
