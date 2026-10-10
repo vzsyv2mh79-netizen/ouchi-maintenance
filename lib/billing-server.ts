@@ -1,3 +1,4 @@
+import {createBillingFetch} from './billing-fetch';
 import {runRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
 import {boundedBillingRead} from './billing-read-deadline';
 import 'server-only';
@@ -30,7 +31,7 @@ export function billingConfiguration(){
  }
  return {url,key,bundleId,certificates,storage:storage??'sandbox-legacy',environment,appAppleId};
 }
-export function billingDatabase(config:NonNullable<ReturnType<typeof billingConfiguration>>){return createClient(config.url,config.key,{auth:{persistSession:false,autoRefreshToken:false}});}
+export function billingDatabase(config:NonNullable<ReturnType<typeof billingConfiguration>>){return createClient(config.url,config.key,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createBillingFetch()}});}
 export function billingVerifier(config:NonNullable<ReturnType<typeof billingConfiguration>>){return new SignedDataVerifier(config.certificates,true,config.environment==='Production'?Environment.PRODUCTION:Environment.SANDBOX,config.bundleId,config.appAppleId);}
 export async function verifyBillingTransaction(jws:string,config:NonNullable<ReturnType<typeof billingConfiguration>>){
  const value=await billingVerifier(config).verifyAndDecodeTransaction(jws);
