@@ -610,3 +610,7 @@ Release https://www.siroca.co.jp/pdf/press-release/pressrelease_250828_humidifie
 
 ## siroca SD-C113 — 2024 color release
 Official2024-09-14 dark-red/cream release: https://www.siroca.co.jp/pdf/press-release/pressrelease_240829_humidifier.pdf . This is NOT claimed as the initial launch of the series. Dedicated https://www.siroca.co.jp/im/sd-c113.pdf safety2–3/dailycare5/assembly8/care9 independently audited; wholecarepage9 visually inspected (/private/tmp/sdc113-care.png). Daily water and daily cleaning, blower-safe drainage, nonoperating conditional citricacid and dry storage proved by this model manual, not inherited merely from SD-C213 similarity. Current product URL has successor so official2024 release serves product information.
+
+
+## siroca 2026年食器洗い乾燥機
+SS-LA451（2026-03-21）・SS-LH451（2026-04-15）。発売根拠は公式2026-03-05発表。各専用36ページ説明書19〜22を本文・画像で独立確認。毎回フィルター/トレイ（計算1日）、月1回ノズル（計算30日）。本体定期清掃・パッキン汚れ・1週間以上不使用時は日数を創作せず案内。30分冷却・常温確認・プラグを抜く、トレイ突起非分解・再取付・給排水接続の確認を保存。Ag+交換周期は根拠なしで除外。旧351シリーズの情報は流用しない。
