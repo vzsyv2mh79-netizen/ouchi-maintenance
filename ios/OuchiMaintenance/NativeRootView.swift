@@ -722,6 +722,7 @@ private struct SandboxSubscriptionView: View {
             }
             Section("契約と復元") {
                 Text("契約は解約するまで自動更新されます。iPhoneの設定 → 自分の名前 → サブスクリプションから契約の確認・解約ができます。")
+                Link("Appleで契約を確認・解約", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
                 Button("購入を復元・契約を確認") { Task { await store.restoreSandboxPurchases() } }.disabled(store.busy)
                 Text("有効な契約がある場合は新規購入を止めます。Webでも同じアカウントの確認済み利用権を使います。")
             }
