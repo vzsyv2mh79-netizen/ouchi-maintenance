@@ -74,14 +74,19 @@ final class PurchaseManager: ObservableObject {
         let expected = bindingGeneration
         try await AppStore.sync()
         guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
-        for await result in Transaction.currentEntitlements {
+        // Include expired/revoked history; the server decides current rights from verified dates.
+        for await result in Transaction.all {
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
-            guard case .verified(let transaction) = result,
-                  ids.contains(transaction.productID), transaction.environment == storeEnvironment,
-                  transaction.appAccountToken == account,
-              transaction.productType == expectedType(for: transaction.productID) else { continue }
+            try Task.checkCancellation()
+            guard case .verified(let transaction) = result else { throw PurchaseError.unverified }
+            guard ids.contains(transaction.productID), transaction.environment == storeEnvironment,
+                  transaction.appAccountToken == account else { continue }
+            guard transaction.productType == expectedType(for: transaction.productID) else { throw PurchaseError.unverified }
+            // History import never finishes or redelivers a consumable benefit.
             try await deliver(result, account: account, finish: false)
         }
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
     }
     func observeUnfinished(account: UUID) async throws {
         guard persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
