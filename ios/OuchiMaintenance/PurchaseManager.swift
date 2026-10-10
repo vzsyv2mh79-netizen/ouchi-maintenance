@@ -56,9 +56,12 @@ final class PurchaseManager: ObservableObject {
         }
     }
     func restore(account: UUID) async throws {
-        guard persist != nil else { throw PurchaseError.notConfigured }
+        guard persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
         try await AppStore.sync()
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
         for await result in Transaction.currentEntitlements {
+            guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
                   ids.contains(transaction.productID), transaction.environment == .sandbox,
                   transaction.appAccountToken == account else { continue }
@@ -66,13 +69,16 @@ final class PurchaseManager: ObservableObject {
         }
     }
     func observeUnfinished(account: UUID) async throws {
-        guard persist != nil else { throw PurchaseError.notConfigured }
+        guard persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
         for await result in Transaction.unfinished {
+            guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
                   ids.contains(transaction.productID), transaction.environment == .sandbox,
                   transaction.appAccountToken == account else { continue }
             try await deliver(result, account: account, finish: true)
         }
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
         needsRetry = false
     }
     enum PurchaseError: Error { case notConfigured, unverified }

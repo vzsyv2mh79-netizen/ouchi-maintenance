@@ -571,6 +571,10 @@ private struct SandboxTipView: View {
                 }.disabled(loading || store.busy)
                 if let status { Text(status).font(.caption) }
             }
+            Section("Sandbox\u{306e}\u{8cfc}\u{5165}\u{5fa9}\u{5143}") {
+                Button("\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}") { Task { await store.restoreSandboxPurchases() } }.disabled(store.busy)
+                Text("\u{540c}\u{3058}Apple Account\u{3068}\u{304a}\u{3046}\u{3061}\u{30e1}\u{30f3}\u{30c6}\u{306e}\u{30a2}\u{30ab}\u{30a6}\u{30f3}\u{30c8}\u{306e}Sandbox\u{5229}\u{7528}\u{6a29}\u{3092}\u{78ba}\u{8a8d}\u{3057}\u{307e}\u{3059}\u{3002}\u{30c1}\u{30c3}\u{30d7}\u{306f}\u{5fa9}\u{5143}\u{5bfe}\u{8c61}\u{5916}\u{3067}\u{3059}\u{3002}")
+            }
             Section("未完了の取引") {
                 Text("チップは消費型の商品です。通常の購入復元の対象ではありません。サーバーへ保存できなかった未完了取引を再確認できます。")
                 Button("未完了取引を再確認") { Task { await store.retrySandboxTransactions() } }.disabled(store.busy)

@@ -126,6 +126,24 @@ import OuchiCore
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
         if expected == generation { busy = false }
     }
+    func restoreSandboxPurchases() async {
+        guard !busy, sandboxBillingConfigured, let session else { return }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, billingAccount == credentials.user.id else { return }
+            try await purchases.restore(account: credentials.user.id)
+            guard expected == generation else { return }
+            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            guard expected == generation else { return }
+            sandboxEntitlement = rights
+            message = "Sandbox\u{306e}\u{5229}\u{7528}\u{6a29}\u{3092}\u{78ba}\u{8a8d}\u{3057}\u{307e}\u{3057}\u{305f}\u{3002}"
+        } catch {
+            if expected == generation { message = "Sandbox\u{306e}\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
+        }
+        if expected == generation { busy = false }
+    }
     func retrySandboxTransactions() async {
         guard !busy, sandboxBillingConfigured, let session else { return }
         busy = true
