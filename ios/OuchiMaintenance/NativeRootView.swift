@@ -203,6 +203,11 @@ private struct ProductEditor: View {
     @State private var memo = ""
     @State private var loaded = false
     @State private var deleting = false
+    @State private var searching = false
+    @State private var searchMessage: String?
+    @State private var candidates: [ProductCandidate] = []
+    @State private var candidate: ProductCandidate?
+    @State private var selected: Set<Int> = []
     var body: some View {
         Form {
             Section("製品") {
@@ -212,6 +217,51 @@ private struct ProductEditor: View {
                 }
                 TextField("メーカー", text: $maker)
                 TextField("品番", text: $model).textInputAutocapitalization(.characters).autocorrectionDisabled()
+            }
+            if initial == nil {
+                Section("品番から調べる") {
+                    Button(searching ? "公式情報を確認中…" : "候補を探す") {
+                        let query = ProductLookup.normalize(model)
+                        searching = true; searchMessage = nil; candidates = []
+                        Task {
+                            defer { searching = false }
+                            do {
+                                let results = try await ProductLookup().search(query)
+                                guard query == ProductLookup.normalize(model) else { return }
+                                candidates = results
+                                if results.isEmpty { searchMessage = "確認済みの候補がありません。公式説明書を確認して手入力できます。" }
+                            } catch { searchMessage = "公式情報を取得できませんでした。品番と通信状態を確認してください。" }
+                        }
+                    }.disabled(searching || store.busy || model.isEmpty)
+                    if let searchMessage { Text(searchMessage).font(.caption) }
+                    ForEach(Array(candidates.enumerated()), id: \.offset) { _, result in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(result.maker) \(result.modelNumber)").font(.headline)
+                            Text(result.name)
+                            if let note = result.lookupNote { Text(note).font(.caption) }
+                            if let url = ProductLookup.officialURL(result.productUrl) { Link(result.productLinkLabel ?? "公式情報を確認", destination: url) }
+                            if let url = ProductLookup.officialURL(result.manualUrl) { Link(result.manualLinkLabel ?? "取扱説明書", destination: url) }
+                            Button("品番の一致を確認して選ぶ") {
+                                model = result.modelNumber; name = result.name; maker = result.maker; category = result.categoryId
+                                candidate = result; selected = []; candidates = []
+                            }
+                        }
+                    }
+                }
+                if let candidate {
+                    Section("お手入れ候補（任意）") {
+                        Text("公式の周期・条件を確認して選んでください。自動では登録しません。確認日：\(candidate.verifiedAt)").font(.caption)
+                        ForEach(Array(candidate.suggestions.enumerated()), id: \.offset) { index, suggestion in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle(suggestion.name, isOn: Binding(get: { selected.contains(index) }, set: { if $0 { selected.insert(index) } else { selected.remove(index) } }))
+                                Text(suggestion.frequency).font(.caption)
+                                Text(suggestion.conditions).font(.caption)
+                                if let source = suggestion.sourceUrl, let url = ProductLookup.officialURL(source) { Link("根拠を確認", destination: url) }
+                            }
+                        }
+                        if candidate.suggestions.isEmpty { Text("周期を確認済みのお手入れ候補はありません。登録後に手入力で追加できます。").font(.caption) }
+                    }
+                }
             }
             Section("日付・メモ") {
                 TextField("購入日（YYYY-MM-DD・任意）", text: $purchase)
@@ -228,7 +278,15 @@ private struct ProductEditor: View {
                     maker: maker.trimmingCharacters(in: .whitespacesAndNewlines), name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                     modelNumber: model.trimmingCharacters(in: .whitespacesAndNewlines), purchaseDate: purchase.isEmpty ? nil : purchase,
                     installedDate: installed.isEmpty ? nil : installed, memo: memo.isEmpty ? nil : memo)
-                Task { if await store.saveProduct(value, creating: initial == nil) { dismiss() } }
+                Task {
+                    do {
+                        let tasks = try selected.sorted().map { index -> CareTask in
+                            guard let candidate, ProductLookup.normalize(model) == ProductLookup.normalize(candidate.modelNumber), candidate.suggestions.indices.contains(index) else { throw CloudError.invalidInput }
+                            return try candidate.suggestions[index].task(productID: value.id)
+                        }
+                        if await store.saveProduct(value, creating: initial == nil, tasks: tasks) { dismiss() }
+                    } catch { store.message = "候補を再確認してください。" }
+                }
             }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || home != store.homeID)
             if initial != nil {
                 Section { Button("製品を削除", role: .destructive) { deleting = true }.disabled(store.busy || home != store.homeID) }
@@ -238,6 +296,10 @@ private struct ProductEditor: View {
              if let initial { Button("製品を削除", role: .destructive) { Task { if await store.deleteProduct(initial) { dismiss() } } } }
          } message: { Text("この製品のお手入れ項目と完了履歴も削除され、共有家族の画面からも消えます。元に戻せません。必要な記録は設定から書き出してください。") }
          .interactiveDismissDisabled(store.busy)
+         .onChange(of: model) { _, value in
+             candidates = []
+             if let candidate, ProductLookup.normalize(value) != ProductLookup.normalize(candidate.modelNumber) { self.candidate = nil; selected = [] }
+         }
          .onAppear {
              guard !loaded else { return }; loaded = true
              if let initial {

@@ -98,12 +98,17 @@ public struct HouseholdAPI: Sendable {
         // Mutations are never retried automatically after an ambiguous network failure.
     }
 
-    public func saveProduct(_ product: Appliance, creating: Bool, token: String) async throws {
+    public func saveProduct(_ product: Appliance, creating: Bool, tasks: [CareTask] = [], token: String) async throws {
         try product.validate()
+        guard creating || tasks.isEmpty else { throw CloudError.invalidInput }
+        for task in tasks {
+            try task.validate()
+            guard task.productId == product.id else { throw CloudError.invalidInput }
+        }
         if creating {
             struct Payload: Encodable { let product_data: Appliance; let task_data: [CareTask] }
             _ = try await send(path: "rest/v1/rpc/add_product_with_tasks", token: token,
-                               body: JSONEncoder().encode(Payload(product_data: product, task_data: [])))
+                               body: JSONEncoder().encode(Payload(product_data: product, task_data: tasks)))
         } else {
             try await write(table: "products", id: product.id, body: cloudBody(product, nullable: ["purchaseDate", "installedDate", "memo"]), creating: false, token: token)
         }

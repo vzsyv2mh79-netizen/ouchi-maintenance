@@ -122,11 +122,11 @@ import OuchiCore
         if expected == generation { busy = false }
     }
 
-    func saveProduct(_ value: Appliance, creating: Bool) async -> Bool {
+    func saveProduct(_ value: Appliance, creating: Bool, tasks: [CareTask] = []) async -> Bool {
         guard let data = household, value.homeId == homeID,
               data.homes.contains(where: { $0.id == value.homeId }),
               creating ? !data.products.contains(where: { $0.id == value.id }) : data.products.contains(where: { $0.id == value.id && $0.homeId == value.homeId }) else { return false }
-        return await save { api, token in try await api.saveProduct(value, creating: creating, token: token) }
+        return await save { api, token in try await api.saveProduct(value, creating: creating, tasks: tasks, token: token) }
     }
     func saveTask(_ value: CareTask, creating: Bool) async -> Bool {
         guard let data = household, data.products(in: homeID).contains(where: { $0.id == value.productId }),
