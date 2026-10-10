@@ -159,7 +159,10 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
-                if store.sandboxBillingConfigured { Section("開発用") { NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) } } }
+                if store.sandboxBillingConfigured { Section("開発用") {
+                    NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) }
+                    NavigationLink("レポートのSandbox確認") { SandboxReportView() }
+                } }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
                     NavigationLink("家族と共有") { FamilySettings() }
@@ -659,5 +662,41 @@ private struct SandboxTipView: View {
              if let product = selected { Button("\(product.displayPrice)のチップをテスト") { selected = nil; Task { await store.testTip(product) } } }
              Button("キャンセル", role: .cancel) { selected = nil }
          }.onDisappear { selected = nil }
+    }
+}
+
+private struct SandboxReportView: View {
+    @EnvironmentObject private var store: NativeStore
+    var body: some View {
+        List {
+            Section {
+                Text("開発中のテスト用レポートです。販売は有効になっていません。")
+                    .font(.caption).foregroundStyle(.secondary)
+                HomePicker()
+                Button(store.busy ? "確認中…" : "レポートを更新") { Task { await store.loadSandboxReport() } }
+                    .disabled(store.busy)
+            }
+            if let report = store.report {
+                Section("今のお手入れ") {
+                    LabeledContent("住まい", value: report.homeName)
+                    LabeledContent("集計日", value: report.today)
+                    LabeledContent("期限を過ぎた項目", value: "\(report.overdue)件")
+                    LabeledContent("今日の項目", value: "\(report.dueToday)件")
+                }
+                Section("6か月のお手入れ実績") {
+                    ForEach(report.months, id: \.month) { month in
+                        LabeledContent(month.month, value: "\(month.completed)件")
+                    }
+                }
+                Section("製品ごとの今月の実績") {
+                    ForEach(report.perProduct, id: \.productId) { product in
+                        LabeledContent(product.name, value: "\(product.completedThisMonth)件")
+                    }
+                }
+                Section { Text(report.explanation).font(.caption).foregroundStyle(.secondary) }
+            } else {
+                Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
+            }
+        }.navigationTitle("お手入れレポート")
     }
 }

@@ -4,11 +4,11 @@ import StoreKit
 import OuchiCore
 
 @MainActor final class NativeStore: ObservableObject {
-    @Published private(set) var household: Household?
+    @Published private(set) var household: Household? { didSet { report = nil; reportGeneration += 1 } }
     @Published private(set) var signedIn = false
     @Published private(set) var busy = false
     @Published var message: String?
-    @Published var homeID = ""
+    @Published var homeID = "" { didSet { if oldValue != homeID { report = nil; reportGeneration += 1 } } }
     @Published private(set) var exportURL: URL?
     @Published private(set) var calendarURL: URL?
     @Published private(set) var familyMembers: [FamilyMember] = []
@@ -18,6 +18,8 @@ import OuchiCore
     private let session: SessionController?
     private var generation = 0
     private var familyGeneration = 0
+    private var reportGeneration = 0
+    @Published private(set) var report: MaintenanceReport?
     let purchases = PurchaseManager()
     private var billingAccount: UUID?
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
@@ -145,6 +147,28 @@ import OuchiCore
             if expected == generation { message = "Sandbox\u{306e}\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
         }
         if expected == generation { busy = false }
+    }
+    func loadSandboxReport() async {
+        guard !busy, sandboxBillingConfigured, let session,
+              household?.homes.contains(where: { $0.id == homeID }) == true else { return }
+        busy = true; report = nil; message = nil
+        let expected = generation, expectedReport = reportGeneration, home = homeID
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id else { return }
+            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            guard expected == generation, expectedReport == reportGeneration else { return }
+            sandboxEntitlement = rights
+            guard rights.premiumIsCurrent() else { message = "テスト用の有料利用権を確認できません。"; return }
+            let value = try await ReportAPI(sandboxPreview: true).load(home: home, token: credentials.access_token)
+            guard expected == generation, expectedReport == reportGeneration, home == homeID else { return }
+            report = value
+        } catch {
+            if expected == generation, expectedReport == reportGeneration {
+                message = "レポートを取得できません。テスト用サービスの準備と通信を確認してください。"
+            }
+        }
     }
     func retrySandboxTransactions() async {
         guard !busy, sandboxBillingConfigured, let session else { return }
