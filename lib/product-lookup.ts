@@ -17882,4 +17882,57 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "象印",
+    "name": "食器乾燥器（ホワイト）",
+    "modelNumber": "EY-JG50",
+    "categoryId": "other-appliance",
+    "productUrl": "https://www.zojirushi.co.jp/syohin/kitchen/tableware_dryer/ey-jg/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://www.zojirushi.co.jp/toiawase/TR_PDF/EYJG.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.zojirushi.co.jp/syohin/kitchen/tableware_dryer/ey-jg/",
+    "lookupNote": "2026年6月発売の食器乾燥器です。食器を洗う機能はありません。専用説明書P4・7・12〜14を確認しています。清掃はプラグを抜き、温風吹出口が冷めてから行います。排水ホースを使わない場合、使用後毎回、水受けの水を捨てます。水受け栓を穴A（内側）に確実に取り付け、満水線以上に水をためないでください。ホース使用時は水が流れるように取り付け、折り曲げ・踏みつぶし・持ち上げ・引っ掛けを避けます。食器かご・水受け・はし立て・底・ふたセット・トレーは薄めた台所用中性洗剤で洗い、水洗いして柔らかい布で水気を拭きます。かご・トレーの長時間のつけ置きは避けてください。電装ボックスは薄めた中性洗剤を含ませ固く絞った柔らかい布で拭き、水で絞った布でよく拭いてから乾拭きします。電装ボックスと温風吹出口は丸洗い・直接水かけ禁止です。コードとプラグは乾いた柔らかい布で拭きます。排水ホースは中性洗剤をぬるま湯で薄めた中で洗い、水洗いして十分乾かします。ブラシ・ナイロンたわし・金属・メラミンスポンジ・研磨剤入り洗剤・漂白剤・溶剤は使いません。分解・組立はP12〜13の図に従い、ふたのスペーサーの左右を守り、ツメ・固定具を確実に取り付けます。はし立ては分解した状態でねじらず、無理な力を加えないでください。各部清掃の指示は「こまめに」で、固定日数や定期交換周期は記載されていません。",
+    "suggestions": [
+      {
+        "name": "水受けの水を捨てる（排水ホースを使わない場合）",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "使用後毎回（予定計算は1日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.zojirushi.co.jp/toiawase/TR_PDF/EYJG.pdf",
+        "conditions": "排水ホースを使わない場合だけ行います。プラグを抜き、温風吹出口が冷めてから、水受けにたまった水を捨てます。水受け栓を穴A（内側）に確実に取り付け、満水線以上に水をためないでください。"
+      }
+    ]
+  },
+  {
+    "maker": "象印",
+    "name": "食器乾燥器（ホワイト）",
+    "modelNumber": "EY-JG50-WA",
+    "categoryId": "other-appliance",
+    "productUrl": "https://www.zojirushi.co.jp/syohin/kitchen/tableware_dryer/ey-jg/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://www.zojirushi.co.jp/toiawase/TR_PDF/EYJG.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.zojirushi.co.jp/syohin/kitchen/tableware_dryer/ey-jg/",
+    "lookupNote": "2026年6月発売の食器乾燥器です。食器を洗う機能はありません。専用説明書P4・7・12〜14を確認しています。清掃はプラグを抜き、温風吹出口が冷めてから行います。排水ホースを使わない場合、使用後毎回、水受けの水を捨てます。水受け栓を穴A（内側）に確実に取り付け、満水線以上に水をためないでください。ホース使用時は水が流れるように取り付け、折り曲げ・踏みつぶし・持ち上げ・引っ掛けを避けます。食器かご・水受け・はし立て・底・ふたセット・トレーは薄めた台所用中性洗剤で洗い、水洗いして柔らかい布で水気を拭きます。かご・トレーの長時間のつけ置きは避けてください。電装ボックスは薄めた中性洗剤を含ませ固く絞った柔らかい布で拭き、水で絞った布でよく拭いてから乾拭きします。電装ボックスと温風吹出口は丸洗い・直接水かけ禁止です。コードとプラグは乾いた柔らかい布で拭きます。排水ホースは中性洗剤をぬるま湯で薄めた中で洗い、水洗いして十分乾かします。ブラシ・ナイロンたわし・金属・メラミンスポンジ・研磨剤入り洗剤・漂白剤・溶剤は使いません。分解・組立はP12〜13の図に従い、ふたのスペーサーの左右を守り、ツメ・固定具を確実に取り付けます。はし立ては分解した状態でねじらず、無理な力を加えないでください。各部清掃の指示は「こまめに」で、固定日数や定期交換周期は記載されていません。",
+    "suggestions": [
+      {
+        "name": "水受けの水を捨てる（排水ホースを使わない場合）",
+        "kind": "掃除",
+        "intervalDays": 1,
+        "frequency": "使用後毎回（予定計算は1日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.zojirushi.co.jp/toiawase/TR_PDF/EYJG.pdf",
+        "conditions": "排水ホースを使わない場合だけ行います。プラグを抜き、温風吹出口が冷めてから、水受けにたまった水を捨てます。水受け栓を穴A（内側）に確実に取り付け、満水線以上に水をためないでください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
