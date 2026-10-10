@@ -25,5 +25,7 @@ create policy open_maintenance_account on public.maintenance_history as restrict
 create policy open_maintenance_account on public.home_members as restrictive for all to authenticated using((select maintenance_private.maintenance_account_is_open())) with check((select maintenance_private.maintenance_account_is_open()));
 create policy open_maintenance_account on public.home_invites as restrictive for all to authenticated using((select maintenance_private.maintenance_account_is_open())) with check((select maintenance_private.maintenance_account_is_open()));
 create policy open_maintenance_account on public.maintenance_push_subscriptions as restrictive for all to authenticated using((select maintenance_private.maintenance_account_is_open())) with check((select maintenance_private.maintenance_account_is_open()));
+create policy open_maintenance_account on public.maintenance_imports as restrictive for all to authenticated using((select maintenance_private.maintenance_account_is_open())) with check((select maintenance_private.maintenance_account_is_open()));
+create policy open_maintenance_account on public.maintenance_backup_restores as restrictive for all to authenticated using((select maintenance_private.maintenance_account_is_open())) with check((select maintenance_private.maintenance_account_is_open()));
 create trigger maintenance_account_write_gate before insert or update or delete on public.home_members for each row execute function maintenance_private.enforce_open_maintenance_account();
 commit;
