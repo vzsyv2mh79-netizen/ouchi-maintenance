@@ -43,3 +43,10 @@ jobs:
           -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/ouchi-release"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Unsigned iPhone Debug build covers isolated development UI
+        run: >-
+          xcodebuild -project ios/OuchiMaintenance.xcodeproj
+          -scheme OuchiMaintenance -configuration Debug
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/ouchi-debug"
+          CODE_SIGNING_ALLOWED=NO build
