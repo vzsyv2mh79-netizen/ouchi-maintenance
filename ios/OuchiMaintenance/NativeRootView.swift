@@ -233,6 +233,14 @@ private struct ProductEditor: View {
     @State private var candidates: [ProductCandidate] = []
     @State private var candidate: ProductCandidate?
     @State private var selected: Set<Int> = []
+    @State private var manualURL = ""
+    @State private var manualConsent = false
+    @State private var manualReading = false
+    @State private var manualResult: ManualInspection?
+    @State private var manualModel = ""
+    @State private var manualSelected: Set<Int> = []
+    @State private var manualMessage: String?
+    @State private var manualGeneration = UUID()
     var body: some View {
         Form {
             Section("製品") {
@@ -257,7 +265,7 @@ private struct ProductEditor: View {
                                 if results.isEmpty { searchMessage = "確認済みの候補がありません。公式説明書を確認して手入力できます。" }
                             } catch { searchMessage = "公式情報を取得できませんでした。品番と通信状態を確認してください。" }
                         }
-                    }.disabled(searching || store.busy || model.isEmpty)
+                    }.disabled(searching || manualReading || store.busy || model.isEmpty)
                     if let searchMessage { Text(searchMessage).font(.caption) }
                     ForEach(Array(candidates.enumerated()), id: \.offset) { _, result in
                         VStack(alignment: .leading, spacing: 8) {
@@ -269,6 +277,41 @@ private struct ProductEditor: View {
                             Button("品番の一致を確認して選ぶ") {
                                 model = result.modelNumber; name = result.name; maker = result.maker; category = result.categoryId
                                 candidate = result; selected = []; candidates = []
+                                manualResult = nil; manualSelected = []; manualGeneration = UUID(); manualReading = false
+                            }
+                        }
+                    }
+                }
+                Section("公式の取扱説明書から調べる") {
+                    Text("対応するSHARP・Panasonicの公式PDFから、明記された周期だけを読み取ります。説明書の品番・対象・条件を確認してください。推測で補いません。").font(.caption)
+                    TextField("公式PDFのURL", text: $manualURL).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    if let url = ManualLookup.supportedURL(manualURL) { Link("説明書と利用条件を確認", destination: url) }
+                    Toggle("メーカーの説明書利用条件を確認し、同意しました", isOn: $manualConsent)
+                    Button(manualReading ? "説明書を確認中…" : "説明書から候補を読み取る") {
+                        let query = ProductLookup.normalize(model)
+                        let source = manualURL
+                        let expected = UUID(); manualGeneration = expected
+                        manualReading = true; manualMessage = nil; manualResult = nil; manualSelected = []
+                        Task {
+                            defer { if manualGeneration == expected { manualReading = false } }
+                            do {
+                                let result = try await ManualLookup().inspect(model: query, url: source, consentConfirmed: true)
+                                guard manualGeneration == expected, query == ProductLookup.normalize(model), source == manualURL, manualConsent else { return }
+                                manualResult = result; manualModel = query
+                                candidate = nil; selected = []
+                                if result.suggestions.isEmpty { manualMessage = "周期を安全に読み取れる候補はありません。説明書を確認して手入力してください。" }
+                            } catch { if manualGeneration == expected { manualMessage = "説明書を読み取れませんでした。品番の一致・対応PDF・通信を確認してください。" } }
+                        }
+                    }.disabled(manualReading || searching || store.busy || !manualConsent || ManualLookup.supportedURL(manualURL) == nil || model.isEmpty)
+                    if let manualMessage { Text(manualMessage).font(.caption) }
+                    if let result = manualResult {
+                        Text("\(result.maker)・\(result.name)／\(result.pageCount)ページ。登録する項目を選んでください。製品名や種類は上の入力欄で確認してください。").font(.caption)
+                        ForEach(Array(result.suggestions.enumerated()), id: \.offset) { index, suggestion in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle(suggestion.name, isOn: Binding(get: { manualSelected.contains(index) }, set: { if $0 { manualSelected.insert(index) } else { manualSelected.remove(index) } }))
+                                Text(suggestion.frequency).font(.caption)
+                                Text(suggestion.conditions).font(.caption)
+                                if let source = suggestion.sourceUrl, let url = ProductLookup.officialURL(source) { Link("根拠ページを確認", destination: url) }
                             }
                         }
                     }
@@ -305,14 +348,19 @@ private struct ProductEditor: View {
                     installedDate: installed.isEmpty ? nil : installed, memo: memo.isEmpty ? nil : memo)
                 Task {
                     do {
-                        let tasks = try selected.sorted().map { index -> CareTask in
+                        var tasks = try selected.sorted().map { index -> CareTask in
                             guard let candidate, ProductLookup.normalize(model) == ProductLookup.normalize(candidate.modelNumber), candidate.suggestions.indices.contains(index) else { throw CloudError.invalidInput }
                             return try candidate.suggestions[index].task(productID: value.id)
+                        }
+                        tasks += try manualSelected.sorted().map { index -> CareTask in
+                            guard manualConsent, manualModel == ProductLookup.normalize(model), let result = manualResult,
+                                  result.suggestions.indices.contains(index) else { throw CloudError.invalidInput }
+                            return try result.suggestions[index].task(productID: value.id)
                         }
                         if await store.saveProduct(value, creating: initial == nil, tasks: tasks) { dismiss() }
                     } catch { store.message = "候補を再確認してください。" }
                 }
-            }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || home != store.homeID)
+            }.disabled(store.busy || searching || manualReading || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || home != store.homeID)
             if initial != nil {
                 Section { Button("製品を削除", role: .destructive) { deleting = true }.disabled(store.busy || home != store.homeID) }
             }
@@ -322,9 +370,17 @@ private struct ProductEditor: View {
          } message: { Text("この製品のお手入れ項目と完了履歴も削除され、共有家族の画面からも消えます。元に戻せません。必要な記録は設定から書き出してください。") }
          .interactiveDismissDisabled(store.busy)
          .onChange(of: model) { _, value in
+             manualGeneration = UUID(); manualReading = false; manualResult = nil; manualSelected = []
              candidates = []
              if let candidate, ProductLookup.normalize(value) != ProductLookup.normalize(candidate.modelNumber) { self.candidate = nil; selected = [] }
          }
+         .onChange(of: manualURL) { _, _ in
+             manualGeneration = UUID(); manualReading = false; manualResult = nil; manualSelected = []; manualConsent = false
+         }
+         .onChange(of: manualConsent) { _, accepted in
+             if !accepted { manualGeneration = UUID(); manualReading = false; manualResult = nil; manualSelected = [] }
+         }
+         .onDisappear { manualGeneration = UUID(); manualReading = false }
          .onAppear {
              guard !loaded else { return }; loaded = true
              if let initial {

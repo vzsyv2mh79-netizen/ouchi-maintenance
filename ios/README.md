@@ -106,7 +106,7 @@ ManualLookup adds the native transport for the existing Web manual-suggestions
 API. It requires explicit consent, supports the same SHARP air-purifier and
 Panasonic PDF paths, never sends cloud credentials to lookup, and validates the
 returned manual URL/maker/page range/source kind before creating task proposals.
-Suggestions retain frequency, conditions and source-page links. This is a core
-adapter only: native input/review UI is still required. It does not infer missing
+Suggestions retain frequency, conditions and source-page links. The native product-add form now includes official PDF input, explicit consent,
+source-page review and optional selection before atomic product/task saving. It does not infer missing
 instructions or declare AI text official. ManualSmoke uses synthetic responses;
 live PDF extraction, consent UI and device flows are not verified.
