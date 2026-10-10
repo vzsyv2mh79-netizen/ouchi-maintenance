@@ -1529,3 +1529,14 @@ test('2026 Iris washers preserve model-specific weekly drying and tank refill in
   assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('2025 Iris washers distinguish weekly drying, tank count and internal priming', () => {
+ for(const [model,pdf,wash,dry,tank,prime,weekly,four] of [['ITW-70B01-W','110550',73,74,75,29,true,false],['ITW-85A01-W','111127',78,79,80,31,true,false],['TCW-105A02-W','111137',83,84,85,31,true,false],['TCW-80A02-W','112105',73,74,75,29,false,true],['ITW-100A03-W','112107',73,74,75,29,false,false],['ITW-100A04-W','112108',62,63,null,null,false,false],['TCW-100A02-W','112106',73,74,75,29,false,true]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'washer');assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),weekly?[30,7,90]:tank?[30,90]:[30]);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page='+wash);
+  if(weekly){assert.match(c.suggestions[1].conditions,/槽クリーン.*洗いとすすぎ.*0/);assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page='+dry);}else{assert.match(c.lookupNote,/日数指定はありません/);assert.ok(!c.suggestions.some(t=>t.name.includes('槽乾燥')));}
+  if(tank){const t=c.suggestions.at(-1);assert.equal(t.sourceUrl,c.manualUrl+'#page='+tank);assert.match(t.conditions,four?/洗剤2と柔軟剤1/:/洗剤と柔軟剤/);assert.ok(t.conditions.includes(prime+'〜'+(prime+1)+'ページ'));assert.match(t.conditions,/40℃以下.*3秒以上.*水を捨て.*水量と洗い.*3秒以上.*タンクを1つ.*内部にも液剤を充填/);}else assert.ok(!c.suggestions.some(t=>t.name.includes('タンク')));
+  assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ assert.match(lookup.lookupModel('TCW-105A02-W')[0].lookupNote,/ふろ水ホース/);
+});
