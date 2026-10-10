@@ -72,6 +72,13 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.ok((await client.from('ouchi_sandbox_transactions').select('*')).error);
   const ledger=epoch=>admin.from('ouchi_sandbox_transactions').select('user_id,app_epoch_id,payload').eq('user_id',id).eq('app_epoch_id',epoch);
   const stored=await ledger(initialBinding.data);assert.equal(stored.error,null);assert.equal(stored.data.length,1);assert.equal(stored.data[0].user_id,id);
+  const secondDevice=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
+  const secondLogin=await secondDevice.auth.signInWithPassword({email,password});assert.equal(secondLogin.error,null);
+  const secondToken=secondLogin.data.session.access_token,secondClaims=JSON.parse(Buffer.from(secondToken.split('.')[1],'base64url'));assert.notEqual(secondClaims.session_id,claims.session_id);
+  const secondVerified=await secondDevice.auth.getUser(secondToken);assert.equal(secondVerified.error,null);assert.equal(secondVerified.data.user.id,id);
+  assert.equal(await purchaseAccountAfterAuthVerification(secondToken,secondVerified.data.user.id,readBinding),initialBinding.data);
+  assert.equal((await secondDevice.rpc('load_household')).error,null);
+  const secondRights=await ledger((await binding(secondClaims.session_id)).data);assert.equal(secondRights.error,null);assert.equal(secondRights.data[0].payload.transactionId,event.transactionId);
   const old=await client.rpc('load_household');assert.equal(old.error,null);const oldHome=old.data.homes[0].id;
   const attachmentProduct=randomUUID();
   assert.equal((await client.from('products').insert({id:attachmentProduct,homeId:oldHome,categoryId:'synthetic',name:'Synthetic attachment product'})).error,null);
@@ -143,6 +150,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
   assert.equal(await apnsAllowed(restartedID),false);assert.equal((await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}))).status,403);
+  assert.equal((await binding(secondClaims.session_id)).data,null);
   const lateID=attachmentIDs.find(value=>value!==objectID&&value!==successfulID&&!allocations[attachmentIDs.indexOf(value)].error);assert.ok(lateID);
   const latePath=`${id}/${initialBinding.data}/${lateID}.png`;
   assert.ok((await admin.storage.from(bucketName).upload(latePath,new Uint8Array([137,80,78,71,13,10,26,10]),{contentType:'image/png',upsert:false})).error);
@@ -168,6 +176,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal(await purchaseAccountAfterAuthVerification(login.data.session.access_token,freshVerified.data.user.id,readBinding),currentBinding.data);
   assert.equal((await binding(claims.session_id)).data,null);
   const freshRegistration=await apnsPOST(apnsRequest(login.data.session.access_token,{deviceToken:apnsToken}));assert.equal(freshRegistration.status,200);const freshRegistrationID=(await freshRegistration.json()).registrationId;assert.equal(await apnsAllowed(freshRegistrationID),true);assert.equal(await apnsAllowed(restartedID),false);assert.equal((await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}))).status,403);
+  assert.equal((await binding(secondClaims.session_id)).data,null);
   const late={...event,signedAt:event.signedAt+2,expiresAt:event.expiresAt+60000};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:late})).error,null);
   const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data.find(row=>row.payload.transactionId===event.transactionId)?.payload.expiresAt,late.expiresAt,JSON.stringify(renewed.data.map(row=>({id:row.payload.transactionId,signedAt:row.payload.signedAt,expiresAt:row.payload.expiresAt}))));
