@@ -1,20 +1,22 @@
-## Current Xcode verification (2026-10-10)
+## 現在の公開準備状況（2026-10-10）
 
-Xcode 27.0 (27A266a) is now installed. Unsigned generic iOS Simulator Debug
-and generic iPhoneOS Release builds both SUCCEEDED. SwiftUI and native services
-were compiled with actual iOS SDKs. Built artifacts contain AppIcon assets and
-PrivacyInfo.xcprivacy. No simulator runtime was available at the check, so no UI
-rendering/device/StoreKit/Auth/RLS execution is claimed.
+まだApp Storeへ提出・販売できる状態ではない。次の証拠を分けて扱う。
 
-A build-artifact audit found custom INFOPLIST_KEY settings were absent from the
-first built app. Config now uses an explicit Info.plist merged with generated
-system metadata. Debug and Release builds with synthetic project/key values
-confirmed exact SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY and billing NO in the
-built app. No real keys, credentials or Local.xcconfig were added. Set real
-publishable configuration locally before any actual login testing.
+- Xcode 27.0 (27A266a) 導入済み。実iOS SDKによる署名なしSimulator DebugとiPhoneOS Releaseのビルドに成功。AppIconとPrivacyInfo.xcprivacyを確認済み。
+- 最新の確認済みコミット c09f94b3 は、Native iPhone checks（38053409142）、Regression checks（38053409136）、Isolated real Auth checks（38053409141）が成功。後続のAPNs変更は別のCI結果を確認する。
+- Simulatorでログアウト中のログイン・新規作成・再設定画面とライト/ダーク切替・再起動後の外観保持を確認。認証後の家族・記録・購入・OS通知の動作証明にはしない。
+- 専用の使い捨てCI環境でAuth、添付の容量制御、読み書き、ページ取得、権限拒否、添付削除処理を確認。共有本番DBへの適用、実ユーザーの削除、Apple署名済み購入の検証は行っていない。
+- APNsはSandbox用リクエストの作成と応答の検証のみ。端末登録、署名、配信、再試行、最新クラウド記録に基づく予約は未実装。
 
-Earlier verification notes below are historical. Store signing, archive/export,
-TestFlight, phone flows and App Store acceptance remain incomplete.
+提出前に必要な作業:
+1. Apple Developer有料登録の完了、Team/Bundle ID確定、署名、配布用Archive、App Store Connectの契約・銀行・税務・商品登録。本人の入力・同意・支払いは未実施。
+2. 写真/保証書、詳細通知、レポートの本番実装と利用権制御。無料の登録・記録・閲覧・書き出しは維持する。実装前の機能は購入特典に表示しない。
+3. 本番の容量/保存期間/解約後の閲覧・書き出し、アプリ単位のアカウント削除と共有Authへの影響、キャッシュのアカウント/利用権世代分離を完成させる。
+4. Apple Sandboxで購入・復元・更新・期限切れ・返金・取消・保留・キャンセル・重複・通信失敗を検証。Webと同じアカウントの利用権認識と二重契約防止も確認する。
+5. 正式な規約・プライバシーポリシー・運営者/サポート窓口・プライバシー申告、ストア実価格と契約表示を確定する。
+6. 実機で認証、家族共有、追加/完了/履歴、バックアップ、オフライン、通知、アクセシビリティを通して確認。TestFlight、掲載画像、審査、公開を完了する。
+
+課金・有料インフラ・既存データ削除は有効化しない。下記の個別検証記録は実装時点の履歴であり、未検証の表記はこの最新一覧と照合する。
 
 # iPhone版の実装と検証
 
@@ -24,7 +26,7 @@ secret/service role key、平文HTTP、他ホスト、URL内の認証情報を�
 完了の通信エラーで自動再送せず、再読み込みして履歴を確認する。
 
 検証: `cd ios && swift test`。合成データと注入した通信処理のみを使い、実DBへアクセスしない。
-Xcode本体の導入後、iOS SDKビルドと端末テストを行う。
+XcodeによるiOS SDKビルドは完了。端末での機能検証は引き続き必要。
 Packageは共通ライブラリ。OuchiMaintenance.xcodeprojにはSwiftUIアプリターゲットを追加した。
 ログイン、お手入れ完了、住まい切替、製品/履歴の閲覧、製品/項目追加編集、無料の書き出し、ログアウトを実装。
 未完成の機能があり、まだ提出可能なアプリではない。
@@ -39,7 +41,7 @@ Keychainは端末ロック中に読み取り不可、他端末へ移行しない
 書き出しはWeb共通のapp/version/exportedAt/data形式（version 1、10MB以内）。復元は既存RPCで新しい住まいとして追加し、既存記録と家族権限を置き換えない。
 
 次の実装:
-- iOS SDKでSwiftUI/StoreKitとXcodeターゲットをビルド、シミュレータ/実機で画面検証。
+- 認証後の画面とStoreKit購入をシミュレータ/実機で検証。
 - 家族共有とバックアップ復元の実機/実DB確認。
 - アカウント作成/再設定の実機確認、アカウント削除、正式プライバシーポリシー、利用規約、サポート窓口。
 - 写真/保証書保存と容量制御、通知詳細、レポートの実装・サーバー側権限制御。
@@ -51,7 +53,7 @@ persistはそのアカウントに固定した認証処理を注入する。
 Sandbox以外は受け入れない。検証済み取引をサーバー保存後にfinishする。
 失敗した取引は未完了のまま残し、再接続時observeUnfinishedで処理する。
 
-現在のMacはXcode未導入でSwiftPMとデフォルトSDKにもバージョン不整合がある。
+以下はXcode導入前の履歴: 当時のMacはXcode未導入でSwiftPMとデフォルトSDKにもバージョン不整合があった。
 構文チェックと、互換SDKによる共通ライブラリの検証を分けて記録する。
 SwiftUI/StoreKitのiOSビルドを成功したとは扱わない。
 
@@ -78,7 +80,7 @@ SwiftPMのXCTest実行はローカルツールの不整合で未実施。
 
 品番検索: 既存Web GET /api/product-lookupから完全一致の候補を取得。メーカー公式HTTPSのホストを固定列挙し、品番/カテゴリ/根拠URL/周期を検証。確認して製品を選び、お手入れは任意選択して既存RPCで製品と原子的に保存。品番変更時に候補を外す。根拠の条件/原文周期/確認日を表示し、推測で公式情報を補わない。LookupSmokeは実Webカタログ334機種のURL/項目、全角品番の正規化、完全一致、東京日付、根拠保持、製品と項目同時保存、他製品への付替え拒否を合成通信で確認PASS。Tests/export-web-catalog.mjsはフルチェックアウトでカタログをJSONへ出しLookupSmokeに引数で渡せる。iOS検索UI/実ネットワーク/追加機種PRの統合は未検証。説明書URLからの追加抽出は未移植。
 
-カレンダー: 無料のICS書き出し/共有を設定に追加。全住まい、JST9時/前日通知、繰り返し周期、UTF8の75バイト折り返しはWebと同じ。CalendarSmokeで実Web処理のファイルと完全一致確認PASS。自動同期しない/名前が含まれる/取り込み後の通知と重複注意を説明。ログアウト時に一時ICSを破棄。iOS共有画面/カレンダー取り込み/通知/TimeTreeは未確認。ネイティブ基本通知はまだ未実装。
+カレンダー: 無料のICS書き出し/共有を設定に追加。全住まい、JST9時/前日通知、繰り返し周期、UTF8の75バイト折り返しはWebと同じ。CalendarSmokeで実Web処理のファイルと完全一致確認PASS。自動同期しない/名前が含まれる/取り込み後の通知と重複注意を説明。ログアウト時に一時ICSを破棄。iOS共有画面/カレンダー取り込み/通知/TimeTreeは未確認。ローカル通知は後述のとおり実装済みだが、実機配信は未検証。
 
 端末通知: 明示的な許可ボタン/設定切替でローカル通知を予約。読み込んだ全住まいの期限件数だけをJST9時に次の30日間通知。周期を自動で進めず、完了するまでは期限切れを数える。更新時に予約見直し、起動時に古い予約を清掃、アカウントごとの設定、ログアウト時に設定と予約/配信済み表示を破棄。世代確認で古い予約処理の遅延追加を取消。Apple UserNotifications公式を確認。ReminderSmokeは日付境界/30日/期限件数/過去除外PASS、UserNotificationsクラス/StoreはmacOS型検査PASS。OSを操作するテストはしておらず実機の許可/取消/配信/競合は未検証。家族の別端末変更は次の読込まで反映されない。最新クラウドから閉じたアプリへ送るAPNsリモート通知は別途必須で未実装。このローカル機能で代替完了したとは扱わない。
 
@@ -90,7 +92,7 @@ SwiftPMのXCTest実行はローカルツールの不整合で未実施。
 
 `python3 ios/scripts/verify-native.py --sdk /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` は共通ライブラリと13種類のSmokeを一時ディレクトリに毎回ビルドして実行し、macOSによる認証/StoreKit/通知/Storeの型検査、SwiftUI構文、プロジェクトplistも確認する。古い実行ファイルを流用しない。合成通信/fixtureのみで、登録・メール・DB削除・OS通知を行わない。2026-10-10このコマンド全件PASS。Lookupは標準では1機種fixture、別途334機種のWebカタログ確認は前の検証でPASS。全カタログはexport-web-catalog.mjsで出力して`--catalog JSON_PATH`を指定する。
 
-Xcode本体導入後は、そのXcodeに対応するmacOS SDKを指定し`--ios-build`を追加すると署名なしのiOS Simulator SDKビルドを行う。iOSビルドが未実行なら出力に明示。成功しても実機の表示、Auth/RLS、通知、購入は別途検証が必要。現在XcodeなしのためiOSビルドは未実行。
+Xcode本体導入後は、そのXcodeに対応するmacOS SDKを指定し`--ios-build`を追加すると署名なしのiOS Simulator SDKビルドを行う。iOSビルドが未実行なら出力に明示。成功しても実機の表示、Auth/RLS、通知、購入は別途検証が必要。現在はXcode導入済みで署名なしiOSビルド成功。ストア向け署名と実機検証は未完了。
 
 Sandbox billing adapter: JWT-authenticated JWS submit requires saved:true/environment:Sandbox. Entitlements come only from the server with product/environment/expiry checks. NativeStore binds the authenticated account and generation only under DEBUG with IOS_SANDBOX_BILLING=YES. Default NO and Release disabled. Logout clears observers and rights. Failed persistence stays unfinished. BillingSmoke mocks ack/Production refusal/expiry/503 PASS. verify-native.py now typechecks both DEBUG and regular native classes: all13 smoke tests and typechecks PASS. Actual StoreKit/JWS/server/API remain unverified. Purchase UI, real premium benefits and legal disclosures are still incomplete. Server PR165 remains unmerged; production billing routes are not assumed available.
 
