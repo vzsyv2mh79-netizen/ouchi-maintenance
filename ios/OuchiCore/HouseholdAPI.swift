@@ -7,7 +7,18 @@ public enum CloudError: Error, Equatable {
 public struct CloudConfiguration: Sendable {
     public let url: URL
     public let publishableKey: String
-    public init(url: URL, publishableKey: String) throws {
+    public init(url: URL, publishableKey: String, isolatedDevelopment: Bool = false) throws {
+        #if DEBUG
+        if isolatedDevelopment {
+            guard ["http://127.0.0.1:54321", "http://127.0.0.1:54321/"].contains(url.absoluteString),
+                  publishableKey.hasPrefix("sb_publishable_"), publishableKey.count > 20,
+                  publishableKey.count <= 4096, !publishableKey.contains(where: { $0.isWhitespace }) else { throw CloudError.invalidConfiguration }
+            self.url = url; self.publishableKey = publishableKey
+            return
+        }
+        #else
+        guard !isolatedDevelopment else { throw CloudError.invalidConfiguration }
+        #endif
         guard url.scheme == "https", url.user == nil, url.password == nil,
               url.query == nil, url.fragment == nil, url.port == nil,
               url.path.isEmpty || url.path == "/",

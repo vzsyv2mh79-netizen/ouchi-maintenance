@@ -11,6 +11,20 @@ final class HouseholdAPITests: XCTestCase {
         }
         XCTAssertThrowsError(try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!, publishableKey: "sb_secret_never_native"))
     }
+    func testIsolatedDevelopmentConfigurationIsExplicitAndExact() throws {
+        let key = "sb_publishable_synthetic_test_only"
+        let url = URL(string: "http://127.0.0.1:54321")!
+        XCTAssertThrowsError(try CloudConfiguration(url: url, publishableKey: key))
+        #if DEBUG
+        XCTAssertEqual(try CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: true).url, url)
+        #else
+        XCTAssertThrowsError(try CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: true))
+        #endif
+        for address in ["http://localhost:54321", "http://127.0.0.1:54322", "http://127.0.0.1:54321/other", "http://127.0.0.1:54321?x=1", "https://aaaaaaaaaaaaaaaaaaaa.supabase.co"] {
+            XCTAssertThrowsError(try CloudConfiguration(url: URL(string: address)!, publishableKey: key, isolatedDevelopment: true))
+        }
+        XCTAssertThrowsError(try CloudConfiguration(url: url, publishableKey: "sb_secret_forbidden", isolatedDevelopment: true))
+    }
     func testRPCUsesUserJWTAndPublishableKey() async throws {
         let api = HouseholdAPI(config: try config()) { request in
             XCTAssertEqual(request.url?.path, "/rest/v1/rpc/load_household")

@@ -36,9 +36,14 @@ import OuchiCore
 
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
+        #if DEBUG
+        let isolatedDevelopment = ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"
+        #else
+        let isolatedDevelopment = false
+        #endif
         if let address = info["SUPABASE_URL"] as? String, let url = URL(string: address),
            let key = info["SUPABASE_PUBLISHABLE_KEY"] as? String,
-           let config = try? CloudConfiguration(url: url, publishableKey: key) {
+           let config = try? CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: isolatedDevelopment) {
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client

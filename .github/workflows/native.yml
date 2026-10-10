@@ -34,6 +34,8 @@ jobs:
         run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests
         run: swift test --package-path ios
+      - name: Release package configuration rejects isolated loopback
+        run: swift test --package-path ios --configuration release
       - name: Unsigned iPhone Release build without cloud credentials
         run: >-
           xcodebuild -project ios/OuchiMaintenance.xcodeproj

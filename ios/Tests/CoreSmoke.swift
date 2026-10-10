@@ -5,6 +5,8 @@ import OuchiCore
     static func main() async throws {
         let key = "sb_publishable_synthetic_test_only"
         let base = URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!
+        do { _ = try CloudConfiguration(url: URL(string: "http://127.0.0.1:54321")!, publishableKey: key, isolatedDevelopment: true); fatalError("release-like core accepted isolated configuration") }
+        catch { precondition(error as? CloudError == .invalidConfiguration) }
         let config = try CloudConfiguration(url: base, publishableKey: key)
         for url in ["http://aaaaaaaaaaaaaaaaaaaa.supabase.co", "https://attacker.com", "https://aaaaaaaaaaaaaaaaaaaa.supabase.co/other", "https://aaaaaaaaaaaaaaaaaaaa.supabase.co?key=secret"] {
             do { _ = try CloudConfiguration(url: URL(string: url)!, publishableKey: key); fatalError("unsafe URL accepted") }
