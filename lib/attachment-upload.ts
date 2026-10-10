@@ -27,9 +27,13 @@ export async function uploadProductAttachment(request:Request,product:string,id:
   try{file=await readProductAttachment(request);}catch{return Response.json({error:'ファイル形式とサイズを確認してください。'},{status:400,headers});}
   const reservation={identity,product:product.toLowerCase(),id:id.toLowerCase(),file,path:`${identity.user.toLowerCase()}/${identity.epoch.toLowerCase()}/${id.toLowerCase()}.${file.extension}`};
   await services.reserve(reservation);
-  // A timeout or duplicate create is not proof of failure or permission to overwrite.
-  try{await services.create(reservation);}catch{/* reconcile the one reserved path */}
-  const actual=await services.inspect(reservation);
+  // Retry by reading first: a confirmed existing object must never be resent.
+  let actual:Awaited<ReturnType<AttachmentUploadServices['inspect']>>|undefined;
+  try{actual=await services.inspect(reservation);}catch{/* absence or uncertainty; create-only remains safe */}
+  if(!actual){
+   try{await services.create(reservation);}catch{/* reconcile the one reserved path */}
+   actual=await services.inspect(reservation);
+  }
   if(actual.size!==file.size||actual.sha256!==file.sha256||actual.mime!==file.mime)throw new Error('Stored object mismatch');
   // Database completion rechecks current session, epoch and household membership.
   await services.finalize(reservation);

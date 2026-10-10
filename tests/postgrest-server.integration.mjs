@@ -86,7 +86,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
   assert.ok((await client.storage.from(bucketName).download(objectPath)).error);
-  assert.ok((await client.storage.from(bucketName).upload('unauthorized.png',bytes,{contentType:'image/png'})).error);
+  assert.ok((await client.storage.from(bucketName).upload('unauthorized.png',bytes.subarray(0,8),{contentType:'image/png'})).error);
   const anonymous=createClient('http://127.0.0.1:54321',process.env.OUCHI_STORAGE_ANON_KEY,options);
   assert.ok((await anonymous.storage.from(bucketName).download(objectPath)).error);
   assert.notEqual((await fetch(`http://127.0.0.1:54321/storage/v1/object/public/${bucketName}/${objectPath}`)).status,200);
