@@ -1,23 +1,33 @@
 import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction} from '@/lib/billing-server';
 import type {VerifiedTransaction} from '@/lib/billing';
+import {normalizedVerifiedNotification,persistVerifiedNotification} from '@/lib/billing-notification-inbox';
 export const runtime='nodejs';
 export async function POST(request:Request){
  const config=billingConfiguration(),headers={'Cache-Control':'no-store'};
- if(!config)return Response.json({error:'Billing disabled'},{status:503,headers});
- let transaction:VerifiedTransaction;
- let signedTransaction:string;
+ if(!config||config.storage!=='verified-ledger')return Response.json({error:'Billing disabled'},{status:503,headers});
+ let transaction:VerifiedTransaction|undefined;
+ let signedTransaction:string|undefined;
+ let signedPayload:string;
+ let notification:Record<string,unknown>;
  try{
   const body=await readBillingBody(request);
   if(typeof body.signedPayload!=='string')throw new Error('Missing signed payload');
-  const notification=await billingVerifier(config).verifyAndDecodeNotification(body.signedPayload);
-  if(!notification.data?.signedTransactionInfo)return Response.json({received:true},{headers});
-  signedTransaction=notification.data.signedTransactionInfo;
-  transaction=await verifyBillingTransaction(notification.data.signedTransactionInfo,config);
+  signedPayload=body.signedPayload;
+  notification=await billingVerifier(config).verifyAndDecodeNotification(signedPayload) as unknown as Record<string,unknown>;
+  const data=notification.data as Record<string,unknown>|undefined;
+  if(typeof data?.signedTransactionInfo==='string'){
+   signedTransaction=data.signedTransactionInfo;
+   transaction=await verifyBillingTransaction(signedTransaction,config);
+  }
+  normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
  }catch{return Response.json({error:'Invalid signed notification'},{status:400,headers});}
  // A valid Apple event must remain retryable if persistence or transport fails.
  // Do not classify a database outage as an invalid signature or acknowledge it.
  try{
-  await persistBillingTransaction(billingDatabase(config),config,signedTransaction,transaction);
+  const database=billingDatabase(config);
+  if(transaction&&signedTransaction)await persistBillingTransaction(database,config,signedTransaction,transaction);
+  const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
+  await persistVerifiedNotification(signedPayload,record,async(name,args)=>await database.rpc(name,args));
   return Response.json({received:true},{headers});
  }catch{return Response.json({error:'Retry notification'},{status:503,headers});}
 }

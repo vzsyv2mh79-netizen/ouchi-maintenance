@@ -38,6 +38,14 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await admin.rpc('read_maintenance_verified_entitlement',{...readArgs,target_environment:'Production'})).data.plan,'free');
   assert.ok((await user.rpc('read_maintenance_verified_entitlement',readArgs)).error);
   assert.ok((await user.rpc('load_household')).data.homes.some(row=>row.id===home));
+  // Durable metadata only: no Apple-signed notification is claimed by this fixture.
+  const notification={environment:'Sandbox',notificationId:randomUUID(),notificationType:'DID_CHANGE_RENEWAL_STATUS',signedAt:Date.now(),disposition:'needs_reconciliation'};
+  const recordArgs={payload:notification,proof_sha256:'c'.repeat(64)};
+  const inbox=()=>admin.rpc('record_maintenance_verified_notification',recordArgs);
+  const received=await inbox();assert.equal(received.error,null);assert.equal(received.data,'inserted');assert.equal((await inbox()).data,'duplicate');
+  assert.equal((await admin.rpc('record_maintenance_verified_notification',{...recordArgs,payload:{...notification,environment:'Production'}})).data,'inserted');
+  assert.ok((await admin.rpc('record_maintenance_verified_notification',{...recordArgs,proof_sha256:'d'.repeat(64)})).error);
+  assert.ok((await user.rpc('record_maintenance_verified_notification',recordArgs)).error);
   const second=createClient(origin,'synthetic-public-key',options),login=await second.auth.signInWithPassword({email,password});assert.equal(login.error,null);
   const secondClaims=JSON.parse(Buffer.from(login.data.session.access_token.split('.')[1],'base64url'));assert.notEqual(secondClaims.session_id,claims.session_id);assert.equal((await bind(secondClaims.session_id)).data,binding.data);
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:randomUUID(),verified_session:secondClaims.session_id})).data,null);
