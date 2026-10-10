@@ -166,17 +166,22 @@ import OuchiCore
         billingAccount = nil; sandboxEntitlement = nil
         household = nil; homeID = ""; signedIn = false
         clearFamily()
-        for url in [exportURL, calendarURL].compactMap({ $0 }) {
-            do {
-                if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
-            } catch { localCleanupFailed = true }
-        }
-        exportURL = nil; calendarURL = nil
+        if !clearTemporaryExports() { localCleanupFailed = true }
         do { try await session?.signOut() }
         catch { message = "この端末のログイン情報を削除できませんでした。もう一度お試しください。" }
         if localCleanupFailed {
             message = (message.map { $0 + "\n" } ?? "") + "端末内の保存記録や一時ファイルを一部削除できませんでした。アプリを開き直して、再度ログアウトしてください。"
         }
+    }
+    private func clearTemporaryExports() -> Bool {
+        var succeeded = true
+        for url in [exportURL, calendarURL].compactMap({ $0 }) {
+            do {
+                if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            } catch { succeeded = false }
+        }
+        exportURL = nil; calendarURL = nil
+        return succeeded
     }
     func prepareExport() {
         guard !busy, let household else { return }
@@ -332,10 +337,20 @@ import OuchiCore
             if !value.homes.contains(where: { $0.id == homeID }) { homeID = value.homes.first?.id ?? "" }
         } catch {
             if expected == generation {
-                if error as? CloudError == .rejected(401) || error as? CloudError == .rejected(403) {
-                    try? snapshotStorage?.write(nil); household = nil; showingOfflineSnapshot = false
+                let accessDenied = error as? CloudError == .authenticationRequired || error as? CloudError == .rejected(401) || error as? CloudError == .rejected(403)
+                var localCleanupFailed = false
+                if accessDenied {
+                    do { try snapshotStorage?.write(nil) } catch { localCleanupFailed = true }
+                    snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
+                    if !clearTemporaryExports() { localCleanupFailed = true }
+                    clearFamily(); billingAccount = nil; sandboxEntitlement = nil
+                    purchases.stopObserving(); purchases.persist = nil
+                    remindersEnabled = false
+                    await reminders.reset(clearPreference: true)
+                    guard expected == generation else { return }
                 } else if household != nil { showingOfflineSnapshot = true }
-                message = showingOfflineSnapshot ? "保存済みの記録を表示しています。最新の共有内容を確認するには通信を回復して再読み込みしてください。" : "記録を取得できませんでした。通信とログイン状態を確認してください。"
+                message = accessDenied ? "このアカウントで記録を利用できません。ログイン状態を確認してください。" : showingOfflineSnapshot ? "保存済みの記録を表示しています。最新の共有内容を確認するには通信を回復して再読み込みしてください。" : "記録を取得できませんでした。通信とログイン状態を確認してください。"
+                if localCleanupFailed { message = (message ?? "") + "端末内の保存記録を削除できませんでした。再度ログアウトしてください。" }
             }
         }
         if expected == generation { busy = false }
