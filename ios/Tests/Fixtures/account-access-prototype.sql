@@ -32,3 +32,21 @@ create policy active_account_invites on public.home_invites as restrictive for a
 create policy active_account_imports on public.maintenance_imports as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
 create policy active_account_restores on public.maintenance_backup_restores as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
 create policy active_account_push on public.maintenance_push_subscriptions as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+-- Server-only transactional cleanup prototype. Not a complete identity deletion.
+create function maintenance_private.close_account_access(target_user uuid) returns boolean
+language plpgsql security definer set search_path='' as $$
+declare changed boolean;
+begin
+ if target_user is null then raise exception 'Invalid identity'; end if;
+ perform pg_advisory_xact_lock(hashtext(target_user::text));
+ select a.enabled into changed from maintenance_private.account_access a where a.user_id=target_user for update;
+ if not found then raise exception 'Unknown app identity'; end if;
+ update maintenance_private.account_access set enabled=false where user_id=target_user;
+ delete from public.maintenance_push_subscriptions where user_id=target_user;
+ delete from public.home_members where user_id=target_user;
+ delete from public.homes where owner_id=target_user;
+ return changed;
+end; $$;
+revoke all on function maintenance_private.close_account_access(uuid) from public,anon,authenticated;
+grant usage on schema maintenance_private to service_role;
+grant execute on function maintenance_private.close_account_access(uuid) to service_role;

@@ -122,3 +122,22 @@ transaction verification, not an HTTP mock. The background sender uses service
 privileges and still requires separate identity gating and leased-delivery race
 tests; client policy denial alone does NOT stop server notifications. The fixture
 still cannot be deployed as a complete account-deletion migration.
+
+
+Server-only cleanup prototype: maintenance_private.close_account_access(uuid)
+locks the synthetic identity, denies its app access and deletes app subscriptions,
+memberships and owned homes in one transaction. Auth users and another app's
+records are preserved. Unknown app identities are rejected; repeated cleanup
+returns false instead of recreating records. Public/anon/authenticated execution
+is revoked; only service_role may call it. The eventual authenticated API must
+validate recent reauthentication and derive UUID itself before invoking this
+internal function; it is not a client-facing deletion endpoint.
+
+PGlite checks authenticated cross-user invocation denial, explicit transaction
+rollback, injected trigger failure AFTER notification deletion (everything rolls
+back), successful cleanup, idempotent retry, old identity load rejection and other
+user/other-app preservation. All are synthetic and local. No production function
+was created or existing record removed. This is still a retained access marker,
+not complete account/PII erasure. Epoch/re-enrollment, Auth credential scope,
+leased notifications, billing retention and formal user-facing deletion remain
+mandatory before enabling any account-deletion feature.
