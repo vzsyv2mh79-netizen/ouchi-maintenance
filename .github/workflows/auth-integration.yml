@@ -39,6 +39,8 @@ jobs:
           done
       - name: Start disposable PostgREST after schema setup
         run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api up -d --wait --wait-timeout 120 rest storage
+      - name: Initialize disposable private Storage access
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < tests/fixtures/auth/storage-bootstrap.sql
       - name: Real authenticated household data API checks
         env:
           OUCHI_REAL_AUTH_TEST: 'true'
