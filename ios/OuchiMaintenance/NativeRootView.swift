@@ -101,7 +101,9 @@ private struct CareList: View {
                             Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと").font(.subheadline)
                             Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
                             if let note = task.sourceNote, !note.isEmpty { Text(note).font(.caption) }
-                            Button("完了を記録") { Task { await store.complete(task) } }.disabled(store.busy)
+                            Button("完了を記録") { Task { await store.complete(task) } }
+                                .accessibilityLabel("\(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")の\(task.name)の完了を記録")
+                                .disabled(store.busy)
                         }.padding(.vertical, 4)
                     }
                 }
