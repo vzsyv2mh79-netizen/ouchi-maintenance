@@ -11,10 +11,12 @@ test('attachment reservation counts in-flight bytes, pins ownership and refuses 
  await assert.rejects(()=>finalize(1));await assert.rejects(()=>finalize(5242880,'invalid'));
  assert.equal((await db.query('select state from maintenance_private.product_attachments where id=$1',[first])).rows[0].state,'reserved');
  await finalize();await finalize();await assert.rejects(()=>finalize(5242880,'b'.repeat(64)));
+ const read=()=>db.query('select public.read_maintenance_attachment($1,$2,$3,$4) as item',[user,session,epoch,first]);
+ assert.equal((await read()).rows[0].item.id,first);
  assert.equal((await db.query('select state,sha256 from maintenance_private.product_attachments where id=$1',[first])).rows[0].state,'stored');
  for(let i=1;i<20;i++)await reserve(randomUUID());await assert.rejects(()=>reserve(randomUUID(),1));
  assert.equal((await db.query('select count(*) as n from maintenance_private.product_attachments')).rows[0].n,20);
- await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,epoch]);await assert.rejects(()=>reserve(first));await assert.rejects(()=>finalize());
+ await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,epoch]);await assert.rejects(()=>reserve(first));await assert.rejects(()=>finalize());assert.equal((await read()).rows[0].item,null);
  const freshSession=randomUUID(),freshEpoch=(await db.query('select maintenance_private.enroll_app_epoch($1,$2) as epoch',[user,freshSession])).rows[0].epoch;
  await assert.rejects(()=>db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7)',[user,freshSession,freshEpoch,product,randomUUID(),1,'image/png']));
  await db.exec('reset role');

@@ -17,7 +17,7 @@ const actualAttachmentRoute=async()=>{
  const upload=encoded(compile('lib/attachment-upload.ts').replace("'./product-attachment'",JSON.stringify(reader)));
  const mappings={'@supabase/supabase-js':import.meta.resolve('@supabase/supabase-js'),'@/lib/attachment-upload':upload,'@/lib/product-attachment':reader,'@/lib/verified-app-session':sessionModule,'@/lib/billing-account':encoded(bindingModule),'@/lib/billing':encoded(compile('lib/billing.ts'))};
  let source=compile('app/api/development/product-attachments/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
- return (await import(encoded(source))).POST;
+ return await import(encoded(source));
 };
 // Disposable CI services only; no real user, SMTP or shared project.
 test('actual app lifecycle routes enforce real Auth and PostgREST closure and reenrollment', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:60000},async()=>{
@@ -77,12 +77,21 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const bucketName='ouchi-product-attachments-test';
   assert.equal((await admin.storage.createBucket(bucketName,{public:false,fileSizeLimit:5242880,allowedMimeTypes:['image/png','image/jpeg','application/pdf']})).error,null);
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_ATTACHMENT_TEST_MODE:'true',OUCHI_ATTACHMENT_TEST_URL:'http://127.0.0.1:54321',OUCHI_ATTACHMENT_TEST_SERVICE_KEY:service});
-  const attachmentPOST=await actualAttachmentRoute();
+  const {POST:attachmentPOST,GET:attachmentGET}=await actualAttachmentRoute();
   const objectID=attachmentIDs[allocations.findIndex((result,index)=>!result.error&&attachmentIDs[index]!==successfulID)];
   const bytes=new Uint8Array(5242880);bytes.set([137,80,78,71,13,10,26,10]);
   const uploadRequest=()=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}&attachmentId=${objectID}`,{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'image/png','content-length':String(bytes.length)},body:bytes});
   const uploaded=await attachmentPOST(uploadRequest());assert.equal(uploaded.status,200);assert.equal((await uploaded.json()).saved,true);
   assert.equal((await attachmentPOST(uploadRequest())).status,200);
+  const downloadRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${objectID}`,{headers:{authorization:'Bearer '+bearer}});
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...event,signedAt:event.signedAt+1,expiresAt:Date.now()-1}})).error,null);
+  const retained=await attachmentGET(downloadRequest(token));assert.equal(retained.status,200);assert.equal(retained.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await retained.arrayBuffer()),Buffer.from(bytes));
+  const outsider=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
+  const outsiderLogin=await outsider.auth.signUp({email:'outsider-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(outsiderLogin.error,null);
+  const outsiderToken=outsiderLogin.data.session.access_token,outsiderClaims=JSON.parse(Buffer.from(outsiderToken.split('.')[1],'base64url'));
+  assert.equal((await admin.rpc('bootstrap_synthetic_app_identity',{target_user:outsiderLogin.data.user.id,verified_session:outsiderClaims.session_id})).error,null);
+  assert.equal((await attachmentGET(downloadRequest(outsiderToken))).status,404);
+
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
   assert.ok((await client.storage.from(bucketName).download(objectPath)).error);
@@ -97,7 +106,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
-  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);
+  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);assert.equal((await attachmentGET(downloadRequest(token))).status,401);
   const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);
@@ -114,7 +123,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const currentBinding=await binding(freshClaims.session_id);assert.equal(currentBinding.error,null);assert.equal(currentBinding.data,enrollment.epochID);assert.notEqual(currentBinding.data,initialBinding.data);
   assert.equal(await purchaseAccountAfterAuthVerification(login.data.session.access_token,freshVerified.data.user.id,readBinding),currentBinding.data);
   assert.equal((await binding(claims.session_id)).data,null);
-  const late={...event,signedAt:event.signedAt+1,expiresAt:event.expiresAt+60000};
+  const late={...event,signedAt:event.signedAt+2,expiresAt:event.expiresAt+60000};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:late})).error,null);
   const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data[0].payload.expiresAt,late.expiresAt);
   const currentRows=await ledger(currentBinding.data);assert.equal(currentRows.error,null);assert.deepEqual(currentRows.data,[]);

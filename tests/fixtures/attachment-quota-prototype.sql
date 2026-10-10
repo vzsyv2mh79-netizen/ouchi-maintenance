@@ -56,3 +56,19 @@ begin
 end;$$;
 revoke all on function public.finalize_maintenance_attachment(uuid,uuid,uuid,uuid,bigint,text) from public,anon,authenticated;
 grant execute on function public.finalize_maintenance_attachment(uuid,uuid,uuid,uuid,bigint,text) to service_role;
+-- Existing stored files stay readable after paid entitlement expiry.
+-- The service verifies the bearer first; no client-supplied user/session is trusted.
+create function public.read_maintenance_attachment(target_user uuid,verified_session uuid,expected_epoch uuid,attachment_id uuid) returns jsonb
+language plpgsql stable security invoker set search_path='' as $$
+declare item maintenance_private.product_attachments;
+begin
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then return null; end if;
+ select f.* into item from maintenance_private.product_attachments f
+ join maintenance_private.app_epochs a on a.user_id=f.user_id and a.epoch_id=f.app_epoch_id and a.enabled
+ join public.products p on p.id=f.product_id join public.homes h on h.id=p."homeId"
+ where f.id=attachment_id and f.state='stored' and (h.owner_id=target_user or exists(select 1 from public.home_members m where m."homeId"=h.id and m.user_id=target_user));
+ if not found then return null; end if;
+ return jsonb_build_object('id',item.id,'user',item.user_id,'epoch',item.app_epoch_id,'size',item.size_bytes,'mime',item.mime,'sha256',item.sha256);
+end;$$;
+revoke all on function public.read_maintenance_attachment(uuid,uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.read_maintenance_attachment(uuid,uuid,uuid,uuid) to service_role;
