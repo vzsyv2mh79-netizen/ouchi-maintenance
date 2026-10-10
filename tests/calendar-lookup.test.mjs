@@ -1674,3 +1674,13 @@ test('Combo 10 Max AutoWash uses its own monthly brushes and conditional washing
  assert.ok(c.suggestions.every(t=>t.sourceUrl.startsWith(c.manualUrl+'#page=')));
  assert.equal(lookup.lookupModel('X085860X').length,0);
 });
+
+test('Klaara p7 Pro colors preserve condition-based care without invented day schedules',()=>{
+ for(const sku of ['P111860','P111660','P111560']){
+  const [c]=lookup.lookupModel(sku);assert.equal(c.releaseYear,2023);assert.equal(c.categoryId,'air-purifier');assert.deepEqual(c.suggestions,[]);
+  assert.match(c.lookupNote,/メインフィルターは水洗い・再使用できません/);
+  assert.match(c.lookupNote,/お湯・石鹸は使わず、完全に乾かして/);
+  assert.match(c.lookupNote,/5秒.*残り寿命.*交換後.*2秒/);
+  assert.match(c.manualUrl,/OGAairProJapan.pdf$/);assert.equal(lookup.lookupModel(sku+'X').length,0);
+ }
+});

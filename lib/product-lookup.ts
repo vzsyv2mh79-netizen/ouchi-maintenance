@@ -17271,4 +17271,52 @@ catalog.push({
   ]
 } satisfies ProductCandidate);
 
+catalog.push(...[
+  {
+    "maker": "iRobot",
+    "name": "Klaara p7 Pro（インクブラック）",
+    "modelNumber": "P111860",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "productLinkLabel": "メーカー公式製品・発売情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGAairProJapan.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "lookupNote": "2023年10月20日発売。公式説明書7〜8ページを確認。日数で決まるお手入れ周期は記載されていないため、自動の定期予定は提案しません。メインフィルターは「+」ボタンを5秒長押しして残り寿命を確認します。交換前に電源を切ってプラグを抜き、トップカバーを持ち上げ、2つのタブをつまんで古いフィルターを外します。新品を入れ、電気端子の面を合わせてカバーを戻します。交換後、フィルターエディットモード中に「-」ボタンを2秒長押しして寿命をリセットします。メインフィルターは水洗い・再使用できません。プレフィルターは吸込口を塞ぐごみを点検し、水道水で洗います。お湯・石鹸は使わず、完全に乾かして戻します。AQIセンサーのごみはエアーダスターなどで取り除きます。手入れ前に電源プラグを抜きます。必要な時期に手入力で項目を登録してください。",
+    "suggestions": []
+  },
+  {
+    "maker": "iRobot",
+    "name": "Klaara p7 Pro（ウォームホワイト）",
+    "modelNumber": "P111660",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "productLinkLabel": "メーカー公式製品・発売情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGAairProJapan.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "lookupNote": "2023年10月20日発売。公式説明書7〜8ページを確認。日数で決まるお手入れ周期は記載されていないため、自動の定期予定は提案しません。メインフィルターは「+」ボタンを5秒長押しして残り寿命を確認します。交換前に電源を切ってプラグを抜き、トップカバーを持ち上げ、2つのタブをつまんで古いフィルターを外します。新品を入れ、電気端子の面を合わせてカバーを戻します。交換後、フィルターエディットモード中に「-」ボタンを2秒長押しして寿命をリセットします。メインフィルターは水洗い・再使用できません。プレフィルターは吸込口を塞ぐごみを点検し、水道水で洗います。お湯・石鹸は使わず、完全に乾かして戻します。AQIセンサーのごみはエアーダスターなどで取り除きます。手入れ前に電源プラグを抜きます。必要な時期に手入力で項目を登録してください。",
+    "suggestions": []
+  },
+  {
+    "maker": "iRobot",
+    "name": "Klaara p7 Pro（グリーングレー）",
+    "modelNumber": "P111560",
+    "categoryId": "air-purifier",
+    "productUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "productLinkLabel": "メーカー公式製品・発売情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGAairProJapan.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20231020.pdf",
+    "lookupNote": "2023年10月20日発売。公式説明書7〜8ページを確認。日数で決まるお手入れ周期は記載されていないため、自動の定期予定は提案しません。メインフィルターは「+」ボタンを5秒長押しして残り寿命を確認します。交換前に電源を切ってプラグを抜き、トップカバーを持ち上げ、2つのタブをつまんで古いフィルターを外します。新品を入れ、電気端子の面を合わせてカバーを戻します。交換後、フィルターエディットモード中に「-」ボタンを2秒長押しして寿命をリセットします。メインフィルターは水洗い・再使用できません。プレフィルターは吸込口を塞ぐごみを点検し、水道水で洗います。お湯・石鹸は使わず、完全に乾かして戻します。AQIセンサーのごみはエアーダスターなどで取り除きます。手入れ前に電源プラグを抜きます。必要な時期に手入力で項目を登録してください。",
+    "suggestions": []
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

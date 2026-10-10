@@ -572,3 +572,6 @@ W255060/X285060公式ストア品番と20260717.pdfの7月17日発売を照合�
 
 ## Combo 10 Max AutoWash (2024)
 X085860 official product SKU/JAN0885155042606 and 20240829_02.pdf August30 release verified. OGC10MaxwAutoWashJapan.pdf34p fullcare22–30 text and all9page diagrams audited.12 candidates: filter7/replace60, brushes30, front/dust/bodycontacts14, sensors30, dockcontacts14/IR30, washcontainer and filterroller30 ifdirty/app. FilterNOwash/binwarmDryNOdishwasher, padswarmhandorwasherNOdryer, tankneededlatchNOdishwasher, washerdry+peg/drain, bag60daycapacity notcycle. X055860 AutoEmpty September6 officialSKU known but support843 OG10MaxAutoFillDockJP.pdf body actuallyj9+autoFill, cannot reuse; defer until correctmanual independentlyfound.
+
+## Klaara p7 Pro (2023)
+20231020.pdf exactSKU P111860/P111660/P111560 and Oct20 release insidewindow verified. support843 actual OGAairProJapan.pdf12p care7–8 fulltext+bothdiagrams audited. No numericdayinterval inmanual: suggestions empty intentionally; model lookup explains conditioncare+manual registration. Mainfilter residualpercent+5sec check/unplug/tabs/terminalalign/2sec reset, NOwash/reuse; separatepre-filter tapwaterNOhot/soap/fullDry, AQIairduster. ProductURL uses liveofficialrelease sinceoldproductredirects. No guessedmonthly/6month exchange.
