@@ -1,0 +1,46 @@
+{
+  "app": "ouchi-maintenance",
+  "version": 1,
+  "exportedAt": "2026-10-10T07:20:21.409Z",
+  "data": {
+    "homes": [
+      {
+        "id": "home-old",
+        "name": "わが家",
+        "kind": "home"
+      }
+    ],
+    "products": [
+      {
+        "id": "p-old",
+        "homeId": "home-old",
+        "categoryId": "washer",
+        "maker": "メーカー",
+        "name": "洗濯機 😀",
+        "modelNumber": "ABC/1",
+        "memo": "引用\"と改行\nメモ"
+      }
+    ],
+    "tasks": [
+      {
+        "id": "t-old",
+        "productId": "p-old",
+        "name": "フィルター掃除",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "nextDueAt": "2026-10-17",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://example.com/manual.pdf",
+        "sourceNote": "原文とユーザー設定を区別"
+      }
+    ],
+    "history": [
+      {
+        "id": "history-old",
+        "taskId": "t-old",
+        "productId": "p-old",
+        "completedAt": "2026-10-10"
+      }
+    ]
+  }
+}

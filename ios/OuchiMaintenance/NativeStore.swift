@@ -61,7 +61,7 @@ import OuchiCore
         guard !busy, let household else { return }
         do {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-maintenance-\(UUID().uuidString).json")
-            try household.export().write(to: url, options: [.atomic, .completeFileProtection])
+            try Backup.encode(household).write(to: url, options: [.atomic, .completeFileProtection])
             if let old = exportURL { try? FileManager.default.removeItem(at: old) }
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
@@ -132,6 +132,12 @@ import OuchiCore
         }
     }
 
+    func restoreBackup(_ value: Household) async -> Bool {
+        do {
+            let prepared = try Backup.prepareRestore(value)
+            return await save { api, token in try await api.restoreBackup(prepared, token: token) }
+        } catch { message = "バックアップの内容を確認できません。対応するファイルを選んでください。"; return false }
+    }
     func clearFamily() { familyGeneration += 1; familyMembers = []; inviteCode = nil; familyHomeID = nil }
     func loadMembers(home: String) async {
         guard !busy, home == homeID, let api, let session else { return }

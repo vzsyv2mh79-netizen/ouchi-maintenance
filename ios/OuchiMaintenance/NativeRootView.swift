@@ -1,5 +1,6 @@
 import SwiftUI
 import OuchiCore
+import UniformTypeIdentifiers
 
 struct NativeRootView: View {
     @EnvironmentObject private var store: NativeStore
@@ -125,6 +126,8 @@ private struct HistoryList: View {
 private struct NativeSettings: View {
     @EnvironmentObject private var store: NativeStore
     @State private var confirmLogout = false
+    @State private var choosingBackup = false
+    @State private var pendingBackup: Household?
     var body: some View {
         NavigationStack {
             Form {
@@ -136,11 +139,32 @@ private struct NativeSettings: View {
                         store.prepareExport()
                     }.disabled(store.household == nil || store.busy)
                     if let exportURL = store.exportURL { ShareLink("ファイルを共有・保存", item: exportURL) }
+                    Button("バックアップから復元") { choosingBackup = true }.disabled(store.busy)
                 }
                 Section("アカウント") {
                     Button("ログアウト", role: .destructive) { confirmLogout = true }
                 }
             }.navigationTitle("設定")
+             .fileImporter(isPresented: $choosingBackup, allowedContentTypes: [.json]) { result in
+                 do {
+                     let url = try result.get()
+                     let scoped = url.startAccessingSecurityScopedResource()
+                     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                     let handle = try FileHandle(forReadingFrom: url)
+                     defer { try? handle.close() }
+                     let bytes = try handle.read(upToCount: Backup.maximumBytes + 1) ?? Data()
+                     pendingBackup = try Backup.decode(bytes)
+                 } catch { store.message = "ファイルを読み込めませんでした。おうちメンテのバックアップ（10MB以内）を選んでください。" }
+             }
+             .confirmationDialog("バックアップを復元しますか？", isPresented: Binding(get: { pendingBackup != nil }, set: { if !$0 { pendingBackup = nil } }), titleVisibility: .visible) {
+                 if let data = pendingBackup {
+                     Button("復元する") { pendingBackup = nil; Task { _ = await store.restoreBackup(data) } }
+                 }
+                 Button("キャンセル", role: .cancel) { pendingBackup = nil }
+             } message: {
+                 if let data = pendingBackup { Text("住まい\(data.homes.count)件・製品\(data.products.count)件・お手入れ\(data.tasks.count)件・履歴\(data.history.count)件を、新しい住まいとして追加します。既存の記録は置き換えません。家族の共有権限は引き継がれません。") }
+             }
+             .onDisappear { pendingBackup = nil }
              .confirmationDialog("この端末からログアウトしますか？クラウドの記録は保持されます。", isPresented: $confirmLogout, titleVisibility: .visible) {
                  Button("ログアウト", role: .destructive) { Task { await store.signOut() } }
              }

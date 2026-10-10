@@ -112,6 +112,12 @@ public struct HouseholdAPI: Sendable {
         guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
 
+    public func restoreBackup(_ prepared: Backup.Prepared, token: String) async throws {
+        let payload = try JSONSerialization.jsonObject(with: prepared.payload)
+        let body = try JSONSerialization.data(withJSONObject: ["backup_hash": prepared.hash, "payload": payload])
+        let data = try await send(path: "rest/v1/rpc/restore_maintenance_backup", token: token, body: body)
+        guard try JSONDecoder().decode(Bool.self, from: data) else { throw CloudError.unavailable }
+    }
     public func createInvite(home: String, token: String) async throws -> String {
         guard UUID(uuidString: home) != nil else { throw CloudError.invalidInput }
         let data = try await send(path: "rest/v1/rpc/create_home_invite", token: token, body: JSONEncoder().encode(["home_id": home]))
