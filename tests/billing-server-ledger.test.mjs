@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';import ts from 'typescript';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash,generateKeyPairSync} from 'node:crypto';import ts from 'typescript';
 const moduleURL=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const cache=new Map();
 function compile(name){
@@ -57,4 +57,20 @@ test('actual renewal helper requires verified-ledger scope, exact proof hash and
  let called=false;const never={rpc:async()=>{called=true;return {};}};
  await assert.rejects(()=>server.persistBillingRenewal(never,{...config,environment:'Production'},'synthetic-renewal',renewal));
  await assert.rejects(()=>server.persistBillingRenewal(never,{...config,storage:'sandbox-legacy'},'synthetic-renewal',renewal));assert.equal(called,false);
+});
+
+test('actual Server API recovery factory stays disabled without explicit opt-in and valid signing setup',()=>{
+ const keys=['BILLING_RECONCILIATION_ENABLED','APPLE_IAP_PRIVATE_KEY_BASE64','APPLE_IAP_KEY_ID','APPLE_IAP_ISSUER_ID'];const old=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+ const config={storage:'verified-ledger',environment:'Sandbox',bundleId:'test.ouchi'};
+ try{
+  for(const key of keys)delete process.env[key];assert.equal(server.billingReconciliationClient(config),null);
+  process.env.BILLING_RECONCILIATION_ENABLED='true';assert.equal(server.billingReconciliationClient(config),null);
+  process.env.APPLE_IAP_KEY_ID='ABCDEFGHIJ';process.env.APPLE_IAP_ISSUER_ID='11111111-1111-4111-8111-111111111111';process.env.APPLE_IAP_PRIVATE_KEY_BASE64=Buffer.from('synthetic-not-a-private-key').toString('base64');assert.equal(server.billingReconciliationClient(config),null);
+  assert.equal(server.billingReconciliationClient({...config,storage:'sandbox-legacy'}),null);
+  const {privateKey}=generateKeyPairSync('ec',{namedCurve:'prime256v1'});process.env.APPLE_IAP_PRIVATE_KEY_BASE64=Buffer.from(privateKey.export({type:'pkcs8',format:'pem'})).toString('base64');
+  assert.equal(server.billingReconciliationClient(config).urlBase,'https://api.storekit-sandbox.apple.com');
+  assert.equal(server.billingReconciliationClient({...config,environment:'Production'}).urlBase,'https://api.storekit.apple.com');
+  assert.equal(server.billingReconciliationClient({...config,environment:'Xcode'}),null);
+  process.env.BILLING_RECONCILIATION_ENABLED='false';assert.equal(server.billingReconciliationClient(config),null);
+ }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
 });

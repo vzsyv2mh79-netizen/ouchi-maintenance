@@ -1,11 +1,12 @@
 import 'server-only';
-import {SignedDataVerifier,Environment} from '@apple/app-store-server-library';
+import {SignedDataVerifier,Environment,AppStoreServerAPIClient,GetTransactionHistoryVersion} from '@apple/app-store-server-library';
 import {createClient} from '@supabase/supabase-js';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
 import {normalizeAppleTransaction} from './billing';
 import {normalizeVerifiedRenewal} from './billing-renewal';
 import type {VerifiedRenewal} from './billing-renewal';
-import {createHash} from 'node:crypto';
+import {createHash,createPrivateKey} from 'node:crypto';
+import {reconcilePurchaseHistory} from './billing-reconciliation';
 import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
@@ -67,4 +68,27 @@ export async function verifiedPurchaseAccount(db:ReturnType<typeof billingDataba
   const result=await db.rpc('current_maintenance_purchase_account',{target_user:target,verified_session:session});
   if(result.error)throw new Error('Purchase binding unavailable');return result.data;
  });
+}
+
+/** Explicitly opt-in, read-only Apple API client. Missing signing setup keeps recovery disabled. */
+export function billingReconciliationClient(config:NonNullable<ReturnType<typeof billingConfiguration>>){
+ if(process.env.BILLING_RECONCILIATION_ENABLED!=='true'||config.storage!=='verified-ledger'||!['Sandbox','Production'].includes(config.environment)||!config.bundleId)return null;
+ const key=process.env.APPLE_IAP_PRIVATE_KEY_BASE64,keyId=process.env.APPLE_IAP_KEY_ID,issuerId=process.env.APPLE_IAP_ISSUER_ID;
+ if(!key||key.length>16384||!keyId||!/^[A-Z0-9]{10}$/.test(keyId)||!issuerId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(issuerId))return null;
+ const signingKey=Buffer.from(key,'base64').toString('utf8');
+ if(!signingKey.startsWith('-----BEGIN PRIVATE KEY-----')||!signingKey.trimEnd().endsWith('-----END PRIVATE KEY-----'))return null;
+ try{const parsed=createPrivateKey(signingKey);if(parsed.asymmetricKeyType!=='ec'||parsed.asymmetricKeyDetails?.namedCurve!=='prime256v1')return null;}catch{return null;}
+ return new AppStoreServerAPIClient(signingKey,keyId,issuerId,config.bundleId,config.environment==='Production'?Environment.PRODUCTION:Environment.SANDBOX);
+}
+/** Internal worker adapter. Caller must obtain seed from service ledger and scope from live Auth/epoch validation. */
+export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,seed:VerifiedTransaction,expectedEpoch:string,revision?:string){
+ const client=billingReconciliationClient(config);if(!client)throw new Error('Reconciliation disabled');
+ return reconcilePurchaseHistory(seed,{environment:config.environment,bundleId:config.bundleId,accountToken:expectedEpoch,appAppleId:config.appAppleId},{
+  history:async(transactionId,cursor)=>await client.getTransactionHistory(transactionId,cursor,{},GetTransactionHistoryVersion.V2) as unknown as Record<string,unknown>,
+  statuses:async(transactionId)=>await client.getAllSubscriptionStatuses(transactionId) as unknown as Record<string,unknown>,
+  verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
+  verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
+  saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
+  saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
+ },{revision});
 }
