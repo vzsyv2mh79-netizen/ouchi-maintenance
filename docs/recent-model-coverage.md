@@ -498,3 +498,9 @@ manual13page5発売年月2023-12/12/11、専用299188/299189/299995表紙・清�
 ITW-50B01-W/B and ITW-60B01-W/B: official release https://www.irisohyama.co.jp/news/2025/?date=1015 names all four and announces October 17, 2025. Manual index https://www.irisohyama.co.jp/products/manual/70 lists 5kg July 2025 and 6kg October 2025. Both sources establish 2025 eligibility; no unqualified exact launch date is asserted in the app.
 Dedicated PDF mappings 112861/112862/112863/112864 respectively were linked by official support/index. Each cover identifies the matching capacity. Care pages 52–60 have identical extracted text and page content stream hashes across all four PDFs; text and diagrams inspected, including buttons on 58/60. Care table: filter every use, exterior/dispenser when dirty, monthly tub wash, weekly tub dry. Only two fixed intervals are scheduled. Tub dry uses tub-clean course with wash 0 min / rinse 0, about 30 min; it does not remove existing mould/detergent deposits. Tub wash follows manual fill/pause and chemical-label instructions, keeps acid-mixing warning and post-wash filter/closed faucet steps. Manual pages 7/52 govern stopping/disconnection for physical cleaning.
 Next Iris backlog: 2023 OSH 8kg auto-dosing variants and 2024 10kg actual launch confirmation; 2026 H/F/A models are also present in current official index. No sibling instructions inferred.
+
+
+## 2026-10-10: OSH 8kg自動投入機種（2023年）
+TCW-80A01-W（4連）/ITW-80A01-W（2連）を専用104373/104612 PDFから追加。公式説明書一覧70ページ4で2023年11月の発売を確認。2023-10-27リリースとも一致。
+専用説明書70〜76/64〜70ページの本文と図、洗浄後の充填操作33/32ページを確認。月1回槽洗浄、3か月タンク・経路洗浄。液剤変更・1か月未使用・ふた開放・変質時の追加洗浄も案内する。
+洗浄開始ボタンは4連が洗剤2+柔軟剤1、2連が洗剤+柔軟剤。毎回糸くずフィルター/汚れ時清掃は注記。槽乾燥は「定期的に」なので週1回を流用しない。自動投入なしITW-80A02-Wは別説明書104379の確認が必要で、この2機種の手順を流用しない。

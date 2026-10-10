@@ -13886,4 +13886,77 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH 8kg 4連タンク",
+    "modelNumber": "TCW-80A01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576667708",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104373.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104373.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年11月発売のOSH 8kg（4連タンク）。糸くずフィルターは洗濯のたびに水洗いし、本体外側・自動投入タンク取り付け部・洗剤投入ケースは汚れたら清掃します。部品のお手入れは運転を停止して行い、タンク取り付け部の接続部を強くこすらないでください。槽乾燥は説明書75ページの「定期的に」という案内で、日数指定はありません。衣類を入れず槽乾燥コースを使い、黒かびや洗剤かすは槽洗浄で除去します。毎回・汚れ時・定期的な清掃に固定の日数は設定していません。ふろ水ホースも汚れたらストレーナー・フィルターを外して水洗いし、ホース内に水道水を流して洗います。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104373.pdf#page=74",
+        "conditions": "説明書74ページ。衣類を入れず、電源を入れて槽洗浄コースを選び、ふたを閉めてスタートします。給水終了後に一時停止してふたを開け、市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。"
+      },
+      {
+        "name": "自動投入タンク・経路の洗浄",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回程度・洗剤変更時など（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104373.pdf#page=76",
+        "conditions": "説明書76ページ。洗剤・柔軟剤の変更時、1か月以上未使用、ふたを開けて放置したとき、液剤がゼリー状になるなど変質したときにも洗浄します。衣類を入れず、停止した状態でタンクを外し、中を水ですすぎ、40℃以下のぬるま湯を満杯まで入れてセットします。電源を入れ、洗剤2と柔軟剤1を同時に3秒以上押し、洗浄するタンクを選んでスタートします。終了後はタンクの水を捨ててセットし、液剤を補充した後、説明書33ページの充填操作で洗濯機内部にも液剤を充填してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH 8kg 2連タンク",
+    "modelNumber": "ITW-80A01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576672092",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104612.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104612.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年11月発売のOSH 8kg（2連タンク）。糸くずフィルターは洗濯のたびに水洗いし、本体外側・自動投入タンク取り付け部・洗剤投入ケースは汚れたら清掃します。部品のお手入れは運転を停止して行い、タンク取り付け部の接続部を強くこすらないでください。槽乾燥は説明書69ページの「定期的に」という案内で、日数指定はありません。衣類を入れず槽乾燥コースを使い、黒かびや洗剤かすは槽洗浄で除去します。毎回・汚れ時・定期的な清掃に固定の日数は設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104612.pdf#page=68",
+        "conditions": "説明書68ページ。衣類を入れず、電源を入れて槽洗浄コースを選び、ふたを閉めてスタートします。給水終了後に一時停止してふたを開け、市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。"
+      },
+      {
+        "name": "自動投入タンク・経路の洗浄",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回程度・洗剤変更時など（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104612.pdf#page=70",
+        "conditions": "説明書70ページ。洗剤・柔軟剤の変更時、1か月以上未使用、ふたを開けて放置したとき、液剤がゼリー状になるなど変質したときにも洗浄します。衣類を入れず、停止した状態でタンクを外し、中を水ですすぎ、40℃以下のぬるま湯を満杯まで入れてセットします。電源を入れ、洗剤と柔軟剤を同時に3秒以上押し、洗浄するタンクを選んでスタートします。終了後はタンクの水を捨ててセットし、液剤を補充した後、説明書32ページの充填操作で洗濯機内部にも液剤を充填してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
