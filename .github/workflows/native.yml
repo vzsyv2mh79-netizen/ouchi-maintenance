@@ -3,7 +3,7 @@ name: Native iPhone checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['ios/**', '.github/workflows/native.yml']
+    paths: ['ios/**', 'lib/product-lookup.ts', '.github/workflows/native.yml']
   push:
     branches: [main]
     paths: ['ios/**', '.github/workflows/native.yml']
@@ -25,8 +25,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Export current full Web model catalog for native contract checks
+        run: node ios/Tests/export-web-catalog.mjs "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Verify synthetic core and local snapshot tests
-        run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)"
+        run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests
         run: swift test --package-path ios
       - name: Unsigned iPhone Release build without cloud credentials

@@ -44,6 +44,7 @@ import OuchiCore
                 _ = try suggestion.task(productID: product)
             }
         }
-        print("LookupSmoke PASS: actual Web catalog \(known.count) entries, exact model/normalization, source allowlist, Tokyo dates, preserved conditions. No network.")
+        let source = CommandLine.arguments.count > 1 ? "provided Web catalog" : "single synthetic fixture"
+        print("LookupSmoke PASS: \(source), \(known.count) entries, exact model/normalization, source allowlist, Tokyo dates, preserved conditions. No network.")
     }
 }
