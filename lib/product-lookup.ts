@@ -16237,4 +16237,589 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini + AutoEmpty 充電ステーション（白）",
+    "modelNumber": "F155260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F155260.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年2月27日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。AutoEmptyの紙パックは満杯の通知や赤色LEDが出たら交換し、カードを引き上げて密封して外し、新しいカードをガイドレールに沿って差し込んで蓋を閉めます。最大3か月分のごみ収納能力は交換周期ではありません。ステーションフィルターのブロワーカバーは必要に応じて糸くずやごみを点検し、乾いた清潔な布で拭きます。固定周期の指定はありません。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini + AutoEmpty 充電ステーション（黒）",
+    "modelNumber": "F155060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F155060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年2月27日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。AutoEmptyの紙パックは満杯の通知や赤色LEDが出たら交換し、カードを引き上げて密封して外し、新しいカードをガイドレールに沿って差し込んで蓋を閉めます。最大3か月分のごみ収納能力は交換周期ではありません。ステーションフィルターのブロワーカバーは必要に応じて糸くずやごみを点検し、乾いた清潔な布で拭きます。固定周期の指定はありません。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini + AutoEmpty 充電ステーション（桜）",
+    "modelNumber": "F155660",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F155660.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年3月13日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。AutoEmptyの紙パックは満杯の通知や赤色LEDが出たら交換し、カードを引き上げて密封して外し、新しいカードをガイドレールに沿って差し込んで蓋を閉めます。最大3か月分のごみ収納能力は交換周期ではありません。ステーションフィルターのブロワーカバーは必要に応じて糸くずやごみを点検し、乾いた清潔な布で拭きます。固定周期の指定はありません。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini + AutoEmpty 充電ステーション（若葉）",
+    "modelNumber": "F155460",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F155460.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年3月13日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。AutoEmptyの紙パックは満杯の通知や赤色LEDが出たら交換し、カードを引き上げて密封して外し、新しいカードをガイドレールに沿って差し込んで蓋を閉めます。最大3か月分のごみ収納能力は交換周期ではありません。ステーションフィルターのブロワーカバーは必要に応じて糸くずやごみを点検し、乾いた清潔な布で拭きます。固定周期の指定はありません。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini Slim + SlimCharge 充電スタンド（白）",
+    "modelNumber": "F115260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F115260.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年4月6日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。SlimCharge充電スタンドのみで、自動ごみ収集や紙パックはありません。縦置き収納中はスケジュール清掃が機能しないため、予約清掃時は平置きにします。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバMini Slim + SlimCharge 充電スタンド（黒）",
+    "modelNumber": "F115060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/F115060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260219.pdf",
+    "lookupNote": "2026年4月6日発売。Mini/Mini Slim共通説明書20〜34ページを確認。使い捨て床拭きシートは毎回の清掃後に廃棄し、パッドプレートは使用後毎回、冷たい水で手洗いして自然乾燥します。使用後の作業を固定日数の予定にはしていません。給水タンクの手入れはありません。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外してすすぎ、完全に乾かして戻します。フィルター・エッジブラシ3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。SlimCharge充電スタンドのみで、自動ごみ収集や紙パックはありません。縦置き収納中はスケジュール清掃が機能しないため、予約清掃時は平置きにします。",
+    "suggestions": [
+      {
+        "name": "ダスト容器を空にして清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=27",
+        "frequency": "少なくとも週1回（予定計算は7日）",
+        "conditions": "上部カバーを持ち上げ、取り外しボタンを押して容器を外します。ゴミ箱の上で開き、空にして布で清掃して戻します。必要に応じて洗う場合は必ずフィルターを外し、水またはぬるま湯ですすぎ、完全に乾かしてから戻します。食洗機は使いません。"
+      },
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=28",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "ダスト容器からフィルターを外し、ゴミ箱の上ではたいてごみを落とし、お手入れツールや清潔な布で清掃して戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシカバーの取り外しレバーをつまんで持ち上げ、異物を除去します。ブラシを外し、髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "お手入れツールを使って前輪から髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=25",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=31",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/Mini/OGRoombaMinijaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
