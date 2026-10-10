@@ -491,3 +491,10 @@ manual13page5発売年月2023-12/12/11、専用299188/299189/299995表紙・清�
 - Release months: https://panasonic.jp/dish/comparison.html ; NP-TSP2 launch announcement https://news.panasonic.com/jp/topics/206815
 - Sources are labeled manufacturer official, with “公式お手入れ案内” rather than a claimed verified PDF. Dedicated manual figures and additional model-specific care remain a follow-up. No unchecked manual disassembly or chemical soaking instructions are copied.
 - NP-TMLK1 remains pending; do not infer TML1 care solely from shared family or appearance.
+
+
+## 2026-10-10: Iris OSH fit washers (2025)
+
+ITW-50B01-W/B and ITW-60B01-W/B: official release https://www.irisohyama.co.jp/news/2025/?date=1015 names all four and announces October 17, 2025. Manual index https://www.irisohyama.co.jp/products/manual/70 lists 5kg July 2025 and 6kg October 2025. Both sources establish 2025 eligibility; no unqualified exact launch date is asserted in the app.
+Dedicated PDF mappings 112861/112862/112863/112864 respectively were linked by official support/index. Each cover identifies the matching capacity. Care pages 52–60 have identical extracted text and page content stream hashes across all four PDFs; text and diagrams inspected, including buttons on 58/60. Care table: filter every use, exterior/dispenser when dirty, monthly tub wash, weekly tub dry. Only two fixed intervals are scheduled. Tub dry uses tub-clean course with wash 0 min / rinse 0, about 30 min; it does not remove existing mould/detergent deposits. Tub wash follows manual fill/pause and chemical-label instructions, keeps acid-mixing warning and post-wash filter/closed faucet steps. Manual pages 7/52 govern stopping/disconnection for physical cleaning.
+Next Iris backlog: 2023 OSH 8kg auto-dosing variants and 2024 10kg actual launch confirmation; 2026 H/F/A models are also present in current official index. No sibling instructions inferred.
