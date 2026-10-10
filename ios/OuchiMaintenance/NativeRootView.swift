@@ -201,7 +201,7 @@ private struct NativeSettings: View {
                         LabeledContent("ログイン中", value: email)
                             .textSelection(.enabled)
                     } else {
-                        Text("アカウント情報を確認するには、ホームで再読み込みしてください。")
+                        Text("メールアドレスを確認できませんでした。通信を確認して再度お試しください。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Button("ログアウト", role: .destructive) { confirmLogout = true }

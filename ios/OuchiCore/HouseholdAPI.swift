@@ -137,6 +137,25 @@ public struct HouseholdAPI: Sendable {
     public func load(token: String) async throws -> Household {
         return try JSONDecoder().decode(Household.self, from: await send(path: "rest/v1/rpc/load_household", token: token, body: Data("{}".utf8)))
     }
+    /// Read the authenticated profile without persisting new credentials.
+    public func currentUser(token: String, expectedUser: UUID) async throws -> Session.User {
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        let url = config.url.appendingPathComponent("auth/v1/user")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 15; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue(config.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (bytes, response) = try await transport(request)
+        guard response.url == url else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else {
+            if response.statusCode == 401 { throw CloudError.authenticationRequired }
+            throw CloudError.rejected(response.statusCode)
+        }
+        guard bytes.count <= 65536 else { throw CloudError.malformedResponse }
+        let profile = try JSONDecoder().decode(Session.User.self, from: bytes)
+        guard profile.id == expectedUser else { throw CloudError.authenticationRequired }
+        return profile
+    }
     public func complete(task: String, token: String) async throws {
         let body = try JSONEncoder().encode(["task_id": task])
         _ = try await send(path: "rest/v1/rpc/complete_maintenance", token: token, body: body)

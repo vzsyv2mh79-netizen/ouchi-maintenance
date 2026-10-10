@@ -541,9 +541,13 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             let value = try await api.load(token: credentials.access_token)
+            var email = credentials.user.email
+            if email == nil {
+                email = (try? await api.currentUser(token: credentials.access_token, expectedUser: credentials.user.id))?.email
+            }
             guard expected == generation else { return }
             snapshotAccount = credentials.user.id; showingOfflineSnapshot = false
-            accountEmail = credentials.user.email
+            accountEmail = email
             household = value
             await bindSandboxBilling(account: credentials.user.id)
             guard expected == generation else { return }
