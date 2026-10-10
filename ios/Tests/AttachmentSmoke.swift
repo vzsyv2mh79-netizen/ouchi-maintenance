@@ -44,6 +44,14 @@ import OuchiCore
    (Data("{\"usage\":{\"usedBytes\":8,\"usedFiles\":1,\"reservedBytes\":8,\"reservedFiles\":1,\"limitBytes\":104857600,\"limitFiles\":100,\"fileLimitBytes\":5242880}}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
   let usage=try await usageAPI.usage(token:"synthetic");precondition(usage.usedBytes==8 && usage.reservedFiles==1)
+  let account=UUID(),epoch=UUID()
+  let pending=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:bytes,mime:"image/png")
+  let serialized=try pending.encode(),restored=try PendingAttachment.decode(serialized,account:account,epoch:epoch)
+  precondition(restored.id==attachment && restored.product==product && restored.bytes==bytes)
+  for (otherAccount,otherEpoch) in [(UUID(),epoch),(account,UUID())] {
+   do { _=try PendingAttachment.decode(serialized,account:otherAccount,epoch:otherEpoch);fatalError("retry crossed enrollment") } catch { precondition(error as? CloudError == .authenticationRequired) }
+  }
+  do { _=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:Data(count:5*1024*1024+1),mime:"image/png");fatalError("oversized retry persisted") } catch { precondition(error as? CloudError == .invalidInput) }
   print("AttachmentSmoke PASS: consent, raw bytes, bounded upload, stable ID acknowledgement, bounded typed download and redirect refusal. Mock only; no Storage request.")
  }
 }

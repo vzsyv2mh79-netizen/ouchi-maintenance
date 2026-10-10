@@ -261,3 +261,44 @@ public struct DevelopmentAttachmentAPI: Sendable {
         guard result.saved, result.attachmentId == attachment else { throw CloudError.malformedResponse }
     }
 }
+
+/// Credential-free retry payload. A server-issued enrollment binding is required
+/// again before resuming; local data never proves rights or a completed upload.
+public struct PendingAttachment: Codable, Sendable {
+    public let account: UUID
+    public let epoch: UUID
+    public let product: UUID
+    public let id: UUID
+    public let bytes: Data
+    public let mime: String
+    public init(account: UUID, epoch: UUID, product: UUID, id: UUID, bytes: Data, mime: String) throws {
+        self.account = account; self.epoch = epoch; self.product = product; self.id = id; self.bytes = bytes; self.mime = mime
+        try validate()
+    }
+    private func validate() throws {
+        let nilID = "00000000-0000-0000-0000-000000000000"
+        guard [account,epoch,product,id].allSatisfy({ $0.uuidString != nilID }), account != epoch,
+              !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024 else { throw CloudError.invalidInput }
+        let prefix: [UInt8]
+        switch mime {
+        case "image/png": prefix = [137,80,78,71,13,10,26,10]
+        case "image/jpeg": prefix = [255,216,255]
+        case "application/pdf": prefix = [37,80,68,70,45]
+        default: throw CloudError.invalidInput
+        }
+        guard bytes.starts(with: prefix) else { throw CloudError.invalidInput }
+    }
+    public func encode() throws -> Data {
+        try validate()
+        let data = try JSONEncoder().encode(self)
+        guard data.count <= 7 * 1024 * 1024 else { throw CloudError.invalidInput }
+        return data
+    }
+    public static func decode(_ data: Data, account: UUID, epoch: UUID) throws -> PendingAttachment {
+        guard data.count <= 7 * 1024 * 1024 else { throw CloudError.invalidInput }
+        let value = try JSONDecoder().decode(Self.self, from: data)
+        guard value.account == account, value.epoch == epoch else { throw CloudError.authenticationRequired }
+        try value.validate()
+        return value
+    }
+}

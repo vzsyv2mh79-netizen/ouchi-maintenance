@@ -21,6 +21,17 @@ import OuchiCore
         try storage.write(nil)
         let deleted = try storage.read(account: account); precondition(deleted == nil)
         try storage.write(nil)
+        let pendingStorage = PendingAttachmentStorage(directory: folder.appendingPathComponent("pending-test"))
+        let epoch = UUID(), identifier = UUID(), bytes = Data([137,80,78,71,13,10,26,10])
+        let pending = try PendingAttachment(account: account, epoch: epoch, product: UUID(), id: identifier, bytes: bytes, mime: "image/png")
+        try pendingStorage.write(pending)
+        let resumed = try pendingStorage.read(account: account, epoch: epoch)
+        precondition(resumed?.id == identifier && resumed?.bytes == bytes)
+        do { _ = try pendingStorage.read(account: account, epoch: UUID()); fatalError("old enrollment read pending file") }
+        catch { precondition(error as? CloudError == .authenticationRequired) }
+        try pendingStorage.write(nil)
+        let cleared = try pendingStorage.read(account: account, epoch: epoch); precondition(cleared == nil)
+        try pendingStorage.write(nil)
         print("SnapshotStorageSmoke PASS: actual temporary file roundtrip, other-account refusal, deletion and repeat deletion. No real records. iOS file protection/backup exclusion requires device verification.")
     }
 }

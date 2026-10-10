@@ -70,3 +70,35 @@ struct HouseholdSnapshotStorage {
         try location.setResourceValues(values)
     }
 }
+
+/// One pending upload per isolated app environment. Not yet wired to production.
+struct PendingAttachmentStorage {
+    private let file: URL
+    init(directory: URL? = nil) {
+        let root = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ouchi-isolated-attachment-retry", isDirectory: true)
+        file = root.appendingPathComponent("pending.json")
+    }
+    func read(account: UUID, epoch: UUID) throws -> PendingAttachment? {
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+        guard size <= 7 * 1024 * 1024 else { throw CloudError.invalidInput }
+        return try PendingAttachment.decode(Data(contentsOf: file), account: account, epoch: epoch)
+    }
+    func write(_ value: PendingAttachment?) throws {
+        guard let value else {
+            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+            return
+        }
+        let bytes = try value.encode()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        #if os(iOS)
+        let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        let options: Data.WritingOptions = [.atomic]
+        #endif
+        try bytes.write(to: file, options: options)
+        var location = file; var attributes = URLResourceValues(); attributes.isExcludedFromBackup = true
+        try location.setResourceValues(attributes)
+    }
+}
