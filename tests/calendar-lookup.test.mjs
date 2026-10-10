@@ -1615,3 +1615,21 @@ test('Roomba Max 705 Vac and Combo retain different wheel intervals and washable
   assert.match(combo.lookupNote,/カバーが閉じている場合は無理に開きません/);
   assert.match(combo.lookupNote,/食洗機不可/);assert.match(combo.lookupNote,/最大8週間.*固定日数.*していません/);
 });
+
+test('Roomba Mini colors and Mini Slim retain disposable-sheet and dock-specific care', () => {
+ for (const sku of ['F155260','F155060','F155660','F155460','F115260','F115060']) {
+  const [c]=lookup.lookupModel(sku);
+  assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'robot-vacuum');
+  assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,7,7,14,14,14,30,30,180]);
+  assert.ok(c.suggestions.every(t=>t.sourceUrl.startsWith(c.manualUrl+'#page=')));
+  assert.match(c.suggestions[0].conditions,/フィルターを外し.*完全に乾か.*食洗機/);
+  assert.match(c.suggestions[1].conditions,/フィルターは洗わない/);
+  assert.match(c.suggestions[7].conditions,/プラグを抜き/);
+  assert.match(c.lookupNote,/毎回.*廃棄.*使用後毎回.*冷たい水.*自然乾燥/);
+  assert.match(c.lookupNote,/給水タンクの手入れはありません/);
+  assert.match(c.suggestions.at(-1).conditions,/点検.*一律の交換周期ではありません/);
+  if(sku.startsWith('F115')){assert.match(c.lookupNote,/紙パックはありません.*縦置き.*平置き/);assert.doesNotMatch(c.lookupNote,/最大3か月/);}
+  else{assert.match(c.lookupNote,/赤色LED.*ガイドレール/);assert.match(c.lookupNote,/最大3か月.*交換周期ではありません/);assert.match(c.lookupNote,/ステーションフィルター.*固定周期の指定はありません/);}
+  assert.equal(lookup.lookupModel(sku+'X').length,0);
+ }
+});
