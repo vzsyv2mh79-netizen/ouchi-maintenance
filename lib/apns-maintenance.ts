@@ -14,6 +14,17 @@ export function maintenanceAPNsRequest(input:{deviceToken:string;bundleId:string
  };
 }
 export type APNsDisposition='accepted'|'retry'|'credentials'|'disable-device'|'stale-unregistration'|'inspect';
+/** A malformed or oversized provider response must never disable a device. */
+export function maintenanceAPNsResponse(status:number,body:string,registeredAt:number):APNsDisposition{
+ if(typeof body!=='string'||body.length>4096)return 'inspect';
+ if(status===200)return body.length===0?maintenanceAPNsDisposition(status,null,null,registeredAt):'inspect';
+ let value:unknown;
+ try{value=JSON.parse(body);}catch{return 'inspect';}
+ if(!value||typeof value!=='object'||Array.isArray(value))return 'inspect';
+ const response=value as Record<string,unknown>;
+ if(typeof response.reason!=='string'||response.reason.length>128)return 'inspect';
+ return maintenanceAPNsDisposition(status,response.reason,response.timestamp,registeredAt);
+}
 /** Only a scoped registration can be disabled; an older invalidation must not cancel its replacement. */
 export function maintenanceAPNsDisposition(status:number,reason:unknown,timestamp:unknown,registeredAt:number):APNsDisposition{
  if(!Number.isSafeInteger(registeredAt)||registeredAt<=0)throw new Error('Invalid registration timestamp');
