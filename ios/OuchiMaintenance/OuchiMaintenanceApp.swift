@@ -3,7 +3,14 @@ import UIKit
 import UserNotifications
 import OuchiCore
 
-@MainActor final class RemoteNotificationDelegate: NSObject, UIApplicationDelegate, ObservableObject {
+@MainActor final class RemoteNotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, ObservableObject {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list, .sound])
+    }
     private var active: UUID?
     private var pending: CheckedContinuation<Data, Error>?
     private var timeout: Task<Void, Never>?
