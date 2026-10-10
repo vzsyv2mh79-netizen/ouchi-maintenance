@@ -1550,3 +1550,11 @@ test('2023-2025 Iris non-auto-dose washers preserve dedicated drying schedules a
   if(model.startsWith('IAW')){assert.match(c.lookupNote,/キャップ.*柔軟剤投入口.*歯ブラシ/);assert.match(c.suggestions[0].conditions,/水栓を開け.*給水栓を閉じ/);}
  }
 });
+
+
+test('2023 Iris drum care keeps temperatures, weekly lint and usage-count drying separate',()=>{
+ for(const [model,pdf,wash,lint,auto] of [["HDK852Z-W", "105081", 110, 104, true], ["CDK852-W", "105079", 101, 95, false], ["FLK852-B", "105083", 101, 95, false], ["FLK852-W", "105080", 101, 95, false]]){
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),auto?[30,7,90]:[30,7]);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page='+wash);assert.match(c.suggestions[0].conditions,/60℃.*30℃以下.*40℃・60℃.*乾燥のみ.*酸素系・台所用.*ドアロック.*水抜きホース/);assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page='+lint);assert.match(c.suggestions[1].conditions,/脱水のみ.*電源を切り.*水抜きホース.*運転中.*右に回して/);assert.match(c.lookupNote,/乾燥運転30回.*30日ごとには設定していません/);assert.ok(!c.suggestions.some(t=>t.name.includes('乾燥フィルター')));if(auto)assert.match(c.suggestions[2].conditions,/手前に引いて.*40℃以下.*850mL.*600mL.*洗剤と柔軟剤.*3秒以上.*約7分/);assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ const [c]=lookup.lookupModel('IAW-T504-B');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[30,7]);assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page=58');assert.match(c.lookupNote,/週1回程度/);assert.equal(lookup.lookupModel('DKC85A1').length,0);
+});
