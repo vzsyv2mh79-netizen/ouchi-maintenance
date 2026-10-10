@@ -1,5 +1,5 @@
 import {createBillingFetch} from './billing-fetch';
-import {runRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
+import {runRecoveryJob,parseRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
 import {boundedBillingRead} from './billing-read-deadline';
 import 'server-only';
 import {SignedDataVerifier,Environment,AppStoreServerAPIClient,GetTransactionHistoryVersion} from '@apple/app-store-server-library';
@@ -131,4 +131,14 @@ export async function runBillingRecoveryJob(db:ReturnType<typeof billingDatabase
    saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
   },
  },signal);
+}
+
+/** One service claim per invocation; scheduler registration and activation are separate gates. */
+export async function dispatchNextBillingRecoveryJob(config:NonNullable<ReturnType<typeof billingConfiguration>>){
+ if(!billingReconciliationClient(config))throw new Error('Recovery unavailable');
+ const db=billingDatabase(config),claim=await db.rpc('claim_maintenance_reconciliation',{target_environment:config.environment});
+ if(claim.error)throw new Error('Recovery claim unavailable');
+ if(claim.data===null)return {state:'idle' as const};
+ const job=parseRecoveryJob(claim.data,config.environment),result=await runBillingRecoveryJob(db,config,job);
+ return {state:result.complete?'complete' as const:'retryRequested' in result?'retry_requested' as const:'queued' as const};
 }

@@ -37,3 +37,12 @@ export async function runRecoveryJob(job:RecoveryJob,scope:Scope,deps:Dependenci
   return {complete:false as const,retryRequested:!signal?.aborted};
  }finally{controller.abort();signal?.removeEventListener('abort',cancel);}
 }
+
+/** Decode only a service RPC claim; never expose this as client input. */
+export function parseRecoveryJob(value:unknown,environment:Scope['environment']):RecoveryJob{
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid recovery claim');
+ const v=value as Record<string,unknown>;
+ for(const key of ['id','userId','accountToken','transactionId','leaseToken','leaseUntil'])if(typeof v[key]!=='string')throw new Error('Invalid recovery claim');
+ if(v.environment!==environment||(v.revision!==null&&(typeof v.revision!=='string'||!v.revision||v.revision.length>4096)))throw new Error('Invalid recovery claim');
+ return {id:v.id as string,userId:v.userId as string,accountToken:v.accountToken as string,environment,transactionId:v.transactionId as string,revision:v.revision as string|null,leaseToken:v.leaseToken as string,leaseUntil:v.leaseUntil as string};
+}
