@@ -1598,3 +1598,20 @@ test('Roomba 105, AutoEmpty and 205 use exact Japanese SKUs and distinct care pr
   }
   for (const unmatched of ['Y311000','Y351000','L121000']) assert.equal(lookup.lookupModel(unmatched).length, 0);
 });
+
+test('Roomba Max 705 Vac and Combo retain different wheel intervals and washable components', () => {
+  const [vac]=lookup.lookupModel('W155060'), [combo]=lookup.lookupModel('X185060');
+  assert.deepEqual(vac.suggestions.map(t=>t.intervalDays),[7,7,14,14,14,30,30,30,60,180]);
+  assert.deepEqual(combo.suggestions.map(t=>t.intervalDays),[7,7,14,28,28,14,30,30,14,30,180]);
+  for(const c of [vac,combo]){assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'robot-vacuum');assert.ok(c.suggestions.every(t=>t.sourceUrl.startsWith(c.manualUrl+'#page=')));assert.match(c.lookupNote,/最大75日.*交換周期ではありません/);assert.match(c.suggestions.at(-1).conditions,/点検.*一律の交換周期ではありません/);assert.equal(lookup.lookupModel(c.modelNumber+'X').length,0);}
+  assert.match(vac.suggestions[0].conditions,/フィルターは洗わない/);
+  assert.equal(vac.suggestions[8].kind,'交換');assert.match(vac.suggestions[8].frequency,/2か月/);
+  assert.match(vac.lookupNote,/吸引専用/);assert.ok(vac.suggestions.every(t=>!/モップ|水タンク|後輪/.test(t.name)));
+  assert.match(combo.suggestions[0].conditions,/スクリーンは洗え.*完全に乾か/);
+  assert.match(combo.suggestions[3].frequency,/4週間.*ペット.*週1回/);
+  assert.match(combo.suggestions[3].conditions,/マイナスドライバー.*キャスター/);
+  assert.match(combo.suggestions[4].conditions,/右から左.*金属/);
+  assert.match(combo.suggestions[8].conditions,/吹き出し口.*押し込まず/);
+  assert.match(combo.lookupNote,/カバーが閉じている場合は無理に開きません/);
+  assert.match(combo.lookupNote,/食洗機不可/);assert.match(combo.lookupNote,/最大8週間.*固定日数.*していません/);
+});
