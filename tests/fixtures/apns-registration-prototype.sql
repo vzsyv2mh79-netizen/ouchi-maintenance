@@ -1,5 +1,8 @@
 -- TEST ONLY, after account-epochs-prototype.sql. Not a production migration.
 -- Service must verify Auth user/session before registration or disabling.
+-- The live Auth session is checked again in SQL; a JWT alone does not prove logout status.
+grant usage on schema auth to service_role;
+grant select on auth.sessions to service_role;
 create table maintenance_private.apns_registrations (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null references auth.users(id),
@@ -21,7 +24,7 @@ declare prior maintenance_private.apns_registrations; result uuid;
 begin
  if token is null or length(token) not between 32 and 1024 or token !~ '^([0-9a-f]{2})+$' or bundle_topic is null or length(bundle_topic)>200 or bundle_topic !~ '^[A-Za-z0-9]+([.-][A-Za-z0-9]+)+$' or expected_epoch is null then raise exception 'Invalid registration'; end if;
  perform pg_advisory_xact_lock(hashtext(target_user::text));
- if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then raise exception 'Inactive enrollment'; end if;
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) or not exists(select 1 from auth.sessions s where s.id=verified_session and s.user_id=target_user) then raise exception 'Inactive enrollment'; end if;
  perform pg_advisory_xact_lock(hashtext(bundle_topic||':'||token));
  select * into prior from maintenance_private.apns_registrations where topic=bundle_topic and device_token=token and enabled for update;
  if found then
@@ -38,7 +41,7 @@ create function public.disable_maintenance_apns(target_user uuid,verified_sessio
 language plpgsql security invoker set search_path='' as $$
 begin
  perform pg_advisory_xact_lock(hashtext(target_user::text));
- if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then return false; end if;
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) or not exists(select 1 from auth.sessions s where s.id=verified_session and s.user_id=target_user) then return false; end if;
  update maintenance_private.apns_registrations set enabled=false
  where id=registration_id and user_id=target_user and session_id=verified_session and epoch_id=expected_epoch and enabled;
  return found;
@@ -47,7 +50,8 @@ create function public.maintenance_apns_registration_allowed(registration_id uui
 language sql stable security invoker set search_path='' as $$
  select exists(select 1 from maintenance_private.apns_registrations r
  where r.id=registration_id and r.enabled
- and maintenance_private.epoch_session_allowed(r.user_id,r.session_id,r.epoch_id));
+ and maintenance_private.epoch_session_allowed(r.user_id,r.session_id,r.epoch_id)
+ and exists(select 1 from auth.sessions s where s.id=r.session_id and s.user_id=r.user_id));
 $$;
 revoke all on function public.register_maintenance_apns(uuid,uuid,uuid,text,text),public.disable_maintenance_apns(uuid,uuid,uuid,uuid),public.maintenance_apns_registration_allowed(uuid) from public,anon,authenticated;
 grant execute on function public.register_maintenance_apns(uuid,uuid,uuid,text,text),public.disable_maintenance_apns(uuid,uuid,uuid,uuid),public.maintenance_apns_registration_allowed(uuid) to service_role;

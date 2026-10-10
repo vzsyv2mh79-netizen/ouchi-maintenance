@@ -123,6 +123,10 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await apnsPOST(apnsRequest(outsiderToken,{deviceToken:apnsToken}))).status,503);assert.equal(await apnsAllowed(restartedID),true);
   assert.equal((await (await apnsDELETE(apnsRequest(outsiderToken,{registrationId:restartedID}))).json()).disabled,false);
 
+  const outsiderRegistration=await apnsPOST(apnsRequest(outsiderToken,{deviceToken:'cd'.repeat(32)}));assert.equal(outsiderRegistration.status,200);const outsiderRegistrationID=(await outsiderRegistration.json()).registrationId;assert.equal(await apnsAllowed(outsiderRegistrationID),true);
+  assert.equal((await outsider.auth.signOut({scope:'local'})).error,null);assert.equal(await apnsAllowed(outsiderRegistrationID),false);
+  assert.notEqual((await apnsPOST(apnsRequest(outsiderToken,{deviceToken:'cd'.repeat(32)}))).status,200);
+
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
   const unrelatedBucket='unrelated-attachment-ci';assert.equal((await admin.storage.createBucket(unrelatedBucket,{public:false})).error,null);assert.equal((await admin.storage.from(unrelatedBucket).upload(objectPath,new Uint8Array([1,2,3]),{upsert:false})).error,null);
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
