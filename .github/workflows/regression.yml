@@ -2,7 +2,7 @@ name: Regression checks
 
 on:
   pull_request:
-    branches: [main, feat/complete-maintenance]
+    branches: [main, feat/complete-maintenance, feat/sandbox-billing-foundation]
   push:
     branches: [main]
   workflow_dispatch:
@@ -40,5 +40,7 @@ jobs:
         run: pnpm typecheck
       - name: Calendar, model lookup and PGlite storage regression tests
         run: pnpm test
+      - name: Isolated app account lifecycle tests
+        run: node --test ios/Tests/*test.mjs
       - name: Production build without cloud credentials
         run: pnpm build
