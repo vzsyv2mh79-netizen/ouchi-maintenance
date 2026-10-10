@@ -94,4 +94,36 @@ import OuchiCore
         }
         if expected == generation { busy = false }
     }
+
+    func saveProduct(_ value: Appliance, creating: Bool) async -> Bool {
+        guard let data = household, value.homeId == homeID,
+              data.homes.contains(where: { $0.id == value.homeId }),
+              creating ? !data.products.contains(where: { $0.id == value.id }) : data.products.contains(where: { $0.id == value.id && $0.homeId == value.homeId }) else { return false }
+        return await save { api, token in try await api.saveProduct(value, creating: creating, token: token) }
+    }
+    func saveTask(_ value: CareTask, creating: Bool) async -> Bool {
+        guard let data = household, data.products(in: homeID).contains(where: { $0.id == value.productId }),
+              creating ? !data.tasks.contains(where: { $0.id == value.id }) : data.tasks.contains(where: { $0.id == value.id && $0.productId == value.productId }) else { return false }
+        return await save { api, token in try await api.saveTask(value, creating: creating, token: token) }
+    }
+    private func save(_ mutation: (HouseholdAPI, String) async throws -> Void) async -> Bool {
+        guard !busy, let api, let session else { return false }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation else { return false }
+            try await mutation(api, credentials.access_token)
+            let fresh = try await api.load(token: credentials.access_token)
+            guard expected == generation else { return false }
+            household = fresh; busy = false
+            return true
+        } catch {
+            if expected == generation {
+                message = error as? CloudError == .invalidInput ? "入力内容を確認してください。周期は1〜3650日、日付はYYYY-MM-DDで入力してください。" : "保存結果を確認できません。再読み込みして記録を確認してください。"
+                busy = false
+            }
+            return false
+        }
+    }
 }

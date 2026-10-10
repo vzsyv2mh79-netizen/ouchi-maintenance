@@ -16,6 +16,17 @@ public struct Appliance: Codable, Identifiable, Sendable {
     public let purchaseDate: String?
     public let installedDate: String?
     public let memo: String?
+    public init(id: String, homeId: String, categoryId: String, maker: String, name: String, modelNumber: String, purchaseDate: String?, installedDate: String?, memo: String?) {
+        self.id = id
+        self.homeId = homeId
+        self.categoryId = categoryId
+        self.maker = maker
+        self.name = name
+        self.modelNumber = modelNumber
+        self.purchaseDate = purchaseDate
+        self.installedDate = installedDate
+        self.memo = memo
+    }
 }
 public struct CareTask: Codable, Identifiable, Sendable {
     public let id: String
@@ -29,6 +40,19 @@ public struct CareTask: Codable, Identifiable, Sendable {
     public let sourceUrl: String?
     public let sourceNote: String?
     public let sourceFrequency: String?
+    public init(id: String, productId: String, name: String, kind: String, intervalDays: Int, lastCompletedAt: String?, nextDueAt: String, sourceKind: String, sourceUrl: String?, sourceNote: String?, sourceFrequency: String?) {
+        self.id = id
+        self.productId = productId
+        self.name = name
+        self.kind = kind
+        self.intervalDays = intervalDays
+        self.lastCompletedAt = lastCompletedAt
+        self.nextDueAt = nextDueAt
+        self.sourceKind = sourceKind
+        self.sourceUrl = sourceUrl
+        self.sourceNote = sourceNote
+        self.sourceFrequency = sourceFrequency
+    }
 }
 public struct CareHistory: Codable, Identifiable, Sendable {
     public let id: String

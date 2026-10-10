@@ -66,7 +66,7 @@ private struct CareList: View {
                     if tasks.isEmpty { Text("お手入れ項目がありません。") }
                     ForEach(tasks) { task in
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(task.name).font(.headline)
+                            NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
                             Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品").foregroundStyle(.secondary)
                             Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと").font(.subheadline)
                             Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
@@ -84,18 +84,21 @@ private struct CareList: View {
 
 private struct ApplianceList: View {
     @EnvironmentObject private var store: NativeStore
+    @State private var adding = false
     var body: some View {
         NavigationStack {
             List {
                 HomePicker()
                 ForEach(store.household?.products(in: store.homeID) ?? []) { product in
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(product.name).font(.headline)
+                        NavigationLink { ProductEditor(home: product.homeId, initial: product) } label: { Text(product.name).font(.headline) }
                         Text("\(product.maker) \(product.modelNumber)").foregroundStyle(.secondary)
                         if let memo = product.memo, !memo.isEmpty { Text(memo).font(.caption) }
                     }
                 }
             }.navigationTitle("製品").refreshable { await store.reload() }
+            .toolbar { Button("製品を追加", systemImage: "plus") { adding = true }.disabled(store.busy || store.homeID.isEmpty) }
+            .sheet(isPresented: $adding) { NavigationStack { ProductEditor(home: store.homeID, initial: nil) } }
         }
     }
 }
@@ -139,5 +142,107 @@ private struct NativeSettings: View {
                  Button("ログアウト", role: .destructive) { Task { await store.signOut() } }
              }
         }
+    }
+}
+
+private struct ProductEditor: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
+    let home: String
+    let initial: Appliance?
+    @State private var recordID = UUID().uuidString.lowercased()
+    @State private var name = ""
+    @State private var maker = ""
+    @State private var model = ""
+    @State private var category = "other-appliance"
+    @State private var purchase = ""
+    @State private var installed = ""
+    @State private var memo = ""
+    @State private var loaded = false
+    var body: some View {
+        Form {
+            Section("製品") {
+                TextField("製品名", text: $name)
+                Picker("種類", selection: $category) {
+                    ForEach(Array(zip(RecordRules.categories, RecordRules.categoryNames)), id: \.0) { item in Text(item.1).tag(item.0) }
+                }
+                TextField("メーカー", text: $maker)
+                TextField("品番", text: $model).textInputAutocapitalization(.characters).autocorrectionDisabled()
+            }
+            Section("日付・メモ") {
+                TextField("購入日（YYYY-MM-DD・任意）", text: $purchase)
+                TextField("設置日（YYYY-MM-DD・任意）", text: $installed)
+                TextField("メモ", text: $memo, axis: .vertical)
+            }
+            if let initial {
+                Section("お手入れ") {
+                    NavigationLink("お手入れ項目を追加") { TaskEditor(productID: initial.id, initial: nil) }
+                }
+            }
+            Button(store.busy ? "保存中…" : "保存") {
+                let value = Appliance(id: initial?.id ?? recordID, homeId: home, categoryId: category,
+                    maker: maker.trimmingCharacters(in: .whitespacesAndNewlines), name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                    modelNumber: model.trimmingCharacters(in: .whitespacesAndNewlines), purchaseDate: purchase.isEmpty ? nil : purchase,
+                    installedDate: installed.isEmpty ? nil : installed, memo: memo.isEmpty ? nil : memo)
+                Task { if await store.saveProduct(value, creating: initial == nil) { dismiss() } }
+            }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || home != store.homeID)
+        }.navigationTitle(initial == nil ? "製品を追加" : "製品を編集")
+         .interactiveDismissDisabled(store.busy)
+         .onAppear {
+             guard !loaded else { return }; loaded = true
+             if let initial {
+                 name = initial.name; maker = initial.maker; model = initial.modelNumber; category = initial.categoryId
+                 purchase = initial.purchaseDate ?? ""; installed = initial.installedDate ?? ""; memo = initial.memo ?? ""
+             }
+         }
+    }
+}
+
+private struct TaskEditor: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
+    let productID: String
+    let initial: CareTask?
+    @State private var recordID = UUID().uuidString.lowercased()
+    @State private var name = ""
+    @State private var kind = "掃除"
+    @State private var interval = "30"
+    @State private var due = ""
+    @State private var loaded = false
+    var body: some View {
+        Form {
+            Section("お手入れ") {
+                TextField("お手入れ名", text: $name)
+                Picker("種類", selection: $kind) { ForEach(RecordRules.kinds, id: \.self) { Text($0) } }
+                TextField("周期（日）", text: $interval).keyboardType(.numberPad)
+                TextField("次回予定（YYYY-MM-DD）", text: $due)
+                Text("周期を変更しても次回予定は自動では変わりません。予定日も確認してください。").font(.caption)
+            }
+            Section("情報の根拠") {
+                Text(initial?.sourceKind ?? "ユーザー設定")
+                if let source = initial?.sourceUrl, let url = URL(string: source), url.scheme == "https" { Link("元の情報を確認", destination: url) }
+                Text("編集した項目はユーザー設定として保存します。元の情報はリンクと注記に保持します。").font(.caption)
+            }
+            Button(store.busy ? "保存中…" : "保存") {
+                let changed = initial == nil || name != initial?.name || kind != initial?.kind || Int(interval) != initial?.intervalDays
+                let value = CareTask(id: initial?.id ?? recordID, productId: productID,
+                    name: name.trimmingCharacters(in: .whitespacesAndNewlines), kind: kind, intervalDays: Int(interval) ?? 0,
+                    lastCompletedAt: initial?.lastCompletedAt, nextDueAt: due,
+                    sourceKind: changed ? "ユーザー設定" : (initial?.sourceKind ?? "ユーザー設定"),
+                    sourceUrl: initial?.sourceUrl, sourceNote: initial?.sourceNote,
+                    sourceFrequency: changed ? nil : initial?.sourceFrequency)
+                Task { if await store.saveTask(value, creating: initial == nil) { dismiss() } }
+            }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !((1...3650).contains(Int(interval) ?? 0)))
+        }.navigationTitle(initial == nil ? "お手入れを追加" : "お手入れを編集")
+         .interactiveDismissDisabled(store.busy)
+         .onAppear {
+             guard !loaded else { return }; loaded = true
+             if let initial { name = initial.name; kind = initial.kind; interval = String(initial.intervalDays); due = initial.nextDueAt }
+             else {
+                 var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+                 let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.calendar = calendar; f.timeZone = calendar.timeZone; f.dateFormat = "yyyy-MM-dd"
+                 due = f.string(from: calendar.date(byAdding: .day, value: 30, to: Date())!)
+             }
+         }
     }
 }

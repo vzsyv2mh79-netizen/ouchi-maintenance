@@ -1,7 +1,7 @@
 import Foundation
 
 public enum CloudError: Error, Equatable {
-    case invalidConfiguration, authenticationRequired, rejected(Int), malformedResponse
+    case invalidConfiguration, authenticationRequired, rejected(Int), malformedResponse, invalidInput, unavailable
 }
 
 public struct CloudConfiguration: Sendable {
@@ -42,11 +42,12 @@ public struct HouseholdAPI: Sendable {
         return (data, response)
     }) { self.config = config; self.transport = transport }
 
-    private func send(path: String, token: String? = nil, body: Data, query: String? = nil) async throws -> Data {
+    private func send(path: String, token: String? = nil, body: Data, query: String? = nil, method: String = "POST", representation: Bool = false) async throws -> Data {
         var parts = URLComponents(url: config.url.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         parts.percentEncodedQuery = query
         var request = URLRequest(url: parts.url!)
-        request.httpMethod = "POST"
+        request.httpMethod = method
+        if representation { request.setValue("return=representation", forHTTPHeaderField: "Prefer") }
         request.timeoutInterval = 30
         request.setValue(config.publishableKey, forHTTPHeaderField: "apikey")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -80,5 +81,34 @@ public struct HouseholdAPI: Sendable {
         _ = try await send(path: "rest/v1/rpc/complete_maintenance", token: token, body: body)
         // Reload authoritative household before showing history or the next due date.
         // Mutations are never retried automatically after an ambiguous network failure.
+    }
+
+    public func saveProduct(_ product: Appliance, creating: Bool, token: String) async throws {
+        try product.validate()
+        if creating {
+            struct Payload: Encodable { let product_data: Appliance; let task_data: [CareTask] }
+            _ = try await send(path: "rest/v1/rpc/add_product_with_tasks", token: token,
+                               body: JSONEncoder().encode(Payload(product_data: product, task_data: [])))
+        } else {
+            try await write(table: "products", id: product.id, body: cloudBody(product, nullable: ["purchaseDate", "installedDate", "memo"]), creating: false, token: token)
+        }
+    }
+    public func saveTask(_ task: CareTask, creating: Bool, token: String) async throws {
+        try task.validate()
+        try await write(table: "maintenance_tasks", id: task.id, body: cloudBody(task, nullable: ["lastCompletedAt", "sourceUrl", "sourceNote", "sourceFrequency"]), creating: creating, token: token)
+    }
+    private func cloudBody<T: Encodable>(_ value: T, nullable: [String]) throws -> Data {
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as! [String: Any]
+        for key in nullable where object[key] == nil { object[key] = NSNull() }
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+    private func write(table: String, id: String, body: Data, creating: Bool, token: String) async throws {
+        guard let uuid = UUID(uuidString: id) else { throw CloudError.invalidInput }
+        let data = try await send(path: "rest/v1/" + table, token: token, body: body,
+                                  query: creating ? "select=id" : "id=eq.\(uuid.uuidString.lowercased())&select=id",
+                                  method: creating ? "POST" : "PATCH", representation: true)
+        struct Row: Decodable { let id: String }
+        let rows = try JSONDecoder().decode([Row].self, from: data)
+        guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
 }
