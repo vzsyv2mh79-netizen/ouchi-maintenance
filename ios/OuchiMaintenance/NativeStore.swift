@@ -18,6 +18,8 @@ import OuchiCore
     private var generation = 0
     private var familyGeneration = 0
     let purchases = PurchaseManager()
+    private let reminders = LocalReminders()
+    @Published private(set) var remindersEnabled = false
 
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -30,6 +32,7 @@ import OuchiCore
         } else { api = nil; session = nil }
     }
     func restore() async {
+        await reminders.reset(clearPreference: false)
         guard let session else { message = "クラウド接続の設定が必要です。"; return }
         do { signedIn = try await session.restore(); if signedIn { await reload() } }
         catch { message = "保存したログインを確認できません。ログインし直してください。" }
@@ -72,6 +75,9 @@ import OuchiCore
     }
     func signOut() async {
         generation += 1
+        remindersEnabled = false
+        household = nil; signedIn = false; busy = true
+        await reminders.reset(clearPreference: true)
         purchases.stopObserving(); purchases.persist = nil
         household = nil; homeID = ""; signedIn = false; busy = false
         clearFamily()
@@ -91,6 +97,22 @@ import OuchiCore
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
     }
+    func setReminders(_ enabled: Bool) async {
+        guard !busy else { return }
+        busy = true
+        let expected = generation
+        do {
+            if enabled, let data = household, let session {
+                let credentials = try await session.credentials()
+                guard expected == generation else { return }
+                let accepted = try await reminders.enable(data: data, account: credentials.user.id)
+                guard expected == generation else { return }
+                remindersEnabled = accepted
+                if !accepted { message = "通知は許可されていません。iPhoneの設定で通知を確認してください。" }
+            } else { await reminders.reset(clearPreference: true); if expected == generation { remindersEnabled = false } }
+        } catch { if expected == generation { remindersEnabled = false; message = "通知を設定できませんでした。もう一度お試しください。" } }
+        if expected == generation { busy = false }
+    }
     func prepareCalendar() {
         guard !busy, let household else { return }
         do {
@@ -109,6 +131,9 @@ import OuchiCore
             let value = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
             household = value
+            let notificationState = (try? await reminders.reconcile(data: value, account: credentials.user.id)) ?? false
+            guard expected == generation else { return }
+            remindersEnabled = notificationState
             if !value.homes.contains(where: { $0.id == homeID }) { homeID = value.homes.first?.id ?? "" }
         } catch {
             if expected == generation {
@@ -128,6 +153,9 @@ import OuchiCore
             let fresh = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
             household = fresh
+            let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
+            guard expected == generation else { return }
+            remindersEnabled = notificationState
         } catch {
             if expected == generation { message = "保存結果を確認できません。再読み込みして履歴を確認してください。" }
         }
@@ -155,7 +183,11 @@ import OuchiCore
             try await mutation(api, credentials.access_token)
             let fresh = try await api.load(token: credentials.access_token)
             guard expected == generation else { return false }
-            household = fresh; busy = false
+            household = fresh
+            let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
+            guard expected == generation else { return false }
+            remindersEnabled = notificationState
+            busy = false
             return true
         } catch {
             if expected == generation {

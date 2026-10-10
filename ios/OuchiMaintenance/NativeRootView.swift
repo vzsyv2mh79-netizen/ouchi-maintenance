@@ -156,6 +156,10 @@ private struct NativeSettings: View {
                     if let exportURL = store.exportURL { ShareLink("ファイルを共有・保存", item: exportURL) }
                     Button("バックアップから復元") { choosingBackup = true }.disabled(store.busy)
                 }
+                Section("この端末のお手入れ通知") {
+                    Toggle("朝9時に通知する", isOn: Binding(get: { store.remindersEnabled }, set: { value in Task { await store.setReminders(value) } })).disabled(store.busy || store.household == nil)
+                    Text("読み込んだ予定をもとに、次の30日間の通知を予約します。住まい名・製品名は通知に表示しません。アプリを開いて記録を更新すると予約も更新します。別端末での変更は、再読み込みするまで反映されません。").font(.caption)
+                }
                 Section("カレンダーでリマインド") {
                     Text("すべての住まいのお手入れ予定を午前9時、通知を前日の午前9時として書き出します。製品名・お手入れ名がファイルに含まれます。")
                     Button("予定をカレンダー用に保存") { store.prepareCalendar() }.disabled(store.busy || store.household == nil)
