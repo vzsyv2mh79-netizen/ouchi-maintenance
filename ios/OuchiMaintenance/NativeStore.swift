@@ -38,6 +38,47 @@ import OuchiCore
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
     private let reminders = LocalReminders()
     @Published private(set) var remindersEnabled = false
+    @Published private(set) var developmentRemoteNotificationsRegistered = false
+    private var developmentRemoteRegistration: (id: UUID, account: UUID)?
+
+    func registerDevelopmentRemoteNotifications(requestToken: @MainActor () async throws -> Data) async {
+        guard developmentLifecycleConfigured, signedIn, !busy, let session else { return }
+        busy = true; message = nil
+        let expected = generation
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation else { return }
+            let token = try await requestToken()
+            guard expected == generation else { return }
+            let transport = DevelopmentAPNsAPI()
+            let id = try await transport.register(deviceToken: token, token: credentials.access_token, confirmed: true)
+            guard expected == generation else {
+                _ = try? await transport.disable(registration: id, token: credentials.access_token)
+                return
+            }
+            developmentRemoteRegistration = (id, credentials.user.id)
+            developmentRemoteNotificationsRegistered = true
+            message = "通知先を登録しました。予定に基づく配信はまだ開始していません。"
+        } catch {
+            if expected == generation { message = "通知先を登録できませんでした。通知の許可、Appleの署名設定、テスト用サーバーへの接続を確認してください。" }
+        }
+    }
+    func disableDevelopmentRemoteNotifications() async {
+        guard developmentLifecycleConfigured, !busy, let session, let registration = developmentRemoteRegistration else { return }
+        busy = true; message = nil
+        let expected = generation
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, credentials.user.id == registration.account else { return }
+            let disabled = try await DevelopmentAPNsAPI().disable(registration: registration.id, token: credentials.access_token)
+            guard expected == generation else { return }
+            guard disabled else { throw CloudError.unavailable }
+            developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
+            message = "この端末の通知先を停止しました。"
+        } catch { if expected == generation { message = "停止結果を確認できませんでした。通信を確認して再度お試しください。" } }
+    }
 
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -84,6 +125,7 @@ import OuchiCore
                 snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
                 if !clearTemporaryExports() { cleanupFailed = true }
                 clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
+                developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
                 purchases.stopObserving(); purchases.persist = nil
                 remindersEnabled = false
                 await reminders.reset(clearPreference: true)
@@ -281,6 +323,7 @@ import OuchiCore
             }
         }
         generation += 1
+        developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
         var localCleanupFailed = false
         do { try snapshotStorage?.write(nil) }
         catch { localCleanupFailed = true }

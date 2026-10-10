@@ -169,6 +169,7 @@ private struct NativeSettings: View {
                     Section("開発用") {
                         NavigationLink("アカウント処理のテスト") { DevelopmentLifecycleView() }
                         NavigationLink("写真・保証書の保存テスト") { DevelopmentAttachmentView() }
+                        NavigationLink("iPhone通知の登録テスト") { DevelopmentRemoteNotificationView() }
                     }
                 }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
@@ -775,6 +776,25 @@ private struct SandboxReportView: View {
                 Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
             }
         }.navigationTitle("お手入れレポート")
+    }
+}
+
+private struct DevelopmentRemoteNotificationView: View {
+    @EnvironmentObject private var store: NativeStore
+    @EnvironmentObject private var notifications: RemoteNotificationDelegate
+    var body: some View {
+        Form {
+            Section("この端末の通知先") {
+                Text(store.developmentRemoteNotificationsRegistered ? "登録済み" : "未登録")
+                Button("通知を許可して登録する") {
+                    Task { await store.registerDevelopmentRemoteNotifications { try await notifications.requestToken() } }
+                }.disabled(store.busy)
+                Button("この端末の通知先を停止する") {
+                    Task { await store.disableDevelopmentRemoteNotifications() }
+                }.disabled(store.busy || !store.developmentRemoteNotificationsRegistered)
+                Text("通知先の登録と停止を確認するテストです。予定に基づく通知配信はまだ開始していません。通常版ではこの画面を表示しません。").font(.caption)
+            }
+        }.navigationTitle("iPhone通知のテスト")
     }
 }
 
