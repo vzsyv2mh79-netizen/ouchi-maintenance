@@ -1494,3 +1494,13 @@ test('OSH fit preserves dedicated color/capacity manuals and does not schedule p
  for(const[m,pdf]of[['ITW-50B01-W',112861],['ITW-50B01-B',112862],['ITW-60B01-W',112863],['ITW-60B01-B',112864]]){const[c]=lookup.lookupModel(m);assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,7]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[58,60].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[0].conditions,/衣類を入れず.*給水・一時停止.*酸性.*糸くずフィルター.*水栓を閉じ/);assert.match(c.suggestions[1].conditions,/洗いを0分・すすぎを0回.*30分.*槽洗浄/);assert.match(c.lookupNote,/洗濯のたび.*汚れたら.*固定の日数/);assert.ok(c.suggestions.every(x=>!x.name.includes('フィルター')&&!x.name.includes('投入')));assert.equal(lookup.lookupModel(m+'X').length,0);}
  assert.equal(lookup.lookupModel('ITW-50B01').length,0);assert.equal(lookup.lookupModel('ITW-60B01').length,0);
 });
+
+
+test('2023 OSH auto-dose washers preserve quarterly tank cleaning without inventing weekly tub drying', () => {
+ for (const [model,pdf,wash,tank,buttons] of [['TCW-80A01-W','104373',74,76,/洗剤2と柔軟剤1/],['ITW-80A01-W','104612',68,70,/洗剤と柔軟剤/]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));
+  assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[wash,tank].map(n=>c.manualUrl+'#page='+n));
+  assert.match(c.suggestions[1].conditions,buttons);assert.match(c.suggestions[1].conditions,/1か月以上未使用.*ゼリー状.*40℃以下.*3秒以上.*水を捨て.*内部にも液剤を充填/);
+  assert.match(c.lookupNote,/定期的に.*日数指定はありません/);assert.ok(!c.suggestions.some(x=>x.name.includes('槽乾燥')));assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+});
