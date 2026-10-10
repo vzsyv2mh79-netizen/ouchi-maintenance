@@ -31,6 +31,12 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await write({...event,signedAt:101,revokedAt:101})).data,'updated');assert.equal((await write(event)).data,'ignored');
   assert.equal((await write({...event,environment:'Production'})).data,'inserted');
   assert.ok((await user.rpc('apply_maintenance_verified_transaction',{payload:event,proof_sha256:'a'.repeat(64)})).error);
+  const readArgs={target_user:id,verified_session:claims.session_id,target_epoch:binding.data,target_environment:'Sandbox'};
+  const state=await admin.rpc('read_maintenance_verified_entitlement',readArgs);assert.equal(state.error,null);assert.equal(state.data.plan,'free');
+  const now=Date.now();assert.equal((await write({...event,transactionId:'101',originalTransactionId:'11',signedAt:now,purchasedAt:now-10000,expiresAt:now+3600000})).error,null);
+  assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'premium');
+  assert.equal((await admin.rpc('read_maintenance_verified_entitlement',{...readArgs,target_environment:'Production'})).data.plan,'free');
+  assert.ok((await user.rpc('read_maintenance_verified_entitlement',readArgs)).error);
   assert.ok((await user.rpc('load_household')).data.homes.some(row=>row.id===home));
   const second=createClient(origin,'synthetic-public-key',options),login=await second.auth.signInWithPassword({email,password});assert.equal(login.error,null);
   const secondClaims=JSON.parse(Buffer.from(login.data.session.access_token.split('.')[1],'base64url'));assert.notEqual(secondClaims.session_id,claims.session_id);assert.equal((await bind(secondClaims.session_id)).data,binding.data);
