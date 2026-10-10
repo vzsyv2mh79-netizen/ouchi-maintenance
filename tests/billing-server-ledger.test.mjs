@@ -94,3 +94,15 @@ test('actual recovery adapter uses exact job lease RPC and refuses malformed see
 
  }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
 });
+
+test('actual renewal-only adapter pairs only the exact verified ledger period',async()=>{
+ const epoch='11111111-1111-4111-8111-111111111111',config={storage:'verified-ledger',environment:'Sandbox',bundleId:'test.ouchi'};
+ const row={environment:'Sandbox',transactionId:'2',originalTransactionId:'1',productId:'ouchi.premium.monthly',accountToken:epoch,signedAt:200,purchasedAt:100,expiresAt:300,isUpgraded:false};
+ const renewal={environment:'Sandbox',originalTransactionId:'1',productId:'ouchi.premium.monthly',appAccountToken:epoch,signedDate:250,renewalDate:300,autoRenewStatus:1};
+ let observed;const db={rpc:async(name,args)=>{observed={name,args};return {data:row,error:null};}};
+ assert.equal((await server.pairBillingRenewalOnly(db,config,renewal)).accountToken,epoch);
+ assert.deepEqual(observed,{name:'read_maintenance_original_transaction',args:{target_environment:'Sandbox',target_original:'1'}});
+ for(const patch of [{environment:'Production'},{originalTransactionId:'3'},{expiresAt:400},{productId:'ouchi.premium.annual'},{accountToken:'22222222-2222-4222-8222-222222222222'}])await assert.rejects(()=>server.pairBillingRenewalOnly({rpc:async()=>({data:{...row,...patch},error:null})},config,renewal));
+ for(const result of [{data:null,error:null},{data:row,error:Error('outage')}])await assert.rejects(()=>server.pairBillingRenewalOnly({rpc:async()=>result},config,renewal));
+ await assert.rejects(()=>server.verifyBillingRenewalOnly('e30.e30.c2ln',{...config,certificates:[]}));
+});

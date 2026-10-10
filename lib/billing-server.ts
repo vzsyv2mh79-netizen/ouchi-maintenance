@@ -1,3 +1,4 @@
+import {verifiedRenewalLocator} from './billing-renewal-locator';
 import {normalizeRecoveryStatus} from './billing-recovery-status';
 import {createBillingFetch} from './billing-fetch';
 import {runRecoveryJob,parseRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
@@ -161,4 +162,21 @@ export async function billingRecoveryStatusAfterAuth(db:ReturnType<typeof billin
  const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Recovery session unavailable');
  const result=await db.rpc('read_maintenance_reconciliation_status',{target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:config.environment});
  if(result.error)throw new Error('Recovery status unavailable');return normalizeRecoveryStatus(result.data,config.environment);
+}
+
+/** Verify renewal-only proof before any original-transaction lookup. Does not grant rights. */
+export async function verifyBillingRenewalOnly(jws:string,config:NonNullable<ReturnType<typeof billingConfiguration>>){
+ if(!jws||Buffer.byteLength(jws)>131072)throw new Error('Invalid renewal proof');
+ const value=await billingVerifier(config).verifyAndDecodeRenewalInfo(jws) as unknown as Record<string,unknown>;
+ verifiedRenewalLocator(value,config.environment);return value;
+}
+/** Pair the already Apple-verified renewal only with the permanently owned service ledger period. */
+export async function pairBillingRenewalOnly(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,value:Record<string,unknown>){
+ if(config.storage!=='verified-ledger')throw new Error('Renewal pairing unavailable');
+ const locator=verifiedRenewalLocator(value,config.environment),result=await db.rpc('read_maintenance_original_transaction',{target_environment:config.environment,target_original:locator.originalTransactionId});
+ if(result.error||!result.data||typeof result.data!=='object'||Array.isArray(result.data))throw new Error('Renewal period unavailable');
+ const row=result.data as Record<string,unknown>;
+ if(typeof row.accountToken!=='string'||row.originalTransactionId!==locator.originalTransactionId)throw new Error('Renewal ownership unavailable');
+ const transaction=normalizeOwnedLedgerSeed(row,config.environment,row.accountToken,config.bundleId);
+ return normalizeVerifiedRenewal(value,transaction,config.environment);
 }

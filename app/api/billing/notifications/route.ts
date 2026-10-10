@@ -1,4 +1,4 @@
-import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal,persistBillingRenewal} from '@/lib/billing-server';
+import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal,persistBillingRenewal,verifyBillingRenewalOnly,pairBillingRenewalOnly} from '@/lib/billing-server';
 import type {VerifiedTransaction} from '@/lib/billing';
 import type {VerifiedRenewal} from '@/lib/billing-renewal';
 import {normalizedVerifiedNotification,persistVerifiedNotification} from '@/lib/billing-notification-inbox';
@@ -10,6 +10,7 @@ export async function POST(request:Request){
  let signedTransaction:string|undefined;
  let signedRenewal:string|undefined;
  let renewal:VerifiedRenewal|undefined;
+ let unpairedRenewal:Record<string,unknown>|undefined;
  let signedPayload:string;
  let notification:Record<string,unknown>;
  try{
@@ -23,12 +24,14 @@ export async function POST(request:Request){
    transaction=await verifyBillingTransaction(signedTransaction,config);
    if(typeof data.signedRenewalInfo==='string'){signedRenewal=data.signedRenewalInfo;renewal=await verifyBillingRenewal(signedRenewal,transaction,config);}
   }
+  if(!transaction&&typeof data?.signedRenewalInfo==='string'){signedRenewal=data.signedRenewalInfo;unpairedRenewal=await verifyBillingRenewalOnly(signedRenewal,config);}
   normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
  }catch{return Response.json({error:'Invalid signed notification'},{status:400,headers});}
  // A valid Apple event must remain retryable if persistence or transport fails.
  // Do not classify a database outage as an invalid signature or acknowledge it.
  try{
   const database=billingDatabase(config);
+  if(unpairedRenewal)renewal=await pairBillingRenewalOnly(database,config,unpairedRenewal);
   if(transaction&&signedTransaction)await persistBillingTransaction(database,config,signedTransaction,transaction);
   if(renewal&&signedRenewal)await persistBillingRenewal(database,config,signedRenewal,renewal);
   const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
