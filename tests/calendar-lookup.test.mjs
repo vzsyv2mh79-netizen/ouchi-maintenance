@@ -1711,3 +1711,5 @@ test('CM-S100 preserves both intake panels and buttonless conditional drying',()
 });
 
 test('CM-T100 uses explicitly linked official tank and drying FAQ evidence',()=>{const [c]=lookup.lookupModel('CM-T100');assert.equal(c.releaseYear,2025);assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[14,7,30]);assert.match(c.suggestions[0].name,/左右/);assert.match(c.suggestions[1].sourceUrl,/179710$/);assert.match(c.lookupNote,/内部乾燥運転のボタンはありません/);assert.match(c.lookupNote,/2時間は運転時間/);assert.equal(lookup.lookupModel('CM-T1000').length,0);});
+
+test('CM-U100 has manufacturer-linked bilateral panel and conditional drying evidence',()=>{const [c]=lookup.lookupModel('CM-U100');assert.equal(c.releaseYear,2026);assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[14,7,30]);assert.match(c.suggestions[0].name,/左右/);assert.match(c.suggestions[0].sourceUrl,/179711$/);assert.match(c.suggestions[1].sourceUrl,/179710$/);assert.match(c.lookupNote,/内部乾燥運転のボタンはありません/);assert.match(c.lookupNote,/2時間は運転時間/);assert.equal(lookup.lookupModel('CM-U1000').length,0);});

@@ -584,3 +584,6 @@ Official select/contents verifies March 2024 release. Dedicated FAQs 179711 / 17
 
 ## SHARP CM-T100 (March 2025)
 Official select/contents proves March2025. Actual model FAQ query31 entries; panel click opens179711 alreadyfull-diagram-audited; downloaded public first20 FAQ HTML explicitly maps tank179710 and conditional drying179763. Same manufacturer-linked public source used intentionally, not inferred from resemblance. Three intervals14/7/30 and buttonless clothesdeodorization2Htimer conditional. CM-U100 release March2026 established; fullpanel mapping still to verify before addition. No manual agreement accepted.
+
+## SHARP CM-U100 (March 2026)
+Official select/contents confirms March2026. Actual model query UI all31 questions; visible panel link onclick postQaForm179711 inspected. Public model FAQ HTML explicitly maps tank179710 and internal drying179763. Shared official source association directly verified, not inferred from similarity. Full source diagrams previously audited. Bothpanels14/tank7/body30; no internal dry button, clothesdeodorization plus2Hofftimer conditional, duration not recurrence. No manual agreement accepted or bypassed.
