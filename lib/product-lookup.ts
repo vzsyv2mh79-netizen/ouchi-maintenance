@@ -18013,4 +18013,82 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "東芝",
+    "name": "ダストステーション付きコードレス掃除機",
+    "modelNumber": "VC-SL140DS",
+    "categoryId": "vacuum",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/vacuum_cleaners/vc-sl140ds/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=123&id=10&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+    "lookupNote": "2025年10月上旬発売。公式FAQの本文を確認した案内で、説明書PDFや動画の全手順を確認した案内ではありません。毎回の掃除後に本体をダストステーションへ戻し、ゴミを吸引させます。お知らせランプが点滅した場合も、まずダストステーションへ戻してください。ゴミ収集後もお知らせランプが点滅する場合や、頻繁に点滅・運転停止する場合は、ダストカップとプリーツフィルターをお手入れします。分解・洗浄・乾燥の詳しい手順は公式案内を確認してください。メーカーの約70日という目安は、試験ゴミを1日1g吸引し、1gごとにダストステーションへ吸引させ、DSお知らせランプが点滅するまで繰り返した試験に基づきます。一度に多くのゴミを吸った場合や、ゴミの状態・使用環境により、こまめなお手入れが必要です。70日まで清掃や交換が不要という保証ではありません。新搭載のゼオライトフィルターの清掃・交換周期は未確認です。約70日をゼオライトフィルターへ適用しません。本体フィルターの清掃とダストステーションの紙パック交換を混同せず、ランプの表示を優先してください。未確認の部品清掃・交換周期は推測していません。",
+    "suggestions": [
+      {
+        "name": "プリーツフィルターのお手入れ確認",
+        "kind": "掃除",
+        "intervalDays": 70,
+        "frequency": "約70日に1回の試験上の目安。点滅・運転停止時は前倒し",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+        "conditions": "メーカー試験ゴミ1g/日、1gごとにダストステーションへ吸引させた条件の目安で、使用環境により異なります。ゴミ収集後も点滅する場合や頻繁に点滅・停止する場合は、70日を待たずダストカップとプリーツフィルターをお手入れしてください。詳しい手順は公式お手入れ案内を確認します。"
+      }
+    ]
+  },
+  {
+    "maker": "東芝",
+    "name": "ダストステーション付きコードレス掃除機（シフォンベージュ）",
+    "modelNumber": "VC-SL140DS(C)",
+    "categoryId": "vacuum",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/vacuum_cleaners/vc-sl140ds/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=123&id=10&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+    "lookupNote": "2025年10月上旬発売。公式FAQの本文を確認した案内で、説明書PDFや動画の全手順を確認した案内ではありません。毎回の掃除後に本体をダストステーションへ戻し、ゴミを吸引させます。お知らせランプが点滅した場合も、まずダストステーションへ戻してください。ゴミ収集後もお知らせランプが点滅する場合や、頻繁に点滅・運転停止する場合は、ダストカップとプリーツフィルターをお手入れします。分解・洗浄・乾燥の詳しい手順は公式案内を確認してください。メーカーの約70日という目安は、試験ゴミを1日1g吸引し、1gごとにダストステーションへ吸引させ、DSお知らせランプが点滅するまで繰り返した試験に基づきます。一度に多くのゴミを吸った場合や、ゴミの状態・使用環境により、こまめなお手入れが必要です。70日まで清掃や交換が不要という保証ではありません。新搭載のゼオライトフィルターの清掃・交換周期は未確認です。約70日をゼオライトフィルターへ適用しません。本体フィルターの清掃とダストステーションの紙パック交換を混同せず、ランプの表示を優先してください。未確認の部品清掃・交換周期は推測していません。",
+    "suggestions": [
+      {
+        "name": "プリーツフィルターのお手入れ確認",
+        "kind": "掃除",
+        "intervalDays": 70,
+        "frequency": "約70日に1回の試験上の目安。点滅・運転停止時は前倒し",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+        "conditions": "メーカー試験ゴミ1g/日、1gごとにダストステーションへ吸引させた条件の目安で、使用環境により異なります。ゴミ収集後も点滅する場合や頻繁に点滅・停止する場合は、70日を待たずダストカップとプリーツフィルターをお手入れしてください。詳しい手順は公式お手入れ案内を確認します。"
+      }
+    ]
+  },
+  {
+    "maker": "東芝",
+    "name": "ダストステーション付きコードレス掃除機（アッシュブラック）",
+    "modelNumber": "VC-SL140DS(K)",
+    "categoryId": "vacuum",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/vacuum_cleaners/vc-sl140ds/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=123&id=10&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+    "lookupNote": "2025年10月上旬発売。公式FAQの本文を確認した案内で、説明書PDFや動画の全手順を確認した案内ではありません。毎回の掃除後に本体をダストステーションへ戻し、ゴミを吸引させます。お知らせランプが点滅した場合も、まずダストステーションへ戻してください。ゴミ収集後もお知らせランプが点滅する場合や、頻繁に点滅・運転停止する場合は、ダストカップとプリーツフィルターをお手入れします。分解・洗浄・乾燥の詳しい手順は公式案内を確認してください。メーカーの約70日という目安は、試験ゴミを1日1g吸引し、1gごとにダストステーションへ吸引させ、DSお知らせランプが点滅するまで繰り返した試験に基づきます。一度に多くのゴミを吸った場合や、ゴミの状態・使用環境により、こまめなお手入れが必要です。70日まで清掃や交換が不要という保証ではありません。新搭載のゼオライトフィルターの清掃・交換周期は未確認です。約70日をゼオライトフィルターへ適用しません。本体フィルターの清掃とダストステーションの紙パック交換を混同せず、ランプの表示を優先してください。未確認の部品清掃・交換周期は推測していません。",
+    "suggestions": [
+      {
+        "name": "プリーツフィルターのお手入れ確認",
+        "kind": "掃除",
+        "intervalDays": 70,
+        "frequency": "約70日に1回の試験上の目安。点滅・運転停止時は前倒し",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+        "conditions": "メーカー試験ゴミ1g/日、1gごとにダストステーションへ吸引させた条件の目安で、使用環境により異なります。ゴミ収集後も点滅する場合や頻繁に点滅・停止する場合は、70日を待たずダストカップとプリーツフィルターをお手入れしてください。詳しい手順は公式お手入れ案内を確認します。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
