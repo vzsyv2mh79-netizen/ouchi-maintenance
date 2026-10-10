@@ -41,3 +41,23 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+  rest:
+    profiles: [data-api]
+    image: postgrest/postgrest:v14.17
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3002:3000'
+    environment:
+      PGRST_DB_URI: postgres://authenticator:synthetic-ci-only@db:5432/auth_test
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      PGRST_ADMIN_SERVER_PORT: 3001
+      PGRST_SERVER_HOST: 0.0.0.0
+    healthcheck:
+      test: [CMD, postgrest, --ready]
+      interval: 2s
+      timeout: 3s
+      retries: 30
