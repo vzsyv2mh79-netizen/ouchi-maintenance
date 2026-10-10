@@ -32,7 +32,7 @@ export async function POST(request:Request){
    return {user,session:identity.sessionID,epoch,premium:entitlementFromTransactions(transactions,Date.now()).plan==='premium'};
   },
   reserve:async r=>{
-   const result=await db.rpc('reserve_maintenance_attachment',{...values(r),target_product:r.product,byte_count:r.file.size,media_type:r.file.mime});
+   const result=await db.rpc('reserve_maintenance_attachment',{...values(r),target_product:r.product,byte_count:r.file.size,media_type:r.file.mime,measured_sha256:r.file.sha256});
    if(result.error||result.data!==r.id)throw new Error('Reservation unavailable');
   },
   create:async r=>{

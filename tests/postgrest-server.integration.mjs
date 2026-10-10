@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac} from 'node:crypto';import {createClient} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
+import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash} from 'node:crypto';import {createClient} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const encoded=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const sessionModule=encoded(compile('lib/verified-app-session.ts'));
@@ -60,14 +60,16 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const old=await client.rpc('load_household');assert.equal(old.error,null);const oldHome=old.data.homes[0].id;
   const attachmentProduct=randomUUID();
   assert.equal((await client.from('products').insert({id:attachmentProduct,homeId:oldHome,categoryId:'synthetic',name:'Synthetic attachment product'})).error,null);
+  const bytes=new Uint8Array(5242880);bytes.set([137,80,78,71,13,10,26,10]);
+  const fileHash=createHash('sha256').update(bytes).digest('hex');
   const attachmentIDs=Array.from({length:21},()=>randomUUID());
-  const reserveAttachment=(attachment_id,byte_count=5242880,bearer=admin)=>bearer.rpc('reserve_maintenance_attachment',{target_user:id,verified_session:claims.session_id,expected_epoch:initialBinding.data,target_product:attachmentProduct,attachment_id,byte_count,media_type:'image/png'});
+  const reserveAttachment=(attachment_id,byte_count=5242880,bearer=admin,digest=fileHash)=>bearer.rpc('reserve_maintenance_attachment',{target_user:id,verified_session:claims.session_id,expected_epoch:initialBinding.data,target_product:attachmentProduct,attachment_id,byte_count,media_type:'image/png',measured_sha256:digest});
   const allocations=await Promise.all(attachmentIDs.map(attachment_id=>reserveAttachment(attachment_id)));
   assert.equal(allocations.filter(result=>!result.error).length,20);assert.equal(allocations.filter(result=>result.error).length,1);
   const successfulID=attachmentIDs[allocations.findIndex(result=>!result.error)];
   assert.equal((await reserveAttachment(successfulID)).error,null);
-  assert.ok((await reserveAttachment(successfulID,1)).error);
-  const finishAttachment=(actual_bytes=5242880,verified_sha256='a'.repeat(64))=>admin.rpc('finalize_maintenance_attachment',{target_user:id,verified_session:claims.session_id,expected_epoch:initialBinding.data,attachment_id:successfulID,actual_bytes,verified_sha256});
+  assert.ok((await reserveAttachment(successfulID,1)).error);assert.ok((await reserveAttachment(successfulID,5242880,admin,'b'.repeat(64))).error);
+  const finishAttachment=(actual_bytes=5242880,verified_sha256=fileHash)=>admin.rpc('finalize_maintenance_attachment',{target_user:id,verified_session:claims.session_id,expected_epoch:initialBinding.data,attachment_id:successfulID,actual_bytes,verified_sha256});
   assert.ok((await finishAttachment(1)).error);
   assert.equal((await finishAttachment()).error,null);assert.equal((await finishAttachment()).error,null);
   assert.ok((await finishAttachment(5242880,'b'.repeat(64))).error);
@@ -79,7 +81,6 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_ATTACHMENT_TEST_MODE:'true',OUCHI_ATTACHMENT_TEST_URL:'http://127.0.0.1:54321',OUCHI_ATTACHMENT_TEST_SERVICE_KEY:service});
   const {POST:attachmentPOST,GET:attachmentGET}=await actualAttachmentRoute();
   const objectID=attachmentIDs[allocations.findIndex((result,index)=>!result.error&&attachmentIDs[index]!==successfulID)];
-  const bytes=new Uint8Array(5242880);bytes.set([137,80,78,71,13,10,26,10]);
   const uploadRequest=()=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}&attachmentId=${objectID}`,{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'image/png','content-length':String(bytes.length)},body:bytes});
   const uploaded=await attachmentPOST(uploadRequest());assert.equal(uploaded.status,200);assert.equal((await uploaded.json()).saved,true);
   assert.equal((await attachmentPOST(uploadRequest())).status,200);
