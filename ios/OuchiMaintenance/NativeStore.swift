@@ -103,6 +103,24 @@ import OuchiCore
         }
         if expected == generation { busy = false }
     }
+    func uploadDevelopmentAttachment(product: UUID, attachment: UUID, bytes: Data, mime: String, confirmed: Bool) async -> Bool {
+        guard developmentLifecycleConfigured, !busy, let session, confirmed,
+              household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
+        busy = true; message = nil
+        let expected = generation
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation else { return false }
+            try await DevelopmentAttachmentAPI().upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
+            guard expected == generation else { return false }
+            message = "テスト用ファイルの保存をサーバーで確認しました。"
+            return true
+        } catch {
+            if expected == generation { message = "保存完了を確認できません。ファイルを選び直さず、同じ添付IDで再確認してください。" }
+            return false
+        }
+    }
     func restore() async {
         let expected = generation
         await reminders.reset(clearPreference: false)

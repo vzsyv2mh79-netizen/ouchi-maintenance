@@ -166,7 +166,10 @@ private struct NativeSettings: View {
                     NavigationLink("レポートのSandbox確認") { SandboxReportView() }
                 } }
                 if store.developmentLifecycleConfigured {
-                    Section("開発用") { NavigationLink("アカウント処理のテスト") { DevelopmentLifecycleView() } }
+                    Section("開発用") {
+                        NavigationLink("アカウント処理のテスト") { DevelopmentLifecycleView() }
+                        NavigationLink("写真・保証書の保存テスト") { DevelopmentAttachmentView() }
+                    }
                 }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
@@ -802,5 +805,70 @@ private struct DevelopmentLifecycleView: View {
             Button("キャンセル", role: .cancel) {}
         } message: { Text(reenrolling ? "過去の記録や古いログインのアクセス権は復元しません。" : "所有するテスト用の住まいと共有への参加情報を削除します。元に戻せません。Appleの定期購入は別途管理してください。") }
         .onDisappear { password = ""; confirming = false }
+    }
+}
+
+private struct DevelopmentAttachmentView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var productID = ""
+    @State private var choosingFile = false
+    @State private var bytes: Data?
+    @State private var mime = ""
+    @State private var filename = ""
+    @State private var attachmentID = UUID()
+    @State private var confirmUpload = false
+    @State private var status: String?
+    var body: some View {
+        Form {
+            Section("独立したテスト環境専用") {
+                Text("実際の写真や個人情報を含む保証書を使わず、テスト用ファイルで確認してください。公開版の保管機能はまだ有効にしていません。")
+                Text("1ファイル5MiB、合計100MiB・100ファイルまで。JPEG・PNG・PDFに対応します。")
+            }
+            Section("添付先") {
+                Picker("製品", selection: $productID) {
+                    Text("選択してください").tag("")
+                    ForEach(store.household?.products(in: store.homeID) ?? []) { product in
+                        Text(product.name).tag(product.id)
+                    }
+                }.disabled(bytes != nil || store.busy)
+            }
+            Section("ファイル") {
+                Button("テスト用ファイルを選択") { choosingFile = true }.disabled(bytes != nil || store.busy || UUID(uuidString: productID) == nil)
+                if let bytes {
+                    Text(filename)
+                    Text("\(bytes.count)バイト / 添付ID: \(attachmentID.uuidString)").font(.caption)
+                    Button("保存・同じIDで再確認") { confirmUpload = true }.disabled(store.busy)
+                }
+                if let status { Text(status) }
+            }
+        }.navigationTitle("添付のテスト")
+        .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.jpeg, .png, .pdf]) { result in
+            do {
+                let file = try result.get()
+                let access = file.startAccessingSecurityScopedResource()
+                defer { if access { file.stopAccessingSecurityScopedResource() } }
+                let count = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+                guard count > 0, count <= 5 * 1024 * 1024 else { throw CloudError.invalidInput }
+                let type = UTType(filenameExtension: file.pathExtension)
+                let media = type == .jpeg ? "image/jpeg" : type == .png ? "image/png" : type == .pdf ? "application/pdf" : ""
+                guard !media.isEmpty else { throw CloudError.invalidInput }
+                let data = try Data(contentsOf: file)
+                guard !data.isEmpty, data.count <= 5 * 1024 * 1024 else { throw CloudError.invalidInput }
+                bytes = data; mime = media; filename = file.lastPathComponent; attachmentID = UUID(); status = nil
+            } catch { status = "JPEG・PNG・PDFの5MiB以下のファイルを選択してください。" }
+        }
+        .confirmationDialog("テスト環境へこのファイルを保存しますか？", isPresented: $confirmUpload, titleVisibility: .visible) {
+            Button("テスト用ファイルを送信") {
+                guard let bytes, let product = UUID(uuidString: productID) else { return }
+                let id = attachmentID, media = mime
+                Task {
+                    if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
+                        self.bytes = nil; filename = ""; mime = ""
+                    }
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
+        }
+        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false }
     }
 }

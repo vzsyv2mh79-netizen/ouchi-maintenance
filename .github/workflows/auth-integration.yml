@@ -45,7 +45,10 @@ jobs:
         run: node --test tests/postgrest-server.integration.mjs
       - name: Diagnose disposable Auth failures
         if: failure()
-        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api logs --no-color --tail 120 auth db rest storage
+        run: |
+          docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api logs --no-color --tail 120 auth db rest storage
+          storage_id=$(docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api ps -q storage)
+          if [ -n "$storage_id" ]; then docker inspect --format '{{json .State.Health}}' "$storage_id"; fi
       - name: Remove only this run's disposable containers and volumes
         if: always()
         run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api down --volumes

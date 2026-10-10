@@ -136,3 +136,44 @@ public struct DevelopmentAccountLifecycleAPI: Sendable {
         return body
     }
 }
+
+/// Disposable loopback attachment tests only. Production transport is unavailable.
+public struct DevelopmentAttachmentAPI: Sendable {
+    private let transport: HouseholdAPI.Transport
+    public init(transport: HouseholdAPI.Transport? = nil) {
+        self.transport = transport ?? { request in
+            #if DEBUG
+            let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+            let (bytes, response) = try await session.data(for: request)
+            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            return (bytes, response)
+            #else
+            throw CloudError.rejected(503)
+            #endif
+        }
+    }
+    /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
+    public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool) async throws {
+        guard confirmed, !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024,
+              ["image/jpeg", "image/png", "application/pdf"].contains(mime),
+              product.uuidString != "00000000-0000-0000-0000-000000000000",
+              attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
+        let url = components.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue(mime, forHTTPHeaderField: "Content-Type")
+        request.setValue(String(bytes.count), forHTTPHeaderField: "Content-Length")
+        request.httpBody = bytes
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        struct Result: Decodable { let saved: Bool; let attachmentId: UUID }
+        let result = try JSONDecoder().decode(Result.self, from: body)
+        guard result.saved, result.attachmentId == attachment else { throw CloudError.malformedResponse }
+    }
+}
