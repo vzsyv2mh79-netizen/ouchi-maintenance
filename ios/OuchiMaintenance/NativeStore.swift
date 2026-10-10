@@ -220,19 +220,40 @@ import OuchiCore
         return false
         #endif
     }
-    func testTip(_ product: Product) async {
-        guard !busy, sandboxBillingConfigured, product.type == .consumable,
-              ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains(product.id), let session else { return }
+    func testTip(_ product: Product) async { await testSandboxPurchase(product, subscription: false) }
+    func testSubscription(_ product: Product) async { await testSandboxPurchase(product, subscription: true) }
+    private func testSandboxPurchase(_ product: Product, subscription: Bool) async {
+        guard !busy, sandboxBillingConfigured, let session else { return }
+        if subscription {
+            guard product.type == .autoRenewable,
+                  ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(product.id),
+                  let period = product.subscription?.subscriptionPeriod,
+                  period.value == 1,
+                  (product.id == "ouchi.premium.monthly" && period.unit == .month) ||
+                  (product.id == "ouchi.premium.annual" && period.unit == .year) else { return }
+        } else {
+            guard product.type == .consumable,
+                  ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains(product.id) else { return }
+        }
         busy = true; message = nil
         let expected = generation
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            if subscription {
+                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                guard expected == generation, rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
+                sandboxEntitlement = rights
+                guard !rights.premiumIsCurrent() else {
+                    message = "有効なテスト用契約があります。新しく購入せず、購入の復元から確認してください。"
+                    return
+                }
+            }
             let outcome = try await purchases.purchase(product, account: purchaseAccount)
             guard expected == generation else { return }
             switch outcome {
-            case .saved: message = "Sandboxのチップを記録しました。実際の請求はありません。"
+            case .saved: message = subscription ? "Sandboxの契約を確認しました。実際の請求はありません。" : "Sandboxのチップを記録しました。実際の請求はありません。"
             case .pending: message = "購入は保留中です。承認後の結果を確認します。"
             case .cancelled: break
             }

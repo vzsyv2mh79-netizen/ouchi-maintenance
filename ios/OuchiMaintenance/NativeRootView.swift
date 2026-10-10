@@ -162,6 +162,7 @@ private struct NativeSettings: View {
             Form {
                 if store.sandboxBillingConfigured { Section("開発用") {
                     NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) }
+                    NavigationLink("有料プランのSandbox確認") { SandboxSubscriptionView(purchases: store.purchases) }
                     NavigationLink("レポートのSandbox確認") { SandboxReportView() }
                 } }
                 if store.developmentLifecycleConfigured {
@@ -666,6 +667,74 @@ private struct SandboxTipView: View {
              if let product = selected { Button("\(product.displayPrice)のチップをテスト") { selected = nil; Task { await store.testTip(product) } } }
              Button("キャンセル", role: .cancel) { selected = nil }
          }.onDisappear { selected = nil }
+    }
+}
+
+private struct SandboxSubscriptionView: View {
+    @EnvironmentObject private var store: NativeStore
+    @ObservedObject var purchases: PurchaseManager
+    @State private var selected: Product?
+    @State private var loading = false
+    @State private var status: String?
+    private var plans: [Product] {
+        purchases.products.filter {
+            guard $0.type == .autoRenewable, let period = $0.subscription?.subscriptionPeriod,
+                  period.value == 1 else { return false }
+            return ($0.id == "ouchi.premium.monthly" && period.unit == .month) ||
+                   ($0.id == "ouchi.premium.annual" && period.unit == .year)
+        }.sorted { $0.price < $1.price }
+    }
+    private func period(_ product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else { return "期間未確認" }
+        switch period.unit {
+        case .day: return "\(period.value)日"
+        case .week: return "\(period.value)週間"
+        case .month: return "\(period.value)か月"
+        case .year: return "\(period.value)年"
+        @unknown default: return "期間未確認"
+        }
+    }
+    var body: some View {
+        List {
+            Section("Sandbox専用") {
+                Text("販売前の動作確認です。実際の請求は有効にしていません。")
+                Text("確認できる特典は、住まい全体のお手入れレポートです。写真・保証書の保管や細かな通知設定は含みません。")
+                Text("基本の家電登録、記録、家族共有、書き出しは無料のままです。契約終了後も記録は消えません。")
+            }
+            Section("Appleから取得したプラン") {
+                ForEach(plans) { product in
+                    Button { selected = product } label: {
+                        VStack(alignment: .leading) {
+                            Text(product.displayName)
+                            Text("\(product.displayPrice) / \(period(product))・自動更新").font(.caption)
+                        }
+                    }.disabled(store.busy || loading || store.sandboxEntitlement?.premiumIsCurrent() == true)
+                }
+                if plans.isEmpty { Text("商品情報を取得してから価格と契約期間を表示します。") }
+                Button(loading ? "読込中…" : "商品情報を読み込む") {
+                    loading = true; status = nil
+                    Task { defer { loading = false }; do { try await purchases.load() } catch { status = "商品情報を取得できませんでした。" } }
+                }.disabled(loading || store.busy)
+                if let status { Text(status) }
+            }
+            Section("契約と復元") {
+                Text("契約は解約するまで自動更新されます。iPhoneの設定 → 自分の名前 → サブスクリプションから契約の確認・解約ができます。")
+                Button("購入を復元・契約を確認") { Task { await store.restoreSandboxPurchases() } }.disabled(store.busy)
+                Text("有効な契約がある場合は新規購入を止めます。Webでも同じアカウントの確認済み利用権を使います。")
+            }
+            Section("公開前の準備") {
+                Text("正式な利用規約・プライバシーポリシーのリンク、運営者、問い合わせ窓口は公開前に確定します。この画面は正式な販売画面ではありません。")
+            }
+        }.navigationTitle("プランのテスト")
+        .confirmationDialog("自動更新契約のSandboxテスト", isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } }), titleVisibility: .visible) {
+            if let product = selected {
+                Button("\(product.displayPrice) / \(period(product))でテスト") {
+                    selected = nil; Task { await store.testSubscription(product) }
+                }
+            }
+            Button("キャンセル", role: .cancel) { selected = nil }
+        } message: { Text("Sandbox専用です。テスト契約は自動更新されます。") }
+        .onDisappear { selected = nil }
     }
 }
 
