@@ -83,3 +83,22 @@ Use synthetic users in a local isolated database, never owner/family live data:
 
 This audit narrows the backend changes required; implementation and these runtime
 checks remain unfinished. Do not expose the existing erase RPC as full deletion.
+
+
+## Isolated access-control prototype
+
+Tests/Fixtures/account-access-prototype.sql is test-only, NOT a deployable
+migration and NOT deletion. Tests/account-access-prototype.test.mjs executes
+existing repository home/sharing migrations plus restrictive account-enabled
+policies in in-memory PGlite. It verified former identity reads/update/create/load
+are denied, authenticated self-enabling is denied, another synthetic user remains
+usable, and synthetic other-app data/shared Auth identities remain unchanged.
+Run from full repository root: node --test ios/Tests/account-access-prototype.test.mjs.
+
+The fixture intentionally covers only homes/products/members. SECURITY DEFINER
+invite acceptance, push/restore/billing/storage gates, concurrent cleanup,
+identity epochs, enrollment, credential/PII deletion and API recent-auth checks
+are NOT implemented or tested by this prototype. Never deploy it as account
+closure or infer Apple compliance from the passing isolated test. The persistent
+marker itself needs a justified retention design before actual account erasure.
+No production policies or user records were changed.
