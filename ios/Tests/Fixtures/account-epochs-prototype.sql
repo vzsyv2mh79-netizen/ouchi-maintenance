@@ -90,3 +90,11 @@ begin
 end;$$;
 revoke all on function public.close_maintenance_app_identity(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.close_maintenance_app_identity(uuid,uuid) to service_role;
+
+-- Local-only API adapter. Caller/session must come from server-verified Auth.
+create function public.reenroll_maintenance_app_identity(target_user uuid, verified_session uuid) returns uuid
+language sql security invoker set search_path='' as $$
+ select maintenance_private.reenroll_app_identity(target_user,verified_session)
+$$;
+revoke all on function public.reenroll_maintenance_app_identity(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.reenroll_maintenance_app_identity(uuid,uuid) to service_role;

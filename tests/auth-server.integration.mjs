@@ -63,7 +63,7 @@ test('real Auth session drives isolated closure and explicit reenrollment withou
   const checked=await client().auth.getUser(next.data.session.access_token);assert.equal(checked.error,null);
   const fresh=sessionAfterAuthVerification(next.data.session.access_token,checked.data.user.id);assert.ok(fresh);assert.notEqual(fresh.sessionID,extracted.sessionID);
   await user(fresh);await assert.rejects(()=>db.query('select public.load_household()'));
-  const reenrollDependencies={verify:dependencies.verify,reauthenticate:dependencies.reauthenticate,enroll:async(id,session)=>{await service();return (await db.query('select maintenance_private.reenroll_app_identity($1,$2) as epoch',[id,session])).rows[0].epoch;}};
+  const reenrollDependencies={verify:dependencies.verify,reauthenticate:dependencies.reauthenticate,enroll:async(id,session)=>{await service();return (await db.query('select public.reenroll_maintenance_app_identity($1,$2) as epoch',[id,session])).rows[0].epoch;}};
   const reenroll=(token,confirmation='REENROLL_OUCHI_MAINTENANCE')=>new Request('http://localhost/api/development/account-reenrollment',{method:'POST',headers:{authorization:'Bearer '+token},body:JSON.stringify({confirmation,password})});
   assert.equal((await handleTestAccountReenrollment(reenroll(next.data.session.access_token,'DELETE_OUCHI_MAINTENANCE'),reenrollDependencies)).status,400);
   assert.equal((await handleTestAccountReenrollment(reenroll(bearer),reenrollDependencies)).status,503);
