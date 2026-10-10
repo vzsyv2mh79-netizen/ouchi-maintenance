@@ -1,4 +1,4 @@
-import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction} from '@/lib/billing-server';
+import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal} from '@/lib/billing-server';
 import type {VerifiedTransaction} from '@/lib/billing';
 import {normalizedVerifiedNotification,persistVerifiedNotification} from '@/lib/billing-notification-inbox';
 export const runtime='nodejs';
@@ -18,6 +18,7 @@ export async function POST(request:Request){
   if(typeof data?.signedTransactionInfo==='string'){
    signedTransaction=data.signedTransactionInfo;
    transaction=await verifyBillingTransaction(signedTransaction,config);
+   if(typeof data.signedRenewalInfo==='string')await verifyBillingRenewal(data.signedRenewalInfo,transaction,config);
   }
   normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
  }catch{return Response.json({error:'Invalid signed notification'},{status:400,headers});}

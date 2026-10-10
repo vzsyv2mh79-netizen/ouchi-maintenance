@@ -13,6 +13,8 @@ test('actual Apple verifier factory binds Production scope and rejects unsigned 
  const verifier=server.billingVerifier({certificates:[],environment:'Production',bundleId:'test.ouchi',appAppleId:123456789});
  assert.equal(verifier.environment,'Production');assert.equal(verifier.bundleId,'test.ouchi');assert.equal(verifier.appAppleId,123456789);assert.equal(verifier.enableOnlineChecks,true);
  await assert.rejects(()=>verifier.verifyAndDecodeTransaction('e30.e30.c2ln'));
+ await assert.rejects(()=>verifier.verifyAndDecodeRenewalInfo('e30.e30.c2ln'));
+ await assert.rejects(()=>server.verifyBillingRenewal('e30.e30.c2ln',{}, {certificates:[],environment:'Production',bundleId:'test.ouchi',appAppleId:123456789}));
  assert.throws(()=>server.billingVerifier({certificates:[],environment:'Production',bundleId:'test.ouchi'}));
 });
 test('billing configuration keeps production disabled and rejects unknown storage mode',()=>{

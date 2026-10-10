@@ -3,6 +3,7 @@ import {SignedDataVerifier,Environment} from '@apple/app-store-server-library';
 import {createClient} from '@supabase/supabase-js';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
 import {normalizeAppleTransaction} from './billing';
+import {normalizeVerifiedRenewal} from './billing-renewal';
 import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
@@ -28,6 +29,11 @@ export function billingVerifier(config:NonNullable<ReturnType<typeof billingConf
 export async function verifyBillingTransaction(jws:string,config:NonNullable<ReturnType<typeof billingConfiguration>>){
  const value=await billingVerifier(config).verifyAndDecodeTransaction(jws);
  return normalizeAppleTransaction(value as unknown as Record<string,unknown>,config.bundleId,config.environment);
+}
+/** No renewal flag is trusted before Apple verifies this separate signed payload. */
+export async function verifyBillingRenewal(jws:string,transaction:VerifiedTransaction,config:NonNullable<ReturnType<typeof billingConfiguration>>){
+ const value=await billingVerifier(config).verifyAndDecodeRenewalInfo(jws);
+ return normalizeVerifiedRenewal(value as unknown as Record<string,unknown>,transaction,config.environment);
 }
 export {readBillingBody} from './billing-body';
 
