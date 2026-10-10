@@ -18169,4 +18169,57 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "東芝",
+    "name": "トルネオ コードレス掃除機",
+    "modelNumber": "VC-CLW34",
+    "categoryId": "vacuum",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/vacuum_cleaners/vc-clw34/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1184&id=2398&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+    "lookupNote": "2025年11月上旬発売、シフォンベージュC。VC-CLWシリーズ共通の公開FAQ本文による案内です。説明書PDF・動画の全手順は未確認です。ヘッドは週に1〜2度点検。予定4日はアプリ換算です。吸引力が弱く感じたり、お手入れランプが点滅したらダストカップをお手入れしてください。汚れやニオイが気になる時はダストカップ・回転ブラシの水洗いを公式製品情報で案内しています。本体丸洗いの案内ではありません。分解・洗浄・乾燥・組立の詳しい手順は公式案内を確認してください。未確認の清掃・交換周期は推測せず、他DS機種の70日・90日目安は適用しません。",
+    "suggestions": [
+      {
+        "name": "ヘッドの汚れ・絡まりの点検",
+        "kind": "掃除",
+        "intervalDays": 4,
+        "frequency": "週に1〜2度点検（予定4日はアプリ換算）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1184&id=2398&page=1",
+        "conditions": "VC-CLWシリーズ共通の公式FAQによる点検頻度です。毎回水洗いや交換する指示ではありません。汚れが気になる場合は前倒しし、清掃方法は公式案内を確認してください。"
+      }
+    ]
+  },
+  {
+    "maker": "東芝",
+    "name": "トルネオ コードレス掃除機",
+    "modelNumber": "VC-CLW34(C)",
+    "categoryId": "vacuum",
+    "productUrl": "https://www.toshiba-lifestyle.com/jp/vacuum_cleaners/vc-clw34/",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1184&id=2398&page=1",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.toshiba-lifestyle.com/jp/press/2025/09/10/3387/",
+    "lookupNote": "2025年11月上旬発売、シフォンベージュC。VC-CLWシリーズ共通の公開FAQ本文による案内です。説明書PDF・動画の全手順は未確認です。ヘッドは週に1〜2度点検。予定4日はアプリ換算です。吸引力が弱く感じたり、お手入れランプが点滅したらダストカップをお手入れしてください。汚れやニオイが気になる時はダストカップ・回転ブラシの水洗いを公式製品情報で案内しています。本体丸洗いの案内ではありません。分解・洗浄・乾燥・組立の詳しい手順は公式案内を確認してください。未確認の清掃・交換周期は推測せず、他DS機種の70日・90日目安は適用しません。",
+    "suggestions": [
+      {
+        "name": "ヘッドの汚れ・絡まりの点検",
+        "kind": "掃除",
+        "intervalDays": 4,
+        "frequency": "週に1〜2度点検（予定4日はアプリ換算）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://faq-toshiba-lifestyle.dga.jp/answer.html?category=1184&id=2398&page=1",
+        "conditions": "VC-CLWシリーズ共通の公式FAQによる点検頻度です。毎回水洗いや交換する指示ではありません。汚れが気になる場合は前倒しし、清掃方法は公式案内を確認してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
