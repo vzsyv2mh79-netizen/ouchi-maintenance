@@ -1,0 +1,2 @@
+# Preserve the Web-exported ICS byte contract in calendar regression fixtures.
+ios/Tests/Fixtures/web-calendar.ics -text
