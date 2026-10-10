@@ -4,16 +4,29 @@ import UniformTypeIdentifiers
 
 struct NativeRootView: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.colorScheme) private var appearance
+    @AppStorage("ouchi.appearance") private var preferredAppearance = "system"
     var body: some View {
         Group {
             if store.signedIn {
                 TabView {
+                    HomeDashboard().tabItem { Label("ホーム", systemImage: "house") }
                     CareList().tabItem { Label("やること", systemImage: "checklist") }
                     ApplianceList().tabItem { Label("製品", systemImage: "square.grid.2x2") }
                     HistoryList().tabItem { Label("履歴", systemImage: "clock.arrow.circlepath") }
                     NativeSettings().tabItem { Label("設定", systemImage: "gearshape") }
                 }
             } else { SignInView() }
+        }
+        .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
+        .safeAreaInset(edge: .top) {
+            HStack {
+                Spacer()
+                Button {
+                    preferredAppearance = appearance == .dark ? "light" : "dark"
+                } label: { Image(systemName: appearance == .dark ? "sun.max" : "moon").frame(width: 44, height: 44) }
+                .accessibilityLabel(appearance == .dark ? "ライトモードに切り替える" : "ダークモードに切り替える")
+            }.padding(.horizontal).background(.bar)
         }
         .tint(Color(red: 0.125, green: 0.357, blue: 0.251))
         .alert("おうちメンテ", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
@@ -492,5 +505,43 @@ private struct HomeEditor: View {
         }.navigationTitle(initial == nil ? "住まいを追加" : "住まいを編集")
          .onAppear { if !loaded { loaded = true; name = initial?.name ?? ""; kind = initial?.kind ?? "home" } }
          .interactiveDismissDisabled(store.busy)
+    }
+}
+
+private struct HomeDashboard: View {
+    @EnvironmentObject private var store: NativeStore
+    var body: some View {
+        NavigationStack {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                List {
+                    HomePicker()
+                    if let data = store.household {
+                        let overview = data.overview(home: store.homeID, now: context.date)
+                        Section(overview.today) {
+                            LabeledContent("期限を過ぎたお手入れ", value: "\(overview.overdue)件")
+                            LabeledContent("今日のお手入れ", value: "\(overview.dueToday)件")
+                            LabeledContent("明日から7日以内", value: "\(overview.upcoming)件")
+                        }
+                        Section("わが家の記録") {
+                            LabeledContent("登録製品", value: "\(overview.productCount)件")
+                            LabeledContent("今月の完了記録", value: "\(overview.completedThisMonth)件")
+                        }
+                        Section("次のお手入れ") {
+                            let tasks = Array(data.tasks(in: store.homeID).prefix(5))
+                            if tasks.isEmpty { Text("製品とお手入れを登録すると、ここに予定が表示されます。") }
+                            ForEach(tasks) { task in
+                                NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(task.name)
+                                        Text("\(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")・\(task.nextDueAt)").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }.refreshable { await store.reload() }
+            }.navigationTitle("おうちメンテ")
+             .toolbar { Button("再読み込み", systemImage: "arrow.clockwise") { Task { await store.reload() } }.disabled(store.busy) }
+        }
     }
 }
