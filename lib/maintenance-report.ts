@@ -21,10 +21,17 @@ export function maintenanceReport(data: AppData, homeId: string, now: number) {
   }
   const perProduct = products.map(product => ({
     productId: product.id, name: product.name,
-    completedThisMonth: history.filter(item => item.productId === product.id && item.completedAt.startsWith(today.slice(0, 7))).length,
-    overdue: tasks.filter(task => task.productId === product.id && task.nextDueAt < today).length,
-    dueToday: tasks.filter(task => task.productId === product.id && task.nextDueAt === today).length,
+    completedThisMonth: 0, overdue: 0, dueToday: 0,
   }));
+  const productTotals = new Map(perProduct.map(product => [product.productId, product]));
+  for (const task of tasks) {
+    const product = productTotals.get(task.productId)!;
+    if (task.nextDueAt < today) product.overdue += 1;
+    if (task.nextDueAt === today) product.dueToday += 1;
+  }
+  for (const item of history) {
+    if (item.completedAt.startsWith(today.slice(0, 7))) productTotals.get(item.productId)!.completedThisMonth += 1;
+  }
   return {
     homeId: home.id, homeName: home.name, generatedAt: new Date(now).toISOString(), today,
     productCount: products.length, taskCount: tasks.length,
