@@ -14,7 +14,8 @@ import OuchiCore
     private var snapshotAccount: UUID?
     private var snapshotStorage: HouseholdSnapshotStorage?
     private var pendingAttachmentStorage: PendingAttachmentStorage?
-    @Published private(set) var signedIn = false
+    @Published private(set) var signedIn = false { didSet { if !signedIn { accountEmail = nil } } }
+    @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
     @Published var message: String?
     @Published var homeID = "" { didSet { if oldValue != homeID { report = nil; reportGeneration += 1 } } }
@@ -252,6 +253,7 @@ import OuchiCore
             let restored = try await session.restore()
             guard expected == generation else { return }
             signedIn = restored
+            accountEmail = nil
             if signedIn {
                 let account = await session.localAccount()
                 guard expected == generation else { return }
@@ -272,6 +274,7 @@ import OuchiCore
         do {
             try await session.signIn(email: email, password: password)
             guard generation == expected else { return }
+            accountEmail = nil
             let account = await session.localAccount()
             guard expected == generation else { return }
             snapshotAccount = account
@@ -540,6 +543,7 @@ import OuchiCore
             let value = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
             snapshotAccount = credentials.user.id; showingOfflineSnapshot = false
+            accountEmail = credentials.user.email
             household = value
             await bindSandboxBilling(account: credentials.user.id)
             guard expected == generation else { return }
@@ -552,6 +556,7 @@ import OuchiCore
                 let accessDenied = error as? CloudError == .authenticationRequired || error as? CloudError == .rejected(401) || error as? CloudError == .rejected(403)
                 var localCleanupFailed = false
                 if accessDenied {
+                    accountEmail = nil
                     do { try snapshotStorage?.write(nil) } catch { localCleanupFailed = true }
                     snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
                     if !clearTemporaryExports() { localCleanupFailed = true }

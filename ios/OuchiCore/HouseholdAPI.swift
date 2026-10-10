@@ -42,7 +42,11 @@ public struct CloudConfiguration: Sendable {
 }
 
 public struct Session: Codable, Sendable {
-    public struct User: Codable, Sendable { public let id: UUID }
+    public struct User: Codable, Sendable {
+        public let id: UUID
+        public let email: String?
+        public init(id: UUID, email: String? = nil) { self.id = id; self.email = email }
+    }
     public let access_token: String
     public let refresh_token: String
     public let expires_at: Double

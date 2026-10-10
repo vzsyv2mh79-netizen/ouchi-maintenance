@@ -197,6 +197,13 @@ private struct NativeSettings: View {
                 }
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("アカウント") {
+                    if let email = store.accountEmail, !email.isEmpty {
+                        LabeledContent("ログイン中", value: email)
+                            .textSelection(.enabled)
+                    } else {
+                        Text("アカウント情報を確認するには、ホームで再読み込みしてください。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Button("ログアウト", role: .destructive) { confirmLogout = true }
                 }
             }.navigationTitle("設定")
