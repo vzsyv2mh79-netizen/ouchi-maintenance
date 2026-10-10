@@ -42,6 +42,14 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const readBinding=async(user,session)=>{assert.equal(user,id);const result=await binding(session);if(result.error)throw result.error;return result.data;};
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),initialBinding.data);
   assert.ok((await client.rpc('current_maintenance_purchase_account',{target_user:id,verified_session:claims.session_id})).error);
+  // Synthetic ledger events only: no Apple signature or purchase is claimed here.
+  const event={transactionId:'synthetic-'+randomUUID(),originalTransactionId:'synthetic-'+randomUUID(),accountToken:initialBinding.data,environment:'Sandbox',productId:'ouchi.premium.monthly',signedAt:Date.now(),purchasedAt:Date.now(),expiresAt:Date.now()+60000};
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error,null);
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error,null);
+  assert.ok((await client.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error);
+  assert.ok((await client.from('ouchi_sandbox_transactions').select('*')).error);
+  const ledger=epoch=>admin.from('ouchi_sandbox_transactions').select('user_id,app_epoch_id,payload').eq('user_id',id).eq('app_epoch_id',epoch);
+  const stored=await ledger(initialBinding.data);assert.equal(stored.error,null);assert.equal(stored.data.length,1);assert.equal(stored.data[0].user_id,id);
   const old=await client.rpc('load_household');assert.equal(old.error,null);const oldHome=old.data.homes[0].id;
   const forbidden=await client.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.ok(forbidden.error);
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic-public-key',OUCHI_CLOSURE_TEST_SERVICE_KEY:service});
@@ -65,6 +73,17 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const currentBinding=await binding(freshClaims.session_id);assert.equal(currentBinding.error,null);assert.equal(currentBinding.data,enrollment.epochID);assert.notEqual(currentBinding.data,initialBinding.data);
   assert.equal(await purchaseAccountAfterAuthVerification(login.data.session.access_token,freshVerified.data.user.id,readBinding),currentBinding.data);
   assert.equal((await binding(claims.session_id)).data,null);
+  const late={...event,signedAt:event.signedAt+1,expiresAt:event.expiresAt+60000};
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:late})).error,null);
+  const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data[0].payload.expiresAt,late.expiresAt);
+  const currentRows=await ledger(currentBinding.data);assert.equal(currentRows.error,null);assert.deepEqual(currentRows.data,[]);
+  assert.ok((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...late,accountToken:currentBinding.data}})).error);
+  const refunded={...late,signedAt:late.signedAt+1,revokedAt:late.signedAt+1};
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:refunded})).error,null);
+  assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error,null);
+  assert.equal((await ledger(initialBinding.data)).data[0].payload.revokedAt,refunded.revokedAt);
+  assert.deepEqual((await ledger(currentBinding.data)).data,[]);
+
   assert.ok((await client.rpc('load_household')).error);
   const fresh=await freshClient.rpc('load_household');assert.equal(fresh.error,null);assert.notEqual(fresh.data.homes[0].id,oldHome);
   assert.ok((await admin.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id})).error);
