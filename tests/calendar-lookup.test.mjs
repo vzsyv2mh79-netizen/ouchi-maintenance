@@ -1695,3 +1695,17 @@ test('Sharp 2024 dehumidifiers preserve model-specific tank evidence and cleanin
  for(const c of [small,large]){assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.manualLinkLabel,'メーカー公式お手入れ情報');assert.match(c.lookupNote,/本体は水洗い禁止/);assert.match(c.lookupNote,/40℃以下/);}
  assert.equal(lookup.lookupModel('CV-S710').length,0);
 });
+
+test('CM-S100 preserves both intake panels and buttonless conditional drying',()=>{
+ const [c]=lookup.lookupModel('CM-S100');
+ assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[14,7,30]);
+ assert.match(c.suggestions[0].name,/左右/);assert.match(c.suggestions[0].sourceUrl,/179711$/);
+ assert.match(c.suggestions[1].sourceUrl,/179710$/);
+ assert.match(c.lookupNote,/内部乾燥運転のボタンはありません/);
+ assert.match(c.lookupNote,/衣類消臭モードと2時間/);
+ assert.match(c.lookupNote,/2時間は運転時間/);
+ assert.match(c.lookupNote,/本体は水洗い禁止/);
+ assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.releaseYear,2024);
+ assert.equal(c.manualLinkLabel,'メーカー公式お手入れ情報');
+ assert.equal(lookup.lookupModel('CM-S1000').length,0);
+});
