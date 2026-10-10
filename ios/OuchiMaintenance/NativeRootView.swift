@@ -1,6 +1,7 @@
 import SwiftUI
 import OuchiCore
 import UniformTypeIdentifiers
+import StoreKit
 
 struct NativeRootView: View {
     @EnvironmentObject private var store: NativeStore
@@ -158,6 +159,7 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.sandboxBillingConfigured { Section("開発用") { NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) } } }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
                     NavigationLink("家族と共有") { FamilySettings() }
@@ -543,5 +545,42 @@ private struct HomeDashboard: View {
             }.navigationTitle("おうちメンテ")
              .toolbar { Button("再読み込み", systemImage: "arrow.clockwise") { Task { await store.reload() } }.disabled(store.busy) }
         }
+    }
+}
+
+private struct SandboxTipView: View {
+    @EnvironmentObject private var store: NativeStore
+    @ObservedObject var purchases: PurchaseManager
+    @State private var selected: Product?
+    @State private var loading = false
+    @State private var status: String?
+    private var tips: [Product] {
+        purchases.products.filter { ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains($0.id) && $0.type == .consumable }.sorted { $0.price < $1.price }
+    }
+    var body: some View {
+        List {
+            Section("開発を応援する（Sandbox確認）") {
+                Text("任意の一回払いです。サブスクリプションではなく、機能の特典はありません。この画面は開発用で、実際の請求は有効にしていません。")
+                ForEach(tips) { product in
+                    Button { selected = product } label: { HStack { Text(product.displayName); Spacer(); Text(product.displayPrice) } }.disabled(store.busy || loading)
+                }
+                if tips.isEmpty { Text("Appleの商品情報をまだ取得できていません。確認前の金額や購入ボタンは表示しません。") }
+                Button(loading ? "読込中…" : "Appleの商品情報を再読み込み") {
+                    loading = true; status = nil
+                    Task { defer { loading = false }; do { try await purchases.load() } catch { status = "商品情報を取得できませんでした。" } }
+                }.disabled(loading || store.busy)
+                if let status { Text(status).font(.caption) }
+            }
+            Section("未完了の取引") {
+                Text("チップは消費型の商品です。通常の購入復元の対象ではありません。サーバーへ保存できなかった未完了取引を再確認できます。")
+                Button("未完了取引を再確認") { Task { await store.retrySandboxTransactions() } }.disabled(store.busy)
+                if purchases.needsRetry { Text("未完了の結果を確認する必要があります。") }
+            }
+            Section { Text("正式な利用規約・プライバシーポリシーと問い合わせ窓口は公開前に整備します。サブスクリプションの販売画面は、有料特典の実装後に追加します。") }
+        }.navigationTitle("応援チップの確認")
+         .confirmationDialog("一回払いのSandboxテストを開始しますか？", isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } }), titleVisibility: .visible) {
+             if let product = selected { Button("\(product.displayPrice)のチップをテスト") { selected = nil; Task { await store.testTip(product) } } }
+             Button("キャンセル", role: .cancel) { selected = nil }
+         }.onDisappear { selected = nil }
     }
 }

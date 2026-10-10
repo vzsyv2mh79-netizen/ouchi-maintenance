@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import StoreKit
 import OuchiCore
 
 @MainActor final class NativeStore: ObservableObject {
@@ -99,6 +100,43 @@ import OuchiCore
             if let old = exportURL { try? FileManager.default.removeItem(at: old) }
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
+    }
+    var sandboxBillingConfigured: Bool {
+        #if DEBUG
+        return billingAccount != nil && purchases.persist != nil
+        #else
+        return false
+        #endif
+    }
+    func testTip(_ product: Product) async {
+        guard !busy, sandboxBillingConfigured, product.type == .consumable,
+              ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains(product.id), let session else { return }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, billingAccount == credentials.user.id else { return }
+            let outcome = try await purchases.purchase(product, account: credentials.user.id)
+            guard expected == generation else { return }
+            switch outcome {
+            case .saved: message = "Sandboxのチップを記録しました。実際の請求はありません。"
+            case .pending: message = "購入は保留中です。承認後の結果を確認します。"
+            case .cancelled: break
+            }
+        } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
+        if expected == generation { busy = false }
+    }
+    func retrySandboxTransactions() async {
+        guard !busy, sandboxBillingConfigured, let session else { return }
+        busy = true
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, billingAccount == credentials.user.id else { return }
+            try await purchases.observeUnfinished(account: credentials.user.id)
+            if expected == generation { message = "未完了のSandbox取引を確認しました。" }
+        } catch { if expected == generation { purchases.markRetryNeeded(); message = "取引を再確認できませんでした。時間をおいてお試しください。" } }
+        if expected == generation { busy = false }
     }
     private func bindSandboxBilling(account: UUID) {
         #if DEBUG

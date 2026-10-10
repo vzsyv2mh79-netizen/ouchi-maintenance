@@ -9,12 +9,15 @@ final class PurchaseManager: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var needsRetry = false
     private var observer: Task<Void, Never>?
+    private var bindingGeneration = 0
+    private var boundAccount: UUID?
     private let ids: Set<String> = ["ouchi.premium.monthly", "ouchi.premium.annual", "ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"]
     var persist: ((String) async throws -> Void)?
     // Start after authentication and stop before switching account/session.
     // Failed deliveries stay unfinished and can be replayed after reconnecting.
     func startObserving(account: UUID) {
         stopObserving()
+        boundAccount = account
         observer = Task { [weak self] in
             for await result in Transaction.updates {
                 guard !Task.isCancelled, let self else { return }
@@ -23,7 +26,7 @@ final class PurchaseManager: ObservableObject {
             }
         }
     }
-    func stopObserving() { observer?.cancel(); observer = nil }
+    func stopObserving() { bindingGeneration += 1; boundAccount = nil; observer?.cancel(); observer = nil }
     private func deliver(_ result: VerificationResult<Transaction>, account: UUID, finish: Bool) async throws {
         guard case .verified(let transaction) = result,
               ids.contains(transaction.productID), transaction.environment == .sandbox,
@@ -37,9 +40,14 @@ final class PurchaseManager: ObservableObject {
     func markRetryNeeded() { needsRetry = true }
     func load() async throws { products = try await Product.products(for: ids) }
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
-        guard ids.contains(product.id), persist != nil else { throw PurchaseError.notConfigured }
+        guard ids.contains(product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
+        guard case .verified(let app) = try await AppTransaction.shared, app.environment == .sandbox,
+              app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
+        guard expected == bindingGeneration, boundAccount == account, persist != nil else { throw CancellationError() }
         switch try await product.purchase(options: [.appAccountToken(account)]) {
         case .success(let result):
+            guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             try await deliver(result, account: account, finish: true)
             return .saved
         case .pending: return .pending
