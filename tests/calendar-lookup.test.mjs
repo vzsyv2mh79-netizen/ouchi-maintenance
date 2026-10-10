@@ -1558,3 +1558,8 @@ test('2023 Iris drum care keeps temperatures, weekly lint and usage-count drying
  }
  const [c]=lookup.lookupModel('IAW-T504-B');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[30,7]);assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page=58');assert.match(c.lookupNote,/週1回程度/);assert.equal(lookup.lookupModel('DKC85A1').length,0);
 });
+
+
+test('SCD-123P-HC uses its own 2024 dedicated manual and audited care',()=>{
+ const [c]=lookup.lookupModel('SCD-123P-HC');assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'vacuum');assert.ok(c.manualUrl.endsWith('/299979.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(t=>t.sourceUrl),[38,38,39,42,42,43,44].map(p=>c.manualUrl+'#page='+p));assert.match(c.suggestions[2].conditions,/反時計回り.*24時間.*熱風.*時計回り.*上側の穴/);assert.ok(!c.suggestions.some(t=>t.conditions.includes('30分')));assert.match(c.suggestions[5].conditions,/つめを押し下げ.*手前.*約24時間.*前端内側/);assert.ok(lookup.lookupModel('SCD-123P')[0].manualUrl.endsWith('/299188.pdf'));assert.equal(lookup.lookupModel('SCD-123P-HCX').length,0);
+});
