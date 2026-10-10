@@ -1727,3 +1727,6 @@ test('SD-5HC151 uses connected-power hours and its own cleaning and replacement 
 
 
 test('SD-C213 preserves daily care and excludes unverified sibling release',()=>{const [c]=lookup.lookupModel('SD-C213');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[1,1]);assert.match(c.suggestions[1].sourceUrl,/#page=5$/);assert.match(c.lookupNote,/送風口のない側/);assert.match(c.lookupNote,/運転せず約1時間/);assert.match(c.lookupNote,/アロマオイルは使用できません/);assert.equal(lookup.lookupModel('SD-C213E').length,0);assert.equal(lookup.lookupModel('SD-C2130').length,0);});
+
+
+test('SD-C113 identifies the 2024 color release and uses its dedicated care manual',()=>{const [c]=lookup.lookupModel('SD-C113');assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'humidifier');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[1,1]);assert.match(c.lookupNote,/シリーズ自体の初発売日を示すものではありません/);assert.match(c.lookupNote,/送風口のない側/);assert.match(c.lookupNote,/運転せず約1時間/);assert.match(c.manualUrl,/sd-c113.pdf$/);for(const t of c.suggestions)assert.match(t.sourceUrl,/sd-c113.pdf#page=/);assert.equal(lookup.lookupModel('SD-C113E').length,0);});
