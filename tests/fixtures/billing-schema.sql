@@ -23,7 +23,7 @@ begin
  insert into public.ouchi_sandbox_transactions values(payload->>'transactionId',payload->>'originalTransactionId',uid,(payload->>'signedAt')::bigint,payload)
  on conflict(transaction_id) do update set signed_at=excluded.signed_at,payload=excluded.payload
  where ouchi_sandbox_transactions.user_id=excluded.user_id and ouchi_sandbox_transactions.original_transaction_id=excluded.original_transaction_id
- and (excluded.signed_at>ouchi_sandbox_transactions.signed_at or (excluded.signed_at=ouchi_sandbox_transactions.signed_at and excluded.payload ? 'revokedAt'));
+ and (excluded.signed_at>ouchi_sandbox_transactions.signed_at or (excluded.signed_at=ouchi_sandbox_transactions.signed_at and (excluded.payload ? 'revokedAt' or (excluded.payload->>'isUpgraded'='true' and not (ouchi_sandbox_transactions.payload ? 'revokedAt')))));
 end $$;
 revoke execute on function public.apply_ouchi_sandbox_transaction(jsonb) from public,anon,authenticated;
 grant execute on function public.apply_ouchi_sandbox_transaction(jsonb) to service_role;

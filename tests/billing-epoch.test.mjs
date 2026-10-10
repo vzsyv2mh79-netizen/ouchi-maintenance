@@ -12,7 +12,8 @@ test('late purchase events stay with closed enrollment and cannot transfer to a 
  const old=await enroll(oldSession);
  const p={transactionId:'1',originalTransactionId:'1',accountToken:old,environment:'Sandbox',signedAt:100,productId:'ouchi.premium.monthly',expiresAt:300,purchasedAt:50};
  const save=value=>db.query('select public.apply_ouchi_sandbox_transaction($1::jsonb)',[JSON.stringify(value)]);
- await save(p);await save(p);
+ await save(p);await save({...p,isUpgraded:true});await save(p);
+ assert.equal((await db.query('select payload from public.ouchi_sandbox_transactions where transaction_id=$1',['1'])).rows[0].payload.isUpgraded,true);
  await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,old]);
  const fresh=await enroll(newSession);assert.notEqual(old,fresh);
  await save({...p,transactionId:'2',signedAt:200,expiresAt:400});
