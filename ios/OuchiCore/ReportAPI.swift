@@ -87,3 +87,52 @@ public struct ReportAPI: Sendable {
         return formatter.string(from: date) == value
     }
 }
+
+/// Isolated development lifecycle transport. No production endpoint is selected.
+/// This closes app access; it does not claim complete account/PII erasure.
+public struct DevelopmentAccountLifecycleAPI: Sendable {
+    private let transport: HouseholdAPI.Transport
+    public init(transport: HouseholdAPI.Transport? = nil) {
+        self.transport = transport ?? { request in
+            #if DEBUG
+            let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+            let (bytes, response) = try await session.data(for: request)
+            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            return (bytes, response)
+            #else
+            throw CloudError.rejected(503)
+            #endif
+        }
+    }
+    public func closeAppAccess(token: String, password: String, confirmed: Bool) async throws {
+        let bytes = try await send(path: "account-closure", confirmation: "DELETE_OUCHI_MAINTENANCE", token: token, password: password, confirmed: confirmed)
+        struct Result: Decodable { let appAccessClosed: Bool; let cleanupApplied: Bool; let sharedIdentityPreserved: Bool }
+        let result = try JSONDecoder().decode(Result.self, from: bytes)
+        guard result.appAccessClosed, result.sharedIdentityPreserved else { throw CloudError.malformedResponse }
+    }
+    public func reenroll(token: String, password: String, confirmed: Bool) async throws -> UUID {
+        let bytes = try await send(path: "account-reenrollment", confirmation: "REENROLL_OUCHI_MAINTENANCE", token: token, password: password, confirmed: confirmed)
+        struct Result: Decodable { let appEnrollmentCreated: Bool; let epochID: String; let sharedIdentityPreserved: Bool }
+        let result = try JSONDecoder().decode(Result.self, from: bytes)
+        guard result.appEnrollmentCreated, result.sharedIdentityPreserved,
+              let epoch = UUID(uuidString: result.epochID), epoch.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.malformedResponse }
+        return epoch
+    }
+    private func send(path: String, confirmation: String, token: String, password: String, confirmed: Bool) async throws -> Data {
+        guard confirmed, !password.isEmpty, password.utf16.count <= 1024 else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        let bytes = try JSONSerialization.data(withJSONObject: ["confirmation": confirmation, "password": password])
+        guard bytes.count <= 4096 else { throw CloudError.invalidInput }
+        let url = URL(string: "http://127.0.0.1:3000/api/development/" + path)!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = bytes
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        return body
+    }
+}
