@@ -1646,3 +1646,17 @@ test('Roomba Plus 515 retains cartridge, front caster and upward debris-guard in
  assert.match(c.lookupNote,/最大3か月.*交換周期ではありません/);
  assert.equal(lookup.lookupModel('N285060X').length,0);
 });
+
+test('Roomba Max 715 and 775 retain their 2026 manual intervals and component differences', () => {
+ const [v]=lookup.lookupModel('W255060'),[c]=lookup.lookupModel('X285060');
+ assert.deepEqual(v.suggestions.map(t=>t.intervalDays),[7,7,14,14,14,30,30,30,180]);
+ assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,7,14,14,14,14,30,30,14,30,180]);
+ for(const x of [v,c]){assert.equal(x.releaseYear,2026);assert.equal(x.categoryId,'robot-vacuum');assert.ok(x.suggestions.every(t=>t.sourceUrl.startsWith(x.manualUrl+'#page=')));assert.match(x.lookupNote,/最大90日.*交換周期ではありません/);assert.equal(lookup.lookupModel(x.modelNumber+'X').length,0);assert.ok(x.suggestions.every(t=>t.kind!=='交換'));}
+ assert.match(v.lookupNote,/吸引専用/);assert.ok(v.suggestions.every(t=>!/モップ|後輪/.test(t.name)));
+ assert.match(v.lookupNote,/フィルター・エッジブラシは3〜6か月/);
+ assert.match(c.suggestions[0].conditions,/スクリーンは洗え.*完全に乾か.*フィルター本体は洗わない/);
+ assert.match(c.suggestions[3].conditions,/マイナスドライバー.*手のひら/);
+ assert.match(c.suggestions[4].conditions,/右から左.*金属/);
+ assert.match(c.suggestions[9].conditions,/収納部ドア.*ブロワーカバー/);
+ assert.match(c.lookupNote,/黒いゴム栓.*内部チューブ/);assert.match(c.lookupNote,/カバーが閉じている場合は無理に開きません/);
+});
