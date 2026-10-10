@@ -8,7 +8,7 @@ declare current_epoch uuid; bound_epoch uuid;
 begin
  if target_user is null or verified_session is null then return null; end if;
  perform pg_advisory_xact_lock(hashtext(target_user::text));
- if not exists(select 1 from auth.sessions s where s.id=verified_session and s.user_id=target_user) then return null; end if;
+ if not exists(select 1 from auth.sessions s where s.id=verified_session and s.user_id=target_user and (s.not_after is null or s.not_after>now())) then return null; end if;
  select a.epoch_id into current_epoch from maintenance_private.app_epochs a
  join maintenance_private.account_access x on x.user_id=a.user_id and x.enabled
  where a.user_id=target_user and a.enabled;
