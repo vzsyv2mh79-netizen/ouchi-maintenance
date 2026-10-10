@@ -24,6 +24,7 @@ import OuchiCore
     @Published private(set) var familyHomeID: String?
     private let api: HouseholdAPI?
     private let session: SessionController?
+    private let isolatedDevelopmentEnabled: Bool
     private var generation = 0
     private var familyGeneration = 0
     private var reportGeneration = 0
@@ -38,22 +39,25 @@ import OuchiCore
         let info = Bundle.main.infoDictionary ?? [:]
         #if DEBUG
         let isolatedDevelopment = ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"
+        let address = isolatedDevelopment ? "http://127.0.0.1:54321" : info["SUPABASE_URL"] as? String
+        let key = isolatedDevelopment ? ProcessInfo.processInfo.environment["OUCHI_ISOLATED_PUBLISHABLE_KEY"] : info["SUPABASE_PUBLISHABLE_KEY"] as? String
         #else
         let isolatedDevelopment = false
+        let address = info["SUPABASE_URL"] as? String
+        let key = info["SUPABASE_PUBLISHABLE_KEY"] as? String
         #endif
-        if let address = info["SUPABASE_URL"] as? String, let url = URL(string: address),
-           let key = info["SUPABASE_PUBLISHABLE_KEY"] as? String,
+        if let address, let url = URL(string: address), let key,
            let config = try? CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: isolatedDevelopment) {
+            isolatedDevelopmentEnabled = isolatedDevelopment
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
             session = SessionController(api: client, storage: KeychainSessionStorage(service: (Bundle.main.bundleIdentifier ?? "ouchi") + "." + (url.host ?? "")))
-        } else { api = nil; session = nil }
+        } else { api = nil; session = nil; isolatedDevelopmentEnabled = false }
     }
     var developmentLifecycleConfigured: Bool {
         #if DEBUG
-        return api != nil && session != nil && ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"
-            && ["http://127.0.0.1:54321", "http://127.0.0.1:54321/"].contains(Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? "")
+        return isolatedDevelopmentEnabled
         #else
         return false
         #endif
