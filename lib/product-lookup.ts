@@ -17442,4 +17442,49 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "SHARP",
+    "name": "冷風・衣類乾燥除湿機",
+    "modelNumber": "CM-T100",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://cs.sharp.co.jp/select/contents?productId=CM-T100",
+    "manualUrl": "https://cs.sharp.co.jp/faq/query?cname=CM-T100",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://cs.sharp.co.jp/select/contents?productId=CM-T100",
+    "lookupNote": "2025年3月発売。機種専用のメーカー公式FAQを確認しています。お手入れ前は運転を止めて電源プラグを抜きます。左右両方の吸込口パネルを清掃してください。汚れがひどいときは外して台所用合成洗剤の液に約10分つけ置きし、歯ブラシで軽くこすって十分にすすぎ、陰干しして両方を戻します。タンクはふたを角から少しずつ外して排水し、スポンジで洗います。ひどい汚れは薄めた食器用中性洗剤のぬるま湯を使い、水分を拭きます。フロートを傷つけず、外れた場合は磁石を上・タンク外側に向けてピンで固定します。ふた外周の溝を確実にはめてください。本体は水洗い禁止で、汚れは40℃以下の水を含ませた柔らかい布で拭きます。内部乾燥運転のボタンはありません。衣類乾燥・除湿後や長期保管前は、衣類消臭モードと2時間の切タイマーで内部を乾かすと公式FAQ（https://cs.sharp.co.jp/faq/qa?qid=179763）が案内しています。2時間は運転時間であり、繰り返し日数には設定していません。",
+    "suggestions": [
+      {
+        "name": "左右の吸込口パネルのほこり取り",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://cs.sharp.co.jp/faq/qa?qid=179711",
+        "conditions": "停止してプラグを抜き、左右両方のパネルのほこりを掃除機で取ります。強く押さないでください。ひどい汚れは公式の約10分つけ置き・すすぎ・陰干し手順に従います。"
+      },
+      {
+        "name": "排水タンクとふたの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://cs.sharp.co.jp/faq/qa?qid=179710",
+        "conditions": "停止してプラグを抜き、ふたを角から外して排水し、内側をスポンジで洗います。フロートを傷つけず取り付けを確認し、水分を拭いてふたの溝を確実にはめます。"
+      },
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jp.sharp/support/dehumid_con/mt_doc/hontai_care.html",
+        "conditions": "プラグを抜いて柔らかい布で拭きます。本体の水洗いは禁止です。ひどい汚れは40℃以下の水を含ませた布を使います。アルコール・漂白剤・柑橘系洗剤・金属たわしなどは使いません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
