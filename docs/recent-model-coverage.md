@@ -594,3 +594,7 @@ Official select/contents verifies release month/year. Actual model query UI full
 
 ## siroca SDC-10D171 — 2025-05-19
 Official release: https://www.siroca.co.jp/news/250422/ . Model-specific manual: https://www.siroca.co.jp/im/sdc-10d171.pdf . Pages 12–14 rendered and inspected, including float foam, filter tabs and upright storage diagrams. Only filter cleaning has a numeric interval (14 days); body and tank care, drainage, conditional filter replacement and storage remain instructions without invented schedules. The one-hour internal drying duration is not recurrence.
+
+
+## siroca SD-E151 — 2024-10-26
+Release: https://www.siroca.co.jp/pdf/press-release/pressrelease_241004_e-humidifier.pdf . Dedicated manual https://www.siroca.co.jp/im/sd-e151.pdf pages 4–5 and 12–14. Care diagrams visually inspected: both filter surfaces, no tray gap, silver-ion unit logo upward. Daily water replacement and two approximately twelve-month replacements are numeric suggestions. Cleaning lamp counts 168 cumulative water-present hours; no unconditional seven-day task. Conditional cleaning/reset/storage and body-water prohibition retained.
