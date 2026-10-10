@@ -29,6 +29,7 @@ import OuchiCore
     private var generation = 0
     private var familyGeneration = 0
     private var reportGeneration = 0
+    private var attachmentExportGeneration = 0
     @Published private(set) var report: MaintenanceReport?
     let purchases = PurchaseManager()
     private var billingAccount: UUID?
@@ -124,20 +125,26 @@ import OuchiCore
     }
     func exportDevelopmentAttachment(_ attachment: UUID) async {
         guard developmentLifecycleConfigured, !busy, let session else { return }
+        attachmentExportGeneration += 1
+        let exportGeneration = attachmentExportGeneration
         busy = true; message = nil
         let expected = generation
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
             let file = try await DevelopmentAttachmentAPI().download(attachment: attachment, token: credentials.access_token)
-            guard expected == generation else { return }
-            if let old = attachmentExportURL { try FileManager.default.removeItem(at: old); attachmentExportURL = nil }
+            guard expected == generation, exportGeneration == attachmentExportGeneration else { return }
+            if let old = attachmentExportURL {
+                if FileManager.default.fileExists(atPath: old.path) { try FileManager.default.removeItem(at: old) }
+                attachmentExportURL = nil
+            }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-attachment-\(UUID().uuidString).\(file.fileExtension)")
             try file.bytes.write(to: url, options: [.atomic, .completeFileProtection])
             attachmentExportURL = url
-        } catch { if expected == generation { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
+        } catch { if expected == generation, exportGeneration == attachmentExportGeneration { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
     }
     func clearDevelopmentAttachmentExport() {
+        attachmentExportGeneration += 1
         guard let url = attachmentExportURL else { return }
         do { if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }; attachmentExportURL = nil }
         catch { message = "端末内の添付ファイルを消去できませんでした。ログアウトから再確認してください。" }
@@ -234,14 +241,22 @@ import OuchiCore
         }
     }
     private func clearTemporaryExports() -> Bool {
-        var succeeded = true
-        for url in [exportURL, calendarURL, attachmentExportURL].compactMap({ $0 }) {
+        attachmentExportGeneration += 1
+        // Keep failed paths so a later logout can retry their removal.
+        func remove(_ url: URL?) -> Bool {
+            guard let url else { return true }
             do {
                 if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
-            } catch { succeeded = false }
+                return true
+            } catch { return false }
         }
-        exportURL = nil; calendarURL = nil; attachmentExportURL = nil
-        return succeeded
+        let backupRemoved = remove(exportURL)
+        let calendarRemoved = remove(calendarURL)
+        let attachmentRemoved = remove(attachmentExportURL)
+        if backupRemoved { exportURL = nil }
+        if calendarRemoved { calendarURL = nil }
+        if attachmentRemoved { attachmentExportURL = nil }
+        return backupRemoved && calendarRemoved && attachmentRemoved
     }
     func prepareExport() {
         guard !busy, let household else { return }
