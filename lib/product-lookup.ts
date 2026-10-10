@@ -13743,4 +13743,147 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH fit 5kg",
+    "modelNumber": "ITW-50B01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576795661",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112861.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112861.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/news/2025/?date=1015",
+    "lookupNote": "2025年発売のOSH fitです。色・容量別の公式説明書52〜60ページを確認しています。糸くずフィルターは洗濯のたびに清掃し、本体外側・洗剤投入ケース・柔軟剤投入口は汚れたら清掃してください。これらは固定の日数に置き換えていません。部品の清掃時は運転を停止して電源プラグを抜きます。槽乾燥では黒かびや洗剤かすは除去できません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112861.pdf#page=58",
+        "conditions": "説明書58〜59ページ。衣類を入れず、槽クリーンコースを使用します。クリーナーの投入は説明書の給水・一時停止の手順に従い、使用量はクリーナーの表示を確認してください。塩素系漂白剤を酸性のものや液体と混ぜないでください。終了後は糸くずフィルターを清掃し、水栓を閉じます。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回程度（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112861.pdf#page=60",
+        "conditions": "説明書60ページ。洗濯物を入れず、電源を入れて槽クリーンを選び、洗いを0分・すすぎを0回に設定してスタートします。約30分で終了します。黒かびや洗剤かすがある場合は槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH fit 5kg",
+    "modelNumber": "ITW-50B01-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576795678",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112862.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112862.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/news/2025/?date=1015",
+    "lookupNote": "2025年発売のOSH fitです。色・容量別の公式説明書52〜60ページを確認しています。糸くずフィルターは洗濯のたびに清掃し、本体外側・洗剤投入ケース・柔軟剤投入口は汚れたら清掃してください。これらは固定の日数に置き換えていません。部品の清掃時は運転を停止して電源プラグを抜きます。槽乾燥では黒かびや洗剤かすは除去できません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112862.pdf#page=58",
+        "conditions": "説明書58〜59ページ。衣類を入れず、槽クリーンコースを使用します。クリーナーの投入は説明書の給水・一時停止の手順に従い、使用量はクリーナーの表示を確認してください。塩素系漂白剤を酸性のものや液体と混ぜないでください。終了後は糸くずフィルターを清掃し、水栓を閉じます。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回程度（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112862.pdf#page=60",
+        "conditions": "説明書60ページ。洗濯物を入れず、電源を入れて槽クリーンを選び、洗いを0分・すすぎを0回に設定してスタートします。約30分で終了します。黒かびや洗剤かすがある場合は槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH fit 6kg",
+    "modelNumber": "ITW-60B01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576795685",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112863.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112863.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/news/2025/?date=1015",
+    "lookupNote": "2025年発売のOSH fitです。色・容量別の公式説明書52〜60ページを確認しています。糸くずフィルターは洗濯のたびに清掃し、本体外側・洗剤投入ケース・柔軟剤投入口は汚れたら清掃してください。これらは固定の日数に置き換えていません。部品の清掃時は運転を停止して電源プラグを抜きます。槽乾燥では黒かびや洗剤かすは除去できません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112863.pdf#page=58",
+        "conditions": "説明書58〜59ページ。衣類を入れず、槽クリーンコースを使用します。クリーナーの投入は説明書の給水・一時停止の手順に従い、使用量はクリーナーの表示を確認してください。塩素系漂白剤を酸性のものや液体と混ぜないでください。終了後は糸くずフィルターを清掃し、水栓を閉じます。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回程度（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112863.pdf#page=60",
+        "conditions": "説明書60ページ。洗濯物を入れず、電源を入れて槽クリーンを選び、洗いを0分・すすぎを0回に設定してスタートします。約30分で終了します。黒かびや洗剤かすがある場合は槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH fit 6kg",
+    "modelNumber": "ITW-60B01-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576795692",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112864.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112864.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/news/2025/?date=1015",
+    "lookupNote": "2025年発売のOSH fitです。色・容量別の公式説明書52〜60ページを確認しています。糸くずフィルターは洗濯のたびに清掃し、本体外側・洗剤投入ケース・柔軟剤投入口は汚れたら清掃してください。これらは固定の日数に置き換えていません。部品の清掃時は運転を停止して電源プラグを抜きます。槽乾燥では黒かびや洗剤かすは除去できません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112864.pdf#page=58",
+        "conditions": "説明書58〜59ページ。衣類を入れず、槽クリーンコースを使用します。クリーナーの投入は説明書の給水・一時停止の手順に従い、使用量はクリーナーの表示を確認してください。塩素系漂白剤を酸性のものや液体と混ぜないでください。終了後は糸くずフィルターを清掃し、水栓を閉じます。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回程度（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/112864.pdf#page=60",
+        "conditions": "説明書60ページ。洗濯物を入れず、電源を入れて槽クリーンを選び、洗いを0分・すすぎを0回に設定してスタートします。約30分で終了します。黒かびや洗剤かすがある場合は槽洗浄を行ってください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

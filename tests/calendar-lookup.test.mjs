@@ -1488,3 +1488,9 @@ test('public Panasonic dish care keeps conditional tasks unscheduled and exact m
  assert.ok(b.suggestions.every(x=>!/汚れレベル3|自動投入/.test(x.conditions)));
  assert.equal(lookup.lookupModel('NP-TSP2X').length,0);assert.equal(lookup.lookupModel('NP-TCR5X').length,0);assert.equal(lookup.lookupModel('NP-TMLK1').length,0);
 });
+
+
+test('OSH fit preserves dedicated color/capacity manuals and does not schedule per-use care',()=>{
+ for(const[m,pdf]of[['ITW-50B01-W',112861],['ITW-50B01-B',112862],['ITW-60B01-W',112863],['ITW-60B01-B',112864]]){const[c]=lookup.lookupModel(m);assert.equal(c.releaseYear,2025);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[30,7]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[58,60].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[0].conditions,/衣類を入れず.*給水・一時停止.*酸性.*糸くずフィルター.*水栓を閉じ/);assert.match(c.suggestions[1].conditions,/洗いを0分・すすぎを0回.*30分.*槽洗浄/);assert.match(c.lookupNote,/洗濯のたび.*汚れたら.*固定の日数/);assert.ok(c.suggestions.every(x=>!x.name.includes('フィルター')&&!x.name.includes('投入')));assert.equal(lookup.lookupModel(m+'X').length,0);}
+ assert.equal(lookup.lookupModel('ITW-50B01').length,0);assert.equal(lookup.lookupModel('ITW-60B01').length,0);
+});
