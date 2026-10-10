@@ -4,6 +4,8 @@ import {createClient} from '@supabase/supabase-js';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
 import {normalizeAppleTransaction} from './billing';
 import {normalizeVerifiedRenewal} from './billing-renewal';
+import type {VerifiedRenewal} from './billing-renewal';
+import {createHash} from 'node:crypto';
 import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
@@ -44,6 +46,12 @@ export async function persistBillingTransaction(db:ReturnType<typeof billingData
  }else{
   const result=await db.rpc('apply_ouchi_sandbox_transaction',{payload:transaction});if(result.error)throw new Error('Persistence unavailable');
  }
+}
+/** renewal must come from verifyBillingRenewal for this exact signed input and paired transaction. */
+export async function persistBillingRenewal(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedRenewal:string,renewal:VerifiedRenewal){
+ if(config.storage!=='verified-ledger'||!signedRenewal||Buffer.byteLength(signedRenewal)>131072||renewal.environment!==config.environment)throw new Error('Renewal storage unavailable');
+ const result=await db.rpc('apply_maintenance_verified_renewal',{payload:renewal,proof_sha256:createHash('sha256').update(signedRenewal).digest('hex')});
+ if(result.error||typeof result.data!=='string'||!['inserted','updated','ignored'].includes(result.data))throw new Error('Renewal persistence unavailable');
 }
 /** Caller already verified this exact bearer with Auth.getUser. */
 export async function ledgerEntitlementAfterAuth(db:ReturnType<typeof billingDatabase>,token:string,user:string,epoch:string,environment:BillingEnvironment='Sandbox'){

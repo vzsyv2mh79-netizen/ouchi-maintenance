@@ -38,6 +38,18 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await admin.rpc('read_maintenance_verified_entitlement',{...readArgs,target_environment:'Production'})).data.plan,'free');
   assert.ok((await user.rpc('read_maintenance_verified_entitlement',readArgs)).error);
   assert.ok((await user.rpc('load_household')).data.homes.some(row=>row.id===home));
+  // Normalized synthetic renewals: exercise real service ownership/grace SQL, not Apple signatures.
+  const expiredTx={...event,transactionId:'102',originalTransactionId:'12',signedAt:now+1,purchasedAt:now-20000,expiresAt:now-10000};
+  assert.equal((await write({...event,transactionId:'101',originalTransactionId:'11',signedAt:now+1,purchasedAt:now-10000,expiresAt:now+3600000,revokedAt:now})).error,null);
+  assert.equal((await write(expiredTx)).error,null);assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'free');
+  const renewal={environment:'Sandbox',originalTransactionId:'12',accountToken:binding.data,productId:event.productId,signedAt:now+2,renewalDate:expiredTx.expiresAt,autoRenewStatus:1,isInBillingRetryPeriod:true,gracePeriodExpiresAt:now+3600000};
+  const renewalArgs={payload:renewal,proof_sha256:'e'.repeat(64)};
+  const renewalWrite=await admin.rpc('apply_maintenance_verified_renewal',renewalArgs);assert.equal(renewalWrite.error,null);assert.equal(renewalWrite.data,'inserted');
+  assert.equal((await admin.rpc('apply_maintenance_verified_renewal',renewalArgs)).data,'ignored');
+  const graceRights=await admin.rpc('read_maintenance_verified_entitlement',readArgs);assert.equal(graceRights.error,null);assert.equal(graceRights.data.expiresAt,renewal.gracePeriodExpiresAt);
+  assert.ok((await user.rpc('apply_maintenance_verified_renewal',renewalArgs)).error);
+  assert.ok((await admin.rpc('apply_maintenance_verified_renewal',{...renewalArgs,payload:{...renewal,accountToken:randomUUID()}})).error);
+  assert.equal((await write({...expiredTx,signedAt:now+3,revokedAt:now})).error,null);assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'free');
   // Durable metadata only: no Apple-signed notification is claimed by this fixture.
   const notification={environment:'Sandbox',notificationId:randomUUID(),notificationType:'DID_CHANGE_RENEWAL_STATUS',signedAt:Date.now(),disposition:'needs_reconciliation'};
   const recordArgs={payload:notification,proof_sha256:'c'.repeat(64)};

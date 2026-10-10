@@ -47,3 +47,14 @@ test('actual entitlement helper scopes read to verified bearer session and curre
  assert.equal((await server.ledgerEntitlementAfterAuth(db,token,user,epoch)).plan,'free');assert.equal(calls,1);
  await assert.rejects(()=>server.ledgerEntitlementAfterAuth(db,token,epoch,epoch));assert.equal(calls,1);
 });
+
+test('actual renewal helper requires verified-ledger scope, exact proof hash and durable acknowledgement',async()=>{
+ const renewal={environment:'Sandbox'},config={storage:'verified-ledger',environment:'Sandbox'};let args;
+ await server.persistBillingRenewal({rpc:async(name,value)=>{assert.equal(name,'apply_maintenance_verified_renewal');args=value;return {data:'inserted',error:null};}},config,'synthetic-renewal',renewal);
+ assert.equal(args.payload,renewal);assert.equal(args.proof_sha256,createHash('sha256').update('synthetic-renewal').digest('hex'));
+ for(const data of [null,[],['updated'],'saved'])await assert.rejects(()=>server.persistBillingRenewal({rpc:async()=>({data,error:null})},config,'synthetic-renewal',renewal));
+ await assert.rejects(()=>server.persistBillingRenewal({rpc:async()=>({data:'updated',error:Error('outage')})},config,'synthetic-renewal',renewal));
+ let called=false;const never={rpc:async()=>{called=true;return {};}};
+ await assert.rejects(()=>server.persistBillingRenewal(never,{...config,environment:'Production'},'synthetic-renewal',renewal));
+ await assert.rejects(()=>server.persistBillingRenewal(never,{...config,storage:'sandbox-legacy'},'synthetic-renewal',renewal));assert.equal(called,false);
+});
