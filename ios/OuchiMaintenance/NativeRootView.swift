@@ -145,6 +145,7 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
                     NavigationLink("家族と共有") { FamilySettings() }
                 }
@@ -362,5 +363,48 @@ private struct PrivacyInformation: View {
             Section("記録の管理") { Text("設定から記録を書き出せます。ログアウトするとこの端末のログイン情報を消しますが、クラウドの記録は残ります。") }
             Section("公開前の確認事項") { Text("このiPhone版は開発中です。正式なプライバシーポリシー、運営者と問い合わせ先、アカウント削除は公開前に整備します。") }
         }.navigationTitle("プライバシー")
+    }
+}
+
+private struct HomeSettings: View {
+    @EnvironmentObject private var store: NativeStore
+    var body: some View {
+        List {
+            Section("住まい") {
+                ForEach(store.household?.homes ?? []) { home in
+                    if home.role == "owner" { NavigationLink(home.name) { HomeEditor(initial: home) } }
+                    else { VStack(alignment: .leading) { Text(home.name); Text("家族が所有する共有の住まい").font(.caption).foregroundStyle(.secondary) } }
+                }
+            }
+            Section { NavigationLink("住まいを追加") { HomeEditor(initial: nil) } }
+        }.navigationTitle("住まいを管理")
+    }
+}
+private struct HomeEditor: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
+    let initial: Home?
+    @State private var name = ""
+    @State private var kind = "home"
+    @State private var loaded = false
+    var body: some View {
+        Form {
+            TextField("住まいの名前", text: $name)
+            Picker("種類", selection: $kind) {
+                Text("自宅").tag("home"); Text("実家").tag("parents")
+                Text("別宅").tag("second"); Text("賃貸").tag("rental")
+            }
+            Button(store.busy ? "保存中…" : "保存") {
+                let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                Task {
+                    let success: Bool
+                    if let initial { success = await store.updateHome(id: initial.id, name: value, kind: kind) }
+                    else { success = await store.createHome(name: value, kind: kind) }
+                    if success { dismiss() }
+                }
+            }.disabled(store.busy || !(1...80).contains(name.trimmingCharacters(in: .whitespacesAndNewlines).count))
+        }.navigationTitle(initial == nil ? "住まいを追加" : "住まいを編集")
+         .onAppear { if !loaded { loaded = true; name = initial?.name ?? ""; kind = initial?.kind ?? "home" } }
+         .interactiveDismissDisabled(store.busy)
     }
 }

@@ -15,3 +15,7 @@ Apple公式: https://developer.apple.com/help/app-review/guideline-reference/5-1
 7. 合成のテスト用アカウントでのみ、再送/タイムアウト/部分失敗/期限切れ/他ユーザー拒否/共有家族/旧JWT/購入通知遅延を検証する。既存の本人/家族のデータを削除して検証しない。
 
 未実装・未検証。App Store提出前に必ず完了する。運営者/問い合わせ先/規約/公開プライバシーURL/必要な保存期間も本人確認待ちとしてまとめる。今回のPrivacyInformationは開発中の説明であり正式ポリシーの代わりではない。
+
+## 2026-10-10 読み取り専用の実DB調査
+
+対象プロジェクト hphifiqyypwyxkzfanod のpg_constraint/pg_policiesのみを確認。個人レコードは読まず変更もしていない。auth.usersへの参照には、おうちメンテhomes.owner_id/home_members.user_id以外に、家計簿kb_households.owner_idとkb_transactions.created_by（ON DELETE RESTRICT）、kb_household_members.user_idとkb_join_requests.user_id（ON DELETE CASCADE）が存在。家計簿テーブルは専用のメンバー向けRLSを持つ。したがって共通AuthのdeleteUserは家計簿を巻き込む可能性があるか、RESTRICTで失敗する。FK以外のコードや保存領域も未調査なので、これは影響範囲の完全な証明ではない。共通IDを削除するAPIをおうちメンテだけに安易に追加しない。アプリ単位のアカウントライフサイクルと共通ID管理を分ける設計を、既存Web/RLSを含めて実装する必要がある。

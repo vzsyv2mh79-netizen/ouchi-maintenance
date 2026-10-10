@@ -154,6 +154,13 @@ import OuchiCore
         }
     }
 
+    func createHome(name: String, kind: String) async -> Bool {
+        await save { api, token in try await api.createHome(name: name, kind: kind, token: token) }
+    }
+    func updateHome(id: String, name: String, kind: String) async -> Bool {
+        guard household?.homes.first(where: { $0.id == id })?.role == "owner" else { return false }
+        return await save { api, token in try await api.updateHome(id: id, name: name, kind: kind, token: token) }
+    }
     func restoreBackup(_ value: Household) async -> Bool {
         do {
             let prepared = try Backup.prepareRestore(value)

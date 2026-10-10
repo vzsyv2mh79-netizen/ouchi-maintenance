@@ -127,6 +127,20 @@ public struct HouseholdAPI: Sendable {
         guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
 
+    public func createHome(name: String, kind: String, token: String) async throws {
+        try validateHome(name: name, kind: kind)
+        _ = try await send(path: "rest/v1/rpc/create_maintenance_home", token: token,
+                           body: JSONEncoder().encode(["home_name": name.trimmingCharacters(in: .whitespacesAndNewlines), "home_kind": kind]))
+    }
+    public func updateHome(id: String, name: String, kind: String, token: String) async throws {
+        try validateHome(name: name, kind: kind)
+        try await write(table: "homes", id: id,
+                        body: JSONEncoder().encode(["name": name.trimmingCharacters(in: .whitespacesAndNewlines), "kind": kind]), creating: false, token: token)
+    }
+    private func validateHome(name: String, kind: String) throws {
+        guard (1...80).contains(name.trimmingCharacters(in: .whitespacesAndNewlines).count),
+              ["home", "parents", "second", "rental"].contains(kind) else { throw CloudError.invalidInput }
+    }
     public func restoreBackup(_ prepared: Backup.Prepared, token: String) async throws {
         let payload = try JSONSerialization.jsonObject(with: prepared.payload)
         let body = try JSONSerialization.data(withJSONObject: ["backup_hash": prepared.hash, "payload": payload])
