@@ -1504,3 +1504,8 @@ test('2023 OSH auto-dose washers preserve quarterly tank cleaning without invent
   assert.match(c.lookupNote,/定期的に.*日数指定はありません/);assert.ok(!c.suggestions.some(x=>x.name.includes('槽乾燥')));assert.equal(lookup.lookupModel(model+'X').length,0);
  }
 });
+
+
+test('ITW-80A02-W uses its non-auto-dose manual and has no tank task or invented drying schedule', () => {
+ const [c]=lookup.lookupModel('ITW-80A02-W');assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith('104379.pdf'));assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,30);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=59');assert.match(c.suggestions[0].conditions,/給水終了後に一時停止.*表示の分量.*糸くずフィルター/);assert.match(c.lookupNote,/日数指定はありません/);assert.ok(!c.suggestions.some(x=>/タンク|槽乾燥/.test(x.name)));assert.equal(lookup.lookupModel('ITW-80A02-WX').length,0);
+});
