@@ -43,6 +43,15 @@ public actor SessionController {
         session = nil
         try storage.write(nil)
     }
+    /// Remote-only preflight. Local session/storage are cleared separately after
+    /// acknowledgement; a delayed response must not act on a replacement login.
+    public func revokeRemoteSession() async throws {
+        let expected = generation
+        let current = try await credentials()
+        guard expected == generation else { throw CancellationError() }
+        try await api.revokeCurrentSession(token: current.access_token)
+        guard expected == generation else { throw CancellationError() }
+    }
     /// Device-local identity for offline viewing only; not remote authorization.
     public func localAccount() -> UUID? { session?.user.id }
     public func credentials(now: Date = Date()) async throws -> Session {

@@ -273,6 +273,13 @@ import OuchiCore
         guard !busy else { return }
         busy = true; message = nil
         defer { busy = false }
+        if developmentLifecycleConfigured, let session, await session.localAccount() != nil {
+            do { try await session.revokeRemoteSession() }
+            catch {
+                message = "この端末のサーバー側ログアウトを確認できませんでした。通信を確認して再度お試しください。"
+                return
+            }
+        }
         generation += 1
         var localCleanupFailed = false
         do { try snapshotStorage?.write(nil) }
