@@ -7,11 +7,22 @@ secret/service role key、平文HTTP、他ホスト、URL内の認証情報を�
 
 検証: `cd ios && swift test`。合成データと注入した通信処理のみを使い、実DBへアクセスしない。
 Xcode本体の導入後、iOS SDKビルドと端末テストを行う。
-PackageはUIを含まない共通ライブラリであり、まだ提出可能なアプリではない。
+Packageは共通ライブラリ。OuchiMaintenance.xcodeprojにはSwiftUIアプリターゲットを追加した。
+ログイン、お手入れ完了、住まい切替、製品/履歴の閲覧、無料の書き出し、ログアウトを実装。
+未完成の機能があり、まだ提出可能なアプリではない。
+
+Xcodeで開く: `ios/OuchiMaintenance.xcodeproj`。
+Config/Local.example.xcconfigをLocal.xcconfigにコピーし、publishable keyとTeamを設定。
+Bundle IDは仮のjp.ouchi.maintenance。本人のApp Store Connect登録に合わせて確定する。
+秘密鍵やログイン用パスワードはビルド設定に入れない。
+Keychainは端末ロック中に読み取り不可、他端末へ移行しない設定。
+ユーザーセッションの更新はactorで単一化し、ログアウト後の古い応答を保存しない。
+アプリの記録をログアウト時に画面から消し、生成した一時書き出しファイルも破棄する。
+書き出しはHousehold形式。既存Webバックアップ形式への変換/往復は次の実装で行う。
 
 次の実装:
-- SwiftUIアプリターゲット、ログインとKeychain保存、更新トークンの直列化。
-- 同一アカウントの製品/項目追加、完了と次回予定、履歴、家族共有、書き出し。
+- iOS SDKでSwiftUI/StoreKitとXcodeターゲットをビルド、シミュレータ/実機で画面検証。
+- 同一アカウントの製品/項目追加・編集、家族招待、Web互換バックアップ/復元。
 - アカウント作成/削除、プライバシーポリシー、利用規約、サポート窓口。
 - 写真/保証書保存と容量制御、通知詳細、レポートの実装・サーバー側権限制御。
 - 購入画面、検証済み利用権の取得、ストア実価格、二重契約防止、保留/復元/返金の実機検証。

@@ -1,0 +1,34 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+5DBCB385C12D6789C76CB5E1 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OuchiMaintenanceApp.swift; sourceTree = "<group>"; };
+CDC23E4B34E6A9538E18FF32 = { isa = PBXBuildFile; fileRef = 5DBCB385C12D6789C76CB5E1; };
+2648A59BCDD0B2A428583285 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRootView.swift; sourceTree = "<group>"; };
+33D15A774F6A6E4F0A42E71C = { isa = PBXBuildFile; fileRef = 2648A59BCDD0B2A428583285; };
+78FC05514832D54F264CBA50 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeStore.swift; sourceTree = "<group>"; };
+071B0FF10D3323D1249BDC9F = { isa = PBXBuildFile; fileRef = 78FC05514832D54F264CBA50; };
+936B01030B56CFFA1A0BE374 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSessionStorage.swift; sourceTree = "<group>"; };
+FF78EE86ED8CBF1E0F3A1F68 = { isa = PBXBuildFile; fileRef = 936B01030B56CFFA1A0BE374; };
+326ED3165C92A71861658D61 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseManager.swift; sourceTree = "<group>"; };
+735AD2FC377217521B160C09 = { isa = PBXBuildFile; fileRef = 326ED3165C92A71861658D61; };
+3685E330EC5277A9DD5661C6 = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+CF8A4D27E1C506A7C75A76BE = { isa = PBXBuildFile; fileRef = 3685E330EC5277A9DD5661C6; };
+DFBA7AADE0868074C2861C98 = { isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
+38A007151ABE87CC01A5B6E9 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = OuchiMaintenance.app; sourceTree = BUILT_PRODUCTS_DIR; };
+3A2A88DEEFF3D1D23E496597 = { isa = PBXGroup; children = (5DBCB385C12D6789C76CB5E1,2648A59BCDD0B2A428583285,78FC05514832D54F264CBA50,936B01030B56CFFA1A0BE374,326ED3165C92A71861658D61,3685E330EC5277A9DD5661C6,); path = OuchiMaintenance; sourceTree = "<group>"; };
+1EE63A94BAD0DF0FCB0E7B8C = { isa = PBXGroup; children = (38A007151ABE87CC01A5B6E9,); name = Products; sourceTree = "<group>"; };
+B28B7AF69320201D1CF206EB = { isa = PBXGroup; children = (3A2A88DEEFF3D1D23E496597,DFBA7AADE0868074C2861C98,1EE63A94BAD0DF0FCB0E7B8C,); sourceTree = "<group>"; };
+4FF15B936B8851E2CAA578B9 = { isa = XCLocalSwiftPackageReference; relativePath = .; };
+AC0F0516646E205EE4359123 = { isa = XCSwiftPackageProductDependency; package = 4FF15B936B8851E2CAA578B9; productName = OuchiCore; };
+5F4C0158DC37F7425F47E939 = { isa = PBXBuildFile; productRef = AC0F0516646E205EE4359123; };
+BCE16DD0260827ECF338C787 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (CDC23E4B34E6A9538E18FF32,33D15A774F6A6E4F0A42E71C,071B0FF10D3323D1249BDC9F,FF78EE86ED8CBF1E0F3A1F68,735AD2FC377217521B160C09,); runOnlyForDeploymentPostprocessing = 0; };
+0189424A5A60FED329FA868E = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (CF8A4D27E1C506A7C75A76BE,); runOnlyForDeploymentPostprocessing = 0; };
+7561BFB015D8F536760CB671 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (5F4C0158DC37F7425F47E939,); runOnlyForDeploymentPostprocessing = 0; };
+89E1FD6268CC0F221A2BE178 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Debug; };
+7082CC0B6FC1282FCEABD07A = { isa = XCBuildConfiguration; baseConfigurationReference = DFBA7AADE0868074C2861C98; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; }; name = Debug; };
+E6DE6C99132752C914FEF632 = { isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; }; name = Release; };
+639A7CA24D39909E713B47F7 = { isa = XCBuildConfiguration; baseConfigurationReference = DFBA7AADE0868074C2861C98; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+862894B703A6DEDF96A9DD6C = { isa = XCConfigurationList; buildConfigurations = (89E1FD6268CC0F221A2BE178,E6DE6C99132752C914FEF632,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+C57128001CE614BF8549D6BB = { isa = XCConfigurationList; buildConfigurations = (7082CC0B6FC1282FCEABD07A,639A7CA24D39909E713B47F7,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+0E8A3AD980EC179856012B7E = { isa = PBXNativeTarget; buildConfigurationList = C57128001CE614BF8549D6BB; buildPhases = (BCE16DD0260827ECF338C787,7561BFB015D8F536760CB671,0189424A5A60FED329FA868E,); buildRules = (); dependencies = (); name = OuchiMaintenance; packageProductDependencies = (AC0F0516646E205EE4359123,); productName = OuchiMaintenance; productReference = 38A007151ABE87CC01A5B6E9; productType = "com.apple.product-type.application"; };
+98F54143AB4E86B28C3AFEE0 = { isa = PBXProject; attributes = { LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; }; buildConfigurationList = 862894B703A6DEDF96A9DD6C; compatibilityVersion = "Xcode 14.0"; developmentRegion = ja; knownRegions = (ja,Base,en,); mainGroup = B28B7AF69320201D1CF206EB; packageReferences = (4FF15B936B8851E2CAA578B9,); productRefGroup = 1EE63A94BAD0DF0FCB0E7B8C; projectDirPath = ""; projectRoot = ""; targets = (0E8A3AD980EC179856012B7E,); };
+}; rootObject = 98F54143AB4E86B28C3AFEE0; }

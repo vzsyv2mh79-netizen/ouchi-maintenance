@@ -1,0 +1,5 @@
+// Copy to Local.xcconfig. Publishable key only: never a secret/service-role key.
+SUPABASE_PROJECT_REF = hphifiqyypwyxkzfanod
+SUPABASE_PUBLISHABLE_KEY = REPLACE_WITH_PUBLISHABLE_KEY
+PRODUCT_BUNDLE_IDENTIFIER = jp.ouchi.maintenance
+DEVELOPMENT_TEAM =
