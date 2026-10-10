@@ -60,6 +60,11 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const successfulID=attachmentIDs[allocations.findIndex(result=>!result.error)];
   assert.equal((await reserveAttachment(successfulID)).error,null);
   assert.ok((await reserveAttachment(successfulID,1)).error);
+  const finishAttachment=(actual_bytes=5242880,verified_sha256='a'.repeat(64))=>admin.rpc('finalize_maintenance_attachment',{target_user:id,verified_session:claims.session_id,expected_epoch:initialBinding.data,attachment_id:successfulID,actual_bytes,verified_sha256});
+  assert.ok((await finishAttachment(1)).error);
+  assert.equal((await finishAttachment()).error,null);assert.equal((await finishAttachment()).error,null);
+  assert.ok((await finishAttachment(5242880,'b'.repeat(64))).error);
+
   assert.ok((await reserveAttachment(randomUUID(),1,client)).error);
   const forbidden=await client.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.ok(forbidden.error);
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic-public-key',OUCHI_CLOSURE_TEST_SERVICE_KEY:service});
@@ -67,7 +72,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
-  assert.ok((await reserveAttachment(successfulID)).error);
+  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);
   const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);

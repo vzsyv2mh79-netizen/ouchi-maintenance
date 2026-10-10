@@ -7,9 +7,14 @@ test('attachment reservation counts in-flight bytes, pins ownership and refuses 
  const epoch=(await db.query('select maintenance_private.enroll_app_epoch($1,$2) as epoch',[user,session])).rows[0].epoch;
  const reserve=(id,size=5242880,target=product)=>db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7)',[user,session,epoch,target,id,size,'image/png']);
  const first=randomUUID();await reserve(first);await reserve(first);await assert.rejects(()=>reserve(first,1));await assert.rejects(()=>reserve(randomUUID(),1,randomUUID()));await assert.rejects(()=>reserve(randomUUID(),5242881));
+ const hash='a'.repeat(64),finalize=(size=5242880,digest=hash)=>db.query('select public.finalize_maintenance_attachment($1,$2,$3,$4,$5,$6)',[user,session,epoch,first,size,digest]);
+ await assert.rejects(()=>finalize(1));await assert.rejects(()=>finalize(5242880,'invalid'));
+ assert.equal((await db.query('select state from maintenance_private.product_attachments where id=$1',[first])).rows[0].state,'reserved');
+ await finalize();await finalize();await assert.rejects(()=>finalize(5242880,'b'.repeat(64)));
+ assert.equal((await db.query('select state,sha256 from maintenance_private.product_attachments where id=$1',[first])).rows[0].state,'stored');
  for(let i=1;i<20;i++)await reserve(randomUUID());await assert.rejects(()=>reserve(randomUUID(),1));
  assert.equal((await db.query('select count(*) as n from maintenance_private.product_attachments')).rows[0].n,20);
- await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,epoch]);await assert.rejects(()=>reserve(first));
+ await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,epoch]);await assert.rejects(()=>reserve(first));await assert.rejects(()=>finalize());
  const freshSession=randomUUID(),freshEpoch=(await db.query('select maintenance_private.enroll_app_epoch($1,$2) as epoch',[user,freshSession])).rows[0].epoch;
  await assert.rejects(()=>db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7)',[user,freshSession,freshEpoch,product,randomUUID(),1,'image/png']));
  await db.exec('reset role');
