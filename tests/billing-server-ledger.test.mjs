@@ -9,14 +9,25 @@ function compile(name){
  const url=moduleURL(code);cache.set(name,url);return url;
 }
 const server=await import(compile('billing-server'));
+test('actual Apple verifier factory binds Production scope and rejects unsigned proof',async()=>{
+ const verifier=server.billingVerifier({certificates:[],environment:'Production',bundleId:'test.ouchi',appAppleId:123456789});
+ assert.equal(verifier.environment,'Production');assert.equal(verifier.bundleId,'test.ouchi');assert.equal(verifier.appAppleId,123456789);assert.equal(verifier.enableOnlineChecks,true);
+ await assert.rejects(()=>verifier.verifyAndDecodeTransaction('e30.e30.c2ln'));
+ assert.throws(()=>server.billingVerifier({certificates:[],environment:'Production',bundleId:'test.ouchi'}));
+});
 test('billing configuration keeps production disabled and rejects unknown storage mode',()=>{
- const keys=['BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_STORAGE_MODE'];const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ const keys=['BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_STORAGE_MODE','APPLE_APP_ID','BILLING_PRODUCTION_VERIFICATION_ENABLED'];const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
  try{
  Object.assign(process.env,{BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',NEXT_PUBLIC_SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'synthetic',APPLE_BUNDLE_ID:'test.ouchi',APPLE_ROOT_CERTIFICATES_BASE64:Buffer.from('synthetic-not-a-real-certificate').toString('base64')});
  delete process.env.BILLING_STORAGE_MODE;assert.equal(server.billingConfiguration().storage,'sandbox-legacy');
+ delete process.env.BILLING_PRODUCTION_VERIFICATION_ENABLED;delete process.env.APPLE_APP_ID;
  process.env.BILLING_STORAGE_MODE='verified-ledger';assert.equal(server.billingConfiguration().storage,'verified-ledger');
  process.env.BILLING_STORAGE_MODE='typo';assert.equal(server.billingConfiguration(),null);
  process.env.BILLING_STORAGE_MODE='verified-ledger';process.env.BILLING_MODE='production';assert.equal(server.billingConfiguration(),null);
+ process.env.BILLING_PRODUCTION_VERIFICATION_ENABLED='true';assert.equal(server.billingConfiguration(),null);
+ for(const identifier of ['0','1.5','-1','9007199254740992',' 123']){process.env.APPLE_APP_ID=identifier;assert.equal(server.billingConfiguration(),null);}
+ process.env.APPLE_APP_ID='123456789';let config=server.billingConfiguration();assert.equal(config.environment,'Production');assert.equal(config.appAppleId,123456789);
+ process.env.BILLING_STORAGE_MODE='sandbox-legacy';assert.equal(server.billingConfiguration(),null);
  }finally{for(const key of keys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}}
 });
 test('actual persistence helper selects ledger RPC and rejects missing acknowledgement',async()=>{

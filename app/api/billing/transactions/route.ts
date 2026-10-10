@@ -18,6 +18,6 @@ export async function POST(request:Request){
  }catch{return Response.json({error:'検証できない取引です。利用権は変更していません。'},{status:400,headers});}
  try{
   await persistBillingTransaction(db,config,signedTransaction,transaction);
-  return Response.json({saved:true,environment:'Sandbox'},{headers});
+  return Response.json({saved:true,environment:config.environment},{headers});
  }catch{return Response.json({error:'購入結果を保存できません。復元から再確認してください。'},{status:503,headers});}
 }

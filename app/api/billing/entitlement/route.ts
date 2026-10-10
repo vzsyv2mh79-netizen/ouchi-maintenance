@@ -10,7 +10,7 @@ export async function GET(request:Request){
  if(!purchaseAccount)return Response.json({error:'現在の登録を確認できません。'},{status:403,headers});
  if(config.storage==='verified-ledger'){
   try{
-   const state=await ledgerEntitlementAfterAuth(db,token.slice(7),user.id,purchaseAccount);
+   const state=await ledgerEntitlementAfterAuth(db,token.slice(7),user.id,purchaseAccount,config.environment);
    return Response.json({...state,salesEnabled:false,purchaseAccountToken:purchaseAccount},{headers});
   }catch{return Response.json({error:'契約状態を確認できません。'},{status:503,headers});}
  }
