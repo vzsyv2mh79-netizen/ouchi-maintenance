@@ -1,5 +1,54 @@
 import Foundation
 
+/// Loopback-only test transport. Default Release transport refuses all requests.
+/// This does not request OS permission or register with Apple automatically.
+public struct DevelopmentAPNsAPI: Sendable {
+    private let transport: HouseholdAPI.Transport
+    public init(transport: HouseholdAPI.Transport? = nil) {
+        self.transport = transport ?? { request in
+            #if DEBUG
+            let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+            let (bytes, response) = try await session.data(for: request)
+            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            return (bytes, response)
+            #else
+            throw CloudError.rejected(503)
+            #endif
+        }
+    }
+    public func register(deviceToken: Data, token: String, confirmed: Bool) async throws -> UUID {
+        guard confirmed, (16...512).contains(deviceToken.count) else { throw CloudError.invalidInput }
+        let hexadecimal = deviceToken.map { String(format: "%02x", $0) }.joined()
+        let bytes = try await send(method: "POST", body: ["deviceToken": hexadecimal], token: token)
+        struct Result: Decodable { let environment: String; let registrationId: UUID }
+        let result = try JSONDecoder().decode(Result.self, from: bytes)
+        guard result.environment == "Sandbox", result.registrationId.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.malformedResponse }
+        return result.registrationId
+    }
+    public func disable(registration: UUID, token: String) async throws -> Bool {
+        guard registration.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+        let bytes = try await send(method: "DELETE", body: ["registrationId": registration.uuidString.lowercased()], token: token)
+        struct Result: Decodable { let environment: String; let disabled: Bool }
+        let result = try JSONDecoder().decode(Result.self, from: bytes)
+        guard result.environment == "Sandbox" else { throw CloudError.malformedResponse }
+        return result.disabled
+    }
+    private func send(method: String, body: [String: String], token: String) async throws -> Data {
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        let url = URL(string: "http://127.0.0.1:3000/api/development/apns-registration")!
+        var request = URLRequest(url: url)
+        request.httpMethod = method; request.timeoutInterval = 15; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (bytes, response) = try await transport(request)
+        guard response.url == url, bytes.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        return bytes
+    }
+}
+
 public struct MaintenanceReport: Decodable, Sendable {
     public struct Month: Decodable, Sendable { public let month: String; public let completed: Int }
     public struct Product: Decodable, Sendable {
