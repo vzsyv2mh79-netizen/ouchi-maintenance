@@ -164,6 +164,9 @@ private struct NativeSettings: View {
                     NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) }
                     NavigationLink("レポートのSandbox確認") { SandboxReportView() }
                 } }
+                if store.developmentLifecycleConfigured {
+                    Section("開発用") { NavigationLink("アカウント処理のテスト") { DevelopmentLifecycleView() } }
+                }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
                     NavigationLink("家族と共有") { FamilySettings() }
@@ -699,5 +702,36 @@ private struct SandboxReportView: View {
                 Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
             }
         }.navigationTitle("お手入れレポート")
+    }
+}
+
+private struct DevelopmentLifecycleView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var password = ""
+    @State private var reenrolling = false
+    @State private var confirming = false
+    var body: some View {
+        Form {
+            Section("独立したテスト環境") {
+                Text("テスト用アカウントだけで操作してください。アプリの利用を終了してテスト記録を削除します。個人情報を含む完全なアカウント削除ではなく、共通のログイン情報は残ります。必要なテスト記録は先に書き出してください。")
+                Picker("操作", selection: $reenrolling) {
+                    Text("利用を終了").tag(false)
+                    Text("明示的に再登録").tag(true)
+                }
+                SecureField("現在のパスワード", text: $password).textContentType(.password)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button(reenrolling ? "再登録を確認" : "利用終了を確認", role: reenrolling ? nil : .destructive) { confirming = true }
+                    .disabled(store.busy || password.isEmpty || !store.developmentLifecycleConfigured)
+            }
+        }.navigationTitle("アカウント処理のテスト")
+        .confirmationDialog(reenrolling ? "新しく再登録しますか？" : "テスト用アカウントの利用を終了しますか？", isPresented: $confirming, titleVisibility: .visible) {
+            Button(reenrolling ? "再登録する" : "利用を終了", role: reenrolling ? nil : .destructive) {
+                let secret = password; password = ""
+                let enrolling = reenrolling
+                Task { await store.testAccountLifecycle(password: secret, reenrolling: enrolling, confirmed: true) }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: { Text(reenrolling ? "過去の記録や古いログインのアクセス権は復元しません。" : "所有するテスト用の住まいと共有への参加情報を削除します。元に戻せません。Appleの定期購入は別途管理してください。") }
+        .onDisappear { password = ""; confirming = false }
     }
 }

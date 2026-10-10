@@ -50,6 +50,38 @@ import OuchiCore
             session = SessionController(api: client, storage: KeychainSessionStorage(service: (Bundle.main.bundleIdentifier ?? "ouchi") + "." + (url.host ?? "")))
         } else { api = nil; session = nil }
     }
+    var developmentLifecycleConfigured: Bool {
+        #if DEBUG
+        return api != nil && session != nil && ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"
+            && ["http://127.0.0.1:54321", "http://127.0.0.1:54321/"].contains(Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? "")
+        #else
+        return false
+        #endif
+    }
+    func testAccountLifecycle(password: String, reenrolling: Bool, confirmed: Bool) async {
+        guard developmentLifecycleConfigured, !busy, let session, confirmed else { return }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            let lifecycle = DevelopmentAccountLifecycleAPI()
+            if reenrolling {
+                _ = try await lifecycle.reenroll(token: credentials.access_token, password: password, confirmed: confirmed)
+                guard expected == generation else { return }
+                busy = false
+                await reload()
+            } else {
+                try await lifecycle.closeAppAccess(token: credentials.access_token, password: password, confirmed: confirmed)
+                guard expected == generation else { return }
+                busy = false
+                await signOut()
+                if message == nil { message = "テスト用アカウントの利用を終了しました。共通のログイン情報は残ります。" }
+            }
+        } catch {
+            if expected == generation { message = "テスト操作の完了を確認できませんでした。再実行する前にサーバーの状態を確認してください。" }
+        }
+        if expected == generation { busy = false }
+    }
     func restore() async {
         let expected = generation
         await reminders.reset(clearPreference: false)
