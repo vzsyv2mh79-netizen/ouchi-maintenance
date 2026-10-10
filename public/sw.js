@@ -1,6 +1,6 @@
 /* App shell only. Never cache auth, API responses, query strings or household data. */
-const CACHE = "ouchi-shell-v4";
-const assets = ["/icons/black-v4/192", "/icons/black-v4/512", "/manifest.webmanifest"];
+const CACHE = "ouchi-shell-v5";
+const assets = ["/icons/ivory-v1/icon-192.png", "/icons/ivory-v1/icon-512.png", "/manifest.webmanifest"];
 async function cacheShell(response) {
   const cache = await caches.open(CACHE);
   response ??= await fetch("/", { cache: "reload" });
@@ -44,7 +44,7 @@ self.addEventListener('push',event=>{
  event.waitUntil((async()=>{
   let payload;try{payload=event.data?.json();}catch{}
   const body=typeof payload?.body==='string'?payload.body.slice(0,200):'お手入れの予定をアプリで確認してください。';
-  await self.registration.showNotification('おうちメンテ',{body,icon:'/icons/black-v4/192',badge:'/icons/black-v4/192',tag:typeof payload?.tag==='string'?payload.tag.slice(0,80):'ouchi-maintenance',data:{url:'/'}});
+  await self.registration.showNotification('おうちメンテ',{body,icon:'/icons/ivory-v1/icon-192.png',badge:'/icons/ivory-v1/icon-192.png',tag:typeof payload?.tag==='string'?payload.tag.slice(0,80):'ouchi-maintenance',data:{url:'/'}});
  })());
 });
 self.addEventListener('notificationclick',event=>{
