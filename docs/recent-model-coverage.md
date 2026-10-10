@@ -569,3 +569,6 @@ N285060公式ストア品番、20260527_01.pdfの5月29日発売を照合。公�
 
 ## iRobot Max715 / Max775 (2026)
 W255060/X285060公式ストア品番と20260717.pdfの7月17日発売を照合。support845 actual715VOGJPUpdated.pdf31pとOG770jaJP.pdf57p。715文字抽出がほぼ不可のためcare14–27全14ページを図表で確認。775care23–53全31ページ本文と図表確認。7159候補/77511候補、715フィルター3–6か月交換は固定化しない(705の2か月を流用しない)。775前後輪2週(705Combo4週を流用しない)、スクリーン可洗/フィルター本体不可洗、bin全乾燥、前輪ドライバー手のひらクリック/後輪右左金属棒、廃水容器黒栓内部チューブ/本体裏、ローラーストリップ矢印片側/カバー無理開け禁止、給廃水MAX/ラッチ/食洗機不可、dock磁石ダクト/排水口/吹出へ押込禁止、収納部フィルター月1。90日収納と交換範囲・必要時作業を固定化しない。旧モデルと別専用説明書/手順。残る2024Combo10Max,j5/i5など継続調査。
+
+## Combo 10 Max AutoWash (2024)
+X085860 official product SKU/JAN0885155042606 and 20240829_02.pdf August30 release verified. OGC10MaxwAutoWashJapan.pdf34p fullcare22–30 text and all9page diagrams audited.12 candidates: filter7/replace60, brushes30, front/dust/bodycontacts14, sensors30, dockcontacts14/IR30, washcontainer and filterroller30 ifdirty/app. FilterNOwash/binwarmDryNOdishwasher, padswarmhandorwasherNOdryer, tankneededlatchNOdishwasher, washerdry+peg/drain, bag60daycapacity notcycle. X055860 AutoEmpty September6 officialSKU known but support843 OG10MaxAutoFillDockJP.pdf body actuallyj9+autoFill, cannot reuse; defer until correctmanual independentlyfound.
