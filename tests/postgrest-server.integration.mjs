@@ -26,6 +26,10 @@ test('real Auth JWT enforces closure and reenrollment through PostgREST', {skip:
   const forbidden=await client.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.ok(forbidden.error);
   const closed=await admin.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.equal(closed.error,null);assert.equal(closed.data,true);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);
+  const forbiddenInsert=await client.from('homes').insert({owner_id:id,name:'closed synthetic home',kind:'home'});assert.ok(forbiddenInsert.error);
+  const forged=token.split('.');forged[2]=(forged[2][0]==='A'?'B':'A')+forged[2].slice(1);
+  const invalid=createClient('http://127.0.0.1:54321','synthetic-public-key',{...options,global:{headers:{Authorization:'Bearer '+forged.join('.')}}});
+  assert.ok((await invalid.rpc('load_household')).error);
   const freshClient=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
   const login=await freshClient.auth.signInWithPassword({email,password});assert.equal(login.error,null);assert.ok(login.data.session);
   const freshVerified=await freshClient.auth.getUser(login.data.session.access_token);assert.equal(freshVerified.error,null);assert.equal(freshVerified.data.user.id,id);
