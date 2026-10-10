@@ -67,3 +67,9 @@ SwiftPMのXCTest実行はローカルツールの不整合で未実施。
 ホームと外観: 日本時間の実日付、期限切れ/今日/明日から7日以内/製品数/今月完了数と次の5件をホームに表示。TimelineViewで日付の変化を反映。上部右端のライト/ダーク切替は端末に保持し、初期はシステム設定。OverviewSmokeの日/月境界と住まい分離はPASS。SwiftUIは構文確認のみでiOS描画は未確認。
 
 2026-10-10 Xcode依存確認: /ApplicationsにXcodeなし、xcode-selectはCommandLineTools、xcodebuildはXcode本体を要求して終了。無料XcodeのApp Storeページを開くよう依頼し、本人に導入/iOS初期インストールを依頼。ダウンロードが始まった証拠はなく待機ジョブとは扱わない。導入待ちでもコード作業は継続。
+
+## まとめて検証する
+
+`python3 ios/scripts/verify-native.py --sdk /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` は共通ライブラリと12種類のSmokeを一時ディレクトリに毎回ビルドして実行し、macOSによる認証/StoreKit/通知/Storeの型検査、SwiftUI構文、プロジェクトplistも確認する。古い実行ファイルを流用しない。合成通信/fixtureのみで、登録・メール・DB削除・OS通知を行わない。2026-10-10このコマンド全件PASS。Lookupは標準では1機種fixture、別途334機種のWebカタログ確認は前の検証でPASS。全カタログはexport-web-catalog.mjsで出力して`--catalog JSON_PATH`を指定する。
+
+Xcode本体導入後は、そのXcodeに対応するmacOS SDKを指定し`--ios-build`を追加すると署名なしのiOS Simulator SDKビルドを行う。iOSビルドが未実行なら出力に明示。成功しても実機の表示、Auth/RLS、通知、購入は別途検証が必要。現在XcodeなしのためiOSビルドは未実行。
