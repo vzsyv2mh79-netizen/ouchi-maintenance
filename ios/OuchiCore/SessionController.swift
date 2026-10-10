@@ -43,6 +43,8 @@ public actor SessionController {
         session = nil
         try storage.write(nil)
     }
+    /// Device-local identity for offline viewing only; not remote authorization.
+    public func localAccount() -> UUID? { session?.user.id }
     public func credentials(now: Date = Date()) async throws -> Session {
         guard let current = session else { throw CloudError.authenticationRequired }
         if current.expires_at > now.timeIntervalSince1970 + 60 { return current }

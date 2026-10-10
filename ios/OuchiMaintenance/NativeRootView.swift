@@ -22,6 +22,7 @@ struct NativeRootView: View {
         .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
         .safeAreaInset(edge: .top) {
             HStack {
+                if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
                 Spacer()
                 Button {
                     preferredAppearance = appearance == .dark ? "light" : "dark"

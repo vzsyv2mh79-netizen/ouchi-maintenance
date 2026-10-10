@@ -4,7 +4,15 @@ import StoreKit
 import OuchiCore
 
 @MainActor final class NativeStore: ObservableObject {
-    @Published private(set) var household: Household? { didSet { report = nil; reportGeneration += 1 } }
+    @Published private(set) var household: Household? { didSet {
+        report = nil; reportGeneration += 1
+        if !showingOfflineSnapshot, let household, let snapshotAccount {
+            try? snapshotStorage?.write(OfflineSnapshot(account: snapshotAccount, household: household))
+        }
+    } }
+    @Published private(set) var showingOfflineSnapshot = false
+    private var snapshotAccount: UUID?
+    private var snapshotStorage: HouseholdSnapshotStorage?
     @Published private(set) var signedIn = false
     @Published private(set) var busy = false
     @Published var message: String?
@@ -32,14 +40,31 @@ import OuchiCore
            let key = info["SUPABASE_PUBLISHABLE_KEY"] as? String,
            let config = try? CloudConfiguration(url: url, publishableKey: key) {
             let client = HouseholdAPI(config: config)
+            snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
             session = SessionController(api: client, storage: KeychainSessionStorage(service: (Bundle.main.bundleIdentifier ?? "ouchi") + "." + (url.host ?? "")))
         } else { api = nil; session = nil }
     }
     func restore() async {
+        let expected = generation
         await reminders.reset(clearPreference: false)
+        guard expected == generation else { return }
         guard let session else { message = "クラウド接続の設定が必要です。"; return }
-        do { signedIn = try await session.restore(); if signedIn { await reload() } }
+        do {
+            let restored = try await session.restore()
+            guard expected == generation else { return }
+            signedIn = restored
+            if signedIn {
+                let account = await session.localAccount()
+                guard expected == generation else { return }
+                snapshotAccount = account
+                if let account = snapshotAccount, let copy = try? snapshotStorage?.read(account: account) {
+                    showingOfflineSnapshot = true; household = copy.household
+                    homeID = copy.household.homes.first?.id ?? ""
+                }
+                await reload()
+            }
+        }
         catch { message = "保存したログインを確認できません。ログインし直してください。" }
     }
     func signIn(email: String, password: String) async {
@@ -49,6 +74,10 @@ import OuchiCore
         do {
             try await session.signIn(email: email, password: password)
             guard generation == expected else { return }
+            let account = await session.localAccount()
+            guard expected == generation else { return }
+            snapshotAccount = account
+            showingOfflineSnapshot = false
             signedIn = true
             busy = false
             await reload()
@@ -64,6 +93,10 @@ import OuchiCore
         do {
             let authenticated = try await session.signUp(email: email, password: password)
             guard expected == generation else { return }
+            let account = await session.localAccount()
+            guard expected == generation else { return }
+            snapshotAccount = account
+            showingOfflineSnapshot = false
             signedIn = authenticated; busy = false
             if authenticated { await reload() }
             else { message = "確認メールが必要な場合は、メールのリンクを開いてからログインしてください。迷惑メールフォルダも確認してください。" }
@@ -82,6 +115,7 @@ import OuchiCore
     }
     func signOut() async {
         generation += 1
+        try? snapshotStorage?.write(nil); snapshotAccount = nil; showingOfflineSnapshot = false
         remindersEnabled = false
         household = nil; signedIn = false; busy = true
         await reminders.reset(clearPreference: true)
@@ -241,6 +275,7 @@ import OuchiCore
             let credentials = try await session.credentials()
             let value = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
+            snapshotAccount = credentials.user.id; showingOfflineSnapshot = false
             household = value
             bindSandboxBilling(account: credentials.user.id)
             let notificationState = (try? await reminders.reconcile(data: value, account: credentials.user.id)) ?? false
@@ -249,7 +284,10 @@ import OuchiCore
             if !value.homes.contains(where: { $0.id == homeID }) { homeID = value.homes.first?.id ?? "" }
         } catch {
             if expected == generation {
-                message = "記録を取得できませんでした。通信とログイン状態を確認してください。"
+                if error as? CloudError == .rejected(401) || error as? CloudError == .rejected(403) {
+                    try? snapshotStorage?.write(nil); household = nil; showingOfflineSnapshot = false
+                } else if household != nil { showingOfflineSnapshot = true }
+                message = showingOfflineSnapshot ? "保存済みの記録を表示しています。最新の共有内容を確認するには通信を回復して再読み込みしてください。" : "記録を取得できませんでした。通信とログイン状態を確認してください。"
             }
         }
         if expected == generation { busy = false }
@@ -264,6 +302,7 @@ import OuchiCore
             try await api.complete(task: task.id, token: credentials.access_token)
             let fresh = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
+            showingOfflineSnapshot = false
             household = fresh
             let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
             guard expected == generation else { return }
@@ -295,6 +334,7 @@ import OuchiCore
             try await mutation(api, credentials.access_token)
             let fresh = try await api.load(token: credentials.access_token)
             guard expected == generation else { return false }
+            showingOfflineSnapshot = false
             household = fresh
             let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
             guard expected == generation else { return false }
