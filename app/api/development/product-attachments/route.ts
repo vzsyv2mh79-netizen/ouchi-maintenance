@@ -56,9 +56,9 @@ export async function GET(request:Request){
  const headers={'Cache-Control':'no-store'},url=process.env.OUCHI_ATTACHMENT_TEST_URL,key=process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY;
  if(process.env.NODE_ENV!=='development'||process.env.OUCHI_ATTACHMENT_TEST_MODE!=='true'||url!=='http://127.0.0.1:54321'||!key)return Response.json({error:'Local isolated test only'},{status:503,headers});
  const parameters=new URL(request.url).searchParams;
- const attachment=parameters.get('attachmentId'),product=parameters.get('productId');
+ const attachment=parameters.get('attachmentId'),product=parameters.get('productId'),usage=parameters.get('usage')==='true';
  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
- if((!attachment&&!product)||(attachment&&product)||(attachment&&!uuid.test(attachment))||(product&&!uuid.test(product)))return Response.json({error:'添付を確認してください。'},{status:400,headers});
+ if((!attachment&&!product&&!usage)||(usage&&(attachment||product))||(attachment&&product)||(attachment&&!uuid.test(attachment))||(product&&!uuid.test(product)))return Response.json({error:'添付を確認してください。'},{status:400,headers});
  try{
   const header=request.headers.get('authorization');if(!header?.startsWith('Bearer ')||header.length>16384||/\s/.test(header.slice(7)))return Response.json({error:'ログインしてください。'},{status:401,headers});
   const token=header.slice(7),db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -66,6 +66,14 @@ export async function GET(request:Request){
   const user=verified.data.user.id,identity=sessionAfterAuthVerification(token,user);if(!identity)return Response.json({error:'登録を確認できません。'},{status:401,headers});
   const epoch=await purchaseAccountAfterAuthVerification(token,user,async(target,session)=>{const result=await db.rpc('current_maintenance_purchase_account',{target_user:target,verified_session:session});if(result.error)throw new Error('Binding unavailable');return result.data;});
   if(!epoch)return Response.json({error:'登録を確認できません。'},{status:401,headers});
+  if(usage){
+   const result=await db.rpc('maintenance_attachment_usage',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch});
+   if(result.error||!result.data)throw new Error('Usage unavailable');
+   const item=result.data as Record<string,number>;
+   const keys=['usedBytes','usedFiles','reservedBytes','reservedFiles','limitBytes','limitFiles','fileLimitBytes'];
+   if(keys.some(key=>!Number.isSafeInteger(item[key])||item[key]<0)||item.limitBytes!==attachmentLimits.accountBytes||item.limitFiles!==attachmentLimits.accountFiles||item.fileLimitBytes!==attachmentLimits.fileBytes||item.reservedBytes>item.usedBytes||item.reservedFiles>item.usedFiles)throw new Error('Invalid usage');
+   return Response.json({usage:Object.fromEntries(keys.map(key=>[key,item[key]]))},{headers});
+  }
   if(product){
    const result=await db.rpc('list_maintenance_attachments',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,target_product:product.toLowerCase()});
    if(result.error||!Array.isArray(result.data))throw new Error('Listing unavailable');

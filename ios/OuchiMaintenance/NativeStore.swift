@@ -123,6 +123,19 @@ import OuchiCore
             return false
         }
     }
+    func developmentAttachmentUsage() async -> DevelopmentAttachmentAPI.Usage? {
+        guard developmentLifecycleConfigured, let session else { return nil }
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            let usage = try await DevelopmentAttachmentAPI().usage(token: credentials.access_token)
+            guard expected == generation else { return nil }
+            return usage
+        } catch {
+            if expected == generation { message = "保存容量を確認できませんでした。" }
+            return nil
+        }
+    }
     func listDevelopmentAttachments(product: UUID) async -> [DevelopmentAttachmentAPI.StoredAttachment] {
         guard developmentLifecycleConfigured, let session,
               household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return [] }

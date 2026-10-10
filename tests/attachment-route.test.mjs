@@ -4,7 +4,7 @@ const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOption
 const reader=url(compile('lib/product-attachment.ts')),sessionModule=url(compile('lib/verified-app-session.ts'));
 const upload=url(compile('lib/attachment-upload.ts').replace("'./product-attachment'",JSON.stringify(reader)));
 const binding=url(compile('lib/billing-account.ts').replace("'./verified-app-session'",JSON.stringify(sessionModule)));
-const sdk=url(`export function createClient(){const h=globalThis.attachmentRouteHarness;h.clients++;const query={eq(){return query;},then(resolve){resolve({data:h.rows,error:null});}};return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},from:()=>({select:()=>query}),rpc:async(name,args)=>{h.rpc.push(name);return {data:name==='current_maintenance_purchase_account'?h.epoch:name==='read_maintenance_attachment'?h.metadata:name==='list_maintenance_attachments'?h.items:args.attachment_id,error:null}},storage:{from:()=>({upload:async(path,bytes,options)=>{h.uploads++;h.path=path;if(options.upsert!==false)throw Error("overwrite allowed");h.blob=new Blob([bytes],{type:options.contentType});return {error:null}},download:async()=>({data:h.blob,error:h.blob?null:Error('not found')})})}};}`);
+const sdk=url(`export function createClient(){const h=globalThis.attachmentRouteHarness;h.clients++;const query={eq(){return query;},then(resolve){resolve({data:h.rows,error:null});}};return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},from:()=>({select:()=>query}),rpc:async(name,args)=>{h.rpc.push(name);return {data:name==='current_maintenance_purchase_account'?h.epoch:name==='read_maintenance_attachment'?h.metadata:name==='list_maintenance_attachments'?h.items:name==='maintenance_attachment_usage'?h.usage:args.attachment_id,error:null}},storage:{from:()=>({upload:async(path,bytes,options)=>{h.uploads++;h.path=path;if(options.upsert!==false)throw Error("overwrite allowed");h.blob=new Blob([bytes],{type:options.contentType});return {error:null}},download:async()=>({data:h.blob,error:h.blob?null:Error('not found')})})}};}`);
 let source=compile('app/api/development/product-attachments/route.ts');
 for(const [path,module] of [['@supabase/supabase-js',sdk],['@/lib/attachment-upload',upload],['@/lib/product-attachment',reader],['@/lib/verified-app-session',sessionModule],['@/lib/billing-account',binding],['@/lib/billing',url(compile('lib/billing.ts'))]])source=source.replaceAll("'"+path+"'",JSON.stringify(module));
 const {POST,GET}=await import(url(source));
@@ -28,6 +28,9 @@ test('actual attachment route refuses production/shared config and wires authent
   h.items=[{id,size:8,mime:'image/png',createdAt:new Date().toISOString(),user:'must-not-expose'}];
   const listing=()=>GET(new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${product}`,{headers:{authorization:'Bearer '+token}}));
   const listed=await listing();assert.equal(listed.status,200);assert.deepEqual(Object.keys((await listed.json()).items[0]).sort(),['createdAt','id','mime','size']);
+  h.usage={usedBytes:8,usedFiles:1,reservedBytes:0,reservedFiles:0,limitBytes:104857600,limitFiles:100,fileLimitBytes:5242880};
+  const usageRequest=()=>GET(new Request('http://127.0.0.1:3000/api/development/product-attachments?usage=true',{headers:{authorization:'Bearer '+token}}));
+  assert.deepEqual((await (await usageRequest()).json()).usage,h.usage);h.usage.reservedBytes=9;assert.equal((await usageRequest()).status,503);
   h.items=[{id,size:8,mime:'text/html',createdAt:new Date().toISOString()}];assert.equal((await listing()).status,503);
 
 

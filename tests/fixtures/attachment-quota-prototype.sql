@@ -87,3 +87,18 @@ begin
 end;$$;
 revoke all on function public.list_maintenance_attachments(uuid,uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.list_maintenance_attachments(uuid,uuid,uuid,uuid) to service_role;
+
+-- Usage is charged to the verified uploader, including uncertain reservations
+-- and retained historical epochs. No entitlement is required to inspect usage.
+create function public.maintenance_attachment_usage(target_user uuid,verified_session uuid,expected_epoch uuid) returns jsonb
+language plpgsql stable security invoker set search_path='' as $$
+declare total_bytes bigint; total_files bigint; reserved_bytes bigint; reserved_files bigint;
+begin
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then return null; end if;
+ select coalesce(sum(size_bytes),0),count(*),coalesce(sum(size_bytes) filter(where state='reserved'),0),count(*) filter(where state='reserved')
+ into total_bytes,total_files,reserved_bytes,reserved_files
+ from maintenance_private.product_attachments where user_id=target_user and state<>'removed';
+ return jsonb_build_object('usedBytes',total_bytes,'usedFiles',total_files,'reservedBytes',reserved_bytes,'reservedFiles',reserved_files,'limitBytes',104857600,'limitFiles',100,'fileLimitBytes',5242880);
+end;$$;
+revoke all on function public.maintenance_attachment_usage(uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.maintenance_attachment_usage(uuid,uuid,uuid) to service_role;

@@ -818,12 +818,20 @@ private struct DevelopmentAttachmentView: View {
     @State private var attachmentID = UUID()
     @State private var confirmUpload = false
     @State private var savedAttachments: [DevelopmentAttachmentAPI.StoredAttachment] = []
+    @State private var attachmentUsage: DevelopmentAttachmentAPI.Usage?
     @State private var status: String?
     var body: some View {
         Form {
             Section("独立したテスト環境専用") {
                 Text("実際の写真や個人情報を含む保証書を使わず、テスト用ファイルで確認してください。公開版の保管機能はまだ有効にしていません。")
                 Text("1ファイル5MiB、合計100MiB・100ファイルまで。JPEG・PNG・PDFに対応します。")
+            }
+            if let usage = attachmentUsage {
+                Section("このアカウントの保存容量") {
+                    Text("\(usage.usedBytes / 1024) KiB / \(usage.limitBytes / 1024) KiB・\(usage.usedFiles) / \(usage.limitFiles)ファイル")
+                    if usage.reservedFiles > 0 { Text("確認待ち: \(usage.reservedFiles)ファイル。確認待ちの容量も上限に含まれます。") }
+                    Text("家族が保存したファイルは、保存した人の容量に含まれます。")
+                }
             }
             Section("添付先") {
                 Picker("製品", selection: $productID) {
@@ -882,19 +890,23 @@ private struct DevelopmentAttachmentView: View {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
                         self.bytes = nil; filename = ""; mime = ""
                         savedAttachments = await store.listDevelopmentAttachments(product: product)
+                        attachmentUsage = await store.developmentAttachmentUsage()
                     }
                 }
             }
             Button("キャンセル", role: .cancel) {}
         }
         .task(id: productID) {
-            savedAttachments = []; store.clearDevelopmentAttachmentExport()
+            savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
+            let usage = await store.developmentAttachmentUsage()
+            guard !Task.isCancelled else { return }
+            attachmentUsage = usage
             guard let product = UUID(uuidString: productID) else { return }
             let selected = productID
             let items = await store.listDevelopmentAttachments(product: product)
             guard !Task.isCancelled, selected == productID else { return }
             savedAttachments = items
         }
-        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachments = []; store.clearDevelopmentAttachmentExport() }
+        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }

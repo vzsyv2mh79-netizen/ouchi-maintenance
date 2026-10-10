@@ -153,6 +153,31 @@ public struct DevelopmentAttachmentAPI: Sendable {
             #endif
         }
     }
+    public struct Usage: Decodable, Sendable {
+        public let usedBytes: Int
+        public let usedFiles: Int
+        public let reservedBytes: Int
+        public let reservedFiles: Int
+        public let limitBytes: Int
+        public let limitFiles: Int
+        public let fileLimitBytes: Int
+    }
+    public func usage(token: String) async throws -> Usage {
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        let url = URL(string: "http://127.0.0.1:3000/api/development/product-attachments?usage=true")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        struct Envelope: Decodable { let usage: Usage }
+        let value = try JSONDecoder().decode(Envelope.self, from: body).usage
+        guard value.usedBytes >= 0, value.usedFiles >= 0, value.reservedBytes >= 0, value.reservedFiles >= 0,
+              value.reservedBytes <= value.usedBytes, value.reservedFiles <= value.usedFiles,
+              value.limitBytes == 104857600, value.limitFiles == 100, value.fileLimitBytes == 5242880 else { throw CloudError.malformedResponse }
+        return value
+    }
     public struct StoredAttachment: Decodable, Sendable, Identifiable {
         public let id: UUID
         public let size: Int

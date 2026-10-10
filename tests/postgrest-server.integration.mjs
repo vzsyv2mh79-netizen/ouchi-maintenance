@@ -86,6 +86,8 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const downloadRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${objectID}`,{headers:{authorization:'Bearer '+bearer}});
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...event,signedAt:event.signedAt+1,expiresAt:Date.now()-1}})).error,null);
   const retained=await attachmentGET(downloadRequest(token));assert.equal(retained.status,200);assert.equal(retained.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await retained.arrayBuffer()),Buffer.from(bytes));
+  const usageRequest=bearer=>new Request('http://127.0.0.1:3000/api/development/product-attachments?usage=true',{headers:{authorization:'Bearer '+bearer}});
+  const actualUsage=await attachmentGET(usageRequest(token));assert.equal(actualUsage.status,200);const usage=(await actualUsage.json()).usage;assert.equal(usage.usedBytes,104857600);assert.equal(usage.usedFiles,20);assert.equal(usage.reservedFiles,18);
   const listRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}`,{headers:{authorization:'Bearer '+bearer}});
   const retainedList=await attachmentGET(listRequest(token));assert.equal(retainedList.status,200);assert.ok((await retainedList.json()).items.some(item=>item.id===objectID));
   const outsider=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
