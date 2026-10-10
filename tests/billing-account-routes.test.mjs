@@ -10,7 +10,7 @@ export function billingConfiguration(){return {};}
 export function billingDatabase(){
  const h=globalThis.billingRouteHarness;
  const query={eq(key,value){h.filters.push([key,value]);return query;},then(resolve){resolve({data:h.rows,error:null});}};
- return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},rpc:async()=>{h.writes++;return {error:null}},from:()=>({select:()=>query})};
+ return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},rpc:async()=>{h.writes++;if(h.writeThrows)throw Error('network');return {error:h.writeError?Error('database'):null}},from:()=>({select:()=>query})};
 }
 export async function verifiedPurchaseAccount(){const h=globalThis.billingRouteHarness;h.bindings++;if(h.bindingError)throw Error('unavailable');return h.account;}
 export async function readBillingBody(request){return request.json();}
@@ -30,6 +30,11 @@ test('billing routes gate writes and rights on verified current enrollment',asyn
   h.bindingError=true;assert.equal((await POST(request())).status,503);assert.equal((await get()).status,503);h.bindingError=false;h.account=epoch;
   h.transaction={...transaction,accountToken:user};assert.equal((await POST(request())).status,403);assert.equal(h.writes,0);
   h.transaction=transaction;assert.equal((await POST(request())).status,200);assert.equal(h.writes,1);
+  h.writeThrows=true;let retry=await POST(request());assert.equal(retry.status,503);assert.equal((await retry.json()).saved,undefined);h.writeThrows=false;
+  h.writeError=true;retry=await POST(request());assert.equal(retry.status,503);assert.equal((await retry.json()).saved,undefined);h.writeError=false;
+  assert.equal((await POST(request())).status,200);
+  const priorWrites=h.writes;assert.equal((await POST(new Request('https://example.invalid/api/billing/transactions',{method:'POST',headers:{authorization:'Bearer synthetic extra'},body:'{}'}))).status,401);assert.equal(h.writes,priorWrites);
+
   h.rows=[{payload:{...transaction,accountToken:user}}];let response=await get();assert.equal((await response.json()).plan,'free');
   h.rows=[{payload:transaction}];response=await get();const body=await response.json();assert.equal(body.plan,'premium');assert.equal(body.purchaseAccountToken,epoch);assert.equal(body.salesEnabled,false);assert.equal(response.headers.get('cache-control'),'no-store');
   assert.deepEqual(h.filters.slice(-2),[['user_id',user],['app_epoch_id',epoch]]);
