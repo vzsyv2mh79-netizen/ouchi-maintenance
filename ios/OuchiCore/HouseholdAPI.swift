@@ -127,6 +127,15 @@ public struct HouseholdAPI: Sendable {
         guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
 
+    public enum DeletableRecord: String, Sendable { case product = "products", task = "maintenance_tasks" }
+    public func deleteRecord(_ record: DeletableRecord, id: String, token: String) async throws {
+        guard let uuid = UUID(uuidString: id) else { throw CloudError.invalidInput }
+        let data = try await send(path: "rest/v1/" + record.rawValue, token: token, body: Data(),
+                                  query: "id=eq.\(uuid.uuidString.lowercased())&select=id", method: "DELETE", representation: true)
+        struct Row: Decodable { let id: String }
+        let rows = try JSONDecoder().decode([Row].self, from: data)
+        guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
+    }
     public func createHome(name: String, kind: String, token: String) async throws {
         try validateHome(name: name, kind: kind)
         _ = try await send(path: "rest/v1/rpc/create_maintenance_home", token: token,

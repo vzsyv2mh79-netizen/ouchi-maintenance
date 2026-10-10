@@ -154,6 +154,15 @@ import OuchiCore
         }
     }
 
+    func deleteProduct(_ product: Appliance) async -> Bool {
+        guard product.homeId == homeID,
+              household?.products(in: homeID).contains(where: { $0.id == product.id }) == true else { return false }
+        return await save { api, token in try await api.deleteRecord(.product, id: product.id, token: token) }
+    }
+    func deleteTask(_ task: CareTask) async -> Bool {
+        guard household?.tasks(in: homeID).contains(where: { $0.id == task.id && $0.productId == task.productId }) == true else { return false }
+        return await save { api, token in try await api.deleteRecord(.task, id: task.id, token: token) }
+    }
     func createHome(name: String, kind: String) async -> Bool {
         await save { api, token in try await api.createHome(name: name, kind: kind, token: token) }
     }

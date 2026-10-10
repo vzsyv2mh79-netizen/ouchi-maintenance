@@ -202,6 +202,7 @@ private struct ProductEditor: View {
     @State private var installed = ""
     @State private var memo = ""
     @State private var loaded = false
+    @State private var deleting = false
     var body: some View {
         Form {
             Section("製品") {
@@ -229,7 +230,13 @@ private struct ProductEditor: View {
                     installedDate: installed.isEmpty ? nil : installed, memo: memo.isEmpty ? nil : memo)
                 Task { if await store.saveProduct(value, creating: initial == nil) { dismiss() } }
             }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || home != store.homeID)
+            if initial != nil {
+                Section { Button("製品を削除", role: .destructive) { deleting = true }.disabled(store.busy || home != store.homeID) }
+            }
         }.navigationTitle(initial == nil ? "製品を追加" : "製品を編集")
+         .confirmationDialog("製品と関連する記録を削除しますか？", isPresented: $deleting, titleVisibility: .visible) {
+             if let initial { Button("製品を削除", role: .destructive) { Task { if await store.deleteProduct(initial) { dismiss() } } } }
+         } message: { Text("この製品のお手入れ項目と完了履歴も削除され、共有家族の画面からも消えます。元に戻せません。必要な記録は設定から書き出してください。") }
          .interactiveDismissDisabled(store.busy)
          .onAppear {
              guard !loaded else { return }; loaded = true
@@ -252,6 +259,7 @@ private struct TaskEditor: View {
     @State private var interval = "30"
     @State private var due = ""
     @State private var loaded = false
+    @State private var deleting = false
     var body: some View {
         Form {
             Section("お手入れ") {
@@ -276,7 +284,13 @@ private struct TaskEditor: View {
                     sourceFrequency: changed ? nil : initial?.sourceFrequency)
                 Task { if await store.saveTask(value, creating: initial == nil) { dismiss() } }
             }.disabled(store.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !((1...3650).contains(Int(interval) ?? 0)))
+            if initial != nil {
+                Section { Button("お手入れ項目を削除", role: .destructive) { deleting = true }.disabled(store.busy) }
+            }
         }.navigationTitle(initial == nil ? "お手入れを追加" : "お手入れを編集")
+         .confirmationDialog("お手入れ項目と履歴を削除しますか？", isPresented: $deleting, titleVisibility: .visible) {
+             if let initial { Button("お手入れ項目を削除", role: .destructive) { Task { if await store.deleteTask(initial) { dismiss() } } } }
+         } message: { Text("この項目の完了履歴も削除され、共有家族の画面からも消えます。元に戻せません。必要な記録は設定から書き出してください。") }
          .interactiveDismissDisabled(store.busy)
          .onAppear {
              guard !loaded else { return }; loaded = true
