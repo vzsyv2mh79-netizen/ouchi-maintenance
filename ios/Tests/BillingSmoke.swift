@@ -78,6 +78,31 @@ import OuchiCore
         let unavailable = BillingAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
         do { try await unavailable.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("failed persistence accepted") }
         catch { precondition(error as? CloudError == .rejected(503)) }
-        print("BillingSmoke PASS: authenticated JWS transport, server ack, explicit environment isolation, paused-sales paid rights, authoritative expiry, failed persistence refusal. No Apple purchase/network.")
+        for (status, state) in [(202, "accepted"), (200, "no_purchase_history")] {
+            let recovery = BillingAPI { request in
+                precondition(request.httpMethod == "POST" && request.url?.path == "/api/billing/recovery")
+                precondition(request.httpBody == Data("{}".utf8))
+                let payload = "{\"state\":\"\(state)\",\"environment\":\"Sandbox\"}"
+                return (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            }
+            let receipt = try await recovery.requestRecovery(token: "synthetic"); precondition(receipt.rawValue == state)
+        }
+        for state in ["none", "queued", "running", "complete", "failed", "cancelled"] {
+            let recovery = BillingAPI { request in
+                precondition(request.httpMethod == "GET" && request.url?.path == "/api/billing/recovery")
+                let payload = "{\"state\":\"\(state)\",\"environment\":\"Sandbox\"}"
+                return (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            let progress = try await recovery.recoveryStatus(token: "synthetic"); precondition(progress.state.rawValue == state)
+        }
+        for payload in [#"{"state":"complete","environment":"Production"}"#, #"{"state":"premium","environment":"Sandbox"}"#] {
+            let invalid = BillingAPI { request in (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!) }
+            do { _ = try await invalid.recoveryStatus(token: "synthetic"); fatalError("invalid recovery scope/state accepted") } catch {}
+        }
+        for (status, payload) in [(200, #"{"state":"accepted","environment":"Sandbox"}"#), (202, #"{"state":"no_purchase_history","environment":"Sandbox"}"#), (202, #"{"state":"accepted","environment":"Production"}"#), (202, #"{"state":"complete","environment":"Sandbox"}"#)] {
+            let invalid = BillingAPI { request in (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!) }
+            do { _ = try await invalid.requestRecovery(token: "synthetic"); fatalError("invalid recovery receipt accepted") } catch {}
+        }
+        print("BillingSmoke PASS: authenticated JWS transport, server ack, explicit environment isolation, paused-sales paid rights, authoritative expiry, failed persistence refusal, recovery receipt/status scope and accepted-versus-complete separation. No Apple purchase/network.")
     }
 }

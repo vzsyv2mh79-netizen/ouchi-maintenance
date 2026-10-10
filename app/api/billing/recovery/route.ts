@@ -17,7 +17,7 @@ export async function POST(request:Request){
   if(error||!user)return Response.json({error:'Login unavailable'},{status:401,headers});
   const epoch=await verifiedPurchaseAccount(db,bearer,user.id);if(!epoch)return Response.json({error:'Enrollment unavailable'},{status:403,headers});
   const accepted=await enqueueBillingRecoveryAfterAuth(db,config,bearer,user.id,epoch);
-  return Response.json({state:accepted?'accepted':'no_purchase_history'},{status:accepted?202:200,headers});
+  return Response.json({state:accepted?'accepted':'no_purchase_history',environment:config.environment},{status:accepted?202:200,headers});
  }catch{return Response.json({error:'Recovery request unavailable'},{status:503,headers});}
 }
 

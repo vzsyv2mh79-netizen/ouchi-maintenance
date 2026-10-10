@@ -25,6 +25,13 @@ public struct VerifiedEntitlement: Decodable, Sendable {
 // Keep existing test-only screens source compatible while the production UI is prepared.
 public typealias SandboxEntitlement = VerifiedEntitlement
 
+public struct BillingRecoveryStatus: Decodable, Sendable {
+    public enum State: String, Decodable, Sendable { case none, queued, running, complete, failed, cancelled }
+    public let state: State
+    public let environment: BillingEnvironment
+}
+public enum BillingRecoveryRequest: String, Decodable, Sendable { case accepted; case noPurchaseHistory = "no_purchase_history" }
+
 /// Server validates Apple JWS and binds it to the authenticated user.
 /// Environment selection only scopes validation; it does not enable purchases or sales.
 public struct BillingAPI: Sendable {
@@ -35,7 +42,7 @@ public struct BillingAPI: Sendable {
         guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
         return (bytes, response)
     }) { self.environment = environment; self.transport = transport }
-    private func send(path: String, token: String, body: Data?) async throws -> Data {
+    private func send(path: String, token: String, body: Data?, allowedStatuses: Set<Int> = [200]) async throws -> (data: Data, status: Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/" + path)!
         var request = URLRequest(url: url); request.httpMethod = body == nil ? "GET" : "POST"
@@ -45,23 +52,23 @@ public struct BillingAPI: Sendable {
         request.httpBody = body
         let (data, response) = try await transport(request)
         guard response.url?.scheme == "https", response.url?.host == url.host, response.url?.path == url.path else { throw CloudError.malformedResponse }
-        guard response.statusCode == 200 else {
+        guard allowedStatuses.contains(response.statusCode) else {
             if response.statusCode == 401 { throw CloudError.authenticationRequired }
             throw CloudError.rejected(response.statusCode)
         }
         guard data.count <= 1_000_000 else { throw CloudError.malformedResponse }
-        return data
+        return (data, response.statusCode)
     }
     public func submit(signedTransaction: String, token: String) async throws {
         guard !signedTransaction.isEmpty, signedTransaction.utf8.count <= 250_000 else { throw CloudError.invalidInput }
         let body = try JSONEncoder().encode(["signedTransaction": signedTransaction])
-        let data = try await send(path: "transactions", token: token, body: body)
+        let (data, _) = try await send(path: "transactions", token: token, body: body)
         struct Saved: Decodable { let saved: Bool; let environment: String }
         let result = try JSONDecoder().decode(Saved.self, from: data)
         guard result.saved, result.environment == environment.rawValue else { throw CloudError.malformedResponse }
     }
     public func entitlement(token: String) async throws -> VerifiedEntitlement {
-        let data = try await send(path: "entitlement", token: token, body: nil)
+        let (data, _) = try await send(path: "entitlement", token: token, body: nil)
         let result = try JSONDecoder().decode(VerifiedEntitlement.self, from: data)
         // Only a disabled, unconfigured free Sandbox response may omit its environment.
         let unconfiguredSandbox = environment == .sandbox && result.plan == .free && !result.salesEnabled && result.environment == nil
@@ -75,4 +82,19 @@ public struct BillingAPI: Sendable {
         }
         return result
     }
+    public func requestRecovery(token: String) async throws -> BillingRecoveryRequest {
+        let (data, status) = try await send(path: "recovery", token: token, body: Data("{}".utf8), allowedStatuses: [200, 202])
+        struct Receipt: Decodable { let state: BillingRecoveryRequest; let environment: BillingEnvironment }
+        let receipt = try JSONDecoder().decode(Receipt.self, from: data)
+        guard receipt.environment == environment,
+              (status == 202 && receipt.state == .accepted) || (status == 200 && receipt.state == .noPurchaseHistory) else { throw CloudError.malformedResponse }
+        return receipt.state
+    }
+    public func recoveryStatus(token: String) async throws -> BillingRecoveryStatus {
+        let (data, _) = try await send(path: "recovery", token: token, body: nil)
+        let result = try JSONDecoder().decode(BillingRecoveryStatus.self, from: data)
+        guard result.environment == environment else { throw CloudError.malformedResponse }
+        return result
+    }
+
 }

@@ -743,6 +743,17 @@ private struct SandboxSubscriptionView: View {
                 Text("契約は解約するまで自動更新されます。iPhoneの設定 → 自分の名前 → サブスクリプションから契約の確認・解約ができます。")
                 Link("Appleで契約を確認・解約", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
                 Button("購入を復元・契約を確認") { Task { await store.restoreSandboxPurchases() } }.disabled(store.busy)
+                if let progress = store.billingRecoveryStatus {
+                    switch progress.state {
+                    case .none: Text("\u{7167}\u{5408}\u{4f9d}\u{983c}\u{306f}\u{3042}\u{308a}\u{307e}\u{305b}\u{3093}")
+                    case .queued: Text("\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{5f85}\u{3061}\u{3067}\u{3059}")
+                    case .running: Text("\u{5c65}\u{6b74}\u{3092}\u{7167}\u{5408}\u{4e2d}\u{3067}\u{3059}")
+                    case .complete: Text("\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{304c}\u{5b8c}\u{4e86}\u{3057}\u{307e}\u{3057}\u{305f}\u{3002}\u{5229}\u{7528}\u{6a29}\u{306f}\u{5951}\u{7d04}\u{72b6}\u{614b}\u{3092}\u{3054}\u{78ba}\u{8a8d}\u{304f}\u{3060}\u{3055}\u{3044}")
+                    case .failed: Text("\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{306b}\u{78ba}\u{8a8d}\u{304c}\u{5fc5}\u{8981}\u{3067}\u{3059}")
+                    case .cancelled: Text("\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{306f}\u{4e2d}\u{65ad}\u{3055}\u{308c}\u{307e}\u{3057}\u{305f}")
+                    }
+                }
+                Button("\u{5fa9}\u{5143}\u{306e}\u{72b6}\u{6cc1}\u{3092}\u{78ba}\u{8a8d}") { Task { await store.refreshBillingRecoveryStatus() } }.disabled(store.busy)
                 Text("有効な契約がある場合は新規購入を止めます。Webでも同じアカウントの確認済み利用権を使います。")
             }
             Section("公開前の準備") {

@@ -37,6 +37,7 @@ import OuchiCore
     private var billingAccount: UUID?
     private var purchaseAccount: UUID?
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
+    @Published private(set) var billingRecoveryStatus: BillingRecoveryStatus?
     private let reminders = LocalReminders()
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
@@ -125,7 +126,7 @@ import OuchiCore
                 do { try snapshotStorage?.write(nil) } catch { cleanupFailed = true }
                 snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
                 if !clearTemporaryExports() { cleanupFailed = true }
-                clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
+                clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil
                 developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
                 purchases.stopObserving(); purchases.persist = nil
                 remindersEnabled = false
@@ -335,7 +336,7 @@ import OuchiCore
         household = nil; signedIn = false; busy = true
         await reminders.reset(clearPreference: true)
         purchases.stopObserving(); purchases.persist = nil
-        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
+        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil
         household = nil; homeID = ""; signedIn = false
         clearFamily()
         if !clearTemporaryExports() { localCleanupFailed = true }
@@ -434,9 +435,44 @@ import OuchiCore
             guard expected == generation else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
-            message = "Sandbox\u{306e}\u{5229}\u{7528}\u{6a29}\u{3092}\u{78ba}\u{8a8d}\u{3057}\u{307e}\u{3057}\u{305f}\u{3002}"
+            do {
+                let accepted = try await BillingAPI().requestRecovery(token: credentials.access_token)
+                guard expected == generation else { return }
+                if accepted == .accepted {
+                    let progress = try await BillingAPI().recoveryStatus(token: credentials.access_token)
+                    guard expected == generation else { return }
+                    billingRecoveryStatus = progress
+                    message = "\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{3092}\u{53d7}\u{3051}\u{4ed8}\u{3051}\u{307e}\u{3057}\u{305f}\u{3002}"
+                } else {
+                    billingRecoveryStatus = nil
+                    message = "\u{73fe}\u{5728}\u{306e}\u{5229}\u{7528}\u{6a29}\u{3092}\u{78ba}\u{8a8d}\u{3057}\u{307e}\u{3057}\u{305f}\u{3002}\u{8ffd}\u{52a0}\u{3067}\u{7167}\u{5408}\u{3067}\u{304d}\u{308b}\u{4fdd}\u{5b58}\u{6e08}\u{307f}\u{5c65}\u{6b74}\u{306f}\u{3042}\u{308a}\u{307e}\u{305b}\u{3093}\u{3002}"
+                }
+            } catch {
+                if expected == generation { billingRecoveryStatus = nil; message = "\u{73fe}\u{5728}\u{306e}\u{5229}\u{7528}\u{6a29}\u{306f}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{3057}\u{305f}\u{304c}\u{3001}\u{5c65}\u{6b74}\u{306e}\u{8ffd}\u{52a0}\u{7167}\u{5408}\u{306f}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
+            }
         } catch {
             if expected == generation { message = "Sandbox\u{306e}\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
+        }
+    }
+    func refreshBillingRecoveryStatus() async {
+        guard !busy, sandboxBillingConfigured, let session else { return }
+        busy = true; message = nil
+        let expected = generation
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            let progress = try await BillingAPI().recoveryStatus(token: credentials.access_token)
+            guard expected == generation else { return }
+            if progress.state == .complete {
+                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                guard expected == generation else { return }
+                guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
+                sandboxEntitlement = rights
+            }
+            billingRecoveryStatus = progress
+        } catch {
+            if expected == generation { billingRecoveryStatus = nil; message = "\u{5fa9}\u{5143}\u{306e}\u{72b6}\u{6cc1}\u{3092}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
         }
     }
     func loadSandboxReport() async {
@@ -480,7 +516,7 @@ import OuchiCore
               let session else { return }
         purchases.stopObserving()
         let expected = generation
-        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; purchases.persist = nil
+        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil; purchases.persist = nil
         let billing = BillingAPI()
         let issued: SandboxEntitlement
         do {
@@ -564,7 +600,7 @@ import OuchiCore
                     do { try snapshotStorage?.write(nil) } catch { localCleanupFailed = true }
                     snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
                     if !clearTemporaryExports() { localCleanupFailed = true }
-                    clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
+                    clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil
                     purchases.stopObserving(); purchases.persist = nil
                     remindersEnabled = false
                     await reminders.reset(clearPreference: true)
