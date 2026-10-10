@@ -95,10 +95,18 @@ are denied, authenticated self-enabling is denied, another synthetic user remain
 usable, and synthetic other-app data/shared Auth identities remain unchanged.
 Run from full repository root: node --test ios/Tests/account-access-prototype.test.mjs.
 
-The fixture intentionally covers only homes/products/members. SECURITY DEFINER
-invite acceptance, push/restore/billing/storage gates, concurrent cleanup,
+The fixture intentionally covers only homes/products/members. Push/restore/billing/storage gates, concurrent cleanup,
 identity epochs, enrollment, credential/PII deletion and API recent-auth checks
 are NOT implemented or tested by this prototype. Never deploy it as account
 closure or infer Apple compliance from the passing isolated test. The persistent
 marker itself needs a justified retention design before actual account erasure.
 No production policies or user records were changed.
+
+
+Invite prototype extension: the privileged accept_home_invite function now takes
+its per-user advisory lock and checks account_enabled BEFORE reading/consuming an
+invite. PGlite tests verify a disabled identity cannot join or consume the token,
+an enabled third user can redeem that same token, and replay remains rejected.
+This preserves existing invite validation and single-use behavior. The lock must
+also be used by the eventual closure transaction; no concurrent closure test or
+complete production lifecycle is claimed. Changes remain test-fixture-only.

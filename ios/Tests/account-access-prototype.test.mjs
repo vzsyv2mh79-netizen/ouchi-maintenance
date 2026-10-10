@@ -11,6 +11,13 @@ test('access gate denies old identity without deleting shared credentials',async
  await user(a);const home=(await db.query('select public.load_household() as data')).rows[0].data.homes[0];await assert.rejects(()=>db.query('update maintenance_private.account_access set enabled=true'));
  await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[a]);await user(a);
  assert.equal((await db.query('select * from public.homes')).rows.length,0);await assert.rejects(()=>db.query('select public.load_household()'));await assert.rejects(()=>db.query('select public.create_maintenance_home($1,$2)',['blocked','home']));assert.equal((await db.query('update public.homes set name=$1 where id=$2 returning id',['blocked',home.id])).rows.length,0);
- await user(b);assert.equal((await db.query('select public.load_household() as data')).rows[0].data.homes.length,1);await db.exec('reset role');assert.equal((await db.query('select * from public.other_app_records')).rows[0].value,'preserved');assert.equal((await db.query('select * from auth.users')).rows.length,2);
+ await user(b);assert.equal((await db.query('select public.load_household() as data')).rows[0].data.homes.length,1);const otherHome=(await db.query('select public.load_household() as data')).rows[0].data.homes[0];
+ const code=(await db.query('select public.create_home_invite($1) as code',[otherHome.id])).rows[0].code;
+ await user(a);await assert.rejects(()=>db.query('select public.accept_home_invite($1,$2)',[code,'closed']));
+ await db.exec('reset role');assert.equal((await db.query('select * from public.home_members where user_id=$1',[a])).rows.length,0);
+ const unused=(await db.query("select used_at from public.home_invites where token_hash=sha256(convert_to($1,'UTF8'))",[code])).rows[0];assert.equal(unused.used_at,null);
+ const c='33333333-3333-4333-8333-333333333333';await db.query('insert into auth.users values($1)',[c]);await db.query('insert into maintenance_private.account_access values($1,true)',[c]);
+ await user(c);await db.query('select public.accept_home_invite($1,$2)',[code,'active']);await assert.rejects(()=>db.query('select public.accept_home_invite($1,$2)',[code,'replay']));
+ await db.exec('reset role');assert.equal((await db.query('select * from public.other_app_records')).rows[0].value,'preserved');assert.equal((await db.query('select * from auth.users')).rows.length,3);
  }finally{await db.close();}
 });
