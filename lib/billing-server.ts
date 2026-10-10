@@ -1,3 +1,4 @@
+import {boundedBillingRead} from './billing-read-deadline';
 import 'server-only';
 import {SignedDataVerifier,Environment,AppStoreServerAPIClient,GetTransactionHistoryVersion} from '@apple/app-store-server-library';
 import {createClient} from '@supabase/supabase-js';
@@ -85,8 +86,8 @@ export function billingReconciliationClient(config:NonNullable<ReturnType<typeof
 export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,seed:VerifiedTransaction,expectedEpoch:string,revision?:string,signal?:AbortSignal){
  const client=billingReconciliationClient(config);if(!client)throw new Error('Reconciliation disabled');
  return reconcilePurchaseHistory(seed,{environment:config.environment,bundleId:config.bundleId,accountToken:expectedEpoch,appAppleId:config.appAppleId},{
-  history:async(transactionId,cursor)=>await client.getTransactionHistory(transactionId,cursor,{},GetTransactionHistoryVersion.V2) as unknown as Record<string,unknown>,
-  statuses:async(transactionId)=>await client.getAllSubscriptionStatuses(transactionId) as unknown as Record<string,unknown>,
+  history:async(transactionId,cursor)=>await boundedBillingRead(()=>client.getTransactionHistory(transactionId,cursor,{},GetTransactionHistoryVersion.V2),signal) as unknown as Record<string,unknown>,
+  statuses:async(transactionId)=>await boundedBillingRead(()=>client.getAllSubscriptionStatuses(transactionId),signal) as unknown as Record<string,unknown>,
   verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
   verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
   saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
