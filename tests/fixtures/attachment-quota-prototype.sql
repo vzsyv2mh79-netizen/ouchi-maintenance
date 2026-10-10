@@ -72,3 +72,18 @@ begin
 end;$$;
 revoke all on function public.read_maintenance_attachment(uuid,uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.read_maintenance_attachment(uuid,uuid,uuid,uuid) to service_role;
+
+-- Service-only product listing exposes no object path, uploader or checksum.
+create index product_attachments_listing_idx on maintenance_private.product_attachments(product_id,created_at desc,id) where state='stored';
+create function public.list_maintenance_attachments(target_user uuid,verified_session uuid,expected_epoch uuid,target_product uuid) returns jsonb
+language plpgsql stable security invoker set search_path='' as $$
+begin
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then return '[]'::jsonb; end if;
+ return coalesce((select jsonb_agg(jsonb_build_object('id',f.id,'size',f.size_bytes,'mime',f.mime,'createdAt',f.created_at) order by f.created_at desc,f.id)
+ from maintenance_private.product_attachments f
+ join maintenance_private.app_epochs a on a.user_id=f.user_id and a.epoch_id=f.app_epoch_id and a.enabled
+ join public.products p on p.id=f.product_id join public.homes h on h.id=p."homeId"
+ where f.product_id=target_product and f.state='stored' and (h.owner_id=target_user or exists(select 1 from public.home_members m where m."homeId"=h.id and m.user_id=target_user))), '[]'::jsonb);
+end;$$;
+revoke all on function public.list_maintenance_attachments(uuid,uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.list_maintenance_attachments(uuid,uuid,uuid,uuid) to service_role;

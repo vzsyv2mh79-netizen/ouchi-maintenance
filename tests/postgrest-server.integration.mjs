@@ -86,11 +86,13 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const downloadRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${objectID}`,{headers:{authorization:'Bearer '+bearer}});
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...event,signedAt:event.signedAt+1,expiresAt:Date.now()-1}})).error,null);
   const retained=await attachmentGET(downloadRequest(token));assert.equal(retained.status,200);assert.equal(retained.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await retained.arrayBuffer()),Buffer.from(bytes));
+  const listRequest=bearer=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}`,{headers:{authorization:'Bearer '+bearer}});
+  const retainedList=await attachmentGET(listRequest(token));assert.equal(retainedList.status,200);assert.ok((await retainedList.json()).items.some(item=>item.id===objectID));
   const outsider=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
   const outsiderLogin=await outsider.auth.signUp({email:'outsider-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(outsiderLogin.error,null);
   const outsiderToken=outsiderLogin.data.session.access_token,outsiderClaims=JSON.parse(Buffer.from(outsiderToken.split('.')[1],'base64url'));
   assert.equal((await admin.rpc('bootstrap_synthetic_app_identity',{target_user:outsiderLogin.data.user.id,verified_session:outsiderClaims.session_id})).error,null);
-  assert.equal((await attachmentGET(downloadRequest(outsiderToken))).status,404);
+  assert.equal((await attachmentGET(downloadRequest(outsiderToken))).status,404);assert.deepEqual((await (await attachmentGET(listRequest(outsiderToken))).json()).items,[]);
 
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);

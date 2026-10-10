@@ -31,6 +31,15 @@ import OuchiCore
    do { _=try await invalid.download(attachment:attachment,token:"synthetic");fatalError("invalid download accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   }
   do { _=try await redirected.download(attachment:attachment,token:"synthetic");fatalError("download redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  let listed=DevelopmentAttachmentAPI { request in
+   precondition(URLComponents(url:request.url!,resolvingAgainstBaseURL:false)!.queryItems?.first?.name=="productId")
+   return (Data("{\"items\":[{\"id\":\"\(attachment.uuidString)\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"2026-10-10T10:00:00Z\"}]}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  let items=try await listed.list(product:product,token:"synthetic");precondition(items.count==1 && items[0].id==attachment)
+  let badList=DevelopmentAttachmentAPI { request in
+   (Data("{\"items\":[{\"id\":\"\(attachment.uuidString)\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"invalid\"}]}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  do { _=try await badList.list(product:product,token:"synthetic");fatalError("malformed listing accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   print("AttachmentSmoke PASS: consent, raw bytes, bounded upload, stable ID acknowledgement, bounded typed download and redirect refusal. Mock only; no Storage request.")
  }
 }

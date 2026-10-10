@@ -817,7 +817,7 @@ private struct DevelopmentAttachmentView: View {
     @State private var filename = ""
     @State private var attachmentID = UUID()
     @State private var confirmUpload = false
-    @State private var savedAttachment: UUID?
+    @State private var savedAttachments: [DevelopmentAttachmentAPI.StoredAttachment] = []
     @State private var status: String?
     var body: some View {
         Form {
@@ -833,9 +833,18 @@ private struct DevelopmentAttachmentView: View {
                     }
                 }.disabled(bytes != nil || store.busy)
             }
-            if let savedAttachment {
+            if !savedAttachments.isEmpty {
                 Section("保存済みのファイル") {
-                    Button("取得して書き出す") { Task { await store.exportDevelopmentAttachment(savedAttachment) } }.disabled(store.busy)
+                    ForEach(savedAttachments) { attachment in
+                        Button {
+                            Task { await store.exportDevelopmentAttachment(attachment.id) }
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(attachment.mime == "application/pdf" ? "PDFを取得して書き出す" : "写真を取得して書き出す")
+                                Text("\(attachment.size)バイト・\(attachment.createdAt)").font(.caption)
+                            }
+                        }.disabled(store.busy)
+                    }
                     Text("保存済みファイルの取得には、新しい購入は必要ありません。住まいへのアクセス権を確認します。")
                     if let file = store.attachmentExportURL { ShareLink("ファイルを共有・保存", item: file) }
                 }
@@ -871,12 +880,21 @@ private struct DevelopmentAttachmentView: View {
                 let id = attachmentID, media = mime
                 Task {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
-                        savedAttachment = id; self.bytes = nil; filename = ""; mime = ""
+                        self.bytes = nil; filename = ""; mime = ""
+                        savedAttachments = await store.listDevelopmentAttachments(product: product)
                     }
                 }
             }
             Button("キャンセル", role: .cancel) {}
         }
-        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachment = nil; store.clearDevelopmentAttachmentExport() }
+        .task(id: productID) {
+            savedAttachments = []; store.clearDevelopmentAttachmentExport()
+            guard let product = UUID(uuidString: productID) else { return }
+            let selected = productID
+            let items = await store.listDevelopmentAttachments(product: product)
+            guard !Task.isCancelled, selected == productID else { return }
+            savedAttachments = items
+        }
+        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachments = []; store.clearDevelopmentAttachmentExport() }
     }
 }

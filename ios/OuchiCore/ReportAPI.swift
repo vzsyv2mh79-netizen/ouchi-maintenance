@@ -153,6 +153,34 @@ public struct DevelopmentAttachmentAPI: Sendable {
             #endif
         }
     }
+    public struct StoredAttachment: Decodable, Sendable, Identifiable {
+        public let id: UUID
+        public let size: Int
+        public let mime: String
+        public let createdAt: String
+    }
+    public func list(product: UUID, token: String) async throws -> [StoredAttachment] {
+        guard product.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased())]
+        let url = components.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        guard body.count <= 1024 * 1024 else { throw CloudError.malformedResponse }
+        struct Listing: Decodable { let items: [StoredAttachment] }
+        let items = try JSONDecoder().decode(Listing.self, from: body).items
+        let dates = ISO8601DateFormatter(); dates.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plainDates = ISO8601DateFormatter()
+        guard Set(items.map(\.id)).count == items.count, items.allSatisfy({ item in
+            item.id.uuidString != "00000000-0000-0000-0000-000000000000" && item.size > 0 && item.size <= 5 * 1024 * 1024 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil)
+        }) else { throw CloudError.malformedResponse }
+        return items
+    }
     public struct DownloadedFile: Sendable {
         public let bytes: Data
         public let mime: String
