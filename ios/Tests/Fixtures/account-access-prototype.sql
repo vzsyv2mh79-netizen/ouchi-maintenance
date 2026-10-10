@@ -26,3 +26,9 @@ begin
 end; $$;
 revoke all on function maintenance_private.accept_home_invite(text,text) from public,anon;
 grant execute on function maintenance_private.accept_home_invite(text,text) to authenticated;
+create policy active_account_tasks on public.maintenance_tasks as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+create policy active_account_history on public.maintenance_history as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+create policy active_account_invites on public.home_invites as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+create policy active_account_imports on public.maintenance_imports as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+create policy active_account_restores on public.maintenance_backup_restores as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());
+create policy active_account_push on public.maintenance_push_subscriptions as restrictive for all to authenticated using(maintenance_private.account_enabled()) with check(maintenance_private.account_enabled());

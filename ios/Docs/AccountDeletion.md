@@ -95,7 +95,9 @@ are denied, authenticated self-enabling is denied, another synthetic user remain
 usable, and synthetic other-app data/shared Auth identities remain unchanged.
 Run from full repository root: node --test ios/Tests/account-access-prototype.test.mjs.
 
-The fixture intentionally covers only homes/products/members. Push/restore/billing/storage gates, concurrent cleanup,
+The fixture covers homes/products/members/tasks/history/invites/imports/restore
+and client push-subscription policies. Service notification dispatch,
+billing/storage gates, concurrent cleanup,
 identity epochs, enrollment, credential/PII deletion and API recent-auth checks
 are NOT implemented or tested by this prototype. Never deploy it as account
 closure or infer Apple compliance from the passing isolated test. The persistent
@@ -110,3 +112,13 @@ an enabled third user can redeem that same token, and replay remains rejected.
 This preserves existing invite validation and single-use behavior. The lock must
 also be used by the eventual closure transaction; no concurrent closure test or
 complete production lifecycle is claimed. Changes remain test-fixture-only.
+
+
+The isolated fixture now also uses repository push/restore migrations. Disabled
+identity subscription reads/inserts/updates are denied. A valid whole-home backup
+restore fails atomically with no inserted home/restore fingerprint, while an
+active second identity can restore that same backup. This is actual PGlite RLS/
+transaction verification, not an HTTP mock. The background sender uses service
+privileges and still requires separate identity gating and leased-delivery race
+tests; client policy denial alone does NOT stop server notifications. The fixture
+still cannot be deployed as a complete account-deletion migration.
