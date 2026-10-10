@@ -24,6 +24,14 @@ test('test-only APNs registry rejects cross-account binding and closed enrollmen
   assert.equal(await disable(user,session,epoch,id),true); assert.equal(await allowed(id),false);
   assert.equal(await disable(user,session,epoch,id),false);
   const replacement=await register(user,session,epoch); assert.notEqual(replacement,id);
+  const relogin='66666666-6666-4666-8666-666666666666';
+  await db.exec('reset role');await db.query('insert into auth.sessions values($1,$2)',[relogin,user]);await db.exec('set role service_role');await db.query('insert into maintenance_private.app_session_epochs values($1,$2,$3)',[relogin,user,epoch]);
+  const reloginID=await register(user,relogin,epoch);assert.notEqual(reloginID,replacement);assert.equal(await allowed(replacement),false);assert.equal(await allowed(reloginID),true);
+  assert.equal(await disable(user,session,epoch,replacement),false);assert.equal(await disable(user,session,epoch,reloginID),false);assert.equal(await allowed(reloginID),true);
+  await db.exec('reset role');await db.query('delete from auth.sessions where id=$1',[relogin]);await db.exec('set role service_role');
+  const otherID=await register(other,otherSession,otherEpoch);assert.equal(await allowed(otherID),true);assert.equal(await allowed(reloginID),false);
+  assert.equal(await disable(other,otherSession,otherEpoch,otherID),true);
+
   await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,epoch]);
   assert.equal(await allowed(replacement),false);
   const freshSession='55555555-5555-4555-8555-555555555555';await db.exec('reset role');await db.query('insert into auth.sessions values($1,$2)',[freshSession,user]);await db.exec('set role service_role');const fresh=await enroll(user,freshSession);

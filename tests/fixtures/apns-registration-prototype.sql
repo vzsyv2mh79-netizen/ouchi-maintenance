@@ -28,10 +28,15 @@ begin
  perform pg_advisory_xact_lock(hashtext(bundle_topic||':'||token));
  select * into prior from maintenance_private.apns_registrations where topic=bundle_topic and device_token=token and enabled for update;
  if found then
-  -- Never transfer an active notification destination merely because another
-  -- account submitted its token. The old registration must first be disabled.
-  if prior.user_id<>target_user or prior.epoch_id<>expected_epoch or prior.session_id<>verified_session then raise exception 'Registration already bound'; end if;
-  return prior.id;
+  if prior.user_id=target_user and prior.epoch_id=expected_epoch and prior.session_id=verified_session then return prior.id; end if;
+  -- A new session of the same enrollment can replace its own registration.
+  -- A different enrollment cannot replace an active destination. Revoked Auth
+  -- sessions are authoritative evidence that the prior registration is stale.
+  if (prior.user_id<>target_user or prior.epoch_id<>expected_epoch)
+    and maintenance_private.epoch_session_allowed(prior.user_id,prior.session_id,prior.epoch_id)
+    and exists(select 1 from auth.sessions s where s.id=prior.session_id and s.user_id=prior.user_id)
+  then raise exception 'Registration already bound'; end if;
+  update maintenance_private.apns_registrations set enabled=false where id=prior.id;
  end if;
  insert into maintenance_private.apns_registrations(user_id,session_id,epoch_id,device_token,topic)
  values(target_user,verified_session,expected_epoch,token,bundle_topic) returning id into result;

@@ -79,6 +79,10 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal(await purchaseAccountAfterAuthVerification(secondToken,secondVerified.data.user.id,readBinding),initialBinding.data);
   assert.equal((await secondDevice.rpc('load_household')).error,null);
   const secondRights=await ledger((await binding(secondClaims.session_id)).data);assert.equal(secondRights.error,null);assert.equal(secondRights.data[0].payload.transactionId,event.transactionId);
+  const secondRegistration=await apnsPOST(apnsRequest(secondToken,{deviceToken:'ef'.repeat(32)}));assert.equal(secondRegistration.status,200);const secondRegistrationID=(await secondRegistration.json()).registrationId;
+  const originalSessionReplacement=await apnsPOST(apnsRequest(token,{deviceToken:'ef'.repeat(32)}));assert.equal(originalSessionReplacement.status,200);const originalSessionReplacementID=(await originalSessionReplacement.json()).registrationId;assert.notEqual(originalSessionReplacementID,secondRegistrationID);assert.equal(await apnsAllowed(secondRegistrationID),false);assert.equal(await apnsAllowed(originalSessionReplacementID),true);
+  assert.equal((await (await apnsDELETE(apnsRequest(secondToken,{registrationId:originalSessionReplacementID}))).json()).disabled,false);assert.equal(await apnsAllowed(originalSessionReplacementID),true);
+
   const old=await client.rpc('load_household');assert.equal(old.error,null);const oldHome=old.data.homes[0].id;
   const attachmentProduct=randomUUID();
   assert.equal((await client.from('products').insert({id:attachmentProduct,homeId:oldHome,categoryId:'synthetic',name:'Synthetic attachment product'})).error,null);
@@ -132,6 +136,9 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
 
   const outsiderRegistration=await apnsPOST(apnsRequest(outsiderToken,{deviceToken:'cd'.repeat(32)}));assert.equal(outsiderRegistration.status,200);const outsiderRegistrationID=(await outsiderRegistration.json()).registrationId;assert.equal(await apnsAllowed(outsiderRegistrationID),true);
   assert.equal((await outsider.auth.signOut({scope:'local'})).error,null);assert.equal(await apnsAllowed(outsiderRegistrationID),false);
+  const reclaimed=await apnsPOST(apnsRequest(token,{deviceToken:'cd'.repeat(32)}));assert.equal(reclaimed.status,200);const reclaimedID=(await reclaimed.json()).registrationId;assert.equal(await apnsAllowed(reclaimedID),true);assert.equal(await apnsAllowed(outsiderRegistrationID),false);
+  assert.equal((await (await apnsDELETE(apnsRequest(token,{registrationId:reclaimedID}))).json()).disabled,true);
+
   assert.notEqual((await apnsPOST(apnsRequest(outsiderToken,{deviceToken:'cd'.repeat(32)}))).status,200);
 
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
