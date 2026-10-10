@@ -157,3 +157,15 @@ already submitted to Apple/browser providers or eliminate the interval between
 a DB check and an external network send. For deletion confirmations, document
 in-flight delivery semantics and re-check as close to dispatch as possible; do
 not promise that no already-submitted notification can arrive after deletion.
+
+
+Web cron integration is now prepared behind OUCHI_ACCOUNT_ACCESS_GATE=true
+(server-only, default disabled; no environment changes made). The cron uses the
+service-only can_dispatch_maintenance_push RPC immediately before send and skips
+explicit false; RPC errors/malformed responses fail closed without sending.
+Tests cover false/null/undefined/string/number/object responses, DB/network
+errors, delayed authorization and provider failure, plus the public RPC's role
+permissions in PGlite. Typecheck and changed-file lint pass. The DB adapter remains
+in the isolated fixture only, so DO NOT enable the flag on production yet. The
+manual test-push endpoint and APNs remain outside this integration. No deployment,
+real push, schema migration or existing data mutation was performed.

@@ -60,3 +60,10 @@ language sql stable security invoker set search_path='' as $$
 $$;
 revoke all on function maintenance_private.can_dispatch_push(uuid,uuid) from public,anon,authenticated;
 grant execute on function maintenance_private.can_dispatch_push(uuid,uuid) to service_role;
+-- Service-only Data API adapter, still TEST-ONLY and not installed live.
+create function public.can_dispatch_maintenance_push(subscription_id uuid, delivery_token uuid) returns boolean
+language sql stable security invoker set search_path='' as $$
+ select maintenance_private.can_dispatch_push(subscription_id,delivery_token);
+$$;
+revoke all on function public.can_dispatch_maintenance_push(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.can_dispatch_maintenance_push(uuid,uuid) to service_role;
