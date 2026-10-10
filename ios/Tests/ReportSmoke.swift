@@ -20,7 +20,7 @@ import OuchiCore
         }
         let value = try await api.load(home: home.uppercased(), token: "synthetic")
         precondition(value.overdue == 1 && value.months.count == 6)
-        for patch in [["homeId": product], ["today": "2026-02-30"], ["overdue": 5], ["generatedAt": "bad"], ["productCount": 9]] as [[String: Any]] {
+        for patch in [["homeId": product], ["today": "2026-02-30"], ["overdue": 5], ["generatedAt": "bad"], ["productCount": 9], ["months": (4...9).map { ["month": "2026-\(String(format: "%02d", $0))", "completed": 1] }], ["perProduct": [["productId": product, "name": "空気清浄機", "completedThisMonth": 2, "overdue": 1, "dueToday": 1]]]] as [[String: Any]] {
             var bad = report; bad.merge(patch) { _, new in new }
             let payload = try JSONSerialization.data(withJSONObject: ["environment": "Sandbox", "salesEnabled": false, "report": bad])
             let invalid = ReportAPI { request in (payload, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!) }

@@ -58,11 +58,22 @@ public struct ReportAPI: Sendable {
               Self.validDay(report.today), Self.validTimestamp(report.generatedAt),
               Set(report.perProduct.map(\.productId)).count == report.perProduct.count,
               report.months.allSatisfy({ $0.month.range(of: #"^\d{4}-(0[1-9]|1[0-2])$"#, options: .regularExpression) != nil && (0...10000).contains($0.completed) }),
-              Set(report.months.map(\.month)).count == 6,
+              report.months.map(\.month) == Self.expectedMonths(ending: report.today),
+              report.perProduct.reduce(0, { $0 + $1.completedThisMonth }) == report.months.last?.completed,
               report.perProduct.allSatisfy({ UUID(uuidString: $0.productId) != nil && !$0.name.isEmpty && $0.name.count <= 10000 && (0...10000).contains($0.completedThisMonth) && (0...10000).contains($0.overdue) && (0...10000).contains($0.dueToday) }),
               report.perProduct.reduce(0, { $0 + $1.overdue }) == report.overdue,
               report.perProduct.reduce(0, { $0 + $1.dueToday }) == report.dueToday else { throw CloudError.malformedResponse }
         return report
+    }
+    private static func expectedMonths(ending day: String) -> [String] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone; formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: day) else { return [] }
+        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: date))!
+        formatter.dateFormat = "yyyy-MM"
+        return (-5...0).map { formatter.string(from: calendar.date(byAdding: .month, value: $0, to: start)!) }
     }
     private static func validTimestamp(_ value: String) -> Bool {
         let formatter = ISO8601DateFormatter()
