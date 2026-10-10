@@ -37,6 +37,7 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])
     run(['plutil', '-lint', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
+    run(['plutil', '-lint', root / 'OuchiMaintenance/Info.plist'])
     manifest_path = root / 'OuchiMaintenance/PrivacyInfo.xcprivacy'
     run(['plutil', '-lint', manifest_path])
     manifest = plistlib.loads(manifest_path.read_bytes())

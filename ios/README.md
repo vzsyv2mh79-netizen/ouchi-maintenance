@@ -1,3 +1,21 @@
+## Current Xcode verification (2026-10-10)
+
+Xcode 27.0 (27A266a) is now installed. Unsigned generic iOS Simulator Debug
+and generic iPhoneOS Release builds both SUCCEEDED. SwiftUI and native services
+were compiled with actual iOS SDKs. Built artifacts contain AppIcon assets and
+PrivacyInfo.xcprivacy. No simulator runtime was available at the check, so no UI
+rendering/device/StoreKit/Auth/RLS execution is claimed.
+
+A build-artifact audit found custom INFOPLIST_KEY settings were absent from the
+first built app. Config now uses an explicit Info.plist merged with generated
+system metadata. Debug and Release builds with synthetic project/key values
+confirmed exact SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY and billing NO in the
+built app. No real keys, credentials or Local.xcconfig were added. Set real
+publishable configuration locally before any actual login testing.
+
+Earlier verification notes below are historical. Store signing, archive/export,
+TestFlight, phone flows and App Store acceptance remain incomplete.
+
 # iPhone版の実装と検証
 
 OuchiCore は既存の load_household / complete_maintenance RPC と同じクラウド記録を扱う。
