@@ -598,3 +598,7 @@ Official release: https://www.siroca.co.jp/news/250422/ . Model-specific manual:
 
 ## siroca SD-E151 — 2024-10-26
 Release: https://www.siroca.co.jp/pdf/press-release/pressrelease_241004_e-humidifier.pdf . Dedicated manual https://www.siroca.co.jp/im/sd-e151.pdf pages 4–5 and 12–14. Care diagrams visually inspected: both filter surfaces, no tray gap, silver-ion unit logo upward. Daily water replacement and two approximately twelve-month replacements are numeric suggestions. Cleaning lamp counts 168 cumulative water-present hours; no unconditional seven-day task. Conditional cleaning/reset/storage and body-water prohibition retained.
+
+
+## siroca SD-5HC151 — 2025-11-08
+Official release: https://www.siroca.co.jp/pdf/press-release/pressrelease_251010_h-humidifier.pdf . Dedicated manual https://www.siroca.co.jp/im/sd-5hc151.pdf pages3,14–19,22. All six care pages rendered and visually inspected, including drainage, filter alignment and heater diagrams. Daily water and approximately twelve-month silver-ion replacement only; cleaning icon counts connected-power hours, not operating or water-present hours. Conditional component care, citric-acid non-operation and rinsing, pad wear inspection and dry storage retained; no invented seven-day task or filter replacement.
