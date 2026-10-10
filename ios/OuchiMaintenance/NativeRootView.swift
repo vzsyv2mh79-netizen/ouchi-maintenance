@@ -819,6 +819,23 @@ private struct DevelopmentAttachmentView: View {
     @State private var attachmentID = UUID()
     @State private var confirmUpload = false
     @State private var savedAttachments: [DevelopmentAttachmentAPI.StoredAttachment] = []
+    @State private var nextAttachment: UUID?
+    @State private var listingLoading = false
+    @State private var listingGeneration = 0
+    private func loadAttachmentPage(reset: Bool) async {
+        guard !listingLoading, let product = UUID(uuidString: productID) else { return }
+        let selected = productID, home = store.homeID, expected = listingGeneration
+        let cursor = reset ? nil : nextAttachment
+        listingLoading = true
+        let page = await store.pageDevelopmentAttachments(product: product, after: cursor)
+        guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration else { return }
+        listingLoading = false
+        guard let page else { return }
+        let existing = reset ? [] : savedAttachments
+        guard Set(existing.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))) else { status = "一覧が更新されました。画面を開き直してください。"; return }
+        savedAttachments = existing + page.items; nextAttachment = page.next
+    }
+
     @State private var attachmentUsage: DevelopmentAttachmentAPI.Usage?
     @State private var status: String?
     var body: some View {
@@ -853,6 +870,9 @@ private struct DevelopmentAttachmentView: View {
                                 Text("\(attachment.size)バイト・\(attachment.createdAt)").font(.caption)
                             }
                         }.disabled(store.busy)
+                    }
+                    if nextAttachment != nil {
+                        Button(listingLoading ? "読込中…" : "続きを読み込む") { Task { await loadAttachmentPage(reset: false) } }.disabled(listingLoading || store.busy)
                     }
                     Text("保存済みファイルの取得には、新しい購入は必要ありません。住まいへのアクセス権を確認します。")
                     if let file = store.attachmentExportURL { ShareLink("ファイルを共有・保存", item: file) }
@@ -891,7 +911,7 @@ private struct DevelopmentAttachmentView: View {
                 Task {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
                         self.bytes = nil; filename = ""; mime = ""
-                        savedAttachments = await store.listDevelopmentAttachments(product: product)
+                        await loadAttachmentPage(reset: true)
                         attachmentUsage = await store.developmentAttachmentUsage()
                     }
                 }
@@ -899,6 +919,7 @@ private struct DevelopmentAttachmentView: View {
             Button("キャンセル", role: .cancel) {}
         }
         .task(id: productID) {
+            listingGeneration += 1; listingLoading = false; nextAttachment = nil
             savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
                 guard !Task.isCancelled else { return }
@@ -913,12 +934,13 @@ private struct DevelopmentAttachmentView: View {
             let usage = await store.developmentAttachmentUsage()
             guard !Task.isCancelled else { return }
             attachmentUsage = usage
-            guard let product = UUID(uuidString: productID) else { return }
-            let selected = productID
-            let items = await store.listDevelopmentAttachments(product: product)
-            guard !Task.isCancelled, selected == productID else { return }
-            savedAttachments = items
+            await loadAttachmentPage(reset: true)
         }
-        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+        .onChange(of: store.homeID) { _, _ in
+            listingGeneration += 1; listingLoading = false; nextAttachment = nil; savedAttachments = []
+            if bytes == nil { productID = "" }
+            status = "住まいを変更しました。添付先の製品を確認してください。"
+        }
+        .onDisappear { listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }

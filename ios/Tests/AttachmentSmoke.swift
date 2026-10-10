@@ -61,6 +61,25 @@ import OuchiCore
    do { _=try PendingAttachment.decode(serialized,account:otherAccount,epoch:otherEpoch);fatalError("retry crossed enrollment") } catch { precondition(error as? CloudError == .authenticationRequired) }
   }
   do { _=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:Data(count:5*1024*1024+1),mime:"image/png");fatalError("oversized retry persisted") } catch { precondition(error as? CloudError == .invalidInput) }
+  let pageIDs=(0..<27).map { _ in UUID() }.sorted { $0.uuidString < $1.uuidString }
+  @Sendable func itemJSON(_ id: UUID) -> String { "{\"id\":\"\(id.uuidString)\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"2026-10-10T10:00:00Z\"}" }
+  let pageAPI=DevelopmentAttachmentAPI { request in
+   let query=URLComponents(url:request.url!,resolvingAgainstBaseURL:false)!.queryItems!
+   precondition(query.contains(where: { $0.name=="page" && $0.value=="true" }))
+   let after=query.first(where: { $0.name=="after" })?.value
+   if let after { precondition(after==pageIDs[24].uuidString.lowercased()) }
+   let ids=after==nil ? Array(pageIDs.prefix(25)) : Array(pageIDs.suffix(2))
+   let next=after==nil ? "\"\(pageIDs[24].uuidString)\"" : "null"
+   let body="{\"items\":["+ids.map(itemJSON).joined(separator:",")+"],\"next\":"+next+"}"
+   return (Data(body.utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  let firstPage=try await pageAPI.page(product:product,token:"synthetic")
+  let secondPage=try await pageAPI.page(product:product,after:firstPage.next,token:"synthetic")
+  precondition((firstPage.items+secondPage.items).map(\.id)==pageIDs && secondPage.next==nil)
+  for body in ["{\"items\":["+pageIDs.prefix(26).map(itemJSON).joined(separator:",")+"],\"next\":null}","{\"items\":["+itemJSON(pageIDs[0])+"],\"next\":\"\(pageIDs[0])\"}"] {
+   let invalidPage=DevelopmentAttachmentAPI { request in (Data(body.utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!) }
+   do { _=try await invalidPage.page(product:product,token:"synthetic");fatalError("invalid page accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  }
   print("AttachmentSmoke PASS: consent, raw bytes, bounded upload, stable ID acknowledgement, bounded typed download and redirect refusal. Mock only; no Storage request.")
  }
 }

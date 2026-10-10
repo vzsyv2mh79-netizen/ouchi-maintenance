@@ -202,6 +202,35 @@ public struct DevelopmentAttachmentAPI: Sendable {
         public let mime: String
         public let createdAt: String
     }
+    public struct AttachmentPage: Sendable {
+        public let items: [StoredAttachment]
+        public let next: UUID?
+    }
+    public func page(product: UUID, after: UUID? = nil, token: String) async throws -> AttachmentPage {
+        let nilID = "00000000-0000-0000-0000-000000000000"
+        guard product.uuidString != nilID, after?.uuidString != nilID else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "page", value: "true")]
+        if let after { components.queryItems?.append(URLQueryItem(name: "after", value: after.uuidString.lowercased())) }
+        let url = components.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 32768 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        struct Envelope: Decodable { let items: [StoredAttachment]; let next: UUID? }
+        let value = try JSONDecoder().decode(Envelope.self, from: body)
+        let dates = ISO8601DateFormatter(); dates.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plainDates = ISO8601DateFormatter()
+        guard value.items.count <= 25, Set(value.items.map(\.id)).count == value.items.count,
+              value.items.allSatisfy({ item in
+                  item.id.uuidString != nilID && item.size > 0 && item.size <= 5242880 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil) && (after == nil || item.id.uuidString > after!.uuidString)
+              }), value.items.map({ $0.id.uuidString }) == value.items.map({ $0.id.uuidString }).sorted(),
+              value.next == nil || (value.items.count == 25 && value.next == value.items.last?.id) else { throw CloudError.malformedResponse }
+        return AttachmentPage(items: value.items, next: value.next)
+    }
     public func list(product: UUID, token: String) async throws -> [StoredAttachment] {
         guard product.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }

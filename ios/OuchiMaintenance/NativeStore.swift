@@ -161,18 +161,18 @@ import OuchiCore
             return nil
         }
     }
-    func listDevelopmentAttachments(product: UUID) async -> [DevelopmentAttachmentAPI.StoredAttachment] {
+    func pageDevelopmentAttachments(product: UUID, after: UUID? = nil) async -> DevelopmentAttachmentAPI.AttachmentPage? {
         guard developmentLifecycleConfigured, let session,
-              household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return [] }
+              household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return nil }
         let expected = generation, home = homeID
         do {
             let credentials = try await session.credentials()
-            let items = try await DevelopmentAttachmentAPI().list(product: product, token: credentials.access_token)
-            guard expected == generation, home == homeID else { return [] }
+            let items = try await DevelopmentAttachmentAPI().page(product: product, after: after, token: credentials.access_token)
+            guard expected == generation, home == homeID else { return nil }
             return items
         } catch {
             if expected == generation, home == homeID { message = "添付一覧を取得できませんでした。通信と住まいへのアクセスを確認してください。" }
-            return []
+            return nil
         }
     }
     func exportDevelopmentAttachment(_ attachment: UUID) async {
