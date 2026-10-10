@@ -24,6 +24,13 @@ test('actual additive migration preserves unbound household access and rejects s
   const service=unsigned+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(unsigned).digest('base64url');
   const admin=createClient(origin,service,options),bind=session=>admin.rpc('current_maintenance_purchase_account',{target_user:id,verified_session:session});
   const binding=await bind(claims.session_id);assert.equal(binding.error,null);assert.ok(binding.data);assert.notEqual(binding.data,id);assert.equal((await bind(claims.session_id)).data,binding.data);
+  // Synthetic normalized events only; no Apple signature or purchase claimed.
+  const event={environment:'Sandbox',transactionId:'100',originalTransactionId:'10',accountToken:binding.data,productId:'ouchi.premium.monthly',signedAt:100,purchasedAt:50,expiresAt:200};
+  const write=payload=>admin.rpc('apply_maintenance_verified_transaction',{payload,proof_sha256:'a'.repeat(64)});
+  const first=await write(event);assert.equal(first.error,null);assert.equal(first.data,'inserted');assert.equal((await write(event)).data,'ignored');
+  assert.equal((await write({...event,signedAt:101,revokedAt:101})).data,'updated');assert.equal((await write(event)).data,'ignored');
+  assert.equal((await write({...event,environment:'Production'})).data,'inserted');
+  assert.ok((await user.rpc('apply_maintenance_verified_transaction',{payload:event,proof_sha256:'a'.repeat(64)})).error);
   assert.ok((await user.rpc('load_household')).data.homes.some(row=>row.id===home));
   const second=createClient(origin,'synthetic-public-key',options),login=await second.auth.signInWithPassword({email,password});assert.equal(login.error,null);
   const secondClaims=JSON.parse(Buffer.from(login.data.session.access_token.split('.')[1],'base64url'));assert.notEqual(secondClaims.session_id,claims.session_id);assert.equal((await bind(secondClaims.session_id)).data,binding.data);
