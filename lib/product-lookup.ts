@@ -14831,4 +14831,181 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "ドラム式洗濯乾燥機 HDK852Z-W",
+    "modelNumber": "HDK852Z-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576679909",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105081.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105081.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2023年発売。専用説明書のお手入れを確認しています。乾燥フィルターは乾燥運転後に毎回清掃します。内部フィルターは乾燥運転30回ごとの表示を目安に清掃し、30日ごとには設定していません。メッシュのほこりをしぼったタオルなどで取り、目詰まり時は水洗いします。強くこすらず、フィルターを確実に戻してください。洗剤投入ケースは汚れたら外して水洗いし、柔軟剤キャップを戻します。本体・ドア・ドアパッキンは汚れたら40℃以下の水を含ませてしぼった布で拭き、パッキンのひだの奥の糸くずや髪も取り除きます。部品清掃は運転を停止して行い、毎回・表示時・汚れ時の作業に固定日数は付けません。槽クリーンの乾燥のみは日数指定がないため定期候補には追加していません。",
+    "suggestions": [
+      {
+        "name": "ドラムの槽クリーン",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105081.pdf#page=110",
+        "frequency": "月に1回程度",
+        "conditions": "説明書110〜112ページ。衣類を入れず、給水栓を開けて電源を入れます。洗濯または洗濯乾燥を選び、槽クリーンコースに設定してください。塩素系漂白剤・槽洗浄用クリーナーを使うときは、初期設定の60℃から必ず洗い温度を30℃以下に変更し、表示の分量を直接ドラムに入れます。40℃・60℃や乾燥のみの運転には入れないでください。酸素系・台所用漂白剤は使用せず、酸性のものや他の液体と混ぜないでください。ドアを閉めてスタートし、終了してドアロックが解除されたら給水栓を閉じます。ゴム手袋を着け、水抜きホースで排水して糸くずフィルターを清掃します。におい・汚れ・洗剤かすが気になるときにも行ってください。"
+      },
+      {
+        "name": "糸くずフィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105081.pdf#page=104",
+        "frequency": "週に1回程度",
+        "conditions": "説明書104〜105ページ。脱水のみで運転し、終了後は電源を切ります。フィルターカバーを開け、水抜きホースのキャップを外して容器に排水してから、フィルターのつまみを左に回して引き抜きます。ドラムに水があるときや運転中には開けないでください。残水を布で受け、ごみを除いて水洗いし、ゴムパッキンを正しい位置に戻します。フィルターをまっすぐ差し込み、右に回して確実に固定し、水抜きホースにキャップをして戻し、カバーを閉じます。"
+      },
+      {
+        "name": "自動投入タンク・経路の洗浄",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105081.pdf#page=99",
+        "frequency": "3か月に1回程度",
+        "conditions": "説明書99〜101ページ。液剤の変更、1か月以上未使用、ふたを開けたまま放置、液剤の変質時にも行います。運転を停止し、自動投入部ふたを開け、タンクを手前に引いてから真上に外します。タンクのふたも外し、液剤を捨てて水洗いし、ふたとタンクを確実に取り付けます。40℃以下のぬるま湯を洗剤タンク約850mL・柔軟剤タンク約600mL入れます。電源を入れ、洗剤と柔軟剤を同時に3秒以上押し、洗浄するタンクのボタンを選んでスタートします。約7分の運転後、タンクのぬるま湯を捨て、水分を拭き取り、タンクを取り付けて自動投入部ふたを閉じます。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "ドラム式洗濯乾燥機 CDK852-W",
+    "modelNumber": "CDK852-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576679886",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105079.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105079.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年発売。専用説明書のお手入れを確認しています。乾燥フィルターは乾燥運転後に毎回清掃します。内部フィルターは乾燥運転30回ごとの表示を目安に清掃し、30日ごとには設定していません。メッシュのほこりをしぼったタオルなどで取り、目詰まり時は水洗いします。強くこすらず、フィルターを確実に戻してください。洗剤投入ケースは汚れたら外して水洗いし、柔軟剤キャップを戻します。本体・ドア・ドアパッキンは汚れたら40℃以下の水を含ませてしぼった布で拭き、パッキンのひだの奥の糸くずや髪も取り除きます。部品清掃は運転を停止して行い、毎回・表示時・汚れ時の作業に固定日数は付けません。槽クリーンの乾燥のみは日数指定がないため定期候補には追加していません。",
+    "suggestions": [
+      {
+        "name": "ドラムの槽クリーン",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105079.pdf#page=101",
+        "frequency": "月に1回程度",
+        "conditions": "説明書101〜103ページ。衣類を入れず、給水栓を開けて電源を入れます。洗濯または洗濯乾燥を選び、槽クリーンコースに設定してください。塩素系漂白剤・槽洗浄用クリーナーを使うときは、初期設定の60℃から必ず洗い温度を30℃以下に変更し、表示の分量を直接ドラムに入れます。40℃・60℃や乾燥のみの運転には入れないでください。酸素系・台所用漂白剤は使用せず、酸性のものや他の液体と混ぜないでください。ドアを閉めてスタートし、終了してドアロックが解除されたら給水栓を閉じます。ゴム手袋を着け、水抜きホースで排水して糸くずフィルターを清掃します。におい・汚れ・洗剤かすが気になるときにも行ってください。"
+      },
+      {
+        "name": "糸くずフィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105079.pdf#page=95",
+        "frequency": "週に1回程度",
+        "conditions": "説明書95〜96ページ。脱水のみで運転し、終了後は電源を切ります。フィルターカバーを開け、水抜きホースのキャップを外して容器に排水してから、フィルターのつまみを左に回して引き抜きます。ドラムに水があるときや運転中には開けないでください。残水を布で受け、ごみを除いて水洗いし、ゴムパッキンを正しい位置に戻します。フィルターをまっすぐ差し込み、右に回して確実に固定し、水抜きホースにキャップをして戻し、カバーを閉じます。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "ドラム式洗濯乾燥機 FLK852-B",
+    "modelNumber": "FLK852-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576679923",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105083.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105083.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年発売。専用説明書のお手入れを確認しています。乾燥フィルターは乾燥運転後に毎回清掃します。内部フィルターは乾燥運転30回ごとの表示を目安に清掃し、30日ごとには設定していません。メッシュのほこりをしぼったタオルなどで取り、目詰まり時は水洗いします。強くこすらず、フィルターを確実に戻してください。洗剤投入ケースは汚れたら外して水洗いし、柔軟剤キャップを戻します。本体・ドア・ドアパッキンは汚れたら40℃以下の水を含ませてしぼった布で拭き、パッキンのひだの奥の糸くずや髪も取り除きます。部品清掃は運転を停止して行い、毎回・表示時・汚れ時の作業に固定日数は付けません。槽クリーンの乾燥のみは日数指定がないため定期候補には追加していません。",
+    "suggestions": [
+      {
+        "name": "ドラムの槽クリーン",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105083.pdf#page=101",
+        "frequency": "月に1回程度",
+        "conditions": "説明書101〜103ページ。衣類を入れず、給水栓を開けて電源を入れます。洗濯または洗濯乾燥を選び、槽クリーンコースに設定してください。塩素系漂白剤・槽洗浄用クリーナーを使うときは、初期設定の60℃から必ず洗い温度を30℃以下に変更し、表示の分量を直接ドラムに入れます。40℃・60℃や乾燥のみの運転には入れないでください。酸素系・台所用漂白剤は使用せず、酸性のものや他の液体と混ぜないでください。ドアを閉めてスタートし、終了してドアロックが解除されたら給水栓を閉じます。ゴム手袋を着け、水抜きホースで排水して糸くずフィルターを清掃します。におい・汚れ・洗剤かすが気になるときにも行ってください。"
+      },
+      {
+        "name": "糸くずフィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105083.pdf#page=95",
+        "frequency": "週に1回程度",
+        "conditions": "説明書95〜96ページ。脱水のみで運転し、終了後は電源を切ります。フィルターカバーを開け、水抜きホースのキャップを外して容器に排水してから、フィルターのつまみを左に回して引き抜きます。ドラムに水があるときや運転中には開けないでください。残水を布で受け、ごみを除いて水洗いし、ゴムパッキンを正しい位置に戻します。フィルターをまっすぐ差し込み、右に回して確実に固定し、水抜きホースにキャップをして戻し、カバーを閉じます。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "ドラム式洗濯乾燥機 FLK852-W",
+    "modelNumber": "FLK852-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576679893",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105080.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105080.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年発売。専用説明書のお手入れを確認しています。乾燥フィルターは乾燥運転後に毎回清掃します。内部フィルターは乾燥運転30回ごとの表示を目安に清掃し、30日ごとには設定していません。メッシュのほこりをしぼったタオルなどで取り、目詰まり時は水洗いします。強くこすらず、フィルターを確実に戻してください。洗剤投入ケースは汚れたら外して水洗いし、柔軟剤キャップを戻します。本体・ドア・ドアパッキンは汚れたら40℃以下の水を含ませてしぼった布で拭き、パッキンのひだの奥の糸くずや髪も取り除きます。部品清掃は運転を停止して行い、毎回・表示時・汚れ時の作業に固定日数は付けません。槽クリーンの乾燥のみは日数指定がないため定期候補には追加していません。",
+    "suggestions": [
+      {
+        "name": "ドラムの槽クリーン",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105080.pdf#page=101",
+        "frequency": "月に1回程度",
+        "conditions": "説明書101〜103ページ。衣類を入れず、給水栓を開けて電源を入れます。洗濯または洗濯乾燥を選び、槽クリーンコースに設定してください。塩素系漂白剤・槽洗浄用クリーナーを使うときは、初期設定の60℃から必ず洗い温度を30℃以下に変更し、表示の分量を直接ドラムに入れます。40℃・60℃や乾燥のみの運転には入れないでください。酸素系・台所用漂白剤は使用せず、酸性のものや他の液体と混ぜないでください。ドアを閉めてスタートし、終了してドアロックが解除されたら給水栓を閉じます。ゴム手袋を着け、水抜きホースで排水して糸くずフィルターを清掃します。におい・汚れ・洗剤かすが気になるときにも行ってください。"
+      },
+      {
+        "name": "糸くずフィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105080.pdf#page=95",
+        "frequency": "週に1回程度",
+        "conditions": "説明書95〜96ページ。脱水のみで運転し、終了後は電源を切ります。フィルターカバーを開け、水抜きホースのキャップを外して容器に排水してから、フィルターのつまみを左に回して引き抜きます。ドラムに水があるときや運転中には開けないでください。残水を布で受け、ごみを除いて水洗いし、ゴムパッキンを正しい位置に戻します。フィルターをまっすぐ差し込み、右に回して確実に固定し、水抜きホースにキャップをして戻し、カバーを閉じます。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 IAW-T504-B",
+    "modelNumber": "IAW-T504-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576681940",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105601.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105601.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=4",
+    "lookupNote": "2023年12月発売。糸くずフィルターは洗濯のたびにカバーを開けて糸くずを除き、水洗いして元どおり取り付けます。本体外側・漂白剤注入口は汚れたらしぼったやわらかい布で拭きます。洗剤投入ケースは汚れたら外して水洗いし、注水口を拭き、柔軟剤投入口は不要な歯ブラシなどで清掃します。部品清掃は運転を停止して行い、毎回・汚れ時には固定日数を付けません。槽乾燥は見出しが定期的ですが、詳細58ページに週1回程度と明記されています。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105601.pdf#page=56",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書56〜57ページ。衣類を入れず、水栓を開けて電源を入れ、槽洗浄を選びます。ふたを閉めて給水開始し、給水終了後に一時停止してふたを開け、塩素系漂白剤・槽洗浄用クリーナーを表示の分量で入れます。ふたを閉めて再開し、終了後に糸くずフィルターを清掃して給水栓を閉じます。酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/105601.pdf#page=58",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書58ページ。衣類を入れず、電源を入れて槽乾燥コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため槽洗浄を行ってください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
