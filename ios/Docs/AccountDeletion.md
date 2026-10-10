@@ -169,3 +169,27 @@ permissions in PGlite. Typecheck and changed-file lint pass. The DB adapter rema
 in the isolated fixture only, so DO NOT enable the flag on production yet. The
 manual test-push endpoint and APNs remain outside this integration. No deployment,
 real push, schema migration or existing data mutation was performed.
+
+
+A local-only development API now prepares authenticated cleanup:
+/api/development/account-closure requires NODE_ENV=development, explicit test
+mode, exact loopback Supabase URL http://127.0.0.1:54321 and dedicated test keys.
+Preview/Production/shared project URLs are refused before client construction.
+The bounded body accepts password and an explicit app-scope confirmation only;
+client-selected user IDs are rejected. getUser verifies the bearer identity;
+password reauthentication must return that same identity, and its temporary
+session is signed out with local scope before cleanup. The API derives the target
+UUID itself and calls the service-only cleanup adapter. No passwords/tokens are
+logged or returned. No live Auth/session/deletion call was made.
+
+Mock workflow and actual route-gate tests pass for wrong/mismatched reauth,
+invalid/oversized body, unauthorized identity selection, ambiguous backend error,
+idempotent result, Production and shared-host refusal. The isolated public cleanup
+adapter permission tests also pass. Typecheck and changed-file lint pass. Actual
+local Supabase auth integration, rate limits, OAuth/MFA reauthentication,
+identity-erasure semantics and native deletion UI remain unfinished. This endpoint
+is a development cleanup experiment, NOT App Store-compliant account deletion.
+
+Xcode 27.0 build 27A266a and active developer directory were observed on this Mac.
+The Xcode initial Components screen has iOS 27.0 selected and Download & Install
+still available; iOS runtime download completion is not yet established.

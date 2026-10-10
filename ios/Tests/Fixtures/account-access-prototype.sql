@@ -67,3 +67,8 @@ language sql stable security invoker set search_path='' as $$
 $$;
 revoke all on function public.can_dispatch_maintenance_push(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.can_dispatch_maintenance_push(uuid,uuid) to service_role;
+-- Local test API adapter; browser roles cannot choose an identity to close.
+create function public.close_maintenance_account_access(target_user uuid) returns boolean
+language sql security invoker set search_path='' as $$select maintenance_private.close_account_access(target_user);$$;
+revoke all on function public.close_maintenance_account_access(uuid) from public,anon,authenticated;
+grant execute on function public.close_maintenance_account_access(uuid) to service_role;
