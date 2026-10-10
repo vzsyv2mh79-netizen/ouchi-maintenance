@@ -5,6 +5,7 @@ All executable tests use fixtures/mock transport, never the live household.
 import argparse
 import pathlib
 import platform
+import plistlib
 import subprocess
 import tempfile
 
@@ -36,6 +37,23 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])
     run(['plutil', '-lint', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
+    manifest_path = root / 'OuchiMaintenance/PrivacyInfo.xcprivacy'
+    run(['plutil', '-lint', manifest_path])
+    manifest = plistlib.loads(manifest_path.read_bytes())
+    assert manifest['NSPrivacyAccessedAPITypes'] == [{
+        'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults',
+        'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}]
+    project_bytes = subprocess.check_output(['plutil', '-convert', 'xml1', '-o', '-',
+                                            root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
+    objects = plistlib.loads(project_bytes)['objects']
+    refs = {key for key, item in objects.items() if item.get('path') == 'PrivacyInfo.xcprivacy'}
+    builds = {key for key, item in objects.items() if item.get('fileRef') in refs}
+    targets = [item for item in objects.values() if item.get('isa') == 'PBXNativeTarget']
+    assert refs and builds and len(targets) == 1
+    assert any(builds.intersection(objects[phase].get('files', []))
+               for phase in targets[0]['buildPhases']
+               if objects[phase]['isa'] == 'PBXResourcesBuildPhase')
+    print('PASS: required-reason manifest is attached to app resource build phase.', flush=True)
     print(f'PASS: {len(tests)} freshly compiled smoke tests, macOS typecheck, UI syntax and project plist.', flush=True)
     if args.ios_build:
         run(['xcodebuild', '-project', root / 'OuchiMaintenance.xcodeproj', '-scheme', 'OuchiMaintenance',
