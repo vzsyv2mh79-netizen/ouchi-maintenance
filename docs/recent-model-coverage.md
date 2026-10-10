@@ -590,3 +590,7 @@ Official select/contents confirms March2026. Actual model query UI all31 questio
 
 ## SHARP CV-T71 / CV-U71 (March 2025 / March 2026)
 Official select/contents verifies release month/year. Actual model query UI full28 entries each; rear-panel/sensor visible link onclick180144 directly verified for BOTH. Public model FAQ HTML tank180145 explicit for both. Same manufacturer-linked source fully audited earlier for S71; no similarity inference. Filter14/body30, tank conditional only because source180145 has no fixed interval in text or diagram; no borrowed weekly tank. Source notes preserve unplug,10min dirty-panel soak/rinse/shadedry, body no rinse/40C max and float magnetup/outside pin.
+
+
+## siroca SDC-10D171 — 2025-05-19
+Official release: https://www.siroca.co.jp/news/250422/ . Model-specific manual: https://www.siroca.co.jp/im/sdc-10d171.pdf . Pages 12–14 rendered and inspected, including float foam, filter tabs and upright storage diagrams. Only filter cleaning has a numeric interval (14 days); body and tank care, drainage, conditional filter replacement and storage remain instructions without invented schedules. The one-hour internal drying duration is not recurrence.
