@@ -18,6 +18,8 @@ import OuchiCore
     private var generation = 0
     private var familyGeneration = 0
     let purchases = PurchaseManager()
+    private var billingAccount: UUID?
+    @Published private(set) var sandboxEntitlement: SandboxEntitlement?
     private let reminders = LocalReminders()
     @Published private(set) var remindersEnabled = false
 
@@ -79,6 +81,7 @@ import OuchiCore
         household = nil; signedIn = false; busy = true
         await reminders.reset(clearPreference: true)
         purchases.stopObserving(); purchases.persist = nil
+        billingAccount = nil; sandboxEntitlement = nil
         household = nil; homeID = ""; signedIn = false; busy = false
         clearFamily()
         if let exportURL { try? FileManager.default.removeItem(at: exportURL) }
@@ -96,6 +99,32 @@ import OuchiCore
             if let old = exportURL { try? FileManager.default.removeItem(at: old) }
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
+    }
+    private func bindSandboxBilling(account: UUID) {
+        #if DEBUG
+        guard Bundle.main.object(forInfoDictionaryKey: "IOS_SANDBOX_BILLING") as? String == "YES",
+              billingAccount != account, let session else { return }
+        purchases.stopObserving()
+        let expected = generation
+        billingAccount = account
+        let billing = BillingAPI()
+        purchases.persist = { [weak self] signed in
+            guard let self, self.generation == expected else { throw CancellationError() }
+            let credentials = try await session.credentials()
+            guard credentials.user.id == account, self.generation == expected else { throw CancellationError() }
+            try await billing.submit(signedTransaction: signed, token: credentials.access_token)
+            guard self.generation == expected else { throw CancellationError() }
+            let rights = try await billing.entitlement(token: credentials.access_token)
+            guard self.generation == expected else { throw CancellationError() }
+            self.sandboxEntitlement = rights
+        }
+        purchases.startObserving(account: account)
+        Task { [weak self] in
+            guard let self, self.generation == expected else { return }
+            do { try await self.purchases.observeUnfinished(account: account) }
+            catch { if self.generation == expected { self.purchases.markRetryNeeded() } }
+        }
+        #endif
     }
     func setReminders(_ enabled: Bool) async {
         guard !busy else { return }
@@ -131,6 +160,7 @@ import OuchiCore
             let value = try await api.load(token: credentials.access_token)
             guard expected == generation else { return }
             household = value
+            bindSandboxBilling(account: credentials.user.id)
             let notificationState = (try? await reminders.reconcile(data: value, account: credentials.user.id)) ?? false
             guard expected == generation else { return }
             remindersEnabled = notificationState

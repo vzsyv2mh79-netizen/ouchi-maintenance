@@ -33,6 +33,7 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
         run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
     typechecked = ['KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeStore.swift']
     run(common + ['-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
+    run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])
     run(['plutil', '-lint', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
     print(f'PASS: {len(tests)} freshly compiled smoke tests, macOS typecheck, UI syntax and project plist.', flush=True)

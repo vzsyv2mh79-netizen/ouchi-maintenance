@@ -34,6 +34,7 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         if finish { await transaction.finish() }
     }
+    func markRetryNeeded() { needsRetry = true }
     func load() async throws { products = try await Product.products(for: ids) }
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
         guard ids.contains(product.id), persist != nil else { throw PurchaseError.notConfigured }
