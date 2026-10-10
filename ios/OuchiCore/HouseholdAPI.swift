@@ -1,5 +1,12 @@
 import Foundation
 
+private final class HouseholdRedirectBlocker: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+
 public enum CloudError: Error, Equatable {
     case invalidConfiguration, authenticationRequired, rejected(Int), malformedResponse, invalidInput, unavailable
 }
@@ -47,11 +54,16 @@ public struct HouseholdAPI: Sendable {
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
     private let config: CloudConfiguration
     private let transport: Transport
-    public init(config: CloudConfiguration, transport: @escaping Transport = { request in
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
-        return (data, response)
-    }) { self.config = config; self.transport = transport }
+    public init(config: CloudConfiguration, transport: Transport? = nil) {
+        self.config = config
+        self.transport = transport ?? { request in
+            let session = URLSession(configuration: .ephemeral, delegate: HouseholdRedirectBlocker(), delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+            let (data, response) = try await session.data(for: request)
+            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            return (data, response)
+        }
+    }
 
     private func send(path: String, token: String? = nil, body: Data, query: String? = nil, method: String = "POST", representation: Bool = false) async throws -> Data {
         var parts = URLComponents(url: config.url.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
@@ -98,6 +110,25 @@ public struct HouseholdAPI: Sendable {
     public func refresh(_ session: Session) async throws -> Session {
         let body = try JSONEncoder().encode(["refresh_token": session.refresh_token])
         return try JSONDecoder().decode(Session.self, from: await send(path: "auth/v1/token", body: body, query: "grant_type=refresh_token"))
+    }
+    /// Terminate only this Auth session. Does not clear local storage or claim
+    /// existing JWTs become unusable; sensitive server operations check sessions.
+    public func revokeCurrentSession(token: String) async throws {
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var parts = URLComponents(url: config.url.appendingPathComponent("auth/v1/logout"), resolvingAgainstBaseURL: false)!
+        parts.queryItems = [URLQueryItem(name: "scope", value: "local")]
+        let url = parts.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"; request.timeoutInterval = 15; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue(config.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (bytes, response) = try await transport(request)
+        guard response.url == url else { throw CloudError.malformedResponse }
+        guard response.statusCode == 204 else {
+            if response.statusCode == 401 { throw CloudError.authenticationRequired }
+            throw CloudError.rejected(response.statusCode)
+        }
+        guard bytes.isEmpty else { throw CloudError.malformedResponse }
     }
     public func load(token: String) async throws -> Household {
         return try JSONDecoder().decode(Household.self, from: await send(path: "rest/v1/rpc/load_household", token: token, body: Data("{}".utf8)))
