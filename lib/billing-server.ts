@@ -1,3 +1,4 @@
+import {runRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
 import {boundedBillingRead} from './billing-read-deadline';
 import 'server-only';
 import {SignedDataVerifier,Environment,AppStoreServerAPIClient,GetTransactionHistoryVersion} from '@apple/app-store-server-library';
@@ -8,7 +9,7 @@ import {normalizeVerifiedRenewal} from './billing-renewal';
 import type {VerifiedRenewal} from './billing-renewal';
 import {createHash,createPrivateKey} from 'node:crypto';
 import {reconcilePurchaseHistory} from './billing-reconciliation';
-import {readAuthoritativeReconciliationSeed} from './billing-reconciliation-seed';
+import {readAuthoritativeReconciliationSeed,normalizeOwnedLedgerSeed} from './billing-reconciliation-seed';
 import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
@@ -100,4 +101,33 @@ export async function reconciliationSeedAfterAuth(db:ReturnType<typeof billingDa
  if(config.storage!=='verified-ledger')throw new Error('Recovery storage unavailable');
  const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Recovery session unavailable');
  return readAuthoritativeReconciliationSeed(async(name,args)=>await db.rpc(name,args),{target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:config.environment},config.bundleId);
+}
+
+/** Internal service runner only; claimed job must originate from the service-only SQL claim RPC. */
+export async function runBillingRecoveryJob(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,job:RecoveryJob,signal?:AbortSignal){
+ const client=billingReconciliationClient(config);if(!client||job.environment!==config.environment)throw new Error('Recovery unavailable');
+ const scope={environment:config.environment,bundleId:config.bundleId,accountToken:job.accountToken,appAppleId:config.appAppleId};
+ return runRecoveryJob(job,scope,{
+  readSeed:async(claimed)=>{
+   const result=await db.rpc('read_maintenance_reconciliation_job_seed',{target_job:claimed.id,target_lease:claimed.leaseToken});
+   if(result.error)throw new Error('Recovery seed unavailable');
+   return normalizeOwnedLedgerSeed(result.data,config.environment,claimed.accountToken,config.bundleId);
+  },
+  leaseIsCurrent:async(claimed)=>{
+   const result=await db.rpc('maintenance_reconciliation_lease_is_current',{target_job:claimed.id,target_lease:claimed.leaseToken});
+   if(result.error)throw new Error('Recovery lease unavailable');return result.data===true;
+  },
+  finish:async(claimed,result)=>{
+   const stored=await db.rpc('finish_maintenance_reconciliation',{target_job:claimed.id,target_lease:claimed.leaseToken,is_complete:result.complete,next_revision:result.revision,error_code:result.error});
+   if(stored.error)throw new Error('Recovery acknowledgement unavailable');return stored.data===true;
+  },
+  apple:{
+   history:async(id,cursor)=>await boundedBillingRead(()=>client.getTransactionHistory(id,cursor,{},GetTransactionHistoryVersion.V2),signal) as unknown as Record<string,unknown>,
+   statuses:async(id)=>await boundedBillingRead(()=>client.getAllSubscriptionStatuses(id),signal) as unknown as Record<string,unknown>,
+   verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
+   verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
+   saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
+   saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
+  },
+ },signal);
 }

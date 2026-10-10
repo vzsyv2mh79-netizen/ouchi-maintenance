@@ -74,3 +74,15 @@ test('actual Server API recovery factory stays disabled without explicit opt-in 
   process.env.BILLING_RECONCILIATION_ENABLED='false';assert.equal(server.billingReconciliationClient(config),null);
  }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
 });
+test('actual recovery adapter uses exact job lease RPC and refuses malformed seed before Apple requests',async()=>{
+ const keys=['BILLING_RECONCILIATION_ENABLED','APPLE_IAP_PRIVATE_KEY_BASE64','APPLE_IAP_KEY_ID','APPLE_IAP_ISSUER_ID'],old=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+ const epoch='11111111-1111-4111-8111-111111111111',job={id:'22222222-2222-4222-8222-222222222222',userId:'33333333-3333-4333-8333-333333333333',accountToken:epoch,environment:'Sandbox',transactionId:'1',revision:null,leaseToken:'44444444-4444-4444-8444-444444444444',leaseUntil:new Date(Date.now()+120000).toISOString()},config={storage:'verified-ledger',environment:'Sandbox',bundleId:'test.ouchi'};
+ try{
+  process.env.BILLING_RECONCILIATION_ENABLED='true';process.env.APPLE_IAP_KEY_ID='ABCDEFGHIJ';process.env.APPLE_IAP_ISSUER_ID=epoch;const {privateKey}=generateKeyPairSync('ec',{namedCurve:'prime256v1'});process.env.APPLE_IAP_PRIVATE_KEY_BASE64=Buffer.from(privateKey.export({type:'pkcs8',format:'pem'})).toString('base64');
+  for(const validLease of [false,true]){const calls=[];const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='maintenance_reconciliation_lease_is_current'?validLease:name==='finish_maintenance_reconciliation'?true:null,error:null};}};
+   assert.equal((await server.runBillingRecoveryJob(db,config,job)).retryRequested,true);assert.deepEqual(calls[0],{name:'maintenance_reconciliation_lease_is_current',args:{target_job:job.id,target_lease:job.leaseToken}});
+   assert.equal(calls.some(c=>c.name==='read_maintenance_reconciliation_job_seed'),validLease);assert.equal(calls.at(-1).args.error_code,'read_unavailable');assert.equal(calls.at(-1).args.next_revision,null);
+  }
+  await assert.rejects(()=>server.runBillingRecoveryJob({}, {...config,environment:'Production'},job),/unavailable/);
+ }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
+});

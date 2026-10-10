@@ -11,10 +11,14 @@ export async function readAuthoritativeReconciliationSeed(rpc:RPC,args:Arguments
  const result=await rpc('read_maintenance_reconciliation_seed',args);
  if(result.error)throw new Error('Recovery seed unavailable');
  if(result.data===null)return null;
- if(!result.data||typeof result.data!=='object'||Array.isArray(result.data))throw new Error('Invalid recovery seed');
- const row=result.data as Record<string,unknown>;
- if(row.environment!==args.target_environment||typeof row.accountToken!=='string'||row.accountToken.toLowerCase()!==args.target_epoch.toLowerCase()||typeof row.productId!=='string'||!Object.hasOwn(billingProducts,row.productId))throw new Error('Recovery seed scope mismatch');
+ return normalizeOwnedLedgerSeed(result.data,args.target_environment,args.target_epoch,bundleId);
+}
+/** Normalizes an already-verified service snapshot; never a signature verifier or authorization gate. */
+export function normalizeOwnedLedgerSeed(data:unknown,environment:BillingEnvironment,epoch:string,bundleId:string):VerifiedTransaction{
+ if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('Invalid recovery seed');
+ const row=data as Record<string,unknown>;
+ if(row.environment!==environment||typeof row.accountToken!=='string'||row.accountToken.toLowerCase()!==epoch.toLowerCase()||typeof row.productId!=='string'||!Object.hasOwn(billingProducts,row.productId))throw new Error('Recovery seed scope mismatch');
  const productId=row.productId as keyof typeof billingProducts;
  // Reuse field validation without pretending this mapping verifies a new signature.
- return normalizeAppleTransaction({bundleId,environment:row.environment,transactionId:row.transactionId,originalTransactionId:row.originalTransactionId,productId,appAccountToken:row.accountToken,signedDate:row.signedAt,purchaseDate:row.purchasedAt,expiresDate:row.expiresAt,revocationDate:row.revokedAt,isUpgraded:row.isUpgraded,type:billingProducts[productId].kind==='subscription'?'Auto-Renewable Subscription':'Consumable'},bundleId,args.target_environment);
+ return normalizeAppleTransaction({bundleId,environment:row.environment,transactionId:row.transactionId,originalTransactionId:row.originalTransactionId,productId,appAccountToken:row.accountToken,signedDate:row.signedAt,purchaseDate:row.purchasedAt,expiresDate:row.expiresAt,revocationDate:row.revokedAt,isUpgraded:row.isUpgraded,type:billingProducts[productId].kind==='subscription'?'Auto-Renewable Subscription':'Consumable'},bundleId,environment);
 }
