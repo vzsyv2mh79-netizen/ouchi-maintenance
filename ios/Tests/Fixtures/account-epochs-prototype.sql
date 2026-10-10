@@ -49,3 +49,29 @@ language sql stable security invoker set search_path='' as $$
 $$;
 revoke all on function maintenance_private.enroll_app_epoch(uuid,uuid),maintenance_private.close_app_epoch(uuid,uuid),maintenance_private.epoch_session_allowed(uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function maintenance_private.enroll_app_epoch(uuid,uuid),maintenance_private.close_app_epoch(uuid,uuid),maintenance_private.epoch_session_allowed(uuid,uuid,uuid) to service_role;
+-- Integrated lifecycle transitions, still TEST ONLY. Expected epoch makes retries
+-- safe against a later enrollment. Existing app cleanup stays in one transaction.
+create function maintenance_private.close_app_identity(target_user uuid, expected_epoch uuid) returns boolean
+language plpgsql security invoker set search_path='' as $$
+begin
+ if target_user is null or expected_epoch is null then raise exception 'Invalid identity'; end if;
+ perform pg_advisory_xact_lock(hashtext(target_user::text));
+ if not exists(select 1 from maintenance_private.app_epochs where user_id=target_user and epoch_id=expected_epoch and enabled) then return false; end if;
+ perform maintenance_private.close_app_epoch(target_user,expected_epoch);
+ perform maintenance_private.close_account_access(target_user);
+ return true;
+end;$$;
+create function maintenance_private.reenroll_app_identity(target_user uuid, verified_session uuid) returns uuid
+language plpgsql security invoker set search_path='' as $$
+declare fresh uuid;
+begin
+ if target_user is null or verified_session is null then raise exception 'Invalid identity'; end if;
+ perform pg_advisory_xact_lock(hashtext(target_user::text));
+ -- Never enroll an unknown user or bypass an existing open account.
+ if not exists(select 1 from maintenance_private.account_access where user_id=target_user and not enabled) then raise exception 'Closed app account required'; end if;
+ fresh := maintenance_private.enroll_app_epoch(target_user,verified_session);
+ update maintenance_private.account_access set enabled=true where user_id=target_user;
+ return fresh;
+end;$$;
+revoke all on function maintenance_private.close_app_identity(uuid,uuid),maintenance_private.reenroll_app_identity(uuid,uuid) from public,anon,authenticated;
+grant execute on function maintenance_private.close_app_identity(uuid,uuid),maintenance_private.reenroll_app_identity(uuid,uuid) to service_role;

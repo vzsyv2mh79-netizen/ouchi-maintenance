@@ -14,12 +14,22 @@ test('old JWT session cannot regain household access after a new enrollment epoc
  const user=async(id,session)=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",[id,JSON.stringify(session===undefined?{}:{session_id:session})]);await db.exec('set role authenticated');};
  await service();const epoch=(await db.query('select maintenance_private.enroll_app_epoch($1,$2) as epoch',[a,oldSession])).rows[0].epoch;await db.query('select maintenance_private.enroll_app_epoch($1,$2)',[b,otherSession]);
  await user(a,oldSession);const oldHome=(await db.query('select public.load_household() as data')).rows[0].data.homes[0];
- await service();await db.exec('begin');await db.query('select maintenance_private.close_app_epoch($1,$2)',[a,epoch]);await db.query('select public.close_maintenance_account_access($1)',[a]);await db.exec('commit');
+ await db.exec(`reset role;create function public.fail_synthetic_home_cleanup() returns trigger language plpgsql as $$begin raise exception 'synthetic cleanup failure';end;$$;create trigger fail_cleanup before delete on public.homes for each row execute function public.fail_synthetic_home_cleanup();`);
+ await service();await assert.rejects(()=>db.query('select maintenance_private.close_app_identity($1,$2)',[a,epoch]));
+ await user(a,oldSession);assert.equal((await db.query('select * from public.homes')).rows.length,1);
+ await db.exec('reset role;drop trigger fail_cleanup on public.homes;drop function public.fail_synthetic_home_cleanup();');
+ await service();await db.query('select maintenance_private.close_app_identity($1,$2)',[a,epoch]);
  await user(a,oldSession);assert.equal((await db.query('select * from public.homes')).rows.length,0);await assert.rejects(()=>db.query('select public.load_household()'));
- await service();await db.exec('begin');await db.query('select maintenance_private.enroll_app_epoch($1,$2)',[a,newSession]);await db.query('update maintenance_private.account_access set enabled=true where user_id=$1',[a]);await db.exec('commit');
+ await db.exec(`reset role;create function maintenance_private.fail_synthetic_reenroll() returns trigger language plpgsql as $$begin if new.enabled then raise exception 'synthetic reenroll failure';end if;return new;end;$$;create trigger fail_reenroll before update on maintenance_private.account_access for each row execute function maintenance_private.fail_synthetic_reenroll();`);
+ await service();await assert.rejects(()=>db.query('select maintenance_private.reenroll_app_identity($1,$2)',[a,newSession]));
+ assert.equal((await db.query('select enabled,epoch_id from maintenance_private.app_epochs where user_id=$1',[a])).rows[0].enabled,false);
+ assert.equal((await db.query('select session_id from maintenance_private.app_session_epochs where session_id=$1',[newSession])).rows.length,0);
+ await db.exec('reset role;drop trigger fail_reenroll on maintenance_private.account_access;drop function maintenance_private.fail_synthetic_reenroll();');
+ await service();await db.query('select maintenance_private.reenroll_app_identity($1,$2)',[a,newSession]);
  for(const session of [oldSession,otherSession,undefined,'malformed']){
   await user(a,session);assert.equal((await db.query('select * from public.homes')).rows.length,0);await assert.rejects(()=>db.query('select public.load_household()'));await assert.rejects(()=>db.query('select public.create_maintenance_home($1,$2)',['forbidden','home']));
  }
+ await service();assert.equal((await db.query('select maintenance_private.close_app_identity($1,$2) as changed',[a,epoch])).rows[0].changed,false);
  await user(a,newSession);const fresh=(await db.query('select public.load_household() as data')).rows[0].data.homes[0];assert.notEqual(fresh.id,oldHome.id);
  await user(a,oldSession);assert.equal((await db.query('select * from public.homes')).rows.length,0);assert.equal((await db.query('update public.homes set name=$1 where id=$2 returning id',['forbidden',fresh.id])).rows.length,0);
  await user(b,otherSession);assert.equal((await db.query('select public.load_household() as data')).rows[0].data.homes.length,1);
