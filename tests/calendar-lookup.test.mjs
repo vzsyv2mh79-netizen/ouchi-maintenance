@@ -1465,3 +1465,12 @@ test('SBD-201P and T2P retain weekly mop/sensors and quarterly sponge without la
  for(const[m,pdf,pages]of[['SBD-201P','201506',[38,38,38,39,39,40,41,41]],['SBD-T2P','201507',[39,39,39,40,40,41,42,42]]]){const[c]=lookup.lookupModel(m);assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,7,30,30,30,30,90]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].conditions,/内部左右/);assert.match(c.suggestions[6].conditions,/汚れた場合.*使い捨て.*取り外し/);assert.match(c.suggestions[7].conditions,/24時間.*必ず取り付け/);assert.doesNotMatch(c.suggestions[5].conditions,/押し下げて手前|前端内側/);assert.equal(lookup.lookupModel(m+'X').length,0);}
  const[a]=lookup.lookupModel('SBD-201P');const[b]=lookup.lookupModel('SBD-T2P');assert.doesNotMatch(a.suggestions[0].conditions,/マルチパワー/);assert.match(b.suggestions[0].conditions,/マルチパワー/);assert.match(b.suggestions[4].conditions,/マルチパワー/);
 });
+
+
+test('2023 Iris 123P/L3P preserve monthly care without later thirty-minute soak',()=>{
+ for(const[m,pdf,pages]of[['SCD-123P','299188',[38,38,39,42,42,43,44]],['SCD-L3P','299189',[40,40,41,44,44,45,46]]]){const[c]=lookup.lookupModel(m);assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,30,30,30,30,30]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),pages.map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].conditions,/反時計回り.*谷に沿って.*24時間.*熱風.*時計回り.*上側の穴/);assert.doesNotMatch(c.suggestions[2].conditions,/30分/);assert.equal(lookup.lookupModel(m+'X').length,0);}
+ const[c]=lookup.lookupModel('SCD-L3P');assert.match(c.suggestions[0].conditions,/マルチパワー/);assert.match(c.suggestions[4].conditions,/マルチパワー/);
+});
+test('SCD-122PM cup is two-monthly and conditional care never receives invented schedules',()=>{
+ const[c]=lookup.lookupModel('SCD-122PM');assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith('299995.pdf'));assert.deepEqual(c.suggestions.map(x=>x.intervalDays),[7,7,60]);assert.deepEqual(c.suggestions.map(x=>x.sourceUrl),[37,37,38].map(n=>c.manualUrl+'#page='+n));assert.match(c.suggestions[2].frequency,/2か月/);assert.doesNotMatch(c.suggestions[2].conditions,/30分/);assert.match(c.lookupNote,/汚れが目立ってきたら.*固定周期.*41〜43/);assert.equal(lookup.lookupModel('SCD-122PMX').length,0);
+});
