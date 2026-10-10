@@ -32,6 +32,11 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await write({...event,environment:'Production'})).data,'inserted');
   assert.ok((await user.rpc('apply_maintenance_verified_transaction',{payload:event,proof_sha256:'a'.repeat(64)})).error);
   const readArgs={target_user:id,verified_session:claims.session_id,target_epoch:binding.data,target_environment:'Sandbox'};
+  const seedRead=()=>admin.rpc('read_maintenance_reconciliation_seed',readArgs);
+  const seed=await seedRead();assert.equal(seed.error,null);assert.equal(seed.data.transactionId,'100');assert.equal(seed.data.accountToken,binding.data);
+  assert.ok((await user.rpc('read_maintenance_reconciliation_seed',readArgs)).error);
+  assert.ok((await admin.rpc('read_maintenance_reconciliation_seed',{...readArgs,target_epoch:randomUUID()})).error);
+  const productionSeed=await admin.rpc('read_maintenance_reconciliation_seed',{...readArgs,target_environment:'Production'});assert.equal(productionSeed.error,null);assert.equal(productionSeed.data.environment,'Production');
   const state=await admin.rpc('read_maintenance_verified_entitlement',readArgs);assert.equal(state.error,null);assert.equal(state.data.plan,'free');
   const now=Date.now();assert.equal((await write({...event,transactionId:'101',originalTransactionId:'11',signedAt:now,purchasedAt:now-10000,expiresAt:now+3600000})).error,null);
   assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'premium');
@@ -63,7 +68,9 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:randomUUID(),verified_session:secondClaims.session_id})).data,null);
   assert.match(secondClaims.session_id,/^[0-9a-f-]{36}$/i);
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:"update auth.sessions set not_after=now()-interval '1 second' where id='"+secondClaims.session_id+"';",timeout:10000,stdio:['pipe','pipe','pipe']});
+  assert.ok((await admin.rpc('read_maintenance_reconciliation_seed',{...readArgs,verified_session:secondClaims.session_id})).error);
   const expired=await bind(secondClaims.session_id);assert.equal(expired.error,null);assert.equal(expired.data,null);
   assert.equal((await user.auth.signOut({scope:'local'})).error,null);const revoked=await bind(claims.session_id);assert.equal(revoked.error,null);assert.equal(revoked.data,null);
+  assert.ok((await seedRead()).error);
  }finally{gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });

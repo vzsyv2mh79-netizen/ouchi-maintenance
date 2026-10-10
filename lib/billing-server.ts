@@ -7,6 +7,7 @@ import {normalizeVerifiedRenewal} from './billing-renewal';
 import type {VerifiedRenewal} from './billing-renewal';
 import {createHash,createPrivateKey} from 'node:crypto';
 import {reconcilePurchaseHistory} from './billing-reconciliation';
+import {readAuthoritativeReconciliationSeed} from './billing-reconciliation-seed';
 import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
@@ -91,4 +92,11 @@ export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>
   saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
   saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
  },{revision});
+}
+
+/** Exact bearer/user already verified through Auth.getUser; SQL also rechecks the live session/epoch. */
+export async function reconciliationSeedAfterAuth(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,token:string,user:string,epoch:string){
+ if(config.storage!=='verified-ledger')throw new Error('Recovery storage unavailable');
+ const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Recovery session unavailable');
+ return readAuthoritativeReconciliationSeed(async(name,args)=>await db.rpc(name,args),{target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:config.environment},config.bundleId);
 }
