@@ -39,11 +39,13 @@ struct KeychainSessionStorage: SessionStorage {
 /// One account-scoped file; logged-out copies are removed, never placed in backups.
 struct HouseholdSnapshotStorage {
     let namespace: String
-    private var file: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    private let directory: URL
+    init(namespace: String, directory: URL? = nil) {
+        self.namespace = namespace
+        self.directory = directory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ouchi-snapshots", isDirectory: true)
-            .appendingPathComponent(namespace + ".json")
     }
+    private var file: URL { directory.appendingPathComponent(namespace + ".json") }
     func read(account: UUID) throws -> OfflineSnapshot? {
         guard FileManager.default.fileExists(atPath: file.path) else { return nil }
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
@@ -57,7 +59,13 @@ struct HouseholdSnapshotStorage {
         }
         let directory = file.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try snapshot.encode().write(to: file, options: [.atomic, .completeFileProtection])
+        #if os(iOS)
+        let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        // macOS test hosts do not implement iOS data-protection attributes.
+        let options: Data.WritingOptions = [.atomic]
+        #endif
+        try snapshot.encode().write(to: file, options: options)
         var location = file; var values = URLResourceValues(); values.isExcludedFromBackup = true
         try location.setResourceValues(values)
     }
