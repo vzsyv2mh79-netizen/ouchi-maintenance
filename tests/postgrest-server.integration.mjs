@@ -103,6 +103,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await attachmentGET(downloadRequest(outsiderToken))).status,404);assert.deepEqual((await (await attachmentGET(listRequest(outsiderToken))).json()).items,[]);
 
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
+  const unrelatedBucket='unrelated-attachment-ci';assert.equal((await admin.storage.createBucket(unrelatedBucket,{public:false})).error,null);assert.equal((await admin.storage.from(unrelatedBucket).upload(objectPath,new Uint8Array([1,2,3]),{upsert:false})).error,null);
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
   assert.ok((await client.storage.from(bucketName).download(objectPath)).error);
   assert.ok((await client.storage.from(bucketName).upload('unauthorized.png',bytes.subarray(0,8),{contentType:'image/png'})).error);
@@ -128,6 +129,9 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const invalid=createClient('http://127.0.0.1:54321','synthetic-public-key',{...options,global:{headers:{Authorization:'Bearer '+forged.join('.')}}});
   assert.ok((await invalid.rpc('load_household')).error);
   const freshClient=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
+  const {eraseIsolatedAttachmentBatch}=await import(encoded(compile('lib/attachment-erasure.ts').replace(/from ['"]@supabase\/supabase-js['"]/g,`from '${import.meta.resolve('@supabase/supabase-js')}'`)));
+  assert.deepEqual(await eraseIsolatedAttachmentBatch(),{completed:20,deferred:0});assert.deepEqual(await eraseIsolatedAttachmentBatch(),{completed:0,deferred:0});
+  assert.ok((await admin.storage.from(bucketName).download(objectPath)).error);assert.equal((await admin.storage.from(unrelatedBucket).download(objectPath)).error,null);
   const login=await freshClient.auth.signInWithPassword({email,password});assert.equal(login.error,null);assert.ok(login.data.session);
   const freshVerified=await freshClient.auth.getUser(login.data.session.access_token);assert.equal(freshVerified.error,null);assert.equal(freshVerified.data.user.id,id);
   const freshClaims=JSON.parse(Buffer.from(login.data.session.access_token.split('.')[1],'base64url'));assert.notEqual(freshClaims.session_id,claims.session_id);

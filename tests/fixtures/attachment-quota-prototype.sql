@@ -112,7 +112,7 @@ create table maintenance_private.attachment_erasure_jobs(
 );
 alter table maintenance_private.attachment_erasure_jobs enable row level security;
 revoke all on maintenance_private.attachment_erasure_jobs from public,anon,authenticated;
-grant select,insert,delete on maintenance_private.attachment_erasure_jobs to service_role;
+grant select,insert,update,delete on maintenance_private.attachment_erasure_jobs to service_role;
 create function maintenance_private.queue_closed_attachment_epoch() returns trigger
 language plpgsql security invoker set search_path='' as $$
 begin
@@ -127,3 +127,33 @@ end;$$;
 revoke all on function maintenance_private.queue_closed_attachment_epoch() from public,anon,authenticated;
 grant execute on function maintenance_private.queue_closed_attachment_epoch() to service_role;
 create trigger closed_attachment_epoch after update on maintenance_private.app_epochs for each row execute function maintenance_private.queue_closed_attachment_epoch();
+
+create function public.pending_maintenance_attachment_erasures(batch_limit integer default 25) returns jsonb
+language plpgsql stable security invoker set search_path='' as $$
+begin
+ if batch_limit is null or batch_limit not between 1 and 25 then raise exception 'Invalid batch'; end if;
+ return coalesce((select jsonb_agg(jsonb_build_object('id',j.attachment_id,'user',j.user_id,'epoch',j.app_epoch_id,'path',j.object_path)) from (select * from maintenance_private.attachment_erasure_jobs order by created_at,attachment_id limit batch_limit) j),'[]'::jsonb);
+end;$$;
+revoke all on function public.pending_maintenance_attachment_erasures(integer) from public,anon,authenticated;
+grant execute on function public.pending_maintenance_attachment_erasures(integer) to service_role;
+grant delete on maintenance_private.product_attachments to service_role;
+-- Must follow successful private Storage API removal plus explicit missing check.
+create function public.finish_maintenance_attachment_erasure(target_attachment uuid) returns boolean
+language plpgsql security invoker set search_path='' as $$
+declare job maintenance_private.attachment_erasure_jobs;
+begin
+ if target_attachment is null then raise exception 'Invalid attachment'; end if;
+ select * into job from maintenance_private.attachment_erasure_jobs where attachment_id=target_attachment;
+ if not found then return not exists(select 1 from maintenance_private.product_attachments where id=target_attachment); end if;
+ perform pg_advisory_xact_lock(hashtext(job.user_id::text));
+ select * into job from maintenance_private.attachment_erasure_jobs where attachment_id=target_attachment for update;
+ if not found then return not exists(select 1 from maintenance_private.product_attachments where id=target_attachment); end if;
+ if exists(select 1 from maintenance_private.app_epochs where user_id=job.user_id and epoch_id=job.app_epoch_id and enabled) then raise exception 'Active enrollment'; end if;
+ if exists(select 1 from storage.objects where bucket_id='ouchi-product-attachments-test' and name=job.object_path) then raise exception 'Object still present'; end if;
+ if not exists(select 1 from maintenance_private.product_attachments where id=job.attachment_id and user_id=job.user_id and app_epoch_id=job.app_epoch_id) then raise exception 'Attachment binding mismatch'; end if;
+ delete from maintenance_private.attachment_erasure_jobs where attachment_id=job.attachment_id;
+ delete from maintenance_private.product_attachments where id=job.attachment_id and user_id=job.user_id and app_epoch_id=job.app_epoch_id;
+ return true;
+end;$$;
+revoke all on function public.finish_maintenance_attachment_erasure(uuid) from public,anon,authenticated;
+grant execute on function public.finish_maintenance_attachment_erasure(uuid) to service_role;

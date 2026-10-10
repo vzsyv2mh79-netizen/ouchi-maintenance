@@ -14,5 +14,10 @@ test('storage object writes require active reserved epoch while unrelated bucket
  assert.equal((await db.query('select count(*) as n from maintenance_private.attachment_erasure_jobs')).rows[0].n,2);
  assert.equal((await db.query('select count(*) as n from maintenance_private.product_attachments')).rows[0].n,2);
  assert.equal((await db.query('select count(*) as n from storage.objects')).rows[0].n,3);
+ const finish=()=>db.query('select public.finish_maintenance_attachment_erasure($1) as done',[first]);await assert.rejects(finish);
+ await db.query('delete from storage.objects where name=$1',[path(first)]);assert.equal((await finish()).rows[0].done,true);assert.equal((await finish()).rows[0].done,true);
+ assert.equal((await db.query('select count(*) as n from maintenance_private.attachment_erasure_jobs')).rows[0].n,1);
+ await db.exec('reset role;set role authenticated');await assert.rejects(finish);await assert.rejects(()=>db.query('select public.pending_maintenance_attachment_erasures(25)'));
+
  }finally{await db.close();}
 });
