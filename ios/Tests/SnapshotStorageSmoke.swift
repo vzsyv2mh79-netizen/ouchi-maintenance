@@ -29,6 +29,15 @@ import OuchiCore
         precondition(resumed?.id == identifier && resumed?.bytes == bytes)
         do { _ = try pendingStorage.read(account: account, epoch: UUID()); fatalError("old enrollment read pending file") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
+        let pendingFile = folder.appendingPathComponent("pending-test/pending.json")
+        let validBytes = try Data(contentsOf: pendingFile)
+        try Data("{invalid}".utf8).write(to: pendingFile)
+        do { _ = try pendingStorage.read(account: account, epoch: epoch); fatalError("corrupt retry accepted") } catch {}
+        try Data(count: 7 * 1024 * 1024 + 1).write(to: pendingFile)
+        do { _ = try pendingStorage.read(account: account, epoch: epoch); fatalError("oversized retry read") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        try validBytes.write(to: pendingFile)
+        let preserved = try pendingStorage.read(account: account, epoch: epoch); precondition(preserved?.id == identifier)
         try pendingStorage.write(nil)
         let cleared = try pendingStorage.read(account: account, epoch: epoch); precondition(cleared == nil)
         try pendingStorage.write(nil)

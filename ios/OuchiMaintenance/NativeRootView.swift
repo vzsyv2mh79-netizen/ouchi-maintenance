@@ -902,7 +902,10 @@ private struct DevelopmentAttachmentView: View {
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
                 guard !Task.isCancelled else { return }
                 let pendingProduct = pending.product.uuidString.lowercased()
-                guard store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == pendingProduct }) == true else { return }
+                guard store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == pendingProduct }) == true else {
+                    status = "確認待ちのファイルは別の住まいの製品に保存予定です。添付先の住まいに切り替えてから、この画面を開き直してください。製品が削除された場合は、サーバーの予約状態を確認する必要があります。"
+                    return
+                }
                 bytes = pending.bytes; mime = pending.mime; filename = "確認待ちのテスト用ファイル"; attachmentID = pending.id
                 if productID.lowercased() != pendingProduct { productID = pendingProduct; return }
             }
