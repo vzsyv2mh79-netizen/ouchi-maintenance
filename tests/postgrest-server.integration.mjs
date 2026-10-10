@@ -12,17 +12,24 @@ const actualRoute=async(kind)=>{
   .replace(/from ['"]@\/lib\/verified-app-session['"]/g,`from '${sessionModule}'`);
  return (await import(encoded(source))).POST;
 };
+const actualAttachmentRoute=async()=>{
+ const reader=encoded(compile('lib/product-attachment.ts'));
+ const upload=encoded(compile('lib/attachment-upload.ts').replace("'./product-attachment'",JSON.stringify(reader)));
+ const mappings={'@supabase/supabase-js':import.meta.resolve('@supabase/supabase-js'),'@/lib/attachment-upload':upload,'@/lib/product-attachment':reader,'@/lib/verified-app-session':sessionModule,'@/lib/billing-account':encoded(bindingModule),'@/lib/billing':encoded(compile('lib/billing.ts'))};
+ let source=compile('app/api/development/product-attachments/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
+ return (await import(encoded(source))).POST;
+};
 // Disposable CI services only; no real user, SMTP or shared project.
-test('actual app lifecycle routes enforce real Auth and PostgREST closure and reenrollment', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:30000},async()=>{
+test('actual app lifecycle routes enforce real Auth and PostgREST closure and reenrollment', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:60000},async()=>{
  const gateway=createServer((request,response)=>{
-  const auth=request.url?.startsWith('/auth/v1/'),rest=request.url?.startsWith('/rest/v1/');
-  if(!auth&&!rest){response.writeHead(404).end();return;}
-  const origin=auth?'http://127.0.0.1:9999':'http://127.0.0.1:3002';
-  const upstream=proxyRequest(origin+request.url.slice(auth?8:8),{method:request.method,headers:request.headers},result=>{response.writeHead(result.statusCode??502,result.headers);result.pipe(response);});
+  const auth=request.url?.startsWith('/auth/v1/'),rest=request.url?.startsWith('/rest/v1/'),storage=request.url?.startsWith('/storage/v1/');
+  if(!auth&&!rest&&!storage){response.writeHead(404).end();return;}
+  const origin=auth?'http://127.0.0.1:9999':rest?'http://127.0.0.1:3002':'http://127.0.0.1:5002';
+  const upstream=proxyRequest(origin+request.url.slice(storage?11:8),{method:request.method,headers:request.headers},result=>{response.writeHead(result.statusCode??502,result.headers);result.pipe(response);});
   upstream.on('error',()=>response.writeHead(502).end());request.pipe(upstream);
  });
  await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
- const keys=['NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY'];
+ const keys=['NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY','OUCHI_ATTACHMENT_TEST_MODE','OUCHI_ATTACHMENT_TEST_URL','OUCHI_ATTACHMENT_TEST_SERVICE_KEY'];
  const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
  try{
   const options={auth:{persistSession:false,autoRefreshToken:false}};
@@ -66,13 +73,31 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.ok((await finishAttachment(5242880,'b'.repeat(64))).error);
 
   assert.ok((await reserveAttachment(randomUUID(),1,client)).error);
+  // Actual private Storage and actual app handler; ledger events remain synthetic.
+  const bucketName='ouchi-product-attachments-test';
+  assert.equal((await admin.storage.createBucket(bucketName,{public:false,fileSizeLimit:5242880,allowedMimeTypes:['image/png','image/jpeg','application/pdf']})).error,null);
+  Object.assign(process.env,{NODE_ENV:'development',OUCHI_ATTACHMENT_TEST_MODE:'true',OUCHI_ATTACHMENT_TEST_URL:'http://127.0.0.1:54321',OUCHI_ATTACHMENT_TEST_SERVICE_KEY:service});
+  const attachmentPOST=await actualAttachmentRoute();
+  const objectID=attachmentIDs[allocations.findIndex((result,index)=>!result.error&&attachmentIDs[index]!==successfulID)];
+  const bytes=new Uint8Array(5242880);bytes.set([137,80,78,71,13,10,26,10]);
+  const uploadRequest=()=>new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${attachmentProduct}&attachmentId=${objectID}`,{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'image/png','content-length':String(bytes.length)},body:bytes});
+  const uploaded=await attachmentPOST(uploadRequest());assert.equal(uploaded.status,200);assert.equal((await uploaded.json()).saved,true);
+  assert.equal((await attachmentPOST(uploadRequest())).status,200);
+  const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
+  const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
+  assert.ok((await client.storage.from(bucketName).download(objectPath)).error);
+  assert.ok((await client.storage.from(bucketName).upload('unauthorized.png',bytes,{contentType:'image/png'})).error);
+  const anonymous=createClient('http://127.0.0.1:54321',process.env.OUCHI_STORAGE_ANON_KEY,options);
+  assert.ok((await anonymous.storage.from(bucketName).download(objectPath)).error);
+  assert.notEqual((await fetch(`http://127.0.0.1:54321/storage/v1/object/public/${bucketName}/${objectPath}`)).status,200);
+
   const forbidden=await client.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.ok(forbidden.error);
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic-public-key',OUCHI_CLOSURE_TEST_SERVICE_KEY:service});
   const close=await actualRoute('closure'),reenroll=await actualRoute('reenrollment');
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
-  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);
+  assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);
   const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);

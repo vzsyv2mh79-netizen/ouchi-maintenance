@@ -61,3 +61,35 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+  storage:
+    profiles: [data-api]
+    image: supabase/storage-api:v1.74.0
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:5002:5000'
+    environment:
+      ANON_KEY: ${OUCHI_STORAGE_ANON_KEY:-}
+      SERVICE_KEY: ${OUCHI_STORAGE_SERVICE_KEY:-}
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      DATABASE_URL: postgres://postgres:synthetic-ci-only@db:5432/auth_test
+      FILE_SIZE_LIMIT: 5242880
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: ouchi-disposable-ci
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ouchi-disposable-ci
+      REGION: local
+      ENABLE_IMAGE_TRANSFORMATION: 'false'
+    volumes:
+      - attachment-files:/var/lib/storage
+    healthcheck:
+      test: [CMD, wget, --no-verbose, --tries=1, --spider, 'http://localhost:5000/status']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  attachment-files:
