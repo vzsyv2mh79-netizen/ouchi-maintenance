@@ -82,7 +82,7 @@ export function billingReconciliationClient(config:NonNullable<ReturnType<typeof
  return new AppStoreServerAPIClient(signingKey,keyId,issuerId,config.bundleId,config.environment==='Production'?Environment.PRODUCTION:Environment.SANDBOX);
 }
 /** Internal worker adapter. Caller must obtain seed from service ledger and scope from live Auth/epoch validation. */
-export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,seed:VerifiedTransaction,expectedEpoch:string,revision?:string){
+export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,seed:VerifiedTransaction,expectedEpoch:string,revision?:string,signal?:AbortSignal){
  const client=billingReconciliationClient(config);if(!client)throw new Error('Reconciliation disabled');
  return reconcilePurchaseHistory(seed,{environment:config.environment,bundleId:config.bundleId,accountToken:expectedEpoch,appAppleId:config.appAppleId},{
   history:async(transactionId,cursor)=>await client.getTransactionHistory(transactionId,cursor,{},GetTransactionHistoryVersion.V2) as unknown as Record<string,unknown>,
@@ -91,7 +91,7 @@ export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>
   verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
   saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
   saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
- },{revision});
+ },{revision,signal});
 }
 
 /** Exact bearer/user already verified through Auth.getUser; SQL also rechecks the live session/epoch. */

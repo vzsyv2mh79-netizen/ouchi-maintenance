@@ -34,3 +34,16 @@ test('Production requires matching Apple app identity and environment before any
  const h=setup();h.deps.history=async()=>({environment:'Production',bundleId:'test.ouchi',appAppleId:123,hasMore:false,signedTransactions:[]});assert.equal((await reconcile(productionSeed,productionScope,h.deps)).complete,true);
  await assert.rejects(()=>reconcile(productionSeed,{...productionScope,appAppleId:undefined},h.deps));
 });
+
+test('cancellation before work or during awaited verification prevents later saves and completion',async()=>{
+ for(const at of ['before','history','verify','save','status','renewal']){
+  const controller=new AbortController(),h=setup();
+  if(at==='before')controller.abort();
+  const method={history:'history',verify:'verifyTransaction',save:'saveTransaction',status:'statuses',renewal:'verifyRenewal'}[at];
+  if(method){const original=h.deps[method];h.deps[method]=async(...args)=>{const result=await original(...args);controller.abort();return result;};}
+  await assert.rejects(()=>reconcile(seed,scope,h.deps,{signal:controller.signal}),/cancelled/);
+  assert.equal(h.calls.renewals.length,0);
+  assert.equal(h.calls.transactions.length,['save','status','renewal'].includes(at)?1:0);
+  if(at==='before')assert.equal(h.calls.pages.length,0);
+ }
+});
