@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_PASSWORD: synthetic-ci-only
+      POSTGRES_DB: auth_test
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/auth.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d auth_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  auth:
+    # Version observed in Supabase's official docker compose configuration.
+    image: supabase/gotrue:v2.196.0
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:9999:9999'
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://127.0.0.1:54321/auth/v1
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:synthetic-ci-only@db:5432/auth_test
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_SITE_URL: http://127.0.0.1:3000
+      GOTRUE_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_DISABLE_SIGNUP: 'false'
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+      GOTRUE_EXTERNAL_PHONE_ENABLED: 'false'
+    healthcheck:
+      test: [CMD, wget, --no-verbose, --tries=1, --spider, 'http://localhost:9999/health']
+      interval: 2s
+      timeout: 3s
+      retries: 30

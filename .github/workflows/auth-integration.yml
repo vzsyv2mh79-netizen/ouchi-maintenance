@@ -1,0 +1,35 @@
+name: Isolated real Auth checks
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation]
+    paths: ['lib/account-closure.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'tests/auth-server.integration.mjs', 'tests/fixtures/auth/**', '.github/workflows/auth-integration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: real-auth-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Start disposable Auth and database without SMTP
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml up -d --wait --wait-timeout 120
+      - name: Real bearer and password verification
+        env:
+          OUCHI_REAL_AUTH_TEST: 'true'
+        run: node --test tests/auth-server.integration.mjs
+      - name: Remove only this run's disposable containers and volumes
+        if: always()
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml down --volumes
