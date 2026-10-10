@@ -142,3 +142,14 @@ export async function dispatchNextBillingRecoveryJob(config:NonNullable<ReturnTy
  const job=parseRecoveryJob(claim.data,config.environment),result=await runBillingRecoveryJob(db,config,job);
  return {state:result.complete?'complete' as const:'retryRequested' in result?'retry_requested' as const:'queued' as const};
 }
+
+/** Caller verified the exact bearer through Auth.getUser; SQL independently rechecks live enrollment. */
+export async function enqueueBillingRecoveryAfterAuth(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,token:string,user:string,epoch:string){
+ if(config.storage!=='verified-ledger'||!billingReconciliationClient(config))throw new Error('Recovery unavailable');
+ const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Recovery session unavailable');
+ const result=await db.rpc('enqueue_maintenance_reconciliation',{target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:config.environment});
+ if(result.error)throw new Error('Recovery request unavailable');
+ if(result.data===null)return false;
+ if(typeof result.data!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.data)||result.data==='00000000-0000-0000-0000-000000000000')throw new Error('Recovery acknowledgement unavailable');
+ return true;
+}

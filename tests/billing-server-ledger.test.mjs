@@ -84,5 +84,11 @@ test('actual recovery adapter uses exact job lease RPC and refuses malformed see
    assert.equal(calls.some(c=>c.name==='read_maintenance_reconciliation_job_seed'),validLease);assert.equal(calls.at(-1).args.error_code,'read_unavailable');assert.equal(calls.at(-1).args.next_revision,null);
   }
   await assert.rejects(()=>server.runBillingRecoveryJob({}, {...config,environment:'Production'},job),/unavailable/);
+  // Synthetic claim decoding only; this helper is invoked only after Auth.getUser in the actual route.
+  const session='55555555-5555-4555-8555-555555555555',bearer='e30.'+Buffer.from(JSON.stringify({sub:job.userId,session_id:session,exp:Math.floor(Date.now()/1000)+300})).toString('base64url')+'.c2ln';
+  for(const [data,expected] of [[null,false],[job.id,true]]){let observed;const db={rpc:async(name,args)=>{observed={name,args};return {data,error:null};}};assert.equal(await server.enqueueBillingRecoveryAfterAuth(db,config,bearer,job.userId,epoch),expected);assert.deepEqual(observed,{name:'enqueue_maintenance_reconciliation',args:{target_user:job.userId,verified_session:session,target_epoch:epoch,target_environment:'Sandbox'}});}
+  for(const data of [undefined,{},'invalid','00000000-0000-0000-0000-000000000000'])await assert.rejects(()=>server.enqueueBillingRecoveryAfterAuth({rpc:async()=>({data,error:null})},config,bearer,job.userId,epoch));
+  await assert.rejects(()=>server.enqueueBillingRecoveryAfterAuth({},config,bearer,epoch,epoch),/session/);
+
  }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
 });
