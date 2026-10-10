@@ -19,3 +19,67 @@ Apple公式: https://developer.apple.com/help/app-review/guideline-reference/5-1
 ## 2026-10-10 読み取り専用の実DB調査
 
 対象プロジェクト hphifiqyypwyxkzfanod のpg_constraint/pg_policiesのみを確認。個人レコードは読まず変更もしていない。auth.usersへの参照には、おうちメンテhomes.owner_id/home_members.user_id以外に、家計簿kb_households.owner_idとkb_transactions.created_by（ON DELETE RESTRICT）、kb_household_members.user_idとkb_join_requests.user_id（ON DELETE CASCADE）が存在。家計簿テーブルは専用のメンバー向けRLSを持つ。したがって共通AuthのdeleteUserは家計簿を巻き込む可能性があるか、RESTRICTで失敗する。FK以外のコードや保存領域も未調査なので、これは影響範囲の完全な証明ではない。共通IDを削除するAPIをおうちメンテだけに安易に追加しない。アプリ単位のアカウントライフサイクルと共通ID管理を分ける設計を、既存Web/RLSを含めて実装する必要がある。
+
+
+## Live function and policy audit (2026-10-10)
+
+Read-only pg_proc/pg_policies inspection confirmed the deployed functions:
+- load_household acquires the per-user advisory lock and INSERTs a home whenever
+  the caller has no owned home. Erasure followed by load recreates app data.
+- erase_maintenance_data removes push subscriptions, memberships and owned homes;
+  it neither closes the app identity nor revokes the shared Auth identity.
+- create_maintenance_home and restore_maintenance_backup accept any authenticated
+  caller. accept_home_invite is SECURITY DEFINER with an auth.uid null check only.
+- owns_home/access_home currently contain no app-account lifecycle check.
+- Direct homes INSERT/UPDATE/DELETE and own push subscription policies compare
+  auth.uid only. Changing access_home alone leaves direct home/push writes open.
+- Products and task/history access follows accessible homes/products, so closing
+  the lifecycle must cover BOTH owner/member paths and explicit direct policies.
+- A query also requested storage bucket metadata, but the connector returned only
+  the policy result set. No claim about absence of buckets follows from that call.
+
+No row containing personal records was read and no live mutation was performed.
+The actual deployed load_household differs from the oldest migration (multiple
+homes with a lock rather than a unique-owner constraint). Build migrations from
+current deployed definitions, not the initial SQL file.
+
+### Concrete implementation order
+
+1. Introduce an app-scoped account identity separate from shared Auth credentials;
+   bootstrap existing legitimate users once. A closed identity must not be silently
+   recreated by load/login. Explicit new enrollment must use a new identity epoch.
+   Resolve Apple account-deletion semantics and legal data retention before claiming
+   that retaining a shared credential is compliant.
+2. In the same migration, gate direct homes/member/push/restore policies and ALL
+   RPC entry points, including SECURITY DEFINER invite acceptance. Restrictive
+   policies can avoid permissive-policy OR bypass, but require SELECT/INSERT/
+   UPDATE/DELETE coverage and checks on destination membership/account state.
+3. Serialize closure and mutations on the same identity lock. Restrict privileged
+   closure entry points to the server; independently validate current caller and
+   recent reauthentication. A client-selected UUID is never authoritative.
+4. Make closure idempotent with a durable request, disable app access FIRST, then
+   remove app-owned data/notifications/identity. Track retryable cleanup failures.
+   Shared Auth must never be deleted while another application's data references it.
+   Do not blanket revoke other-app sessions without an explicit common-account scope.
+5. Adapt Web/native startup and enrollment so closed state gets an explanation,
+   export is available before confirming deletion, and explicit re-enrollment does
+   not resurrect the old epoch's records/rights. Existing Apple contract management
+   must remain separate from deletion; no cancellation prerequisite.
+6. Handle delayed billing events using a privacy-preserving retention design:
+   do not restore entitlements for a closed epoch or automatically transfer an old
+   appAccountToken to a newly enrolled identity. Retention periods remain undecided.
+
+### Required database integration tests before enabling deletion
+
+Use synthetic users in a local isolated database, never owner/family live data:
+- closed caller's old JWT: load/create/restore/join/direct homes/member/push writes
+  rejected; reads of former shared homes rejected;
+- concurrent create/restore/join vs closure: no post-closure data resurrection;
+- open family member and another-app user retain their access and records;
+- repeat closure, transport timeout and cleanup failure are safely resumable;
+- new enrollment explicitly starts a new epoch with no restored old data;
+- delayed purchase notification cannot reopen a closed identity or grant new rights;
+- public/anon execution and caller-selected UUID substitution are rejected.
+
+This audit narrows the backend changes required; implementation and these runtime
+checks remain unfinished. Do not expose the existing erase RPC as full deletion.
