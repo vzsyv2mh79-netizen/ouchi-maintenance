@@ -141,3 +141,19 @@ was created or existing record removed. This is still a retained access marker,
 not complete account/PII erasure. Epoch/re-enrollment, Auth credential scope,
 leased notifications, billing retention and formal user-facing deletion remain
 mandatory before enabling any account-deletion feature.
+
+
+Final dispatch authorization prototype: can_dispatch_push(subscription_id,
+delivery_token) is service-only and verifies an enabled app identity, a matching
+lease token and a future lease deadline against the current subscription row.
+The isolated test verifies a valid lease is authorized, a different token is
+rejected, browser-role execution is denied and the same previously valid lease
+is unauthorized after transactional cleanup. No real notification was sent.
+
+This check is not yet wired to the Web cron sender or native APNs. It requires a
+service-only exposed RPC adapter or a server DB connection before integration.
+It prevents authorization of an already-invalid job; it cannot recall a push
+already submitted to Apple/browser providers or eliminate the interval between
+a DB check and an external network send. For deletion confirmations, document
+in-flight delivery semantics and re-check as close to dispatch as possible; do
+not promise that no already-submitted notification can arrive after deletion.

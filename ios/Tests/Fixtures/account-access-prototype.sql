@@ -50,3 +50,13 @@ end; $$;
 revoke all on function maintenance_private.close_account_access(uuid) from public,anon,authenticated;
 grant usage on schema maintenance_private to service_role;
 grant execute on function maintenance_private.close_account_access(uuid) to service_role;
+-- Final server-side authorization before sending a leased notification.
+-- The real sender must invoke this; this fixture alone changes no delivery flow.
+create function maintenance_private.can_dispatch_push(subscription_id uuid, delivery_token uuid) returns boolean
+language sql stable security invoker set search_path='' as $$
+ select exists(select 1 from public.maintenance_push_subscriptions s
+ join maintenance_private.account_access a on a.user_id=s.user_id and a.enabled
+ where s.id=subscription_id and s.claim_token=delivery_token and s.claimed_until>now());
+$$;
+revoke all on function maintenance_private.can_dispatch_push(uuid,uuid) from public,anon,authenticated;
+grant execute on function maintenance_private.can_dispatch_push(uuid,uuid) to service_role;
