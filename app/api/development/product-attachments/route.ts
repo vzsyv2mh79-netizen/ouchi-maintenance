@@ -58,6 +58,8 @@ export async function GET(request:Request){
  const parameters=new URL(request.url).searchParams;
  const attachment=parameters.get('attachmentId'),product=parameters.get('productId'),usage=parameters.get('usage')==='true',binding=parameters.get('binding')==='true';
  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ const paged=parameters.get('page')==='true',after=parameters.get('after');
+ if((paged&&!product)||(after&&(!paged||!uuid.test(after))))return Response.json({error:'一覧の続きを確認してください。'},{status:400,headers});
  if((!attachment&&!product&&!usage&&!binding)||(binding&&(attachment||product||usage))||(usage&&(attachment||product))||(attachment&&product)||(attachment&&!uuid.test(attachment))||(product&&!uuid.test(product)))return Response.json({error:'添付を確認してください。'},{status:400,headers});
  try{
   const header=request.headers.get('authorization');if(!header?.startsWith('Bearer ')||header.length>16384||/\s/.test(header.slice(7)))return Response.json({error:'ログインしてください。'},{status:401,headers});
@@ -76,13 +78,15 @@ export async function GET(request:Request){
    return Response.json({usage:Object.fromEntries(keys.map(key=>[key,item[key]]))},{headers});
   }
   if(product){
-   const result=await db.rpc('list_maintenance_attachments',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,target_product:product.toLowerCase()});
-   if(result.error||!Array.isArray(result.data))throw new Error('Listing unavailable');
-   const items=result.data.map((item:{id:string;size:number;mime:string;createdAt:string})=>{
+   const values={target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,target_product:product.toLowerCase()};
+   const result=paged?await db.rpc('page_maintenance_attachments',{...values,after_attachment:after?.toLowerCase()??null}):await db.rpc('list_maintenance_attachments',values);
+   const rows=paged?result.data?.items:result.data,next=paged?result.data?.next:null;
+   if(result.error||!Array.isArray(rows)||(paged&&(rows.length>25||(next!==null&&(typeof next!=='string'||!uuid.test(next)||rows.length!==25||next!==rows.at(-1)?.id)))))throw new Error('Listing unavailable');
+   const items=rows.map((item:{id:string;size:number;mime:string;createdAt:string})=>{
     if(typeof item.id!=='string'||!uuid.test(item.id)||!Number.isSafeInteger(item.size)||item.size<1||item.size>attachmentLimits.fileBytes||!['image/jpeg','image/png','application/pdf'].includes(item.mime)||typeof item.createdAt!=='string'||!Number.isFinite(Date.parse(item.createdAt)))throw new Error('Invalid listing');
     return {id:item.id,size:item.size,mime:item.mime,createdAt:item.createdAt};
    });
-   return Response.json({items},{headers});
+   return Response.json(paged?{items,next}:{items},{headers});
   }
   // No premium check: reading/exporting retained files must remain available.
   const result=await db.rpc('read_maintenance_attachment',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,attachment_id:attachment!.toLowerCase()});

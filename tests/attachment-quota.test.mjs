@@ -42,6 +42,16 @@ test('attachment reservation counts in-flight bytes, pins ownership and refuses 
  const smallEpoch=(await db.query('select maintenance_private.enroll_app_epoch($1,$2) as epoch',[smallUser,smallSession])).rows[0].epoch;
  const smallReserve=()=>db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7,$8)',[smallUser,smallSession,smallEpoch,smallProduct,randomUUID(),1,'application/pdf','a'.repeat(64)]);
  for(let i=0;i<100;i++)await smallReserve();await assert.rejects(smallReserve);
+ const allIDs=(await db.query('select id from maintenance_private.product_attachments where user_id=$1 order by id',[smallUser])).rows.map(x=>x.id);
+ for(const id of allIDs)await db.query('select public.finalize_maintenance_attachment($1,$2,$3,$4,$5,$6)',[smallUser,smallSession,smallEpoch,id,1,'a'.repeat(64)]);
+ const page=async(after=null)=>(await db.query('select public.page_maintenance_attachments($1,$2,$3,$4,$5) as page',[smallUser,smallSession,smallEpoch,smallProduct,after])).rows[0].page;
+ let cursor=null;const received=[];
+ for(let i=0;i<4;i++){const result=await page(cursor);assert.equal(result.items.length,25);received.push(...result.items.map(x=>x.id));cursor=result.next;assert.equal(cursor,i===3?null:received.at(-1));}
+ assert.deepEqual(received,allIDs);assert.equal(new Set(received).size,100);
+ assert.deepEqual(await page(allIDs.at(-1)),{items:[],next:null});
+ assert.deepEqual((await db.query('select public.page_maintenance_attachments($1,$2,$3,$4,null) as page',[member,memberSession,memberEpoch,smallProduct])).rows[0].page,{items:[],next:null});
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>page());await db.exec('reset role;set role service_role');
+
  await db.exec('reset role;set role authenticated');await assert.rejects(()=>reserve(randomUUID()));await assert.rejects(list);await assert.rejects(usage);await assert.rejects(()=>db.query('select * from maintenance_private.product_attachments'));await assert.rejects(()=>db.query('select * from maintenance_private.attachment_erasure_jobs'));
  }finally{await db.close();}
 });

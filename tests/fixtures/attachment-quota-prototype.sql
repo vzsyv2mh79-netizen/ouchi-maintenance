@@ -157,3 +157,27 @@ begin
 end;$$;
 revoke all on function public.finish_maintenance_attachment_erasure(uuid) from public,anon,authenticated;
 grant execute on function public.finish_maintenance_attachment_erasure(uuid) to service_role;
+
+
+-- Bounded keyset listing. Cursor is an opaque attachment UUID, never an offset.
+create function public.page_maintenance_attachments(target_user uuid,verified_session uuid,expected_epoch uuid,target_product uuid,after_attachment uuid default null) returns jsonb
+language plpgsql stable security invoker set search_path='' as $$
+declare page jsonb; next_id uuid;
+begin
+ if not maintenance_private.epoch_session_allowed(target_user,verified_session,expected_epoch) then return jsonb_build_object('items','[]'::jsonb,'next',null); end if;
+ with visible as (
+  select f.id,f.size_bytes,f.mime,f.created_at
+  from maintenance_private.product_attachments f
+  join maintenance_private.app_epochs a on a.user_id=f.user_id and a.epoch_id=f.app_epoch_id and a.enabled
+  join public.products p on p.id=f.product_id join public.homes h on h.id=p."homeId"
+  where f.product_id=target_product and f.state='stored' and (after_attachment is null or f.id>after_attachment)
+   and (h.owner_id=target_user or exists(select 1 from public.home_members m where m."homeId"=h.id and m.user_id=target_user))
+  order by f.id limit 26
+ ), numbered as (select *,row_number() over(order by id) as n from visible)
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'size',size_bytes,'mime',mime,'createdAt',created_at) order by id) filter(where n<=25),'[]'::jsonb),
+  case when count(*)>25 then (array_agg(id order by id))[25] else null end
+ into page,next_id from numbered;
+ return jsonb_build_object('items',page,'next',next_id);
+end;$$;
+revoke all on function public.page_maintenance_attachments(uuid,uuid,uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function public.page_maintenance_attachments(uuid,uuid,uuid,uuid,uuid) to service_role;
