@@ -37,6 +37,11 @@ test('actual additive migration preserves unbound household access and rejects s
   assert.ok((await user.rpc('read_maintenance_reconciliation_seed',readArgs)).error);
   assert.ok((await admin.rpc('read_maintenance_reconciliation_seed',{...readArgs,target_epoch:randomUUID()})).error);
   const productionSeed=await admin.rpc('read_maintenance_reconciliation_seed',{...readArgs,target_environment:'Production'});assert.equal(productionSeed.error,null);assert.equal(productionSeed.data.environment,'Production');
+  const enqueueJob=await admin.rpc('enqueue_maintenance_reconciliation',readArgs);assert.equal(enqueueJob.error,null);assert.ok(enqueueJob.data);
+  assert.ok((await user.rpc('enqueue_maintenance_reconciliation',readArgs)).error);
+  const claimed=await admin.rpc('claim_maintenance_reconciliation',{target_environment:'Sandbox'});assert.equal(claimed.error,null);assert.equal(claimed.data.id,enqueueJob.data);assert.equal(claimed.data.accountToken,binding.data);
+  assert.equal((await admin.rpc('claim_maintenance_reconciliation',{target_environment:'Sandbox'})).data,null);
+  const finishJob=await admin.rpc('finish_maintenance_reconciliation',{target_job:claimed.data.id,target_lease:claimed.data.leaseToken,is_complete:true,next_revision:null,error_code:null});assert.equal(finishJob.error,null);assert.equal(finishJob.data,true);
   const state=await admin.rpc('read_maintenance_verified_entitlement',readArgs);assert.equal(state.error,null);assert.equal(state.data.plan,'free');
   const now=Date.now();assert.equal((await write({...event,transactionId:'101',originalTransactionId:'11',signedAt:now,purchasedAt:now-10000,expiresAt:now+3600000})).error,null);
   assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'premium');
