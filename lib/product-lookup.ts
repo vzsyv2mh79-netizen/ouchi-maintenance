@@ -17319,4 +17319,82 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "SHARP",
+    "name": "衣類乾燥除湿機",
+    "modelNumber": "CV-S71",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://cs.sharp.co.jp/select/contents?productId=CV-S71",
+    "manualUrl": "https://cs.sharp.co.jp/faq/query?cname=CV-S71",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://cs.sharp.co.jp/select/contents?productId=CV-S71",
+    "lookupNote": "2024年3月発売。機種別のメーカー公式FAQを確認しています。手入れ前は運転を止めて電源プラグを抜いてください。後ろパネルは掃除機でほこりを取り、強く押さないでください。ひどい汚れには台所用合成洗剤の液で約10分つけ置きし、軽くこすって十分にすすぎ、陰干しします。センサーは汚れが気になるとき、パネルを外して内部のほこりを掃除機で取り除き、元に戻します。本体は水洗い禁止です。ひどい汚れは40℃以下の水を含ませた布で拭きます。タンクはふたを角から外して排水し、内側をスポンジで洗います。ひどい汚れには薄めた食器用中性洗剤を使い、水分を拭き、フロートを傷つけず取り付けを確認してふたの溝を確実にはめます。この機種のタンクFAQには固定周期の記載がないため、タンク清掃を日数の予定にしていません。フロートが外れた場合は公式図の向き（磁石を上・タンク外側）に従い、ピンで固定します。センサーなど汚れに応じた作業は固定日数にしていません。詳しい図は機種別FAQを確認してください。",
+    "suggestions": [
+      {
+        "name": "後ろパネル（フィルター）のほこり取り",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://cs.sharp.co.jp/faq/qa?qid=180144",
+        "conditions": "運転を止めてプラグを抜き、掃除機でほこりを吸い取ります。フィルターを強く押さないでください。汚れがひどいときは公式案内のつけ置き洗いを行い、すすいで陰干しします。"
+      },
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jp.sharp/support/dehumid_con/mt_doc/hontai_care.html",
+        "conditions": "電源プラグを抜いて柔らかい布で拭きます。本体の水洗いは禁止です。ひどい汚れは40℃以下の水を含ませた布で拭きます。アルコール・漂白剤・柑橘系洗剤・金属たわしなどは使いません。"
+      }
+    ]
+  },
+  {
+    "maker": "SHARP",
+    "name": "衣類乾燥除湿機",
+    "modelNumber": "CV-S180",
+    "categoryId": "dehumidifier-appliance",
+    "productUrl": "https://cs.sharp.co.jp/select/contents?productId=CV-S180",
+    "manualUrl": "https://cs.sharp.co.jp/faq/query?cname=CV-S180",
+    "manualLinkLabel": "メーカー公式お手入れ情報",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://cs.sharp.co.jp/select/contents?productId=CV-S180",
+    "lookupNote": "2024年3月発売。機種別のメーカー公式FAQを確認しています。手入れ前は運転を止めて電源プラグを抜いてください。後ろパネルは掃除機でほこりを取り、強く押さないでください。ひどい汚れには台所用合成洗剤の液で約10分つけ置きし、軽くこすって十分にすすぎ、陰干しします。センサーは汚れが気になるとき、パネルを外して内部のほこりを掃除機で取り除き、元に戻します。本体は水洗い禁止です。ひどい汚れは40℃以下の水を含ませた布で拭きます。タンクはふたを角から外して排水し、内側をスポンジで洗います。ひどい汚れには薄めた食器用中性洗剤を使い、水分を拭き、フロートを傷つけず取り付けを確認してふたの溝を確実にはめます。排水タンクは機種別FAQに従い週1回を提案します。センサーなど汚れに応じた作業は固定日数にしていません。詳しい図は機種別FAQを確認してください。",
+    "suggestions": [
+      {
+        "name": "後ろパネル（フィルター）のほこり取り",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://cs.sharp.co.jp/faq/qa?qid=174716",
+        "conditions": "運転を止めてプラグを抜き、掃除機でほこりを吸い取ります。フィルターを強く押さないでください。汚れがひどいときは公式案内のつけ置き洗いを行い、すすいで陰干しします。"
+      },
+      {
+        "name": "本体の拭き掃除",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回（予定計算は30日）",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://jp.sharp/support/dehumid_con/mt_doc/hontai_care.html",
+        "conditions": "電源プラグを抜いて柔らかい布で拭きます。本体の水洗いは禁止です。ひどい汚れは40℃以下の水を含ませた布で拭きます。アルコール・漂白剤・柑橘系洗剤・金属たわしなどは使いません。"
+      },
+      {
+        "name": "排水タンクとふたの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "1週間に1回",
+        "sourceKind": "メーカー公式",
+        "sourceUrl": "https://cs.sharp.co.jp/faq/qa?qid=174717",
+        "conditions": "電源プラグを抜き、ふたを角から外して水を捨て、内側をスポンジで洗います。ひどい汚れは薄めた食器用中性洗剤のぬるま湯で洗い、水分を拭きます。フロートを傷つけず取り付けを確認し、ふた外周の溝を確実にはめます。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
