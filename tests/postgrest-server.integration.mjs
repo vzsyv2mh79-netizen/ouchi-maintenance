@@ -2,6 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cre
 const encoded=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const sessionModule=encoded(compile('lib/verified-app-session.ts'));
+const bindingModule=compile('lib/billing-account.ts').replace(/from ['"]\.\/verified-app-session['"]/g,`from '${sessionModule}'`);
+const {purchaseAccountAfterAuthVerification}=await import(encoded(bindingModule));
 const actualRoute=async(kind)=>{
  const core=encoded(compile('lib/account-'+kind+'.ts'));
  const source=compile('app/api/development/account-'+kind+'/route.ts')
@@ -35,6 +37,11 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const service=unsigned+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(unsigned).digest('base64url');
   const admin=createClient('http://127.0.0.1:54321',service,options);
   const bootstrap=await admin.rpc('bootstrap_synthetic_app_identity',{target_user:id,verified_session:claims.session_id});assert.equal(bootstrap.error,null);
+  const binding=(session)=>admin.rpc('current_maintenance_purchase_account',{target_user:id,verified_session:session});
+  const initialBinding=await binding(claims.session_id);assert.equal(initialBinding.error,null);assert.equal(initialBinding.data,bootstrap.data);assert.notEqual(initialBinding.data,id);
+  const readBinding=async(user,session)=>{assert.equal(user,id);const result=await binding(session);if(result.error)throw result.error;return result.data;};
+  assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),initialBinding.data);
+  assert.ok((await client.rpc('current_maintenance_purchase_account',{target_user:id,verified_session:claims.session_id})).error);
   const old=await client.rpc('load_household');assert.equal(old.error,null);const oldHome=old.data.homes[0].id;
   const forbidden=await client.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id});assert.ok(forbidden.error);
   Object.assign(process.env,{NODE_ENV:'development',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic-public-key',OUCHI_CLOSURE_TEST_SERVICE_KEY:service});
@@ -42,6 +49,8 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
+  const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
+  assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
   assert.ok((await client.rpc('load_household')).error);assert.deepEqual((await client.from('homes').select('*')).data,[]);
   const forbiddenInsert=await client.from('homes').insert({owner_id:id,name:'closed synthetic home',kind:'home'});assert.ok(forbiddenInsert.error);
   const forged=token.split('.');forged[2]=(forged[2][0]==='A'?'B':'A')+forged[2].slice(1);
@@ -52,7 +61,10 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const freshVerified=await freshClient.auth.getUser(login.data.session.access_token);assert.equal(freshVerified.error,null);assert.equal(freshVerified.data.user.id,id);
   const freshClaims=JSON.parse(Buffer.from(login.data.session.access_token.split('.')[1],'base64url'));assert.notEqual(freshClaims.session_id,claims.session_id);
   assert.ok((await freshClient.rpc('load_household')).error);
-  const enrolled=await reenroll(request(login.data.session.access_token,'REENROLL_OUCHI_MAINTENANCE'));assert.equal(enrolled.status,200);assert.equal((await enrolled.json()).appEnrollmentCreated,true);
+  const enrolled=await reenroll(request(login.data.session.access_token,'REENROLL_OUCHI_MAINTENANCE'));assert.equal(enrolled.status,200);const enrollment=await enrolled.json();assert.equal(enrollment.appEnrollmentCreated,true);
+  const currentBinding=await binding(freshClaims.session_id);assert.equal(currentBinding.error,null);assert.equal(currentBinding.data,enrollment.epochID);assert.notEqual(currentBinding.data,initialBinding.data);
+  assert.equal(await purchaseAccountAfterAuthVerification(login.data.session.access_token,freshVerified.data.user.id,readBinding),currentBinding.data);
+  assert.equal((await binding(claims.session_id)).data,null);
   assert.ok((await client.rpc('load_household')).error);
   const fresh=await freshClient.rpc('load_household');assert.equal(fresh.error,null);assert.notEqual(fresh.data.homes[0].id,oldHome);
   assert.ok((await admin.rpc('close_maintenance_app_identity',{target_user:id,verified_session:claims.session_id})).error);

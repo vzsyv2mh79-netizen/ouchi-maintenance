@@ -98,3 +98,17 @@ language sql security invoker set search_path='' as $$
 $$;
 revoke all on function public.reenroll_maintenance_app_identity(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.reenroll_maintenance_app_identity(uuid,uuid) to service_role;
+
+-- Test-only purchase identity: a distinct token per active app enrollment.
+create function public.current_maintenance_purchase_account(target_user uuid, verified_session uuid) returns uuid
+language plpgsql stable security invoker set search_path='' as $$
+declare purchase_token uuid;
+begin
+ select a.epoch_id into purchase_token from maintenance_private.app_epochs a
+ join maintenance_private.account_access x on x.user_id=a.user_id and x.enabled
+ join maintenance_private.app_session_epochs s on s.user_id=a.user_id and s.epoch_id=a.epoch_id
+ where a.user_id=target_user and a.enabled and s.session_id=verified_session;
+ return purchase_token;
+end;$$;
+revoke all on function public.current_maintenance_purchase_account(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.current_maintenance_purchase_account(uuid,uuid) to service_role;
