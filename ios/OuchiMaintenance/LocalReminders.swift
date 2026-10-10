@@ -11,13 +11,36 @@ import OuchiCore
         generation += 1
         let expected = generation
         if clearPreference { UserDefaults.standard.removeObject(forKey: preference) }
-        let requests = await center.pendingNotificationRequests()
+        let requests = await pendingIDs()
         guard expected == generation else { return }
-        center.removePendingNotificationRequests(withIdentifiers: requests.map(\.identifier).filter { $0.hasPrefix("ouchi.local.") })
-        let delivered = await center.deliveredNotifications()
+        center.removePendingNotificationRequests(withIdentifiers: requests.filter { $0.hasPrefix("ouchi.local.") })
+        let delivered = await deliveredIDs()
         guard expected == generation else { return }
-        center.removeDeliveredNotifications(withIdentifiers: delivered.map { $0.request.identifier }.filter { $0.hasPrefix("ouchi.local.") })
+        center.removeDeliveredNotifications(withIdentifiers: delivered.filter { $0.hasPrefix("ouchi.local.") })
         activeIDs = []
+    }
+    // Older SDK notification objects are not Sendable. Map inside the callback;
+    // only immutable identifiers/Bool cross back to the main actor.
+    private func pendingIDs() async -> [String] {
+        await withCheckedContinuation { continuation in
+            center.getPendingNotificationRequests { requests in
+                continuation.resume(returning: requests.map(\.identifier))
+            }
+        }
+    }
+    private func deliveredIDs() async -> [String] {
+        await withCheckedContinuation { continuation in
+            center.getDeliveredNotifications { notifications in
+                continuation.resume(returning: notifications.map { $0.request.identifier })
+            }
+        }
+    }
+    private func notificationAuthorized() async -> Bool {
+        await withCheckedContinuation { continuation in
+            center.getNotificationSettings { settings in
+                continuation.resume(returning: settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+            }
+        }
     }
     func enable(data: Household, account: UUID) async throws -> Bool {
         let expected = generation
@@ -29,9 +52,9 @@ import OuchiCore
     func reconcile(data: Household, account: UUID) async throws -> Bool {
         guard UserDefaults.standard.string(forKey: preference) == account.uuidString else { return false }
         let expected = generation
-        let settings = await center.notificationSettings()
+        let authorized = await notificationAuthorized()
         guard expected == generation else { return false }
-        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+        guard authorized else {
             await reset(clearPreference: true); return false
         }
         let plan = try ReminderPlan.make(data)
