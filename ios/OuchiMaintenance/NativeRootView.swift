@@ -817,6 +817,7 @@ private struct DevelopmentAttachmentView: View {
     @State private var filename = ""
     @State private var attachmentID = UUID()
     @State private var confirmUpload = false
+    @State private var savedAttachment: UUID?
     @State private var status: String?
     var body: some View {
         Form {
@@ -831,6 +832,13 @@ private struct DevelopmentAttachmentView: View {
                         Text(product.name).tag(product.id)
                     }
                 }.disabled(bytes != nil || store.busy)
+            }
+            if let savedAttachment {
+                Section("保存済みのファイル") {
+                    Button("取得して書き出す") { Task { await store.exportDevelopmentAttachment(savedAttachment) } }.disabled(store.busy)
+                    Text("保存済みファイルの取得には、新しい購入は必要ありません。住まいへのアクセス権を確認します。")
+                    if let file = store.attachmentExportURL { ShareLink("ファイルを共有・保存", item: file) }
+                }
             }
             Section("ファイル") {
                 Button("テスト用ファイルを選択") { choosingFile = true }.disabled(bytes != nil || store.busy || UUID(uuidString: productID) == nil)
@@ -863,12 +871,12 @@ private struct DevelopmentAttachmentView: View {
                 let id = attachmentID, media = mime
                 Task {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
-                        self.bytes = nil; filename = ""; mime = ""
+                        savedAttachment = id; self.bytes = nil; filename = ""; mime = ""
                     }
                 }
             }
             Button("キャンセル", role: .cancel) {}
         }
-        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false }
+        .onDisappear { bytes = nil; filename = ""; mime = ""; confirmUpload = false; savedAttachment = nil; store.clearDevelopmentAttachmentExport() }
     }
 }

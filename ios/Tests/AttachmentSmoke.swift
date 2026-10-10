@@ -19,6 +19,13 @@ import OuchiCore
   do { try await mismatch.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true);fatalError("different saved ID accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   let redirected=DevelopmentAttachmentAPI { _ in (Data(),HTTPURLResponse(url:URL(string:"https://untrusted.example")!,statusCode:200,httpVersion:nil,headerFields:nil)!) }
   do { try await redirected.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true);fatalError("redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  let downloaded=DevelopmentAttachmentAPI { request in
+   precondition(request.httpMethod=="GET" && request.httpBody==nil)
+   return (bytes,HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"image/png","Content-Disposition":"attachment; filename=\"ouchi-attachment-\(attachment.uuidString.lowercased()).png\""])!)
+  }
+  let file=try await downloaded.download(attachment:attachment,token:"synthetic");precondition(file.bytes==bytes && file.fileExtension=="png")
+  let wrongFile=DevelopmentAttachmentAPI { request in (bytes,HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"image/png","Content-Disposition":"inline"])!) }
+  do { _=try await wrongFile.download(attachment:attachment,token:"synthetic");fatalError("unidentified file accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   print("AttachmentSmoke PASS: consent, raw bytes, bounded upload, stable ID acknowledgement and redirect refusal. Mock only; no Storage upload.")
  }
 }

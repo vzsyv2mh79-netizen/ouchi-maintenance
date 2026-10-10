@@ -153,6 +153,37 @@ public struct DevelopmentAttachmentAPI: Sendable {
             #endif
         }
     }
+    public struct DownloadedFile: Sendable {
+        public let bytes: Data
+        public let mime: String
+        public let fileExtension: String
+    }
+    public func download(attachment: UUID, token: String) async throws -> DownloadedFile {
+        guard attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        let identifier = attachment.uuidString.lowercased()
+        components.queryItems = [URLQueryItem(name: "attachmentId", value: identifier)]
+        let url = components.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        guard !body.isEmpty, body.count <= 5 * 1024 * 1024 else { throw CloudError.malformedResponse }
+        let mime = response.value(forHTTPHeaderField: "Content-Type") ?? ""
+        let fileExtension: String, prefix: [UInt8]
+        switch mime {
+        case "image/png": fileExtension = "png"; prefix = [137,80,78,71,13,10,26,10]
+        case "image/jpeg": fileExtension = "jpg"; prefix = [255,216,255]
+        case "application/pdf": fileExtension = "pdf"; prefix = [37,80,68,70,45]
+        default: throw CloudError.malformedResponse
+        }
+        guard body.starts(with: prefix),
+              response.value(forHTTPHeaderField: "Content-Disposition") == "attachment; filename=\"ouchi-attachment-\(identifier).\(fileExtension)\"" else { throw CloudError.malformedResponse }
+        return DownloadedFile(bytes: body, mime: mime, fileExtension: fileExtension)
+    }
     /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
     public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool) async throws {
         guard confirmed, !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024,
