@@ -1633,3 +1633,16 @@ test('Roomba Mini colors and Mini Slim retain disposable-sheet and dock-specific
   assert.equal(lookup.lookupModel(sku+'X').length,0);
  }
 });
+
+test('Roomba Plus 515 retains cartridge, front caster and upward debris-guard instructions', () => {
+ const [c]=lookup.lookupModel('N285060');assert.equal(c.releaseYear,2026);assert.equal(c.categoryId,'robot-vacuum');
+ assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,7,14,14,14,30,30,14,30,180]);
+ assert.ok(c.suggestions.every(t=>t.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ assert.match(c.suggestions[0].conditions,/カートリッジ.*カバー.*フィルターは洗わない/);
+ assert.match(c.suggestions[3].conditions,/マイナスドライバー.*キャスター.*手のひら.*カチッ/);
+ assert.match(c.suggestions[7].conditions,/ゴミガード.*上向き.*分解洗浄手順は記載されていません/);
+ assert.match(c.suggestions[8].conditions,/収納部ドア.*ブロワーカバー/);
+ assert.match(c.lookupNote,/本体の水タンク.*具体的な手順は記載されていないためメーカーへ確認/);
+ assert.match(c.lookupNote,/最大3か月.*交換周期ではありません/);
+ assert.equal(lookup.lookupModel('N285060X').length,0);
+});

@@ -16822,4 +16822,113 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "iRobot",
+    "name": "ルンバPlus 515 Combo + AutoWash 充電ステーション",
+    "modelNumber": "N285060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/N285060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2026,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20260527_01.pdf",
+    "lookupNote": "2026年5月29日発売。Plus 510〜519専用説明書20〜38ページを確認。フィルターは水洗い禁止です。ダスト容器は必要に応じてフィルターを外して空にし、布で拭くか水またはぬるま湯ですすぎます。食洗機は使えません。パッドプレートは使用後毎回、モップパッドは水拭き後に自動洗浄・乾燥されます。本体の水タンクは使用後に空にするとの記載がありますが、取り外しや排水の具体的な手順は記載されていないためメーカーへ確認してください。ステーションの給水・廃水タンクは必要に応じて外してラッチを開け、廃水を空にし、水またはぬるま湯ですすぎます。頑固な汚れには中性洗剤とスポンジを使えます。給水を補充し、廃水タンクを空のまま、蓋を確実にロックして戻します。水タンクは食洗機不可。紙パックは満杯の通知が出たら交換し、収納部ドアを外し、カードを引き出して密封し、新しいカードをガイドレールに沿って挿入してドアを戻します。最大3か月のごみ収納能力は交換周期ではありません。フィルター・エッジブラシ・モップパッド3〜6か月、シングルアクションブラシ6〜12か月の交換目安は範囲を固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターカートリッジの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=27",
+        "frequency": "週1回（ペットがいる家庭は週2回。予定計算は7日）",
+        "conditions": "上部カバーとダスト容器を外し、フィルターカートリッジとそのカバーを外します。ゴミ箱の上ではたき、清潔な布で清掃します。カートリッジのカバーとハウジングを容器に戻して、本体のカバーを戻します。フィルターは洗わないでください。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=21",
+        "frequency": "週1回（予定計算は7日）",
+        "conditions": "ブラシフレーム取り外しレバーを押し、フレームを持ち上げて外します。ブラシを外して髪の毛やごみを除去します。端のキャップも外して内側を清掃し、キャップ・ブラシ・カバーを戻します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=20",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "ブラシを取り外し、髪の毛やごみを除去して取り付け直します。"
+      },
+      {
+        "name": "前輪部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=24",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "車輪を持ち上げて本体から外し、布で前輪部の下の髪の毛やごみを除去します。マイナスドライバーで車輪を引き出し、キャスターから外します。戻す際は手のひらでカチッと音がするまで押し込みます。手入れ後も動きが悪い場合はサービスセンターへ相談します。"
+      },
+      {
+        "name": "本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=26",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "充電ステーションから本体を取り外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。"
+      },
+      {
+        "name": "本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=26",
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "充電台の接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=32",
+        "frequency": "月1回を目安（予定計算は30日）",
+        "conditions": "充電台のプラグを抜き、異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーや接続部に洗剤や水を吹き付けないでください。"
+      },
+      {
+        "name": "AutoWash洗浄容器・ゴミガード・エアダクトの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=38",
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "conditions": "説明書32ページに洗浄容器とエアダクトの頻度が示されています。38ページの手順でゴミガードを外して水容器を拭き、ごみをすすぐか拭きます。ゴミガードを戻し、正しく収まって上向きになっていることを確認します。エアダクトの分解洗浄手順は記載されていません。"
+      },
+      {
+        "name": "充電ステーションフィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=38",
+        "frequency": "毎月（予定計算は30日）",
+        "conditions": "収納部ドアを外し、ブロワーカバーに糸くずやごみが絡みついていないか点検し、乾いた清潔な布で拭いて取り除きます。収納部ドアを戻します。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2026/OwnersGuides/515/OG515jaJP.pdf#page=20",
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "conditions": "摩耗や損傷がある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
