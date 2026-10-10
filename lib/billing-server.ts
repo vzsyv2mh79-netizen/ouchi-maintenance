@@ -1,3 +1,4 @@
+import {normalizeRecoveryStatus} from './billing-recovery-status';
 import {createBillingFetch} from './billing-fetch';
 import {runRecoveryJob,parseRecoveryJob,type RecoveryJob} from './billing-recovery-worker';
 import {boundedBillingRead} from './billing-read-deadline';
@@ -152,4 +153,12 @@ export async function enqueueBillingRecoveryAfterAuth(db:ReturnType<typeof billi
  if(result.data===null)return false;
  if(typeof result.data!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.data)||result.data==='00000000-0000-0000-0000-000000000000')throw new Error('Recovery acknowledgement unavailable');
  return true;
+}
+
+/** Exact bearer has already been verified via Auth.getUser. SQL also checks current session/epoch. */
+export async function billingRecoveryStatusAfterAuth(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,token:string,user:string,epoch:string){
+ if(config.storage!=='verified-ledger')throw new Error('Recovery unavailable');
+ const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Recovery session unavailable');
+ const result=await db.rpc('read_maintenance_reconciliation_status',{target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:config.environment});
+ if(result.error)throw new Error('Recovery status unavailable');return normalizeRecoveryStatus(result.data,config.environment);
 }

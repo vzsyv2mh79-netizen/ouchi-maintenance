@@ -89,6 +89,8 @@ test('actual recovery adapter uses exact job lease RPC and refuses malformed see
   for(const [data,expected] of [[null,false],[job.id,true]]){let observed;const db={rpc:async(name,args)=>{observed={name,args};return {data,error:null};}};assert.equal(await server.enqueueBillingRecoveryAfterAuth(db,config,bearer,job.userId,epoch),expected);assert.deepEqual(observed,{name:'enqueue_maintenance_reconciliation',args:{target_user:job.userId,verified_session:session,target_epoch:epoch,target_environment:'Sandbox'}});}
   for(const data of [undefined,{},'invalid','00000000-0000-0000-0000-000000000000'])await assert.rejects(()=>server.enqueueBillingRecoveryAfterAuth({rpc:async()=>({data,error:null})},config,bearer,job.userId,epoch));
   await assert.rejects(()=>server.enqueueBillingRecoveryAfterAuth({},config,bearer,epoch,epoch),/session/);
+  let statusArgs;const progress=await server.billingRecoveryStatusAfterAuth({rpc:async(name,args)=>{statusArgs={name,args};return {data:{state:'complete',environment:'Sandbox',plan:'premium'},error:null};}},config,bearer,job.userId,epoch);assert.deepEqual(progress,{state:'complete',environment:'Sandbox'});assert.equal(statusArgs.name,'read_maintenance_reconciliation_status');assert.equal(statusArgs.args.verified_session,session);
+  await assert.rejects(()=>server.billingRecoveryStatusAfterAuth({rpc:async()=>({data:null,error:null})},config,bearer,job.userId,epoch));
 
  }finally{for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}}
 });

@@ -42,10 +42,12 @@ test('actual additive migration preserves unbound household access and rejects s
   const claimed=await admin.rpc('claim_maintenance_reconciliation',{target_environment:'Sandbox'});assert.equal(claimed.error,null);assert.equal(claimed.data.id,enqueueJob.data);assert.equal(claimed.data.accountToken,binding.data);
   assert.equal((await admin.rpc('claim_maintenance_reconciliation',{target_environment:'Sandbox'})).data,null);
   const scopedLease={target_job:claimed.data.id,target_lease:claimed.data.leaseToken};
+  const progress=await admin.rpc('read_maintenance_reconciliation_status',readArgs);assert.equal(progress.error,null);assert.deepEqual(progress.data,{state:'running',environment:'Sandbox'});
+  assert.ok((await user.rpc('read_maintenance_reconciliation_status',readArgs)).error);
   assert.equal((await admin.rpc('maintenance_reconciliation_lease_is_current',scopedLease)).data,true);
   const leasedSeed=await admin.rpc('read_maintenance_reconciliation_job_seed',scopedLease);assert.equal(leasedSeed.error,null);assert.equal(leasedSeed.data.transactionId,claimed.data.transactionId);
   assert.ok((await user.rpc('read_maintenance_reconciliation_job_seed',scopedLease)).error);
-  const finishJob=await admin.rpc('finish_maintenance_reconciliation',{target_job:claimed.data.id,target_lease:claimed.data.leaseToken,is_complete:true,next_revision:null,error_code:null});assert.equal(finishJob.error,null);assert.equal(finishJob.data,true);assert.equal((await admin.rpc('maintenance_reconciliation_lease_is_current',scopedLease)).data,false);assert.ok((await admin.rpc('read_maintenance_reconciliation_job_seed',scopedLease)).error);
+  const finishJob=await admin.rpc('finish_maintenance_reconciliation',{target_job:claimed.data.id,target_lease:claimed.data.leaseToken,is_complete:true,next_revision:null,error_code:null});assert.equal(finishJob.error,null);assert.equal(finishJob.data,true);assert.deepEqual((await admin.rpc('read_maintenance_reconciliation_status',readArgs)).data,{state:'complete',environment:'Sandbox'});assert.equal((await admin.rpc('maintenance_reconciliation_lease_is_current',scopedLease)).data,false);assert.ok((await admin.rpc('read_maintenance_reconciliation_job_seed',scopedLease)).error);
   const state=await admin.rpc('read_maintenance_verified_entitlement',readArgs);assert.equal(state.error,null);assert.equal(state.data.plan,'free');
   const now=Date.now();assert.equal((await write({...event,transactionId:'101',originalTransactionId:'11',signedAt:now,purchasedAt:now-10000,expiresAt:now+3600000})).error,null);
   assert.equal((await admin.rpc('read_maintenance_verified_entitlement',readArgs)).data.plan,'premium');
