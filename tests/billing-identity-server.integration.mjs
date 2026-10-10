@@ -89,5 +89,17 @@ test('actual additive migration preserves unbound household access and rejects s
   const expired=await bind(secondClaims.session_id);assert.equal(expired.error,null);assert.equal(expired.data,null);
   assert.equal((await user.auth.signOut({scope:'local'})).error,null);const revoked=await bind(claims.session_id);assert.equal(revoked.error,null);assert.equal(revoked.data,null);
   assert.ok((await seedRead()).error);
+  // Fresh Auth remains valid after app-only closure, while actual PostgREST CRUD is denied.
+  const third=createClient(origin,'synthetic-public-key',options),freshLogin=await third.auth.signInWithPassword({email,password});assert.equal(freshLogin.error,null);
+  const freshClaims=JSON.parse(Buffer.from(freshLogin.data.session.access_token.split('.')[1],'base64url'));assert.equal((await bind(freshClaims.session_id)).data,binding.data);
+  const liveHomes=await third.from('homes').select('id').eq('id',home);assert.equal(liveHomes.error,null);assert.equal(liveHomes.data.length,1);
+  const deletionArgs={target_user:id,verified_session:freshClaims.session_id,target_epoch:binding.data};
+  const deletion=await admin.rpc('request_maintenance_account_deletion',deletionArgs);assert.equal(deletion.error,null);assert.ok(deletion.data);assert.equal((await admin.rpc('request_maintenance_account_deletion',deletionArgs)).data,deletion.data);assert.ok((await third.rpc('request_maintenance_account_deletion',deletionArgs)).error);
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:"update maintenance_private.account_access set enabled=false where user_id='"+id+"';",timeout:10000,stdio:['pipe','pipe','pipe']});
+  const closedHomes=await third.from('homes').select('id').eq('id',home);assert.equal(closedHomes.error,null);assert.deepEqual(closedHomes.data,[]);
+  assert.ok((await third.from('homes').insert({id:randomUUID(),owner_id:id,name:'Blocked home',kind:'home'})).error);
+  assert.ok((await third.rpc('create_home_invite',{home_id:home})).error);
+  assert.equal((await bind(freshClaims.session_id)).data,null);assert.ok((await admin.rpc('request_maintenance_account_deletion',deletionArgs)).error);
+  const sharedLogin=await third.auth.getUser();assert.equal(sharedLogin.error,null);assert.equal(sharedLogin.data.user.id,id);
  }finally{gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
