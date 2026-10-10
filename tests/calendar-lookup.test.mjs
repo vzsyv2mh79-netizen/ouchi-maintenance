@@ -1684,3 +1684,14 @@ test('Klaara p7 Pro colors preserve condition-based care without invented day sc
   assert.match(c.manualUrl,/OGAairProJapan.pdf$/);assert.equal(lookup.lookupModel(sku+'X').length,0);
  }
 });
+
+test('Sharp 2024 dehumidifiers preserve model-specific tank evidence and cleaning intervals',()=>{
+ const [small]=lookup.lookupModel('CV-S71');const [large]=lookup.lookupModel('CV-S180');
+ assert.deepEqual(small.suggestions.map(t=>t.intervalDays),[14,30]);
+ assert.deepEqual(large.suggestions.map(t=>t.intervalDays),[14,30,7]);
+ assert.match(small.suggestions[0].sourceUrl,/180144$/);assert.match(large.suggestions[0].sourceUrl,/174716$/);
+ assert.match(large.suggestions[2].sourceUrl,/174717$/);
+ assert.match(small.lookupNote,/タンクFAQには固定周期の記載がない/);
+ for(const c of [small,large]){assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'dehumidifier-appliance');assert.equal(c.manualLinkLabel,'メーカー公式お手入れ情報');assert.match(c.lookupNote,/本体は水洗い禁止/);assert.match(c.lookupNote,/40℃以下/);}
+ assert.equal(lookup.lookupModel('CV-S710').length,0);
+});
