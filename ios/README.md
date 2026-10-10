@@ -1,0 +1,132 @@
+## 現在の公開準備状況（2026-10-10）
+
+まだApp Storeへ提出・販売できる状態ではない。次の証拠を分けて扱う。
+
+- Xcode 27.0 (27A266a) 導入済み。実iOS SDKによる署名なしSimulator DebugとiPhoneOS Releaseのビルドに成功。AppIconとPrivacyInfo.xcprivacyを確認済み。
+- 最新の確認済みコミット c09f94b3 は、Native iPhone checks（38053409142）、Regression checks（38053409136）、Isolated real Auth checks（38053409141）が成功。後続のAPNs変更は別のCI結果を確認する。
+- Simulatorでログアウト中のログイン・新規作成・再設定画面とライト/ダーク切替・再起動後の外観保持を確認。認証後の家族・記録・購入・OS通知の動作証明にはしない。
+- 専用の使い捨てCI環境でAuth、添付の容量制御、読み書き、ページ取得、権限拒否、添付削除処理を確認。共有本番DBへの適用、実ユーザーの削除、Apple署名済み購入の検証は行っていない。
+- APNsはSandbox用リクエストの作成と応答の検証のみ。端末登録、署名、配信、再試行、最新クラウド記録に基づく予約は未実装。
+
+提出前に必要な作業:
+1. Apple Developer有料登録の完了、Team/Bundle ID確定、署名、配布用Archive、App Store Connectの契約・銀行・税務・商品登録。本人の入力・同意・支払いは未実施。
+2. 写真/保証書、詳細通知、レポートの本番実装と利用権制御。無料の登録・記録・閲覧・書き出しは維持する。実装前の機能は購入特典に表示しない。
+3. 本番の容量/保存期間/解約後の閲覧・書き出し、アプリ単位のアカウント削除と共有Authへの影響、キャッシュのアカウント/利用権世代分離を完成させる。
+4. Apple Sandboxで購入・復元・更新・期限切れ・返金・取消・保留・キャンセル・重複・通信失敗を検証。Webと同じアカウントの利用権認識と二重契約防止も確認する。
+5. 正式な規約・プライバシーポリシー・運営者/サポート窓口・プライバシー申告、ストア実価格と契約表示を確定する。
+6. 実機で認証、家族共有、追加/完了/履歴、バックアップ、オフライン、通知、アクセシビリティを通して確認。TestFlight、掲載画像、審査、公開を完了する。
+
+課金・有料インフラ・既存データ削除は有効化しない。下記の個別検証記録は実装時点の履歴であり、未検証の表記はこの最新一覧と照合する。
+
+# iPhone版の実装と検証
+
+OuchiCore は既存の load_household / complete_maintenance RPC と同じクラウド記録を扱う。
+ユーザーJWTをAuthorization、publishable keyをapikeyに設定する。
+secret/service role key、平文HTTP、他ホスト、URL内の認証情報を拒否する。
+完了の通信エラーで自動再送せず、再読み込みして履歴を確認する。
+
+検証: `cd ios && swift test`。合成データと注入した通信処理のみを使い、実DBへアクセスしない。
+XcodeによるiOS SDKビルドは完了。端末での機能検証は引き続き必要。
+Packageは共通ライブラリ。OuchiMaintenance.xcodeprojにはSwiftUIアプリターゲットを追加した。
+ログイン、お手入れ完了、住まい切替、製品/履歴の閲覧、製品/項目追加編集、無料の書き出し、ログアウトを実装。
+未完成の機能があり、まだ提出可能なアプリではない。
+
+Xcodeで開く: `ios/OuchiMaintenance.xcodeproj`。
+Config/Local.example.xcconfigをLocal.xcconfigにコピーし、publishable keyとTeamを設定。
+Bundle IDは仮のjp.ouchi.maintenance。本人のApp Store Connect登録に合わせて確定する。
+秘密鍵やログイン用パスワードはビルド設定に入れない。
+Keychainは端末ロック中に読み取り不可、他端末へ移行しない設定。
+ユーザーセッションの更新はactorで単一化し、ログアウト後の古い応答を保存しない。
+アプリの記録をログアウト時に画面から消し、生成した一時書き出しファイルも破棄する。
+書き出しはWeb共通のapp/version/exportedAt/data形式（version 1、10MB以内）。復元は既存RPCで新しい住まいとして追加し、既存記録と家族権限を置き換えない。
+
+次の実装:
+- 認証後の画面とStoreKit購入をシミュレータ/実機で検証。
+- 家族共有とバックアップ復元の実機/実DB確認。
+- アカウント作成/再設定の実機確認、アカウント削除、正式プライバシーポリシー、利用規約、サポート窓口。
+- 写真/保証書保存と容量制御、通知詳細、レポートの実装・サーバー側権限制御。
+- 購入画面、検証済み利用権の取得、ストア実価格、二重契約防止、保留/復元/返金の実機検証。
+- 組み込み済みのAppIconをiOS端末で検証。
+
+PurchaseManagerの更新監視は認証後に開始し、ログアウト/切替前に停止する。
+persistはそのアカウントに固定した認証処理を注入する。
+Sandbox以外は受け入れない。検証済み取引をサーバー保存後にfinishする。
+失敗した取引は未完了のまま残し、再接続時observeUnfinishedで処理する。
+
+以下はXcode導入前の履歴: 当時のMacはXcode未導入でSwiftPMとデフォルトSDKにもバージョン不整合があった。
+構文チェックと、互換SDKによる共通ライブラリの検証を分けて記録する。
+SwiftUI/StoreKitのiOSビルドを成功したとは扱わない。
+
+2026-10-10検証: MacOSX15.4 SDKを明示しSwift 6でOuchiCoreの型検査/ライブラリ生成、
+CoreSmokeをビルドして実行。設定拒否・ユーザーJWT・住まい分離・全記録の書き出し・
+完了RPC・401拒否・ログイン契約が成功した。通信はすべて合成応答。
+PurchaseManagerは構文チェックのみ成功。StoreKitの型検査/実機検証は未実施。
+SwiftPMのXCTest実行はローカルツールの不整合で未実施。
+
+本人操作は公開前の依存段階でまとめる。Apple有料登録/契約/銀行税務/商品価格/署名。
+商品登録と購入画面の実機検証が終わるまで販売を有効化しない。
+
+2026-10-10追記: 製品/項目の追加編集フォームと既存RPC/REST保存を追加。ユーザーJWTと既存RLSを使用。更新0件を拒否し、任意項目の空欄をnullとして保存。元の製品/住まいを変更できない保存前確認を実装。内容を編集したお手入れはユーザー設定とし、元のリンク/注記は保持。MutationSmokeで作成/更新/空欄/0件拒否/日付検証成功。iOS SDKによるフォーム型検査/描画/実DB検証は未実施。
+
+家族共有: 既存create_home_invite/accept_home_inviteを使用する招待・参加画面、家族一覧、未使用の招待取消、所有者の共有解除、本人退出を追加。解除は住まい/対象ユーザー両方で絞り0件を拒否。7日/1回限りは既存サーバーで強制される仕様。画面退出と住まい変更時にコードを隠し、遅い応答の再表示を防止。FamilySmokeの通信契約/不正コード/0件拒否/取消対象の検証成功。RLSと期限/使用済みの実サーバー検証は未実施。
+
+バックアップ: WebのvalidateDataと同じフィールド順/任意項目省略でSHA256を作り、同じバックアップの重複復元をサーバーで拒否。復元時に旧ローカルIDをUUIDに置換し関連付けを保持。10MB/各10000件/重複ID/参照/日付/情報源URLを検証。ファイル選択後に件数と追加方式の確認を表示。BackupSmokeはFixturesを使いWebとの正規化/ハッシュ一致・往復・UUID関連・上限・重複拒否を検証。実際のWeb lib/backup.tsで作成→Swift読み込み→Web再読み込みを確認成功。ファイル選択画面/復元RPC実DBは未検証。
+
+アカウント: native signup/recoverを追加。確認待ちではログイン済みにしない。即時セッションがある構成ではSessionControllerがKeychainへ保存し、アカウント世代を確認。再設定メールは既存Web /reset-passwordで変更後にネイティブログイン。メール送信は本人のボタン操作でのみ行う。AuthSmokeは合成応答でsignup/確認待ち/入力拒否/recover先/429拒否PASS。実メール送信と即時セッション構成の実機テストは未検証。プライバシー説明画面は開発中で正式ポリシーではない。共有Authを残す既存の記録削除をアカウント削除とは扱わず、Docs/AccountDeletion.mdに実装前提と必要検証を記録。
+
+住まい管理: Native設定に住まいの追加/所有者の名前・種類編集を実装。共有メンバーは所有者用の編集を使えず、既存RLSを継続使用。所有者IDを送らず、0件更新を拒否。HomeSmokeで合成APIの認証/入力/所有者付替えなし/0件を検証成功。iOS画面と実DB更新は未検証。アカウント削除調査では家計簿kb_*が共有Authを参照する実DB制約を確認。詳細はAccountDeletion.md。
+
+製品/項目削除: 編集画面から明示的な確認を経て削除。製品削除時に関連項目・履歴、項目削除時に履歴が消えること、共有家族の画面にも反映されることを案内。無料の書き出しも案内。選択住まいの対象か保存前に確認し、ユーザーJWT/既存RLS/固定テーブル列挙/UUID検証/1件一致を使用。曖昧な通信失敗で自動再送しない。DeletionSmokeの合成認証/対象/0件/権限拒否/不正IDはPASS。実DB削除やiOS描画は未実施。
+
+品番検索: 既存Web GET /api/product-lookupから完全一致の候補を取得。メーカー公式HTTPSのホストを固定列挙し、品番/カテゴリ/根拠URL/周期を検証。確認して製品を選び、お手入れは任意選択して既存RPCで製品と原子的に保存。品番変更時に候補を外す。根拠の条件/原文周期/確認日を表示し、推測で公式情報を補わない。LookupSmokeは実Webカタログ334機種のURL/項目、全角品番の正規化、完全一致、東京日付、根拠保持、製品と項目同時保存、他製品への付替え拒否を合成通信で確認PASS。Tests/export-web-catalog.mjsはフルチェックアウトでカタログをJSONへ出しLookupSmokeに引数で渡せる。iOS検索UI/実ネットワーク/追加機種PRの統合は未検証。説明書URLからの追加抽出は未移植。
+
+カレンダー: 無料のICS書き出し/共有を設定に追加。全住まい、JST9時/前日通知、繰り返し周期、UTF8の75バイト折り返しはWebと同じ。CalendarSmokeで実Web処理のファイルと完全一致確認PASS。自動同期しない/名前が含まれる/取り込み後の通知と重複注意を説明。ログアウト時に一時ICSを破棄。iOS共有画面/カレンダー取り込み/通知/TimeTreeは未確認。ローカル通知は後述のとおり実装済みだが、実機配信は未検証。
+
+端末通知: 明示的な許可ボタン/設定切替でローカル通知を予約。読み込んだ全住まいの期限件数だけをJST9時に次の30日間通知。周期を自動で進めず、完了するまでは期限切れを数える。更新時に予約見直し、起動時に古い予約を清掃、アカウントごとの設定、ログアウト時に設定と予約/配信済み表示を破棄。世代確認で古い予約処理の遅延追加を取消。Apple UserNotifications公式を確認。ReminderSmokeは日付境界/30日/期限件数/過去除外PASS、UserNotificationsクラス/StoreはmacOS型検査PASS。OSを操作するテストはしておらず実機の許可/取消/配信/競合は未検証。家族の別端末変更は次の読込まで反映されない。最新クラウドから閉じたアプリへ送るAPNsリモート通知は別途必須で未実装。このローカル機能で代替完了したとは扱わない。
+
+ホームと外観: 日本時間の実日付、期限切れ/今日/明日から7日以内/製品数/今月完了数と次の5件をホームに表示。TimelineViewで日付の変化を反映。上部右端のライト/ダーク切替は端末に保持し、初期はシステム設定。OverviewSmokeの日/月境界と住まい分離はPASS。SwiftUIは構文確認のみでiOS描画は未確認。
+
+2026-10-10 Xcode依存確認: /ApplicationsにXcodeなし、xcode-selectはCommandLineTools、xcodebuildはXcode本体を要求して終了。無料XcodeのApp Storeページを開くよう依頼し、本人に導入/iOS初期インストールを依頼。ダウンロードが始まった証拠はなく待機ジョブとは扱わない。導入待ちでもコード作業は継続。
+
+## まとめて検証する
+
+`python3 ios/scripts/verify-native.py --sdk /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` は共通ライブラリと13種類のSmokeを一時ディレクトリに毎回ビルドして実行し、macOSによる認証/StoreKit/通知/Storeの型検査、SwiftUI構文、プロジェクトplistも確認する。古い実行ファイルを流用しない。合成通信/fixtureのみで、登録・メール・DB削除・OS通知を行わない。2026-10-10このコマンド全件PASS。Lookupは標準では1機種fixture、別途334機種のWebカタログ確認は前の検証でPASS。全カタログはexport-web-catalog.mjsで出力して`--catalog JSON_PATH`を指定する。
+
+Xcode本体導入後は、そのXcodeに対応するmacOS SDKを指定し`--ios-build`を追加すると署名なしのiOS Simulator SDKビルドを行う。iOSビルドが未実行なら出力に明示。成功しても実機の表示、Auth/RLS、通知、購入は別途検証が必要。現在はXcode導入済みで署名なしiOSビルド成功。ストア向け署名と実機検証は未完了。
+
+Sandbox billing adapter: JWT-authenticated JWS submit requires saved:true/environment:Sandbox. Entitlements come only from the server with product/environment/expiry checks. NativeStore binds the authenticated account and generation only under DEBUG with IOS_SANDBOX_BILLING=YES. Default NO and Release disabled. Logout clears observers and rights. Failed persistence stays unfinished. BillingSmoke mocks ack/Production refusal/expiry/503 PASS. verify-native.py now typechecks both DEBUG and regular native classes: all13 smoke tests and typechecks PASS. Actual StoreKit/JWS/server/API remain unverified. Purchase UI, real premium benefits and legal disclosures are still incomplete. Server PR165 remains unmerged; production billing routes are not assumed available.
+
+Sandbox tip screen: DEBUG with explicit sandbox configuration only. Uses StoreKit displayName/displayPrice and consumable type, voluntary one-time no-feature tips, confirmation and unfinished transaction retry. Does not show unimplemented subscription benefits. AppTransaction.shared must be verified Sandbox with this bundle ID before purchase starts; binding generation/account must still match. Default/Release screen hidden. No real purchases made. StoreKit integration and SwiftUI rendering still require iOS SDK/device testing. Formal terms/privacy/contact remain mandatory before any sales.
+
+
+## Sandbox purchase account-switch acceptance checks (not executed)
+
+In the development build only, with test accounts and configured Sandbox products:
+1. Delay the server transaction response, start a tip purchase, then sign out
+   before the response. The old transaction must not be finished by the stopped
+   binding; no rights/message/retry badge may appear on a new account.
+2. Repeat with sign-out and sign-in to the SAME account. The generation must
+   invalidate the old callback despite matching UUID. Replay the unfinished
+   transaction under the new binding; only server acknowledgement permits finish.
+3. Start restore, delay AppStore.sync/currentEntitlements, switch account, release
+   the response. No transaction may be posted with the new account credentials.
+4. Delay a failed Transaction.updates delivery, switch account, release its error.
+   The old observer must not set the new account's needsRetry flag.
+5. Fail server persistence without switching account. The transaction remains
+   unfinished; retry under the same account succeeds idempotently after reconnect.
+6. Verify cancellation and pending purchases grant no rights; Production app or
+   transaction verification is rejected before any test purchase is accepted.
+
+The native adapter now checks binding generation and account after persistence,
+and its observer suppresses stale error flags. Local typechecks do not execute
+StoreKit; these scenarios require Xcode and Sandbox before submission.
+
+
+ManualLookup adds the native transport for the existing Web manual-suggestions
+API. It requires explicit consent, supports the same SHARP air-purifier and
+Panasonic PDF paths, never sends cloud credentials to lookup, and validates the
+returned manual URL/maker/page range/source kind before creating task proposals.
+Suggestions retain frequency, conditions and source-page links. The native product-add form now includes official PDF input, explicit consent,
+source-page review and optional selection before atomic product/task saving. It does not infer missing
+instructions or declare AI text official. ManualSmoke uses synthetic responses;
+live PDF extraction, consent UI and device flows are not verified.

@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { generateKeyPairSync, verify } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+const source = readFileSync('lib/apns-provider-token.ts', 'utf8').replace("import 'server-only';", '');
+const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
+const { createAPNsTokenProvider } = await import('data:text/javascript;base64,' + Buffer.from(compiled).toString('base64'));
+test('synthetic P-256 APNs JWT verifies and is reused until scheduled rotation', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  const provider = createAPNsTokenProvider({ keyId: 'TESTKEY123', teamId: 'TESTTEAM12', privateKey: pem });
+  const now = 1791637200000, token = provider(now), parts = token.split('.');
+  assert.deepEqual(JSON.parse(Buffer.from(parts[0], 'base64url')), { alg: 'ES256', kid: 'TESTKEY123' });
+  assert.deepEqual(JSON.parse(Buffer.from(parts[1], 'base64url')), { iss: 'TESTTEAM12', iat: now / 1000 });
+  assert.equal(Buffer.from(parts[2], 'base64url').length, 64);
+  assert.ok(verify('sha256', Buffer.from(parts.slice(0, 2).join('.')), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(parts[2], 'base64url')));
+  assert.equal(provider(now + 2999999), token);
+  assert.notEqual(provider(now + 3000000), token);
+  assert.throws(() => provider(now), /backwards/);
+  assert.throws(() => provider(NaN));
+  assert.throws(() => createAPNsTokenProvider({ keyId: 'bad', teamId: 'TESTTEAM12', privateKey: pem }));
+  assert.throws(() => createAPNsTokenProvider({ keyId: 'TESTKEY123', teamId: 'TESTTEAM12', privateKey: 'secret malformed key' }), /Invalid APNs signing key/);
+  const wrong = generateKeyPairSync('ec', { namedCurve: 'secp384r1' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+  assert.throws(() => createAPNsTokenProvider({ keyId: 'TESTKEY123', teamId: 'TESTTEAM12', privateKey: wrong }), /P-256/);
+});

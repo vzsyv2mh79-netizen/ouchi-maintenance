@@ -1,0 +1,95 @@
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_PASSWORD: synthetic-ci-only
+      POSTGRES_DB: auth_test
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/auth.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d auth_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  auth:
+    # Version observed in Supabase's official docker compose configuration.
+    image: supabase/gotrue:v2.196.0
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:9999:9999'
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://127.0.0.1:54321/auth/v1
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:synthetic-ci-only@db:5432/auth_test
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_SITE_URL: http://127.0.0.1:3000
+      GOTRUE_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_DISABLE_SIGNUP: 'false'
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+      GOTRUE_EXTERNAL_PHONE_ENABLED: 'false'
+    healthcheck:
+      test: [CMD, wget, --no-verbose, --tries=1, --spider, 'http://localhost:9999/health']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  rest:
+    profiles: [data-api]
+    image: postgrest/postgrest:v14.17
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3002:3000'
+    environment:
+      PGRST_DB_URI: postgres://authenticator:synthetic-ci-only@db:5432/auth_test
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      PGRST_ADMIN_SERVER_PORT: 3001
+      PGRST_SERVER_HOST: 0.0.0.0
+    healthcheck:
+      test: [CMD, postgrest, --ready]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  storage:
+    profiles: [data-api]
+    image: supabase/storage-api:v1.74.0
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:5002:5000'
+    environment:
+      ANON_KEY: ${OUCHI_STORAGE_ANON_KEY:-}
+      SERVICE_KEY: ${OUCHI_STORAGE_SERVICE_KEY:-}
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: synthetic-isolated-ci-only-jwt-secret-never-use-in-production
+      DATABASE_URL: postgres://postgres:synthetic-ci-only@db:5432/auth_test
+      FILE_SIZE_LIMIT: 5242880
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: ouchi-disposable-ci
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ouchi-disposable-ci
+      REGION: local
+      ENABLE_IMAGE_TRANSFORMATION: 'false'
+    volumes:
+      - attachment-files:/var/lib/storage
+    healthcheck:
+      test: [CMD, wget, --no-verbose, --tries=1, --spider, 'http://127.0.0.1:5000/status']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  attachment-files:

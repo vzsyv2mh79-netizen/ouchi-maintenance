@@ -1,0 +1,56 @@
+name: Isolated real Auth checks
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation]
+    paths: ['lib/account-closure.ts', 'lib/billing-account.ts', 'lib/attachment-upload.ts', 'lib/product-attachment.ts', 'app/api/development/product-attachments/**', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'app/api/development/account-reenrollment/**', 'tests/auth-server.integration.mjs', 'tests/postgrest-server.integration.mjs', 'tests/fixtures/auth/**', 'tests/fixtures/billing*.sql', 'tests/fixtures/attachment*.sql', 'tests/fixtures/apns*.sql', 'tests/fixtures/app-session*.sql', 'app/api/development/apns-registration/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: real-auth-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Generate public synthetic Storage JWTs
+        run: node tests/fixtures/auth/storage-keys.mjs
+      - name: Start disposable Auth and database without SMTP
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml up -d --wait --wait-timeout 120
+      - name: Real bearer and password verification
+        env:
+          OUCHI_REAL_AUTH_TEST: 'true'
+        run: node --test tests/auth-server.integration.mjs
+      - name: Initialize disposable household data API schema
+        run: |
+          for file in tests/fixtures/auth/rest-bootstrap.sql supabase/migrations/20261001144732_household_storage.sql supabase/migrations/20261001232931_atomic_import.sql supabase/migrations/20261001233450_household_sharing.sql supabase/migrations/20261001235138_account_data_erasure.sql supabase/migrations/20261002004530_push_reminders.sql supabase/migrations/20261005134316_cloud_backup_restore.sql ios/Tests/Fixtures/account-access-prototype.sql ios/Tests/Fixtures/account-epochs-prototype.sql tests/fixtures/auth/rest-session-gate.sql tests/fixtures/billing-schema.sql tests/fixtures/billing-epoch-prototype.sql tests/fixtures/attachment-quota-prototype.sql tests/fixtures/apns-registration-prototype.sql tests/fixtures/app-session-binding-prototype.sql; do
+            docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < "$file"
+          done
+      - name: Start disposable PostgREST after schema setup
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api up -d --wait --wait-timeout 120 rest storage
+      - name: Initialize disposable private Storage access
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < tests/fixtures/auth/storage-bootstrap.sql
+      - name: Real authenticated household data API checks
+        env:
+          OUCHI_REAL_AUTH_TEST: 'true'
+        run: node --test tests/postgrest-server.integration.mjs
+      - name: Diagnose disposable Auth failures
+        if: failure()
+        run: |
+          docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api logs --no-color --tail 120 auth db rest storage
+          storage_id=$(docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api ps -q storage)
+          if [ -n "$storage_id" ]; then docker inspect --format '{{json .State.Health}}' "$storage_id"; fi
+      - name: Remove only this run's disposable containers and volumes
+        if: always()
+        run: docker compose -p ouchi-auth-ci -f tests/fixtures/auth/compose.yml --profile data-api down --volumes

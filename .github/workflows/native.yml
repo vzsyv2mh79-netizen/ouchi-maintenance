@@ -1,0 +1,52 @@
+name: Native iPhone checks
+
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation]
+    paths: ['ios/**', 'lib/product-lookup.ts', '.github/workflows/native.yml']
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    # Standard runner: public repository, no paid larger runner/cache/artifacts.
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Export current full Web model catalog for native contract checks
+        run: node ios/Tests/export-web-catalog.mjs "$RUNNER_TEMP/ouchi-catalog.json"
+      - name: Verify synthetic core and local snapshot tests
+        run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
+      - name: Swift package tests
+        run: swift test --package-path ios
+      - name: Release package configuration rejects isolated loopback
+        run: swift test --package-path ios --configuration release
+      - name: Unsigned iPhone Release build without cloud credentials
+        run: >-
+          xcodebuild -project ios/OuchiMaintenance.xcodeproj
+          -scheme OuchiMaintenance -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/ouchi-release"
+          CODE_SIGNING_ALLOWED=NO build
+      - name: Unsigned iPhone Debug build covers isolated development UI
+        run: >-
+          xcodebuild -project ios/OuchiMaintenance.xcodeproj
+          -scheme OuchiMaintenance -configuration Debug
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/ouchi-debug"
+          CODE_SIGNING_ALLOWED=NO build

@@ -1,0 +1,11 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import ts from 'typescript';
+const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const encoded=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
+const sessionModule=encoded(compile('lib/verified-app-session.ts'));const core=encoded(compile('lib/account-reenrollment.ts'));
+const request=(body={confirmation:'REENROLL_OUCHI_MAINTENANCE',password:'synthetic'},token='Bearer synthetic')=>new Request('http://localhost/api/development/account-reenrollment',{method:'POST',headers:{authorization:token},body:JSON.stringify(body)});
+test('actual development route refuses Production and non-local DB before constructing clients',async()=>{
+ const stub=encoded('export function createClient(){throw new Error("MUST NOT CALL")}');
+ const source=compile('app/api/development/account-reenrollment/route.ts').replace(/from ['"]@supabase\/supabase-js['"]/g,`from '${stub}'`).replace(/from ['"]@\/lib\/account-reenrollment['"]/g,`from '${core}'`).replace(/from ['"]@\/lib\/verified-app-session['"]/g,`from '${sessionModule}'`);
+ const {POST}=await import(encoded(source));const keys=['NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY'];const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+ try{Object.assign(process.env,{NODE_ENV:'production',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic',OUCHI_CLOSURE_TEST_SERVICE_KEY:'synthetic'});assert.equal((await POST(request())).status,503);process.env.NODE_ENV='development';process.env.OUCHI_CLOSURE_TEST_URL='https://hphifiqyypwyxkzfanod.supabase.co';assert.equal((await POST(request())).status,503);}finally{for(const key of keys){if(before[key]===undefined)delete process.env[key];else process.env[key]=before[key];}}
+});
