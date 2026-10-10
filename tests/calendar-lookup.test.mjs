@@ -1718,3 +1718,6 @@ test('CV-T71 and CV-U71 retain official model-linked filter care without inventi
 
 
 test('Siroca SDC-10D171 retains the sole timed filter task and conditional tank/body care',()=>{const [c]=lookup.lookupModel('SDC-10D171');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'dehumidifier-appliance');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[14]);assert.match(c.suggestions[0].conditions,/完全に乾かして/);assert.match(c.lookupNote,/フロートの発泡スチロールを外さない/);assert.match(c.lookupNote,/固定周期の記載がない/);assert.match(c.lookupNote,/約1時間.*掃除の周期ではありません/);assert.match(c.manualUrl,/sdc-10d171.pdf$/);assert.equal(lookup.lookupModel('SDC-10D1710').length,0);});
+
+
+test('SD-E151 preserves water-presence hours rather than inventing weekly cleaning',()=>{const [c]=lookup.lookupModel('SD-E151');assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'humidifier');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[1,365,365]);assert.match(c.lookupNote,/水が入っている時間の累計約168時間/);assert.match(c.lookupNote,/固定の週次予定にはしません/);assert.match(c.lookupNote,/本体接続用プラグも外し/);assert.match(c.lookupNote,/フィルター両面.*片面約30秒/);assert.match(c.lookupNote,/リセットを約3秒/);assert.match(c.suggestions[0].conditions,/給水口から直接排水しない/);assert.equal(lookup.lookupModel('SD-E1510').length,0);});
