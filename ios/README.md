@@ -100,3 +100,13 @@ In the development build only, with test accounts and configured Sandbox product
 The native adapter now checks binding generation and account after persistence,
 and its observer suppresses stale error flags. Local typechecks do not execute
 StoreKit; these scenarios require Xcode and Sandbox before submission.
+
+
+ManualLookup adds the native transport for the existing Web manual-suggestions
+API. It requires explicit consent, supports the same SHARP air-purifier and
+Panasonic PDF paths, never sends cloud credentials to lookup, and validates the
+returned manual URL/maker/page range/source kind before creating task proposals.
+Suggestions retain frequency, conditions and source-page links. This is a core
+adapter only: native input/review UI is still required. It does not infer missing
+instructions or declare AI text official. ManualSmoke uses synthetic responses;
+live PDF extraction, consent UI and device flows are not verified.
