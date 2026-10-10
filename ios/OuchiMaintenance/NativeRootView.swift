@@ -128,6 +128,9 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("家族") {
+                    NavigationLink("家族と共有") { FamilySettings() }
+                }
                 Section("記録") {
                     Button("すべての記録を書き出す") {
                         store.prepareExport()
@@ -243,6 +246,70 @@ private struct TaskEditor: View {
                  let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.calendar = calendar; f.timeZone = calendar.timeZone; f.dateFormat = "yyyy-MM-dd"
                  due = f.string(from: calendar.date(byAdding: .day, value: 30, to: Date())!)
              }
+         }
+    }
+}
+
+private struct FamilySettings: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var joinCode = ""
+    @State private var nickname = ""
+    @State private var revoke = false
+    @State private var leave = false
+    @State private var removing: FamilyMember?
+    @State private var joined = false
+    private var owner: Bool { store.household?.homes.first(where: { $0.id == store.homeID })?.role == "owner" }
+    var body: some View {
+        Form {
+            HomePicker()
+            Section("家族と共有") {
+                Text("参加した家族は、この住まいの製品・お手入れ・履歴を追加・編集・削除できます。家族は自分のアカウントでログインしてください。")
+                if owner {
+                    Button("招待コードを作る") { let home = store.homeID; Task { await store.createInvite(home: home) } }.disabled(store.busy)
+                    if store.familyHomeID == store.homeID, let code = store.inviteCode {
+                        Text("7日間有効・1回限りです。共有したい家族にだけ渡してください。").font(.caption)
+                        Text(code).font(.caption.monospaced()).textSelection(.enabled)
+                        ShareLink("招待コードを共有", item: code)
+                    }
+                    Button("未使用の招待を取り消す", role: .destructive) { revoke = true }.disabled(store.busy)
+                }
+            }
+            Section("参加している家族") {
+                if store.familyHomeID == store.homeID {
+                    if store.familyMembers.isEmpty { Text("参加している家族はまだいません。") }
+                    ForEach(store.familyMembers) { member in
+                        HStack {
+                            Text(member.nickname)
+                            Spacer()
+                            if owner { Button("共有を解除", role: .destructive) { removing = member }.disabled(store.busy) }
+                        }
+                    }
+                } else { Text("一覧を読み込んでください。") }
+                Button("家族一覧を再読み込み") { let home = store.homeID; Task { await store.loadMembers(home: home) } }.disabled(store.busy)
+                if !owner { Button("この住まいから退出", role: .destructive) { leave = true }.disabled(store.busy) }
+            }
+            Section("招待された住まいに参加") {
+                TextField("受け取った招待コード", text: $joinCode).textInputAutocapitalization(.never).autocorrectionDisabled()
+                TextField("家族に表示する名前", text: $nickname)
+                Button("この権限で参加する") {
+                    let code = joinCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let name = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+                    Task { if await store.joinFamily(code: code, name: name) { joinCode = ""; joined = true; await store.loadMembers(home: store.homeID) } }
+                }.disabled(store.busy || !HouseholdAPI.validInvite(joinCode.trimmingCharacters(in: .whitespacesAndNewlines)) || !(1...80).contains(nickname.trimmingCharacters(in: .whitespacesAndNewlines).count))
+                if joined { Text("参加しました。上の住まい一覧から家族の住まいを選べます。") }
+            }
+        }.navigationTitle("家族と共有")
+         .task(id: store.homeID) { await store.loadMembers(home: store.homeID) }
+         .onDisappear { store.clearFamily() }
+         .onChange(of: store.homeID) { _, _ in revoke = false; leave = false; removing = nil; joined = false }
+         .confirmationDialog("未使用の招待コードをすべて無効にしますか？", isPresented: $revoke, titleVisibility: .visible) {
+             Button("招待を取り消す", role: .destructive) { let home = store.homeID; Task { await store.revokeInvites(home: home) } }
+         }
+         .confirmationDialog("この住まいから退出しますか？記録は所有者のもとに残ります。", isPresented: $leave, titleVisibility: .visible) {
+             Button("退出", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: nil) } }
+         }
+         .confirmationDialog("\(removing?.nickname ?? "家族")の共有アクセスを解除しますか？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
+             if let member = removing { Button("共有を解除", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: member.user_id) }; removing = nil } }
          }
     }
 }

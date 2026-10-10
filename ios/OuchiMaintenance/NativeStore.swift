@@ -9,9 +9,13 @@ import OuchiCore
     @Published var message: String?
     @Published var homeID = ""
     @Published private(set) var exportURL: URL?
+    @Published private(set) var familyMembers: [FamilyMember] = []
+    @Published private(set) var inviteCode: String?
+    @Published private(set) var familyHomeID: String?
     private let api: HouseholdAPI?
     private let session: SessionController?
     private var generation = 0
+    private var familyGeneration = 0
     let purchases = PurchaseManager()
 
     init() {
@@ -47,6 +51,7 @@ import OuchiCore
         generation += 1
         purchases.stopObserving(); purchases.persist = nil
         household = nil; homeID = ""; signedIn = false; busy = false
+        clearFamily()
         if let exportURL { try? FileManager.default.removeItem(at: exportURL) }
         exportURL = nil
         do { try await session?.signOut() }
@@ -125,5 +130,56 @@ import OuchiCore
             }
             return false
         }
+    }
+
+    func clearFamily() { familyGeneration += 1; familyMembers = []; inviteCode = nil; familyHomeID = nil }
+    func loadMembers(home: String) async {
+        guard !busy, home == homeID, let api, let session else { return }
+        clearFamily(); busy = true
+        let expectedFamily = familyGeneration
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            let members = try await api.members(home: home, token: credentials.access_token)
+            guard expected == generation, expectedFamily == familyGeneration, home == homeID else { if expected == generation { busy = false }; return }
+            familyMembers = members; familyHomeID = home
+        } catch { if expected == generation { message = "家族一覧を取得できませんでした。" } }
+        if expected == generation { busy = false }
+    }
+    func createInvite(home: String) async {
+        guard !busy, home == homeID, household?.homes.first(where: { $0.id == home })?.role == "owner",
+              let api, let session else { return }
+        inviteCode = nil; busy = true
+        let expectedFamily = familyGeneration
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard expected == generation else { return }
+            let code = try await api.createInvite(home: home, token: credentials.access_token)
+            if expected == generation, expectedFamily == familyGeneration, home == homeID { inviteCode = code; familyHomeID = home }
+        } catch { if expected == generation { message = "招待の作成結果を確認できません。必要なら未使用の招待を取り消してください。" } }
+        if expected == generation { busy = false }
+    }
+    func joinFamily(code: String, name: String) async -> Bool {
+        let success = await save { api, token in try await api.acceptInvite(code: code, name: name, token: token) }
+        if success { clearFamily() }
+        return success
+    }
+    func revokeInvites(home: String) async {
+        guard home == homeID, household?.homes.first(where: { $0.id == home })?.role == "owner" else { return }
+        if await save({ api, token in try await api.revokeInvites(home: home, token: token) }) { inviteCode = nil }
+    }
+    func removeMember(home: String, user: UUID?) async {
+        guard !busy, home == homeID, let session,
+              let role = household?.homes.first(where: { $0.id == home })?.role else { return }
+        if user != nil && role != "owner" { return }
+        if user == nil && role != "member" { return }
+        let expected = generation
+        let success = await save { api, token in
+            let own = try await session.credentials()
+            guard expected == self.generation else { throw CancellationError() }
+            try await api.removeMember(home: home, user: user ?? own.user.id, token: token)
+        }
+        if success { clearFamily(); await loadMembers(home: homeID) }
     }
 }

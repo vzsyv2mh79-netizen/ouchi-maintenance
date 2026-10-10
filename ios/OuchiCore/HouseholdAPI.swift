@@ -55,7 +55,7 @@ public struct HouseholdAPI: Sendable {
             guard !token.isEmpty, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        request.httpBody = body
+        if method != "GET" { request.httpBody = body }
         let (data, response) = try await transport(request)
         guard (200..<300).contains(response.statusCode) else {
             if response.statusCode == 401 { throw CloudError.authenticationRequired }
@@ -111,4 +111,46 @@ public struct HouseholdAPI: Sendable {
         let rows = try JSONDecoder().decode([Row].self, from: data)
         guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
+
+    public func createInvite(home: String, token: String) async throws -> String {
+        guard UUID(uuidString: home) != nil else { throw CloudError.invalidInput }
+        let data = try await send(path: "rest/v1/rpc/create_home_invite", token: token, body: JSONEncoder().encode(["home_id": home]))
+        let code = try JSONDecoder().decode(String.self, from: data)
+        guard Self.validInvite(code) else { throw CloudError.malformedResponse }
+        return code
+    }
+    public static func validInvite(_ code: String) -> Bool {
+        code.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+    }
+    public func acceptInvite(code: String, name: String, token: String) async throws {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.validInvite(code), (1...80).contains(clean.count) else { throw CloudError.invalidInput }
+        _ = try await send(path: "rest/v1/rpc/accept_home_invite", token: token,
+                           body: JSONEncoder().encode(["invite_code": code, "member_name": clean]))
+    }
+    public func members(home: String, token: String) async throws -> [FamilyMember] {
+        guard let uuid = UUID(uuidString: home) else { throw CloudError.invalidInput }
+        let data = try await send(path: "rest/v1/home_members", token: token, body: Data(),
+                                  query: "homeId=eq.\(uuid.uuidString.lowercased())&select=user_id,nickname", method: "GET")
+        return try JSONDecoder().decode([FamilyMember].self, from: data)
+    }
+    public func revokeInvites(home: String, token: String) async throws {
+        guard let uuid = UUID(uuidString: home) else { throw CloudError.invalidInput }
+        _ = try await send(path: "rest/v1/home_invites", token: token, body: Data(#"{"revoked":true}"#.utf8),
+                           query: "homeId=eq.\(uuid.uuidString.lowercased())&used_at=is.null", method: "PATCH")
+    }
+    public func removeMember(home: String, user: UUID, token: String) async throws {
+        guard let uuid = UUID(uuidString: home) else { throw CloudError.invalidInput }
+        let data = try await send(path: "rest/v1/home_members", token: token, body: Data(),
+                                  query: "homeId=eq.\(uuid.uuidString.lowercased())&user_id=eq.\(user.uuidString.lowercased())&select=user_id,nickname",
+                                  method: "DELETE", representation: true)
+        let rows = try JSONDecoder().decode([FamilyMember].self, from: data)
+        guard rows.count == 1, rows[0].user_id == user else { throw CloudError.unavailable }
+    }
+}
+
+public struct FamilyMember: Codable, Identifiable, Sendable {
+    public let user_id: UUID
+    public let nickname: String
+    public var id: UUID { user_id }
 }
