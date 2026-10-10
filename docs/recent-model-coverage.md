@@ -606,3 +606,7 @@ Official release: https://www.siroca.co.jp/pdf/press-release/pressrelease_251010
 
 ## siroca SD-C213 — 2025-09-06
 Release https://www.siroca.co.jp/pdf/press-release/pressrelease_250828_humidifier.pdf; manual https://www.siroca.co.jp/im/sd-c213_sd-c213e.pdf safety2–3/daily-care5/water6/assembly8/care9/troubleshooting10 audited. Full care-page9 diagram visually inspected (/private/tmp/sdc213-care.png). Daily water AND daily cleaning retained, no invented filter or replacement periods. Whole body cannot be submerged; interior cleaning protects blower and control knob. Explicit conditional citric-acid method is retained despite the prohibition on acidic-type detergents, without widening it to other acids. Shared-manual SD-C213E release unproven, excluded.
+
+
+## siroca SD-C113 — 2024 color release
+Official2024-09-14 dark-red/cream release: https://www.siroca.co.jp/pdf/press-release/pressrelease_240829_humidifier.pdf . This is NOT claimed as the initial launch of the series. Dedicated https://www.siroca.co.jp/im/sd-c113.pdf safety2–3/dailycare5/assembly8/care9 independently audited; wholecarepage9 visually inspected (/private/tmp/sdc113-care.png). Daily water and daily cleaning, blower-safe drainage, nonoperating conditional citricacid and dry storage proved by this model manual, not inherited merely from SD-C213 similarity. Current product URL has successor so official2024 release serves product information.
