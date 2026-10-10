@@ -602,3 +602,7 @@ Release: https://www.siroca.co.jp/pdf/press-release/pressrelease_241004_e-humidi
 
 ## siroca SD-5HC151 — 2025-11-08
 Official release: https://www.siroca.co.jp/pdf/press-release/pressrelease_251010_h-humidifier.pdf . Dedicated manual https://www.siroca.co.jp/im/sd-5hc151.pdf pages3,14–19,22. All six care pages rendered and visually inspected, including drainage, filter alignment and heater diagrams. Daily water and approximately twelve-month silver-ion replacement only; cleaning icon counts connected-power hours, not operating or water-present hours. Conditional component care, citric-acid non-operation and rinsing, pad wear inspection and dry storage retained; no invented seven-day task or filter replacement.
+
+
+## siroca SD-C213 — 2025-09-06
+Release https://www.siroca.co.jp/pdf/press-release/pressrelease_250828_humidifier.pdf; manual https://www.siroca.co.jp/im/sd-c213_sd-c213e.pdf safety2–3/daily-care5/water6/assembly8/care9/troubleshooting10 audited. Full care-page9 diagram visually inspected (/private/tmp/sdc213-care.png). Daily water AND daily cleaning retained, no invented filter or replacement periods. Whole body cannot be submerged; interior cleaning protects blower and control knob. Explicit conditional citric-acid method is retained despite the prohibition on acidic-type detergents, without widening it to other acids. Shared-manual SD-C213E release unproven, excluded.
