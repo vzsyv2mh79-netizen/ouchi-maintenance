@@ -47,6 +47,28 @@ import OuchiCore
             if expected == generation { message = "ログインできませんでした。メールアドレスとパスワードを確認してください。"; busy = false }
         }
     }
+    func signUp(email: String, password: String) async {
+        guard !busy, let session else { return }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            let authenticated = try await session.signUp(email: email, password: password)
+            guard expected == generation else { return }
+            signedIn = authenticated; busy = false
+            if authenticated { await reload() }
+            else { message = "確認メールが必要な場合は、メールのリンクを開いてからログインしてください。迷惑メールフォルダも確認してください。" }
+        } catch { if expected == generation { busy = false; message = "登録を完了できませんでした。入力内容を確認し、メール送信の上限の場合は時間をおいてお試しください。" } }
+    }
+    func requestPasswordReset(email: String) async {
+        guard !busy, let api else { return }
+        busy = true; message = nil
+        let expected = generation
+        do {
+            try await api.requestPasswordReset(email: email)
+            if expected == generation { message = "登録済みの場合、再設定メールが届きます。メールのリンクでパスワードを変更し、このアプリでログインしてください。" }
+        } catch { if expected == generation { message = "メールを送信できませんでした。入力内容と通信を確認し、時間をおいてお試しください。" } }
+        if expected == generation { busy = false }
+    }
     func signOut() async {
         generation += 1
         purchases.stopObserving(); purchases.persist = nil

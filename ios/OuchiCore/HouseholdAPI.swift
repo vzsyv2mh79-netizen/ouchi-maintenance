@@ -69,6 +69,21 @@ public struct HouseholdAPI: Sendable {
         let body = try JSONEncoder().encode(["email": email, "password": password])
         return try JSONDecoder().decode(Session.self, from: await send(path: "auth/v1/token", body: body, query: "grant_type=password"))
     }
+    public func signUp(email: String, password: String) async throws -> Session? {
+        guard password.count >= 8, !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw CloudError.invalidInput }
+        let body = try JSONEncoder().encode(["email": email, "password": password])
+        let data = try await send(path: "auth/v1/signup", body: body)
+        struct Result: Decodable { let access_token: String? }
+        let result = try JSONDecoder().decode(Result.self, from: data)
+        guard let token = result.access_token, !token.isEmpty else { return nil }
+        return try JSONDecoder().decode(Session.self, from: data)
+    }
+    public func requestPasswordReset(email: String) async throws {
+        guard !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw CloudError.invalidInput }
+        var query = URLComponents()
+        query.queryItems = [URLQueryItem(name: "redirect_to", value: "https://ouchi-maintenance.vercel.app/reset-password")]
+        _ = try await send(path: "auth/v1/recover", body: JSONEncoder().encode(["email": email]), query: query.percentEncodedQuery)
+    }
     public func refresh(_ session: Session) async throws -> Session {
         let body = try JSONEncoder().encode(["refresh_token": session.refresh_token])
         return try JSONDecoder().decode(Session.self, from: await send(path: "auth/v1/token", body: body, query: "grant_type=refresh_token"))

@@ -26,6 +26,8 @@ private struct SignInView: View {
     @EnvironmentObject private var store: NativeStore
     @State private var email = ""
     @State private var password = ""
+    @State private var creating = false
+    @State private var resetting = false
     var body: some View {
         NavigationStack {
             Form {
@@ -35,12 +37,24 @@ private struct SignInView: View {
                 }
                 Section("クラウド保存にログイン") {
                     TextField("メールアドレス", text: $email).textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField("パスワード", text: $password).textContentType(.password)
-                    Button(store.busy ? "ログイン中…" : "ログイン") {
+                    if !resetting { SecureField("パスワード（8文字以上）", text: $password).textContentType(creating ? .newPassword : .password) }
+                    Button(store.busy ? "処理中…" : resetting ? "再設定メールを送信" : creating ? "アカウントを作成" : "ログイン") {
                         let value = password
+                        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let resetMode = resetting, signupMode = creating
                         password = ""
-                        Task { await store.signIn(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: value) }
-                    }.disabled(store.busy || email.isEmpty || password.isEmpty)
+                        Task {
+                            if resetMode { await store.requestPasswordReset(email: address) }
+                            else if signupMode { await store.signUp(email: address, password: value) }
+                            else { await store.signIn(email: address, password: value) }
+                        }
+                    }.disabled(store.busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (!resetting && (creating ? password.count < 8 : password.isEmpty)))
+                    Button(creating || resetting ? "ログインに戻る" : "はじめての方") {
+                        creating = !(creating || resetting); resetting = false; password = ""
+                    }.disabled(store.busy)
+                    if !resetting { Button("パスワードを忘れた方") { resetting = true; creating = false; password = "" }.disabled(store.busy) }
+                    NavigationLink("プライバシーについて") { PrivacyInformation() }
+
                 }
             }.navigationTitle("おうちメンテ")
         }
@@ -141,6 +155,7 @@ private struct NativeSettings: View {
                     if let exportURL = store.exportURL { ShareLink("ファイルを共有・保存", item: exportURL) }
                     Button("バックアップから復元") { choosingBackup = true }.disabled(store.busy)
                 }
+                Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("アカウント") {
                     Button("ログアウト", role: .destructive) { confirmLogout = true }
                 }
@@ -335,5 +350,17 @@ private struct FamilySettings: View {
          .confirmationDialog("\(removing?.nickname ?? "家族")の共有アクセスを解除しますか？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
              if let member = removing { Button("共有を解除", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: member.user_id) }; removing = nil } }
          }
+    }
+}
+
+private struct PrivacyInformation: View {
+    var body: some View {
+        List {
+            Section("保存する情報") { Text("クラウド保存に登録するメールアドレス、住まい・製品・お手入れ・履歴、家族に表示する名前を保存します。ログイン情報はこの端末の安全な保管領域に保存します。") }
+            Section("使いみち") { Text("ログイン、記録の保存と端末間の共有、家族共有、確認メールとパスワード再設定に使用します。招待で参加した家族は、共有した住まいの記録を閲覧・編集・削除できます。") }
+            Section("保存先") { Text("クラウドの認証と記録保存にはSupabaseを使用します。メールは設定したメール配信サービスから送られます。書き出したファイルの保管と共有先は利用者が選びます。") }
+            Section("記録の管理") { Text("設定から記録を書き出せます。ログアウトするとこの端末のログイン情報を消しますが、クラウドの記録は残ります。") }
+            Section("公開前の確認事項") { Text("このiPhone版は開発中です。正式なプライバシーポリシー、運営者と問い合わせ先、アカウント削除は公開前に整備します。") }
+        }.navigationTitle("プライバシー")
     }
 }

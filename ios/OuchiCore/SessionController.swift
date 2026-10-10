@@ -27,6 +27,16 @@ public actor SessionController {
         try storage.write(JSONEncoder().encode(value))
         session = value
     }
+    public func signUp(email: String, password: String) async throws -> Bool {
+        try signOut()
+        let expected = generation
+        let value = try await api.signUp(email: email, password: password)
+        guard expected == generation else { throw CancellationError() }
+        guard let value else { return false }
+        try storage.write(JSONEncoder().encode(value))
+        session = value
+        return true
+    }
     public func signOut() throws {
         generation += 1
         refreshTask?.cancel(); refreshTask = nil
