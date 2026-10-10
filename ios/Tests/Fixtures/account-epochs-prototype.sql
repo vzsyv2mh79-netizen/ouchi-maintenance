@@ -75,3 +75,18 @@ begin
 end;$$;
 revoke all on function maintenance_private.close_app_identity(uuid,uuid),maintenance_private.reenroll_app_identity(uuid,uuid) from public,anon,authenticated;
 grant execute on function maintenance_private.close_app_identity(uuid,uuid),maintenance_private.reenroll_app_identity(uuid,uuid) to service_role;
+-- Local-only API adapter. UUIDs must be derived from server-verified JWT claims.
+create function public.close_maintenance_app_identity(target_user uuid, verified_session uuid) returns boolean
+language plpgsql security invoker set search_path='' as $$
+declare expected uuid;
+begin
+ if target_user is null or verified_session is null then raise exception 'Invalid identity'; end if;
+ perform pg_advisory_xact_lock(hashtext(target_user::text));
+ select a.epoch_id into expected from maintenance_private.app_epochs a
+ join maintenance_private.app_session_epochs s on s.user_id=a.user_id and s.epoch_id=a.epoch_id
+ where a.user_id=target_user and s.session_id=verified_session;
+ if not found then raise exception 'App session unavailable'; end if;
+ return maintenance_private.close_app_identity(target_user,expected);
+end;$$;
+revoke all on function public.close_maintenance_app_identity(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.close_maintenance_app_identity(uuid,uuid) to service_role;
