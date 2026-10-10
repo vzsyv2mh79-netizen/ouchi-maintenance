@@ -95,7 +95,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const retainedList=await attachmentGET(listRequest(token));assert.equal(retainedList.status,200);assert.ok((await retainedList.json()).items.some(item=>item.id===objectID));
   const upgradeEvent={...event,transactionId:'upgrade-'+randomUUID(),originalTransactionId:'upgrade-original-'+randomUUID(),signedAt:Date.now(),expiresAt:Date.now()+60000};
   for(const payload of [upgradeEvent,{...upgradeEvent,isUpgraded:true},upgradeEvent])assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload})).error,null);
-  const upgradeRow=await admin.from('ouchi_sandbox_transactions').select('payload').eq('transaction_id',upgradeEvent.transactionId).single();assert.equal(upgradeRow.error,null);assert.equal(upgradeRow.data.payload.isUpgraded,true);
+  const upgradeRow=await admin.from('ouchi_sandbox_transactions').select('payload').eq('transaction_id',upgradeEvent.transactionId).single();assert.equal(upgradeRow.error,null);assert.equal(upgradeRow.data.payload.isUpgraded,true);assert.equal((await attachmentPOST(uploadRequest())).status,403);
   const outsider=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
   const outsiderLogin=await outsider.auth.signUp({email:'outsider-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(outsiderLogin.error,null);
   const outsiderToken=outsiderLogin.data.session.access_token,outsiderClaims=JSON.parse(Buffer.from(outsiderToken.split('.')[1],'base64url'));

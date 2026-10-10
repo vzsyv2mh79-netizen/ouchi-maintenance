@@ -14,8 +14,12 @@ test('late purchase events stay with closed enrollment and cannot transfer to a 
  const save=value=>db.query('select public.apply_ouchi_sandbox_transaction($1::jsonb)',[JSON.stringify(value)]);
  await save(p);await save({...p,isUpgraded:true});await save(p);
  assert.equal((await db.query('select payload from public.ouchi_sandbox_transactions where transaction_id=$1',['1'])).rows[0].payload.isUpgraded,true);
+ await save({...p,signedAt:101,expiresAt:75});
+ const independent={...p,transactionId:'independent',originalTransactionId:'independent',signedAt:500,expiresAt:700};await save(independent);await save({...independent,isUpgraded:true});await save(independent);
  await db.query('select maintenance_private.close_app_epoch($1,$2)',[user,old]);
  const fresh=await enroll(newSession);assert.notEqual(old,fresh);
+ await save({...p,signedAt:102,expiresAt:400});
+ assert.equal((await db.query('select payload from public.ouchi_sandbox_transactions where transaction_id=$1',['1'])).rows[0].payload.expiresAt,400);
  await save({...p,transactionId:'2',signedAt:200,expiresAt:400});
  assert.equal((await db.query('select * from public.ouchi_sandbox_transactions where app_epoch_id=$1',[fresh])).rows.length,0);
  await assert.rejects(()=>save({...p,transactionId:'3',accountToken:fresh}));
