@@ -1,5 +1,9 @@
 // App-access cleanup workflow; not a complete shared-identity deletion feature.
 type Identity={id:string;email:string};
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function identityID(value:unknown):string|null {
+ return typeof value==='string'&&uuid.test(value)&&value!=='00000000-0000-0000-0000-000000000000'?value.toLowerCase():null;
+}
 export type ClosureDependencies={
  verify:(token:string)=>Promise<Identity|null>;
  reauthenticate:(email:string,password:string)=>Promise<string|null>;
@@ -22,10 +26,11 @@ export async function handleTestAccountClosure(request:Request, dependencies:Clo
  }catch{return reply({error:'Explicit confirmation and password required'},400);}
  try{
   const user=await dependencies.verify(token.slice(7));
-  if(!user||!user.email||!/^[0-9a-f-]{36}$/i.test(user.id))return reply({error:'Authentication required'},401);
+  const target=identityID(user?.id);
+  if(!user||!target||typeof user.email!=='string'||!user.email||user.email.length>320)return reply({error:'Authentication required'},401);
   const verifiedID=await dependencies.reauthenticate(user.email,password);
-  if(verifiedID!==user.id)return reply({error:'Reauthentication required'},403);
-  const changed=await dependencies.close(user.id);
+  if(identityID(verifiedID)!==target)return reply({error:'Reauthentication required'},403);
+  const changed=await dependencies.close(target);
   if(typeof changed!=='boolean')throw new Error();
   return reply({appAccessClosed:true,cleanupApplied:changed,sharedIdentityPreserved:true},200);
  }catch{return reply({error:'Cleanup not confirmed. Check status before retrying.'},503);}

@@ -20,3 +20,17 @@ test('actual development route refuses Production and non-local DB before constr
  const {POST}=await import(encoded(source));const keys=['NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY'];const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
  try{Object.assign(process.env,{NODE_ENV:'production',OUCHI_CLOSURE_TEST_MODE:'true',OUCHI_CLOSURE_TEST_URL:'http://127.0.0.1:54321',OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY:'synthetic',OUCHI_CLOSURE_TEST_SERVICE_KEY:'synthetic'});assert.equal((await POST(request())).status,503);process.env.NODE_ENV='development';process.env.OUCHI_CLOSURE_TEST_URL='https://hphifiqyypwyxkzfanod.supabase.co';assert.equal((await POST(request())).status,503);}finally{for(const key of keys){if(before[key]===undefined)delete process.env[key];else process.env[key]=before[key];}}
 });
+
+test('malformed authoritative identity is rejected before password verification or cleanup',async()=>{
+ let reauth=0,closed=0;
+ for(const badID of ['-'.repeat(36),'a'.repeat(36),'00000000-0000-0000-0000-000000000000','11111111-1111-4111-8111-11111111111x',null,42]){
+  const response=await handleTestAccountClosure(request(),{verify:async()=>({id:badID,email:'synthetic@example.invalid'}),reauthenticate:async()=>{reauth++;return id;},close:async()=>{closed++;return true;}});
+  assert.equal(response.status,401);
+ }
+ assert.equal(reauth,0);assert.equal(closed,0);
+});
+test('UUID case does not make the same verified identity different during reauthentication',async()=>{
+ const account='abcdef01-abcd-4abc-8abc-abcdefabcdef';let target;
+ const response=await handleTestAccountClosure(request(),{verify:async()=>({id:account.toUpperCase(),email:'synthetic@example.invalid'}),reauthenticate:async()=>account,close:async value=>{target=value;return true;}});
+ assert.equal(response.status,200);assert.equal(target,account);
+});
