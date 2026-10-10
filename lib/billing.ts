@@ -15,6 +15,8 @@ export function normalizeAppleTransaction(value: Record<string, unknown>, bundle
   const id = value.productId;
   if (value.bundleId !== bundleId || value.environment !== 'Sandbox' || typeof id !== 'string' || !Object.hasOwn(billingProducts,id)) throw new Error('Invalid transaction scope');
   const productId = id as BillingProductId;
+  const expectedType=billingProducts[productId].kind==='subscription'?'Auto-Renewable Subscription':'Consumable';
+  if(value.type!==expectedType)throw new Error('Invalid transaction product type');
   for (const key of ['transactionId','originalTransactionId','appAccountToken']) if(typeof value[key] !== 'string' || !value[key] || (value[key] as string).length > 128) throw new Error('Missing transaction identity');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.appAccountToken as string)) throw new Error('Invalid account token');
   for(const key of ['signedDate','purchaseDate']) if(!Number.isSafeInteger(value[key]) || (value[key] as number)<=0)throw new Error('Invalid date');

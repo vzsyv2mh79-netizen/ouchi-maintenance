@@ -135,13 +135,13 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await binding(claims.session_id)).data,null);
   const late={...event,signedAt:event.signedAt+2,expiresAt:event.expiresAt+60000};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:late})).error,null);
-  const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data[0].payload.expiresAt,late.expiresAt);
+  const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data.find(row=>row.payload.transactionId===event.transactionId)?.payload.expiresAt,late.expiresAt,JSON.stringify(renewed.data.map(row=>({id:row.payload.transactionId,signedAt:row.payload.signedAt,expiresAt:row.payload.expiresAt}))));
   const currentRows=await ledger(currentBinding.data);assert.equal(currentRows.error,null);assert.deepEqual(currentRows.data,[]);
   assert.ok((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:{...late,accountToken:currentBinding.data}})).error);
   const refunded={...late,signedAt:late.signedAt+1,revokedAt:late.signedAt+1};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:refunded})).error,null);
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error,null);
-  assert.equal((await ledger(initialBinding.data)).data[0].payload.revokedAt,refunded.revokedAt);
+  assert.equal((await ledger(initialBinding.data)).data.find(row=>row.payload.transactionId===event.transactionId)?.payload.revokedAt,refunded.revokedAt);
   assert.deepEqual((await ledger(currentBinding.data)).data,[]);
 
   assert.ok((await client.rpc('load_household')).error);

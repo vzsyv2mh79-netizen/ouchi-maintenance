@@ -32,7 +32,8 @@ final class PurchaseManager: ObservableObject {
     private func deliver(_ result: VerificationResult<Transaction>, account: UUID, finish: Bool) async throws {
         guard case .verified(let transaction) = result,
               ids.contains(transaction.productID), transaction.environment == .sandbox,
-              transaction.appAccountToken == account else { throw PurchaseError.unverified }
+              transaction.appAccountToken == account,
+              transaction.productType == expectedType(for: transaction.productID) else { throw PurchaseError.unverified }
         guard let persist, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
         try Task.checkCancellation()
@@ -41,10 +42,13 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         if finish { await transaction.finish() }
     }
+    private func expectedType(for id: String) -> Product.ProductType {
+        id.hasPrefix("ouchi.tip.") ? .consumable : .autoRenewable
+    }
     func markRetryNeeded() { needsRetry = true }
     func load() async throws { products = try await Product.products(for: ids) }
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
-        guard ids.contains(product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        guard ids.contains(product.id), product.type == expectedType(for: product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
         guard case .verified(let app) = try await AppTransaction.shared, app.environment == .sandbox,
               app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
@@ -68,7 +72,8 @@ final class PurchaseManager: ObservableObject {
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
                   ids.contains(transaction.productID), transaction.environment == .sandbox,
-                  transaction.appAccountToken == account else { continue }
+                  transaction.appAccountToken == account,
+              transaction.productType == expectedType(for: transaction.productID) else { continue }
             try await deliver(result, account: account, finish: false)
         }
     }
@@ -79,7 +84,8 @@ final class PurchaseManager: ObservableObject {
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
                   ids.contains(transaction.productID), transaction.environment == .sandbox,
-                  transaction.appAccountToken == account else { continue }
+                  transaction.appAccountToken == account,
+              transaction.productType == expectedType(for: transaction.productID) else { continue }
             try await deliver(result, account: account, finish: true)
         }
         guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
