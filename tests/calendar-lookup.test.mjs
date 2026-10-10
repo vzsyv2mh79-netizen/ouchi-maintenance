@@ -1509,3 +1509,12 @@ test('2023 OSH auto-dose washers preserve quarterly tank cleaning without invent
 test('ITW-80A02-W uses its non-auto-dose manual and has no tank task or invented drying schedule', () => {
  const [c]=lookup.lookupModel('ITW-80A02-W');assert.equal(c.releaseYear,2023);assert.ok(c.manualUrl.endsWith('104379.pdf'));assert.equal(c.suggestions.length,1);assert.equal(c.suggestions[0].intervalDays,30);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page=59');assert.match(c.suggestions[0].conditions,/給水終了後に一時停止.*表示の分量.*糸くずフィルター/);assert.match(c.lookupNote,/日数指定はありません/);assert.ok(!c.suggestions.some(x=>/タンク|槽乾燥/.test(x.name)));assert.equal(lookup.lookupModel('ITW-80A02-WX').length,0);
 });
+
+
+test('2024 OSH 10kg variants use dedicated manuals and preserve one-tank-at-a-time priming', () => {
+ for(const [model,pdf,auto] of [['TCW-100A01-W','104374',true],['ITW-100A01-W','104613',true],['ITW-100A02-W','104381',false]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.releaseYear,2024);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),auto?[30,90]:[30]);assert.deepEqual(c.suggestions.map(t=>t.sourceUrl),auto?[79,81].map(p=>c.manualUrl+'#page='+p):[c.manualUrl+'#page=68']);assert.match(c.lookupNote,/ふろ水ホース.*日数指定はありません/);assert.ok(!c.suggestions.some(t=>t.name.includes('槽乾燥')));
+  if(auto)assert.match(c.suggestions[1].conditions,/40℃以下.*3秒以上.*水を捨て.*30〜31ページ.*1つずつ.*内部にも液剤を充填/);else assert.ok(!c.suggestions.some(t=>t.name.includes('タンク')));assert.equal(lookup.lookupModel(model+'X').length,0);
+ }
+ assert.match(lookup.lookupModel('TCW-100A01-W')[0].suggestions[1].conditions,/洗剤2と柔軟剤1/);assert.match(lookup.lookupModel('ITW-100A01-W')[0].suggestions[1].conditions,/洗剤と柔軟剤/);
+});

@@ -13988,4 +13988,103 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH 10kg 4連タンク",
+    "modelNumber": "TCW-100A01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576667715",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104374.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104374.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売のOSH 10kg（4連タンク）。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびにカバーを開けて糸くずを取り除き、水洗いしてください。本体外側は汚れたらよくしぼったやわらかい布で拭き、洗剤投入ケースは汚れたら外して水洗いし、注水口の汚れも拭き取ります。ふろ水ホースは汚れたらストレーナー・フィルターを外して水洗いし、ホース内に水道水を流して洗います。部品のお手入れは運転を停止して行います。槽乾燥は説明書80ページの「定期的に」という案内で、日数指定はありません。衣類を入れず槽乾燥コースを使います。黒かびや洗剤かすは槽洗浄で除去します。毎回・汚れ時・定期的な清掃に固定の日数は設定していません。自動投入タンク取り付け部は汚れたら拭き、接続部を強くこすらないでください。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104374.pdf#page=79",
+        "conditions": "説明書79ページ。衣類を入れず、電源を入れて槽洗浄コースを選び、ふたを閉めてスタートします。給水終了後に一時停止してふたを開け、市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。"
+      },
+      {
+        "name": "自動投入タンク・経路の洗浄",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回程度・洗剤変更時など（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104374.pdf#page=81",
+        "conditions": "説明書81ページ。洗剤・柔軟剤の変更時、1か月以上未使用、ふたを開けて放置したとき、液剤がゼリー状になるなど変質したときにも洗浄します。衣類を入れず、停止した状態でタンクを外し、中を水ですすぎ、40℃以下のぬるま湯を満杯まで入れてセットします。電源を入れ、洗剤2と柔軟剤1を同時に3秒以上押し、洗浄するタンクを選んでスタートします。終了後はタンクの水を捨ててセットし、液剤を補充します。説明書30〜31ページの充填操作でタンクを1つずつ選び、洗濯機内部にも液剤を充填してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH 10kg 2連タンク",
+    "modelNumber": "ITW-100A01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576672108",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104613.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104613.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売のOSH 10kg（2連タンク）。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびにカバーを開けて糸くずを取り除き、水洗いしてください。本体外側は汚れたらよくしぼったやわらかい布で拭き、洗剤投入ケースは汚れたら外して水洗いし、注水口の汚れも拭き取ります。ふろ水ホースは汚れたらストレーナー・フィルターを外して水洗いし、ホース内に水道水を流して洗います。部品のお手入れは運転を停止して行います。槽乾燥は説明書80ページの「定期的に」という案内で、日数指定はありません。衣類を入れず槽乾燥コースを使います。黒かびや洗剤かすは槽洗浄で除去します。毎回・汚れ時・定期的な清掃に固定の日数は設定していません。自動投入タンク取り付け部は汚れたら拭き、接続部を強くこすらないでください。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104613.pdf#page=79",
+        "conditions": "説明書79ページ。衣類を入れず、電源を入れて槽洗浄コースを選び、ふたを閉めてスタートします。給水終了後に一時停止してふたを開け、市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。"
+      },
+      {
+        "name": "自動投入タンク・経路の洗浄",
+        "kind": "掃除",
+        "intervalDays": 90,
+        "frequency": "3か月に1回程度・洗剤変更時など（予定計算は90日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104613.pdf#page=81",
+        "conditions": "説明書81ページ。洗剤・柔軟剤の変更時、1か月以上未使用、ふたを開けて放置したとき、液剤がゼリー状になるなど変質したときにも洗浄します。衣類を入れず、停止した状態でタンクを外し、中を水ですすぎ、40℃以下のぬるま湯を満杯まで入れてセットします。電源を入れ、洗剤と柔軟剤を同時に3秒以上押し、洗浄するタンクを選んでスタートします。終了後はタンクの水を捨ててセットし、液剤を補充します。説明書30〜31ページの充填操作でタンクを1つずつ選び、洗濯機内部にも液剤を充填してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動洗濯機 OSH 10kg（自動投入なし）",
+    "modelNumber": "ITW-100A02-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576668415",
+    "productLinkLabel": "公式商品サポート",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104381.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104381.pdf",
+    "manualLinkLabel": "取扱説明書（PDF）",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売のOSH 10kg（自動投入なし）。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびにカバーを開けて糸くずを取り除き、水洗いしてください。本体外側は汚れたらよくしぼったやわらかい布で拭き、洗剤投入ケースは汚れたら外して水洗いし、注水口の汚れも拭き取ります。ふろ水ホースは汚れたらストレーナー・フィルターを外して水洗いし、ホース内に水道水を流して洗います。部品のお手入れは運転を停止して行います。槽乾燥は説明書69ページの「定期的に」という案内で、日数指定はありません。衣類を入れず槽乾燥コースを使います。黒かびや洗剤かすは槽洗浄で除去します。毎回・汚れ時・定期的な清掃に固定の日数は設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "1か月に1回程度（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104381.pdf#page=68",
+        "conditions": "説明書68ページ。衣類を入れず、電源を入れて槽洗浄コースを選び、ふたを閉めてスタートします。給水終了後に一時停止してふたを開け、市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
