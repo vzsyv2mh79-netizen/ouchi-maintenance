@@ -19,6 +19,11 @@ const actualAttachmentRoute=async()=>{
  let source=compile('app/api/development/product-attachments/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
  return await import(encoded(source));
 };
+const actualAPNsRoute=async()=>{
+ const mappings={'@supabase/supabase-js':import.meta.resolve('@supabase/supabase-js'),'@/lib/verified-app-session':sessionModule,'@/lib/billing-account':encoded(bindingModule),'@/lib/billing-body':encoded(compile('lib/billing-body.ts'))};
+ let source=compile('app/api/development/apns-registration/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
+ return await import(encoded(source));
+};
 // Disposable CI services only; no real user, SMTP or shared project.
 test('actual app lifecycle routes enforce real Auth and PostgREST closure and reenrollment', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:60000},async()=>{
  const gateway=createServer((request,response)=>{
@@ -29,7 +34,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   upstream.on('error',()=>response.writeHead(502).end());request.pipe(upstream);
  });
  await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
- const keys=['NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY','OUCHI_ATTACHMENT_TEST_MODE','OUCHI_ATTACHMENT_TEST_URL','OUCHI_ATTACHMENT_TEST_SERVICE_KEY'];
+ const keys=['VERCEL_ENV','OUCHI_APNS_TEST_MODE','OUCHI_APNS_TEST_SERVICE_KEY','NEXT_PUBLIC_SUPABASE_URL','APPLE_BUNDLE_ID','NODE_ENV','OUCHI_CLOSURE_TEST_MODE','OUCHI_CLOSURE_TEST_URL','OUCHI_CLOSURE_TEST_PUBLISHABLE_KEY','OUCHI_CLOSURE_TEST_SERVICE_KEY','OUCHI_ATTACHMENT_TEST_MODE','OUCHI_ATTACHMENT_TEST_URL','OUCHI_ATTACHMENT_TEST_SERVICE_KEY'];
  const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
  try{
   const options={auth:{persistSession:false,autoRefreshToken:false}};
@@ -49,6 +54,16 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const readBinding=async(user,session)=>{assert.equal(user,id);const result=await binding(session);if(result.error)throw result.error;return result.data;};
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),initialBinding.data);
   assert.ok((await client.rpc('current_maintenance_purchase_account',{target_user:id,verified_session:claims.session_id})).error);
+  Object.assign(process.env,{NODE_ENV:'development',VERCEL_ENV:'development',OUCHI_APNS_TEST_MODE:'true',OUCHI_APNS_TEST_SERVICE_KEY:service,NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',APPLE_BUNDLE_ID:'jp.ouchi.maintenance'});
+  const {POST:apnsPOST,DELETE:apnsDELETE}=await actualAPNsRoute();
+  const apnsToken='ab'.repeat(32),apnsRequest=(bearer,body)=>new Request('http://127.0.0.1:3000/api/development/apns-registration',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify(body)});
+  const registered=await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}));assert.equal(registered.status,200);const registeredID=(await registered.json()).registrationId;assert.ok(registeredID);
+  const repeated=await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}));assert.equal(repeated.status,200);assert.equal((await repeated.json()).registrationId,registeredID);
+  const apnsAllowed=async registration_id=>{const result=await admin.rpc('maintenance_apns_registration_allowed',{registration_id});assert.equal(result.error,null);return result.data;};
+  assert.equal(await apnsAllowed(registeredID),true);
+  assert.ok((await client.rpc('maintenance_apns_registration_allowed',{registration_id:registeredID})).error);
+  const stopped=await apnsDELETE(apnsRequest(token,{registrationId:registeredID}));assert.equal(stopped.status,200);assert.equal((await stopped.json()).disabled,true);assert.equal(await apnsAllowed(registeredID),false);
+  const restarted=await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}));assert.equal(restarted.status,200);const restartedID=(await restarted.json()).registrationId;assert.notEqual(restartedID,registeredID);
   // Synthetic ledger events only: no Apple signature or purchase is claimed here.
   const event={transactionId:'synthetic-'+randomUUID(),originalTransactionId:'synthetic-'+randomUUID(),accountToken:initialBinding.data,environment:'Sandbox',productId:'ouchi.premium.monthly',signedAt:Date.now(),purchasedAt:Date.now(),expiresAt:Date.now()+60000};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:event})).error,null);
@@ -105,6 +120,9 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await admin.rpc('bootstrap_synthetic_app_identity',{target_user:outsiderLogin.data.user.id,verified_session:outsiderClaims.session_id})).error,null);
   assert.equal((await attachmentGET(downloadRequest(outsiderToken))).status,404);assert.deepEqual((await (await attachmentGET(listRequest(outsiderToken))).json()).items,[]);
 
+  assert.equal((await apnsPOST(apnsRequest(outsiderToken,{deviceToken:apnsToken}))).status,503);assert.equal(await apnsAllowed(restartedID),true);
+  assert.equal((await (await apnsDELETE(apnsRequest(outsiderToken,{registrationId:restartedID}))).json()).disabled,false);
+
   const objectPath=`${id}/${initialBinding.data}/${objectID}.png`;
   const unrelatedBucket='unrelated-attachment-ci';assert.equal((await admin.storage.createBucket(unrelatedBucket,{public:false})).error,null);assert.equal((await admin.storage.from(unrelatedBucket).upload(objectPath,new Uint8Array([1,2,3]),{upsert:false})).error,null);
   const storedObject=await admin.storage.from(bucketName).download(objectPath);assert.equal(storedObject.error,null);assert.equal(storedObject.data.size,bytes.length);
@@ -120,6 +138,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
+  assert.equal(await apnsAllowed(restartedID),false);assert.equal((await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}))).status,403);
   const lateID=attachmentIDs.find(value=>value!==objectID&&value!==successfulID&&!allocations[attachmentIDs.indexOf(value)].error);assert.ok(lateID);
   const latePath=`${id}/${initialBinding.data}/${lateID}.png`;
   assert.ok((await admin.storage.from(bucketName).upload(latePath,new Uint8Array([137,80,78,71,13,10,26,10]),{contentType:'image/png',upsert:false})).error);
@@ -131,6 +150,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const forged=token.split('.');forged[2]=(forged[2][0]==='A'?'B':'A')+forged[2].slice(1);
   const invalid=createClient('http://127.0.0.1:54321','synthetic-public-key',{...options,global:{headers:{Authorization:'Bearer '+forged.join('.')}}});
   assert.ok((await invalid.rpc('load_household')).error);
+  assert.equal((await apnsPOST(apnsRequest(forged.join('.'),{deviceToken:apnsToken}))).status,401);
   const freshClient=createClient('http://127.0.0.1:54321','synthetic-public-key',options);
   const {eraseIsolatedAttachmentBatch}=await import(encoded(compile('lib/attachment-erasure.ts').replace(/from ['"]@supabase\/supabase-js['"]/g,`from '${import.meta.resolve('@supabase/supabase-js')}'`)));
   assert.deepEqual(await eraseIsolatedAttachmentBatch(),{completed:20,deferred:0});assert.deepEqual(await eraseIsolatedAttachmentBatch(),{completed:0,deferred:0});
@@ -143,6 +163,7 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const currentBinding=await binding(freshClaims.session_id);assert.equal(currentBinding.error,null);assert.equal(currentBinding.data,enrollment.epochID);assert.notEqual(currentBinding.data,initialBinding.data);
   assert.equal(await purchaseAccountAfterAuthVerification(login.data.session.access_token,freshVerified.data.user.id,readBinding),currentBinding.data);
   assert.equal((await binding(claims.session_id)).data,null);
+  const freshRegistration=await apnsPOST(apnsRequest(login.data.session.access_token,{deviceToken:apnsToken}));assert.equal(freshRegistration.status,200);const freshRegistrationID=(await freshRegistration.json()).registrationId;assert.equal(await apnsAllowed(freshRegistrationID),true);assert.equal(await apnsAllowed(restartedID),false);assert.equal((await apnsPOST(apnsRequest(token,{deviceToken:apnsToken}))).status,403);
   const late={...event,signedAt:event.signedAt+2,expiresAt:event.expiresAt+60000};
   assert.equal((await admin.rpc('apply_ouchi_sandbox_transaction',{payload:late})).error,null);
   const renewed=await ledger(initialBinding.data);assert.equal(renewed.error,null);assert.equal(renewed.data.find(row=>row.payload.transactionId===event.transactionId)?.payload.expiresAt,late.expiresAt,JSON.stringify(renewed.data.map(row=>({id:row.payload.transactionId,signedAt:row.payload.signedAt,expiresAt:row.payload.expiresAt}))));
