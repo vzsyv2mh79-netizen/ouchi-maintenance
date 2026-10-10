@@ -15464,4 +15464,553 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "iRobot",
+    "name": "ルンバ105 Combo（ホワイト）",
+    "modelNumber": "Y311260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/Y311260.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。105単体専用説明書12〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。ダスト容器は必要に応じて空にし、お手入れツールと清潔な布で清掃します。ダスト容器はすすぎ・水に浸すことが禁止されています。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=15",
+        "conditions": "ダスト容器とフィルターを外し、お手入れツールでフィルターのごみを除去します。容器を清潔な布で拭いて戻します。ダスト容器はすすいだり水に浸したりしません。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=13",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。お手入れツールで髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=12",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "お手入れツールで前輪の髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=17",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=12",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ105 Combo（ブラック）",
+    "modelNumber": "Y311060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/Y311060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。105単体専用説明書12〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。ダスト容器は必要に応じて空にし、お手入れツールと清潔な布で清掃します。ダスト容器はすすぎ・水に浸すことが禁止されています。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=15",
+        "conditions": "ダスト容器とフィルターを外し、お手入れツールでフィルターのごみを除去します。容器を清潔な布で拭いて戻します。ダスト容器はすすいだり水に浸したりしません。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=13",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。お手入れツールで髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=12",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "お手入れツールで前輪の髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=14",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=17",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwCOjaJP.pdf#page=12",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ105 Combo + AutoEmpty 充電ステーション（ホワイト）",
+    "modelNumber": "Y351260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/Y351260.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。AutoEmpty付き専用説明書11〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。ダスト容器は必要に応じて空にし、お手入れツールと清潔な布で清掃します。ダスト容器はすすぎ・水に浸すことが禁止されています。紙パックは充電ステーションのLEDやRoomba Homeアプリで満杯のお知らせを受けたら交換します。最大75日分の収納能力は交換周期ではありません。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=14",
+        "conditions": "ダスト容器とフィルターを外し、お手入れツールでフィルターのごみを除去します。容器を清潔な布で拭いて戻します。ダスト容器はすすいだり水に浸したりしません。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=12",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。お手入れツールで髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=11",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "お手入れツールで前輪の髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=15",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "AutoEmpty充電ステーションのフィルター清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=17",
+        "conditions": "電源コードを抜き、底面のブロワーカバーに糸くずやごみが絡んでいないか点検し、乾いた清潔な布で拭いて除去します。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=11",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ105 Combo + AutoEmpty 充電ステーション（ブラック）",
+    "modelNumber": "Y351060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/Y351060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。AutoEmpty付き専用説明書11〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。ダスト容器は必要に応じて空にし、お手入れツールと清潔な布で清掃します。ダスト容器はすすぎ・水に浸すことが禁止されています。紙パックは充電ステーションのLEDやRoomba Homeアプリで満杯のお知らせを受けたら交換します。最大75日分の収納能力は交換周期ではありません。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=14",
+        "conditions": "ダスト容器とフィルターを外し、お手入れツールでフィルターのごみを除去します。容器を清潔な布で拭いて戻します。ダスト容器はすすいだり水に浸したりしません。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=12",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。お手入れツールで髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=11",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "お手入れツールで前輪の髪の毛やごみを除去します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=13",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・センサー・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=15",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "AutoEmpty充電ステーションのフィルター清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=17",
+        "conditions": "電源コードを抜き、底面のブロワーカバーに糸くずやごみが絡んでいないか点検し、乾いた清潔な布で拭いて除去します。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG105ComboandVacwAEjaJP.pdf#page=11",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ205 DustCompactor Combo（ホワイト）",
+    "modelNumber": "L121260",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/L121260.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。205専用説明書11〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。DustCompactorダスト容器は必要に応じて空にし、清潔な布で拭きます。フィルター清掃後はラッチと全側面を隙間なく閉じます。最大60日分の収納能力はごみ捨ての固定周期ではありません。水タンク洗浄は説明書10ページのすすぎ・洗剤禁止と16ページのすすぎ・食器用洗剤の案内が異なるため、方法はメーカーへ確認してください。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=14",
+        "conditions": "DustCompactorダスト容器をまっすぐにして、ごみ箱の上で取り外しタブを押し、ごみを捨てます。フィルターを外してごみ箱の上ではたき、容器は清潔な布で拭きます。フィルターを戻し、ラッチと全側面を隙間なく閉じて取り付け直します。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=12",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=11",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "前輪部を引き上げて外し、前輪部とくぼみの髪の毛やごみを除去して戻します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーやセンサーのウィンドウに洗剤や水を吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=17",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=11",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  },
+  {
+    "maker": "iRobot",
+    "name": "ルンバ205 DustCompactor Combo（ブラック）",
+    "modelNumber": "L121060",
+    "categoryId": "robot-vacuum",
+    "productUrl": "https://store.irobot-jp.com/item/L121060.html",
+    "productLinkLabel": "メーカー公式製品情報",
+    "manualUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf",
+    "manualLinkLabel": "取扱説明書",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20250416_2.pdf",
+    "lookupNote": "2025年4月18日発売。205専用説明書11〜17ページを確認。水タンクは清掃後に毎回空にし、モップパッドは拭き掃除後に毎回冷たい水で手洗いして自然乾燥させます。毎回の作業は固定日数にしていません。DustCompactorダスト容器は必要に応じて空にし、清潔な布で拭きます。フィルター清掃後はラッチと全側面を隙間なく閉じます。最大60日分の収納能力はごみ捨ての固定周期ではありません。水タンク洗浄は説明書10ページのすすぎ・洗剤禁止と16ページのすすぎ・食器用洗剤の案内が異なるため、方法はメーカーへ確認してください。フィルター・エッジブラシ・モップパッドの交換目安3〜6か月、メインブラシ6〜12か月は使用状況によるため、固定日数にしていません。",
+    "suggestions": [
+      {
+        "name": "フィルターの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（ペットがいる家庭では週2回。予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=14",
+        "conditions": "DustCompactorダスト容器をまっすぐにして、ごみ箱の上で取り外しタブを押し、ごみを捨てます。フィルターを外してごみ箱の上ではたき、容器は清潔な布で拭きます。フィルターを戻し、ラッチと全側面を隙間なく閉じて取り付け直します。 フィルターの水洗い手順はこの説明書では案内されていません。"
+      },
+      {
+        "name": "シングルアクションブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "frequency": "週1回を目安（予定計算は7日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=12",
+        "conditions": "ブラシカバー取り外しレバーを押し、カバーとブラシを外します。髪の毛やごみを取り除きます。ブラシとカバーを取り付け直します。"
+      },
+      {
+        "name": "エッジクリーニングブラシの清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=11",
+        "conditions": "ブラシを引っ張って外し、髪の毛やごみを取り除いて取り付け直します。"
+      },
+      {
+        "name": "前輪の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "前輪部を引き上げて外し、前輪部とくぼみの髪の毛やごみを除去して戻します。手入れ後も動きが悪い場合はサービスセンターへ相談してください。"
+      },
+      {
+        "name": "ロボット本体の充電用接続部の清掃",
+        "kind": "掃除",
+        "intervalDays": 14,
+        "frequency": "2週間に1回、または必要に応じて（予定計算は14日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "ロボットを充電ステーションから外し、清潔な乾いた布、または軽く湿らせたメラミンフォームで接続部を拭きます。"
+      },
+      {
+        "name": "ロボット本体のセンサーの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回、または必要に応じて（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=13",
+        "conditions": "清潔な乾いた布、または軽く湿らせたメラミンフォームで拭きます。センサーやセンサーのウィンドウに洗剤や水を吹き付けません。"
+      },
+      {
+        "name": "充電ステーションの接続部・IRウィンドウの清掃",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "frequency": "月1回を目安（予定計算は30日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=17",
+        "conditions": "部品に異物やごみがないか点検し、乾いた清潔な布で拭きます。センサーに洗剤などを吹き付けません。"
+      },
+      {
+        "name": "ブラシカバーの点検",
+        "kind": "掃除",
+        "intervalDays": 180,
+        "frequency": "6か月ごとに点検（予定計算は180日）",
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/2025/OGs/OG205ComboandVacjaJP.pdf#page=11",
+        "conditions": "摩耗や損傷を点検し、ある場合は交換します。6か月ごとの指定は点検であり、一律の交換周期ではありません。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

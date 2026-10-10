@@ -1569,3 +1569,32 @@ test('SCD-123P-HC uses its own 2024 dedicated manual and audited care',()=>{
  });
 
 test('Roomba Plus 405 and 505 retain bin washing, hour-based mop care and cover inspection',()=>{for(const sku of ['G185060','N185060']){const [c]=lookup.lookupModel(sku);assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'robot-vacuum');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,7,14,14,14,30,30,30,180]);assert.match(c.lookupNote,/フィルターを外して水.*完全に乾か/);assert.match(c.lookupNote,/180時間.*180日には置き換えていません/);assert.match(c.lookupNote,/最大75日.*交換周期ではありません/);assert.match(c.suggestions[8].conditions,/点検.*一律の交換周期ではありません/);assert.match(c.suggestions[0].frequency,/ペット.*週2回/);assert.equal(c.suggestions[7].sourceUrl,c.manualUrl+'#page=19');assert.equal(c.suggestions[5].name.includes('カメラ'),sku==='N185060');assert.equal(lookup.lookupModel(sku+'X').length,0);}});
+
+test('Roomba 105, AutoEmpty and 205 use exact Japanese SKUs and distinct care procedures', () => {
+  for (const sku of ['Y311260','Y311060','Y351260','Y351060','L121260','L121060']) {
+    const [c] = lookup.lookupModel(sku);
+    const ae = sku.startsWith('Y35'), compact = sku.startsWith('L12');
+    assert.equal(c.releaseYear, 2025);
+    assert.equal(c.categoryId, 'robot-vacuum');
+    assert.deepEqual(c.suggestions.map(t => t.intervalDays), ae ? [7,7,14,14,14,30,30,30,180] : [7,7,14,14,14,30,30,180]);
+    assert.match(c.manualUrl, compact ? /OG205ComboandVacjaJP/ : ae ? /OG105ComboandVacwAEjaJP/ : /OG105ComboandVacwCOjaJP/);
+    assert.ok(c.suggestions.every(t => t.sourceUrl.startsWith(c.manualUrl+'#page=')));
+    assert.match(c.suggestions[0].frequency, /ペット.*週2回/);
+    assert.match(c.suggestions.at(-1).conditions, /点検.*一律の交換周期ではありません/);
+    assert.match(c.lookupNote, /毎回.*固定日数にしていません/);
+    assert.equal(c.suggestions.filter(t => /ステーションのフィルター/.test(t.name)).length, ae ? 1 : 0);
+    if (compact) {
+      assert.match(c.suggestions[0].conditions, /ラッチ.*全側面.*隙間なく/);
+      assert.match(c.suggestions[3].conditions, /引き上げ.*くぼみ/);
+      assert.match(c.lookupNote, /最大60日.*固定周期ではありません/);
+      assert.match(c.lookupNote, /10ページ.*16ページ.*メーカーへ確認/);
+      assert.doesNotMatch(c.lookupNote, /きれいな水ですすぎます/);
+    } else {
+      assert.match(c.suggestions[0].conditions, /すすいだり水に浸したりしません/);
+      assert.match(c.suggestions[3].conditions, /お手入れツール/);
+      if (ae) {assert.match(c.lookupNote, /LED.*満杯/);assert.match(c.lookupNote, /最大75日.*交換周期ではありません/);}
+    }
+    assert.equal(lookup.lookupModel(sku+'X').length, 0);
+  }
+  for (const unmatched of ['Y311000','Y351000','L121000']) assert.equal(lookup.lookupModel(unmatched).length, 0);
+});
