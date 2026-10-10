@@ -103,3 +103,27 @@ begin
 end;$$;
 revoke all on function public.maintenance_attachment_usage(uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.maintenance_attachment_usage(uuid,uuid,uuid) to service_role;
+
+-- Disposable prototype: retain a deletion queue until object removal is verified.
+create table maintenance_private.attachment_erasure_jobs(
+ attachment_id uuid primary key references maintenance_private.product_attachments(id),
+ user_id uuid not null,app_epoch_id uuid not null,object_path text not null,
+ created_at timestamptz not null default now()
+);
+alter table maintenance_private.attachment_erasure_jobs enable row level security;
+revoke all on maintenance_private.attachment_erasure_jobs from public,anon,authenticated;
+grant select,insert,delete on maintenance_private.attachment_erasure_jobs to service_role;
+create function maintenance_private.queue_closed_attachment_epoch() returns trigger
+language plpgsql security invoker set search_path='' as $$
+begin
+ if old.enabled and (not new.enabled or new.epoch_id<>old.epoch_id) then
+  insert into maintenance_private.attachment_erasure_jobs(attachment_id,user_id,app_epoch_id,object_path)
+  select f.id,f.user_id,f.app_epoch_id,f.user_id::text||'/'||f.app_epoch_id::text||'/'||f.id::text||'.'||case f.mime when 'image/jpeg' then 'jpg' when 'image/png' then 'png' else 'pdf' end
+  from maintenance_private.product_attachments f where f.user_id=old.user_id and f.app_epoch_id=old.epoch_id and f.state<>'removed'
+  on conflict(attachment_id) do nothing;
+ end if;
+ return new;
+end;$$;
+revoke all on function maintenance_private.queue_closed_attachment_epoch() from public,anon,authenticated;
+grant execute on function maintenance_private.queue_closed_attachment_epoch() to service_role;
+create trigger closed_attachment_epoch after update on maintenance_private.app_epochs for each row execute function maintenance_private.queue_closed_attachment_epoch();

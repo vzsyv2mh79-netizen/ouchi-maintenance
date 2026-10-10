@@ -116,6 +116,9 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   const request=(bearer,confirmation,secret=password)=>new Request('http://127.0.0.1:3000/api/development/account-closure',{method:'POST',headers:{authorization:'Bearer '+bearer},body:JSON.stringify({confirmation,password:secret})});
   assert.equal((await close(request(token,'DELETE_OUCHI_MAINTENANCE','incorrect-password'))).status,403);
   const closed=await close(request(token,'DELETE_OUCHI_MAINTENANCE'));assert.equal(closed.status,200);assert.equal((await closed.json()).appAccessClosed,true);
+  const lateID=attachmentIDs.find(value=>value!==objectID&&value!==successfulID&&!allocations[attachmentIDs.indexOf(value)].error);assert.ok(lateID);
+  const latePath=`${id}/${initialBinding.data}/${lateID}.png`;
+  assert.ok((await admin.storage.from(bucketName).upload(latePath,new Uint8Array([137,80,78,71,13,10,26,10]),{contentType:'image/png',upsert:false})).error);
   assert.ok((await reserveAttachment(successfulID)).error);assert.ok((await finishAttachment()).error);assert.equal((await attachmentPOST(uploadRequest())).status,401);assert.equal((await attachmentGET(downloadRequest(token))).status,401);assert.equal((await attachmentGET(bindingRequest(token))).status,401);
   const closedBinding=await binding(claims.session_id);assert.equal(closedBinding.error,null);assert.equal(closedBinding.data,null);
   assert.equal(await purchaseAccountAfterAuthVerification(token,verified.data.user.id,readBinding),null);
