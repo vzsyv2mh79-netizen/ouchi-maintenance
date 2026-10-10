@@ -1540,3 +1540,13 @@ test('2025 Iris washers distinguish weekly drying, tank count and internal primi
  }
  assert.match(lookup.lookupModel('TCW-105A02-W')[0].lookupNote,/ふろ水ホース/);
 });
+
+
+test('2023-2025 Iris non-auto-dose washers preserve dedicated drying schedules and water level', () => {
+ for(const [model,pdf,year,wash,dry,weekly] of [["ITW-70A01-BH", "109002", 2025, 51, 53, true], ["ITW-70A01-WH", "109001", 2025, 51, 53, true], ["IAW-T606-B", "108964", 2025, 54, 56, true], ["IAW-T606-W", "108963", 2025, 54, 56, true], ["ITW-100B01-W", "107306", 2024, 56, 57, false], ["ITW-80B01-B", "107416", 2024, 56, 57, false], ["ITW-80B01-W", "107305", 2024, 56, 57, false], ["ITW-60A01-W", "107219", 2024, 51, 53, true], ["ITW-70A01", "104573", 2023, 51, 53, true]]) {
+  const [c]=lookup.lookupModel(model);assert.equal(c.categoryId,'washer');assert.equal(c.releaseYear,year);assert.ok(c.manualUrl.endsWith(pdf+'.pdf'));assert.deepEqual(c.suggestions.map(t=>t.intervalDays),weekly?[30,7]:[30]);assert.equal(c.suggestions[0].sourceUrl,c.manualUrl+'#page='+wash);assert.ok(!c.suggestions.some(t=>t.name.includes('タンク')));
+  if(weekly){assert.equal(c.suggestions[1].sourceUrl,c.manualUrl+'#page='+dry);assert.match(c.suggestions[1].conditions,/槽乾燥.*約30分/);}else{assert.match(c.lookupNote,/日数指定はありません/);assert.ok(!c.suggestions.some(t=>t.name.includes('槽乾燥')));}
+  assert.equal(c.suggestions[0].conditions.includes('55L'),model.startsWith('ITW-70A01'));assert.equal(lookup.lookupModel(model+'X').length,0);
+  if(model.startsWith('IAW')){assert.match(c.lookupNote,/キャップ.*柔軟剤投入口.*歯ブラシ/);assert.match(c.suggestions[0].conditions,/水栓を開け.*給水栓を閉じ/);}
+ }
+});
