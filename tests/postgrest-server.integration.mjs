@@ -1,3 +1,4 @@
+import {execFileSync} from 'node:child_process';
 import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash} from 'node:crypto';import {createClient} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const encoded=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -80,6 +81,21 @@ test('actual app lifecycle routes enforce real Auth and PostgREST closure and re
   assert.equal((await secondDevice.rpc('load_household')).error,null);
   const secondRights=await ledger((await binding(secondClaims.session_id)).data);assert.equal(secondRights.error,null);assert.equal(secondRights.data[0].payload.transactionId,event.transactionId);
   const secondRegistration=await apnsPOST(apnsRequest(secondToken,{deviceToken:'ef'.repeat(32)}));assert.equal(secondRegistration.status,200);const secondRegistrationID=(await secondRegistration.json()).registrationId;
+  // Change only this disposable CI user's session; never a shared project.
+  assert.match(secondClaims.session_id,/^[0-9a-f-]{36}$/i);
+  const setSyntheticSessionDeadline=deadline=>{
+   assert.equal(process.env.OUCHI_REAL_AUTH_TEST,'true');
+   execFileSync('docker',['compose','-p','ouchi-auth-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:"update auth.sessions set not_after=now()+"+deadline+" where id='"+secondClaims.session_id+"';",timeout:10000,stdio:['pipe','pipe','pipe']});
+  };
+  setSyntheticSessionDeadline("-interval '1 second'");
+  try {
+   assert.equal((await binding(secondClaims.session_id)).data,null);
+   assert.equal(await apnsAllowed(secondRegistrationID),false);
+   assert.notEqual((await apnsPOST(apnsRequest(secondToken,{deviceToken:'ef'.repeat(32)}))).status,200);
+   assert.notEqual((await apnsDELETE(apnsRequest(secondToken,{registrationId:secondRegistrationID}))).status,200);
+  } finally { setSyntheticSessionDeadline("interval '1 hour'"); }
+  assert.equal((await binding(secondClaims.session_id)).data,initialBinding.data);
+  assert.equal(await apnsAllowed(secondRegistrationID),true);
   const originalSessionReplacement=await apnsPOST(apnsRequest(token,{deviceToken:'ef'.repeat(32)}));assert.equal(originalSessionReplacement.status,200);const originalSessionReplacementID=(await originalSessionReplacement.json()).registrationId;assert.notEqual(originalSessionReplacementID,secondRegistrationID);assert.equal(await apnsAllowed(secondRegistrationID),false);assert.equal(await apnsAllowed(originalSessionReplacementID),true);
   assert.equal((await (await apnsDELETE(apnsRequest(secondToken,{registrationId:originalSessionReplacementID}))).json()).disabled,false);assert.equal(await apnsAllowed(originalSessionReplacementID),true);
 
