@@ -20,9 +20,10 @@ test('real Auth verifies bearer and password before the cleanup boundary', {skip
   const account=signup.data.user.id,bearer=signup.data.session.access_token;
   const extracted=sessionAfterAuthVerification(bearer,account);assert.ok(extracted);
   let closed=0;
+  let temporaryRefreshToken=null;
   const dependencies={
    verify:async token=>{const {data,error}=await client().auth.getUser(token);if(error||!data.user?.email)return null;const identity=sessionAfterAuthVerification(token,data.user.id);return identity?{id:identity.userID,email:data.user.email,sessionID:identity.sessionID}:null;},
-   reauthenticate:async(address,secret)=>{const temporary=client();try{const {data,error}=await temporary.auth.signInWithPassword({email:address,password:secret});return !error&&data.user&&data.session?data.user.id:null;}finally{const {error}=await temporary.auth.signOut({scope:'local'});if(error)throw error;}},
+   reauthenticate:async(address,secret)=>{const temporary=client();try{const {data,error}=await temporary.auth.signInWithPassword({email:address,password:secret});if(!error&&data.session)temporaryRefreshToken=data.session.refresh_token;return !error&&data.user&&data.session?data.user.id:null;}finally{const {error}=await temporary.auth.signOut({scope:'local'});if(error)throw error;}},
    // App DB cleanup is deliberately a recorder here. Its atomic/RLS tests are
    // separate; this test proves real Auth, not complete deletion or PostgREST.
    close:async(id,session)=>{assert.equal(id,account);assert.equal(session,extracted.sessionID);closed++;return true;}
@@ -32,6 +33,12 @@ test('real Auth verifies bearer and password before the cleanup boundary', {skip
   assert.equal((await handleTestAccountClosure(action(parts.join('.'),password),dependencies)).status,401);assert.equal(closed,0);
   assert.equal((await handleTestAccountClosure(action(bearer,'wrong-synthetic-password'),dependencies)).status,403);assert.equal(closed,0);
   assert.equal((await handleTestAccountClosure(action(bearer,password),dependencies)).status,200);assert.equal(closed,1);
+  assert.ok(temporaryRefreshToken);
+  const revoked=await client().auth.refreshSession({refresh_token:temporaryRefreshToken});
+  assert.ok(revoked.error,'temporary refresh token must be revoked');
+  assert.equal(revoked.data.session,null);
+  const original=await client().auth.refreshSession({refresh_token:signup.data.session.refresh_token});
+  assert.equal(original.error,null);assert.equal(original.data.user?.id,account);assert.ok(original.data.session);
   assert.equal((await client().auth.getUser(bearer)).data.user?.id,account);
  }finally{gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
