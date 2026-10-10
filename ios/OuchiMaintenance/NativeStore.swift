@@ -73,6 +73,22 @@ import OuchiCore
             if reenrolling {
                 _ = try await lifecycle.reenroll(token: credentials.access_token, password: password, confirmed: confirmed)
                 guard expected == generation else { return }
+                // A confirmed new enrollment must not fall back to the previous
+                // enrollment's records if the following network load fails.
+                var cleanupFailed = false
+                do { try snapshotStorage?.write(nil) } catch { cleanupFailed = true }
+                snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
+                if !clearTemporaryExports() { cleanupFailed = true }
+                clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
+                purchases.stopObserving(); purchases.persist = nil
+                remindersEnabled = false
+                await reminders.reset(clearPreference: true)
+                guard expected == generation else { return }
+                if cleanupFailed {
+                    message = "再登録は完了しましたが、以前の端末内記録を消去できませんでした。ログアウトしてからログインし直してください。"
+                    busy = false
+                    return
+                }
                 busy = false
                 await reload()
             } else {
