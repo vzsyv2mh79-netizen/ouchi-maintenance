@@ -9,6 +9,7 @@ import OuchiCore
     @Published var message: String?
     @Published var homeID = ""
     @Published private(set) var exportURL: URL?
+    @Published private(set) var calendarURL: URL?
     @Published private(set) var familyMembers: [FamilyMember] = []
     @Published private(set) var inviteCode: String?
     @Published private(set) var familyHomeID: String?
@@ -76,6 +77,8 @@ import OuchiCore
         clearFamily()
         if let exportURL { try? FileManager.default.removeItem(at: exportURL) }
         exportURL = nil
+        if let calendarURL { try? FileManager.default.removeItem(at: calendarURL) }
+        calendarURL = nil
         do { try await session?.signOut() }
         catch { message = "この端末のログイン情報を削除できませんでした。もう一度お試しください。" }
     }
@@ -87,6 +90,15 @@ import OuchiCore
             if let old = exportURL { try? FileManager.default.removeItem(at: old) }
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
+    }
+    func prepareCalendar() {
+        guard !busy, let household else { return }
+        do {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-maintenance-\(UUID().uuidString).ics")
+            try CalendarExport.encode(household).write(to: url, options: [.atomic, .completeFileProtection])
+            if let old = calendarURL { try? FileManager.default.removeItem(at: old) }
+            calendarURL = url
+        } catch { message = "予定を書き出せませんでした。記録と日付を確認してください。" }
     }
     func reload() async {
         guard !busy, let api, let session else { return }

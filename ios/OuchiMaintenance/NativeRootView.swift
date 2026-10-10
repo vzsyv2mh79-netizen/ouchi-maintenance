@@ -156,6 +156,12 @@ private struct NativeSettings: View {
                     if let exportURL = store.exportURL { ShareLink("ファイルを共有・保存", item: exportURL) }
                     Button("バックアップから復元") { choosingBackup = true }.disabled(store.busy)
                 }
+                Section("カレンダーでリマインド") {
+                    Text("すべての住まいのお手入れ予定を午前9時、通知を前日の午前9時として書き出します。製品名・お手入れ名がファイルに含まれます。")
+                    Button("予定をカレンダー用に保存") { store.prepareCalendar() }.disabled(store.busy || store.household == nil)
+                    if let url = store.calendarURL { ShareLink("カレンダーファイルを共有・保存", item: url) }
+                    Text("取り込み後の通知設定はカレンダーで確認してください。アプリで完了・周期変更・削除しても、自動では反映されません。再取り込み時は重複に注意してください。TimeTreeでの直接取り込みは未確認です。").font(.caption)
+                }
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("アカウント") {
                     Button("ログアウト", role: .destructive) { confirmLogout = true }
