@@ -17146,4 +17146,129 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push({
+  "maker": "iRobot",
+  "name": "ルンバ Combo 10 Max + AutoWash 充電ステーション",
+  "modelNumber": "X085860",
+  "categoryId": "robot-vacuum",
+  "productUrl": "https://www.irobot-jp.com/roombacombo/10max/index.html",
+  "manualUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf",
+  "productLinkLabel": "メーカー公式製品情報",
+  "manualLinkLabel": "取扱説明書",
+  "verifiedAt": "2026-10-10",
+  "releaseYear": 2024,
+  "releaseSourceUrl": "https://www.irobot-jp.com/press/pdf/20240829_02.pdf",
+  "lookupNote": "2024年8月30日発売のAutoWashモデル専用です。説明書22〜30ページを確認。ブラシ掃除は月1回です。ダスト容器は必要に応じてフィルターを外し、水タンクとともにぬるま湯で洗い、完全に乾かして戻します。容器は食洗機不可、ロボットのフィルターは水洗い禁止です。モップパッドは必要に応じてぬるま湯で手洗いまたは洗濯機で洗い、自然乾燥します。乾燥機は使わず、デリケートな衣類と一緒に洗いません。ステーションの給水・廃水タンクは必要に応じてすすぎ、給水を補充し、廃水を空にします。ラッチを確実に閉じて戻します。タンクは食洗機不可。紙パックはLEDまたはアプリの満杯のお知らせで交換します。最大60日分の収納能力は交換周期ではありません。ブラシと前輪の交換目安は12か月、洗浄ローラーは12か月またはアプリの案内です。損耗と使用状況も確認してください。傾斜路は目に見える汚れがあるときに清掃します。必要時の作業は固定日数の予定にしていません。",
+  "suggestions": [
+    {
+      "name": "フィルターの清掃",
+      "kind": "掃除",
+      "intervalDays": 7,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=22",
+      "conditions": "ダスト容器を外し、フィルターの両端をつまんで引き出します。ゴミ箱の上ではたき、うね状のグリップを外側に向けて戻します。フィルターは洗わないでください。",
+      "frequency": "週1回（ペットがいる家庭では週2回。予定計算は7日）"
+    },
+    {
+      "name": "フィルターの交換",
+      "kind": "交換",
+      "intervalDays": 60,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=22",
+      "conditions": "約2か月ごとの交換目安です。使用状況によって異なり、損耗が見える場合は交換します。正しく取り付けないとロボットは動作しません。",
+      "frequency": "約2か月ごと（予定計算は60日）"
+    },
+    {
+      "name": "デュアルアクションブラシの清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=25",
+      "conditions": "ブラシフレームのレバーをつまんで持ち上げ、異物を除去します。2本のブラシと端のキャップを外し、内部や四角形・六角形のペグの髪やごみを除去します。キャップを戻し、軸の形を本体のイラストに合わせて戻します。",
+      "frequency": "月1回を目安（予定計算は30日）"
+    },
+    {
+      "name": "エッジクリーニングブラシの清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=24",
+      "conditions": "小さなドライバーで固定ネジをゆるめ、ブラシを引っ張って外します。髪やごみを除去して元に戻します。",
+      "frequency": "月1回を目安（予定計算は30日）"
+    },
+    {
+      "name": "前輪の清掃",
+      "kind": "掃除",
+      "intervalDays": 14,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=25",
+      "conditions": "前輪部を本体から上に引き抜き、車輪をハウジングから外します。くぼみのごみを除去し、カチッと音がするまで戻します。手入れ後も動きが悪い場合はサービスセンターへ相談します。",
+      "frequency": "2週間に1回を目安（予定計算は14日）"
+    },
+    {
+      "name": "ゴミセンサーの清掃",
+      "kind": "掃除",
+      "intervalDays": 14,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=23",
+      "conditions": "ダスト容器を外して空にし、センサーと容器のフタを乾いた清潔な布で拭きます。吸引口にたまったごみを取り除きます。",
+      "frequency": "2週間に1回を目安（予定計算は14日）"
+    },
+    {
+      "name": "ロボット本体の充電用接続部の清掃",
+      "kind": "掃除",
+      "intervalDays": 14,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=24",
+      "conditions": "ロボットをステーションから取り外して、乾いた清潔な布で拭きます。洗剤などを吹き付けないでください。",
+      "frequency": "2週間に1回を目安（予定計算は14日）"
+    },
+    {
+      "name": "センサー・カメラ・パッド収納部の清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=24",
+      "conditions": "センサー、カメラウィンドウ、パッド収納部とIRパッドセンサーを乾いた清潔な布で拭きます。洗剤などを吹き付けないでください。",
+      "frequency": "月1回を目安（予定計算は30日）"
+    },
+    {
+      "name": "充電ステーションの接続部の清掃",
+      "kind": "掃除",
+      "intervalDays": 14,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=30",
+      "conditions": "接続部ボタンを押し続けて接続部を露出させ、異物やごみを点検し、乾いた清潔な布で拭きます。洗剤などを吹き付けないでください。",
+      "frequency": "2週間に1回を目安（予定計算は14日）"
+    },
+    {
+      "name": "充電ステーションのIR・カメラ用ターゲットの清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=30",
+      "conditions": "IRウィンドウとカメラ用ドッキングターゲットに異物やごみがないか点検し、乾いた清潔な布で拭きます。洗剤などを吹き付けないでください。",
+      "frequency": "月1回を目安（予定計算は30日）"
+    },
+    {
+      "name": "パッド洗浄容器・オーバーフロー容器の清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=29",
+      "conditions": "洗浄ローラーと洗浄フィルターを外し、両容器を乾いた清潔な布で拭きます。排水ポートの詰まりを確認します。頑固なごみには中性洗剤とスポンジを使えます。",
+      "frequency": "汚れが見られる場合は月1回、またはアプリの指示（予定計算は30日）"
+    },
+    {
+      "name": "パッド洗浄フィルター・ローラーの清掃",
+      "kind": "掃除",
+      "intervalDays": 30,
+      "sourceKind": "取扱説明書",
+      "sourceUrl": "https://prod-help-content.care.irobotapi.com/files/guide/OGC10MaxwAutoWashJapan.pdf#page=29",
+      "conditions": "フィルターとローラーを外してぬるま湯で洗います。頑固なごみには中性洗剤とスポンジを使えます。乾かしてからフィルターを戻し、ローラーのペグを所定の位置に合わせて戻します。ロボットのフィルターは水洗い禁止です。",
+      "frequency": "汚れが見られる場合は月1回、またはアプリの指示（予定計算は30日）"
+    }
+  ]
+} satisfies ProductCandidate);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);

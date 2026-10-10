@@ -1660,3 +1660,17 @@ test('Roomba Max 715 and 775 retain their 2026 manual intervals and component di
  assert.match(c.suggestions[9].conditions,/収納部ドア.*ブロワーカバー/);
  assert.match(c.lookupNote,/黒いゴム栓.*内部チューブ/);assert.match(c.lookupNote,/カバーが閉じている場合は無理に開きません/);
 });
+
+test('Combo 10 Max AutoWash uses its own monthly brushes and conditional washing care',()=>{
+ const [c]=lookup.lookupModel('X085860');
+ assert.equal(c.releaseYear,2024);assert.equal(c.categoryId,'robot-vacuum');
+ assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[7,60,30,30,14,14,14,30,14,30,30,30]);
+ assert.equal(c.suggestions[1].kind,'交換');
+ assert.match(c.suggestions[0].conditions,/洗わない/);
+ assert.match(c.suggestions[11].conditions,/ぬるま湯.*乾かして.*ペグ/);
+ assert.match(c.suggestions[10].frequency,/汚れが見られる場合/);
+ assert.match(c.lookupNote,/最大60日.*交換周期ではありません/);
+ assert.match(c.lookupNote,/自然乾燥.*乾燥機は使わず/);
+ assert.ok(c.suggestions.every(t=>t.sourceUrl.startsWith(c.manualUrl+'#page=')));
+ assert.equal(lookup.lookupModel('X085860X').length,0);
+});
