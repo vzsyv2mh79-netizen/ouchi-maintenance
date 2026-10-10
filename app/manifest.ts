@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     lang: "ja",
-    icons: [{ src: "/icons/black-v3/192", sizes: "192x192", type: "image/png", purpose: "any" }, { src: "/icons/black-v3/512", sizes: "512x512", type: "image/png", purpose: "maskable" }],
+    icons: [{ src: "/icons/black-v4/192", sizes: "192x192", type: "image/png", purpose: "any" }, { src: "/icons/black-v4/512", sizes: "512x512", type: "image/png", purpose: "maskable" }],
     display: "standalone",
     background_color: "#f4f5f7",
     theme_color: "#f4f5f7",
