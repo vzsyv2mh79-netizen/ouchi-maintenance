@@ -428,6 +428,8 @@ private struct TaskEditor: View {
             }
             Section("情報の根拠") {
                 Text(initial?.sourceKind ?? "ユーザー設定")
+                if let frequency = initial?.sourceFrequency, !frequency.isEmpty { Text("元の頻度・条件：\(frequency)").font(.subheadline) }
+                if let note = initial?.sourceNote, !note.isEmpty { Text(note).font(.caption) }
                 if let source = initial?.sourceUrl, let url = URL(string: source), url.scheme == "https" { Link("元の情報を確認", destination: url) }
                 Text("編集した項目はユーザー設定として保存します。元の情報はリンクと注記に保持します。").font(.caption)
             }
