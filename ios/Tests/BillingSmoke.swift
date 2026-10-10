@@ -31,9 +31,53 @@ import OuchiCore
             do { _ = try await invalid.entitlement(token: "synthetic"); fatalError("missing or zero purchase binding accepted") }
             catch { precondition(error as? CloudError == .malformedResponse) }
         }
+        // An explicit production adapter recognizes server-verified rights even when
+        // new sales are paused; default Sandbox must never consume those rights.
+        let expiry = 1791633600000.0
+        let beforeExpiry = Date(timeIntervalSince1970: expiry / 1000 - 1)
+        for sales in [false, true] {
+            let payload = "{\"plan\":\"premium\",\"purchaseAccountToken\":\"22222222-2222-4222-8222-222222222222\",\"salesEnabled\":\(sales),\"environment\":\"Production\",\"expiresAt\":\(expiry),\"productId\":\"ouchi.premium.annual\"}"
+            let production = BillingAPI(environment: .production) { request in
+                (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            let rights = try await production.entitlement(token: "synthetic")
+            precondition(rights.premiumIsCurrent(now: beforeExpiry, expectedEnvironment: .production))
+            precondition(!rights.premiumIsCurrent(now: beforeExpiry))
+            precondition(!rights.premiumIsCurrent(now: Date(timeIntervalSince1970: expiry / 1000), expectedEnvironment: .production))
+            let sandbox = BillingAPI { request in
+                (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            do { _ = try await sandbox.entitlement(token: "synthetic"); fatalError("Sandbox consumed production rights") }
+            catch { precondition(error as? CloudError == .malformedResponse) }
+        }
+        for payload in [
+            #"{"plan":"free","salesEnabled":false}"#,
+            #"{"plan":"free","salesEnabled":false,"environment":"Sandbox"}"#,
+            #"{"plan":"premium","salesEnabled":false,"environment":"Production","expiresAt":1791633600000,"productId":"ouchi.premium.monthly"}"#,
+            #"{"plan":"free","salesEnabled":false,"environment":"Xcode"}"#
+        ] {
+            let invalid = BillingAPI(environment: .production) { request in
+                (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            do { _ = try await invalid.entitlement(token: "synthetic"); fatalError("Production accepted malformed or wrong-environment rights") }
+            catch { precondition(error as? CloudError == .malformedResponse) }
+        }
+        for environment in ["Sandbox", "Production"] {
+            let acknowledgement = BillingAPI(environment: .production) { request in
+                let body = try JSONDecoder().decode([String: String].self, from: request.httpBody!)
+                precondition(body == ["signedTransaction": "synthetic-jws"])
+                let payload = "{\"saved\":true,\"environment\":\"\(environment)\"}"
+                return (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            if environment == "Production" { try await acknowledgement.submit(signedTransaction: "synthetic-jws", token: "synthetic") }
+            else {
+                do { try await acknowledgement.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("Production accepted Sandbox save") }
+                catch { precondition(error as? CloudError == .malformedResponse) }
+            }
+        }
         let unavailable = BillingAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
         do { try await unavailable.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("failed persistence accepted") }
         catch { precondition(error as? CloudError == .rejected(503)) }
-        print("BillingSmoke PASS: authenticated JWS transport, server ack, production refusal, authoritative expiry, failed persistence refusal. No Apple purchase/network.")
+        print("BillingSmoke PASS: authenticated JWS transport, server ack, explicit environment isolation, paused-sales paid rights, authoritative expiry, failed persistence refusal. No Apple purchase/network.")
     }
 }

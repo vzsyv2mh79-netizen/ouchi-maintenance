@@ -1,11 +1,17 @@
 import Foundation
 import Combine
 import StoreKit
+import OuchiCore
 
-// Native adapter: only Sandbox/TestFlight, server persistence must succeed before finish.
+// Server persistence must succeed before finish. Default remains Sandbox; production sales are not wired.
 @MainActor
 final class PurchaseManager: ObservableObject {
     enum Outcome { case saved, pending, cancelled }
+    let environment: BillingEnvironment
+    init(environment: BillingEnvironment = .sandbox) { self.environment = environment }
+    private var storeEnvironment: AppStore.Environment {
+        environment == .sandbox ? .sandbox : .production
+    }
     @Published private(set) var products: [Product] = []
     @Published private(set) var needsRetry = false
     private var observer: Task<Void, Never>?
@@ -31,7 +37,7 @@ final class PurchaseManager: ObservableObject {
     func stopObserving() { bindingGeneration += 1; boundAccount = nil; observer?.cancel(); observer = nil }
     private func deliver(_ result: VerificationResult<Transaction>, account: UUID, finish: Bool) async throws {
         guard case .verified(let transaction) = result,
-              ids.contains(transaction.productID), transaction.environment == .sandbox,
+              ids.contains(transaction.productID), transaction.environment == storeEnvironment,
               transaction.appAccountToken == account,
               transaction.productType == expectedType(for: transaction.productID) else { throw PurchaseError.unverified }
         guard let persist, boundAccount == account else { throw PurchaseError.notConfigured }
@@ -50,7 +56,7 @@ final class PurchaseManager: ObservableObject {
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
         guard ids.contains(product.id), product.type == expectedType(for: product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
-        guard case .verified(let app) = try await AppTransaction.shared, app.environment == .sandbox,
+        guard case .verified(let app) = try await AppTransaction.shared, app.environment == storeEnvironment,
               app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
         guard expected == bindingGeneration, boundAccount == account, persist != nil else { throw CancellationError() }
         switch try await product.purchase(options: [.appAccountToken(account)]) {
@@ -71,7 +77,7 @@ final class PurchaseManager: ObservableObject {
         for await result in Transaction.currentEntitlements {
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
-                  ids.contains(transaction.productID), transaction.environment == .sandbox,
+                  ids.contains(transaction.productID), transaction.environment == storeEnvironment,
                   transaction.appAccountToken == account,
               transaction.productType == expectedType(for: transaction.productID) else { continue }
             try await deliver(result, account: account, finish: false)
@@ -83,7 +89,7 @@ final class PurchaseManager: ObservableObject {
         for await result in Transaction.unfinished {
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             guard case .verified(let transaction) = result,
-                  ids.contains(transaction.productID), transaction.environment == .sandbox,
+                  ids.contains(transaction.productID), transaction.environment == storeEnvironment,
                   transaction.appAccountToken == account,
               transaction.productType == expectedType(for: transaction.productID) else { continue }
             try await deliver(result, account: account, finish: true)
