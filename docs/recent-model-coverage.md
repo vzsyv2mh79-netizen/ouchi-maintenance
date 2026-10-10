@@ -587,3 +587,6 @@ Official select/contents proves March2025. Actual model FAQ query31 entries; pan
 
 ## SHARP CM-U100 (March 2026)
 Official select/contents confirms March2026. Actual model query UI all31 questions; visible panel link onclick postQaForm179711 inspected. Public model FAQ HTML explicitly maps tank179710 and internal drying179763. Shared official source association directly verified, not inferred from similarity. Full source diagrams previously audited. Bothpanels14/tank7/body30; no internal dry button, clothesdeodorization plus2Hofftimer conditional, duration not recurrence. No manual agreement accepted or bypassed.
+
+## SHARP CV-T71 / CV-U71 (March 2025 / March 2026)
+Official select/contents verifies release month/year. Actual model query UI full28 entries each; rear-panel/sensor visible link onclick180144 directly verified for BOTH. Public model FAQ HTML tank180145 explicit for both. Same manufacturer-linked source fully audited earlier for S71; no similarity inference. Filter14/body30, tank conditional only because source180145 has no fixed interval in text or diagram; no borrowed weekly tank. Source notes preserve unplug,10min dirty-panel soak/rinse/shadedry, body no rinse/40C max and float magnetup/outside pin.
