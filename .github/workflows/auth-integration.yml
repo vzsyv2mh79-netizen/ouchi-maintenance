@@ -2,7 +2,7 @@ name: Isolated real Auth checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['lib/account-closure.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'tests/auth-server.integration.mjs', 'tests/fixtures/auth/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
+    paths: ['lib/account-closure.ts', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'tests/auth-server.integration.mjs', 'tests/fixtures/auth/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
   workflow_dispatch:
 permissions:
   contents: read

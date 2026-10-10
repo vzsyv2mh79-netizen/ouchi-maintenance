@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID} from 'node:crypto';import {PGlite} from '@electric-sql/pglite';import ts from 'typescript';import {createClient} from '@supabase/supabase-js';
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const moduleURL=path=>'data:text/javascript;base64,'+Buffer.from(compile(path)).toString('base64');
+const {handleTestAccountReenrollment}=await import(moduleURL('lib/account-reenrollment.ts'));
 const {handleTestAccountClosure}=await import(moduleURL('lib/account-closure.ts'));
 const {sessionAfterAuthVerification}=await import(moduleURL('lib/verified-app-session.ts'));
 // Explicit integration invocation only. Ordinary pnpm test does not run this file.
@@ -62,7 +63,11 @@ test('real Auth session drives isolated closure and explicit reenrollment withou
   const checked=await client().auth.getUser(next.data.session.access_token);assert.equal(checked.error,null);
   const fresh=sessionAfterAuthVerification(next.data.session.access_token,checked.data.user.id);assert.ok(fresh);assert.notEqual(fresh.sessionID,extracted.sessionID);
   await user(fresh);await assert.rejects(()=>db.query('select public.load_household()'));
-  await service();await db.query('select maintenance_private.reenroll_app_identity($1,$2)',[fresh.userID,fresh.sessionID]);
+  const reenrollDependencies={verify:dependencies.verify,reauthenticate:dependencies.reauthenticate,enroll:async(id,session)=>{await service();return (await db.query('select maintenance_private.reenroll_app_identity($1,$2) as epoch',[id,session])).rows[0].epoch;}};
+  const reenroll=(token,confirmation='REENROLL_OUCHI_MAINTENANCE')=>new Request('http://localhost/api/development/account-reenrollment',{method:'POST',headers:{authorization:'Bearer '+token},body:JSON.stringify({confirmation,password})});
+  assert.equal((await handleTestAccountReenrollment(reenroll(next.data.session.access_token,'DELETE_OUCHI_MAINTENANCE'),reenrollDependencies)).status,400);
+  assert.equal((await handleTestAccountReenrollment(reenroll(bearer),reenrollDependencies)).status,503);
+  const enrolled=await handleTestAccountReenrollment(reenroll(next.data.session.access_token),reenrollDependencies);assert.equal(enrolled.status,200);assert.equal((await enrolled.json()).appEnrollmentCreated,true);
   await user(extracted);await assert.rejects(()=>db.query('select public.load_household()'));
   await user(fresh);const newHome=(await db.query('select public.load_household() as data')).rows[0].data.homes[0];assert.notEqual(newHome.id,oldHome.id);
   await service();await assert.rejects(()=>db.query('select public.close_maintenance_app_identity($1,$2)',[account,extracted.sessionID]));
