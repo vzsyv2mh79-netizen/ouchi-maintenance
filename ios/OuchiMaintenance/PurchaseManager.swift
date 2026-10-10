@@ -18,11 +18,13 @@ final class PurchaseManager: ObservableObject {
     func startObserving(account: UUID) {
         stopObserving()
         boundAccount = account
+        needsRetry = false
+        let expected = bindingGeneration
         observer = Task { [weak self] in
             for await result in Transaction.updates {
                 guard !Task.isCancelled, let self else { return }
                 do { try await self.deliver(result, account: account, finish: true) }
-                catch { self.needsRetry = true }
+                catch { if self.bindingGeneration == expected, self.boundAccount == account, !Task.isCancelled { self.needsRetry = true } }
             }
         }
     }
@@ -31,9 +33,11 @@ final class PurchaseManager: ObservableObject {
         guard case .verified(let transaction) = result,
               ids.contains(transaction.productID), transaction.environment == .sandbox,
               transaction.appAccountToken == account else { throw PurchaseError.unverified }
-        guard let persist else { throw PurchaseError.notConfigured }
+        guard let persist, boundAccount == account else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
         try Task.checkCancellation()
         try await persist(result.jwsRepresentation)
+        guard bindingGeneration == expected, boundAccount == account else { throw CancellationError() }
         try Task.checkCancellation()
         if finish { await transaction.finish() }
     }

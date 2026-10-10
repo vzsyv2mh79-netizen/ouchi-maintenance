@@ -70,10 +70,33 @@ SwiftPMのXCTest実行はローカルツールの不整合で未実施。
 
 ## まとめて検証する
 
-`python3 ios/scripts/verify-native.py --sdk /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` は共通ライブラリと12種類のSmokeを一時ディレクトリに毎回ビルドして実行し、macOSによる認証/StoreKit/通知/Storeの型検査、SwiftUI構文、プロジェクトplistも確認する。古い実行ファイルを流用しない。合成通信/fixtureのみで、登録・メール・DB削除・OS通知を行わない。2026-10-10このコマンド全件PASS。Lookupは標準では1機種fixture、別途334機種のWebカタログ確認は前の検証でPASS。全カタログはexport-web-catalog.mjsで出力して`--catalog JSON_PATH`を指定する。
+`python3 ios/scripts/verify-native.py --sdk /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk` は共通ライブラリと13種類のSmokeを一時ディレクトリに毎回ビルドして実行し、macOSによる認証/StoreKit/通知/Storeの型検査、SwiftUI構文、プロジェクトplistも確認する。古い実行ファイルを流用しない。合成通信/fixtureのみで、登録・メール・DB削除・OS通知を行わない。2026-10-10このコマンド全件PASS。Lookupは標準では1機種fixture、別途334機種のWebカタログ確認は前の検証でPASS。全カタログはexport-web-catalog.mjsで出力して`--catalog JSON_PATH`を指定する。
 
 Xcode本体導入後は、そのXcodeに対応するmacOS SDKを指定し`--ios-build`を追加すると署名なしのiOS Simulator SDKビルドを行う。iOSビルドが未実行なら出力に明示。成功しても実機の表示、Auth/RLS、通知、購入は別途検証が必要。現在XcodeなしのためiOSビルドは未実行。
 
 Sandbox billing adapter: JWT-authenticated JWS submit requires saved:true/environment:Sandbox. Entitlements come only from the server with product/environment/expiry checks. NativeStore binds the authenticated account and generation only under DEBUG with IOS_SANDBOX_BILLING=YES. Default NO and Release disabled. Logout clears observers and rights. Failed persistence stays unfinished. BillingSmoke mocks ack/Production refusal/expiry/503 PASS. verify-native.py now typechecks both DEBUG and regular native classes: all13 smoke tests and typechecks PASS. Actual StoreKit/JWS/server/API remain unverified. Purchase UI, real premium benefits and legal disclosures are still incomplete. Server PR165 remains unmerged; production billing routes are not assumed available.
 
 Sandbox tip screen: DEBUG with explicit sandbox configuration only. Uses StoreKit displayName/displayPrice and consumable type, voluntary one-time no-feature tips, confirmation and unfinished transaction retry. Does not show unimplemented subscription benefits. AppTransaction.shared must be verified Sandbox with this bundle ID before purchase starts; binding generation/account must still match. Default/Release screen hidden. No real purchases made. StoreKit integration and SwiftUI rendering still require iOS SDK/device testing. Formal terms/privacy/contact remain mandatory before any sales.
+
+
+## Sandbox purchase account-switch acceptance checks (not executed)
+
+In the development build only, with test accounts and configured Sandbox products:
+1. Delay the server transaction response, start a tip purchase, then sign out
+   before the response. The old transaction must not be finished by the stopped
+   binding; no rights/message/retry badge may appear on a new account.
+2. Repeat with sign-out and sign-in to the SAME account. The generation must
+   invalidate the old callback despite matching UUID. Replay the unfinished
+   transaction under the new binding; only server acknowledgement permits finish.
+3. Start restore, delay AppStore.sync/currentEntitlements, switch account, release
+   the response. No transaction may be posted with the new account credentials.
+4. Delay a failed Transaction.updates delivery, switch account, release its error.
+   The old observer must not set the new account's needsRetry flag.
+5. Fail server persistence without switching account. The transaction remains
+   unfinished; retry under the same account succeeds idempotently after reconnect.
+6. Verify cancellation and pending purchases grant no rights; Production app or
+   transaction verification is rejected before any test purchase is accepted.
+
+The native adapter now checks binding generation and account after persistence,
+and its observer suppresses stale error flags. Local typechecks do not execute
+StoreKit; these scenarios require Xcode and Sandbox before submission.
