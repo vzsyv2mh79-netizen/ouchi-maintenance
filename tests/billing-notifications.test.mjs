@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import ts f
 const moduleURL=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const stub=moduleURL(`
 export function billingConfiguration(){return globalThis.notificationHarness.enabled?{}:null;}
+export async function persistBillingTransaction(db,config,signed,transaction){const h=globalThis.notificationHarness;h.persistedSigned=signed;const result=await db.rpc('synthetic',{payload:transaction});if(result.error)throw Error('database');}
 export function readBillingBody(request){return request.json();}
 export function billingVerifier(){return {verifyAndDecodeNotification:async()=>{const h=globalThis.notificationHarness;if(h.outerInvalid)throw Error('invalid');return h.notification;}};}
 export async function verifyBillingTransaction(){const h=globalThis.notificationHarness;if(h.innerInvalid)throw Error('invalid');return h.transaction;}
@@ -19,6 +20,7 @@ test('actual notification handler distinguishes invalid proof from retryable per
   h.networkFailure=true;let response=await send();assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'Retry notification'});h.networkFailure=false;
   h.databaseFailure=true;assert.equal((await send()).status,503);h.databaseFailure=false;
   response=await send();assert.equal(response.status,200);assert.deepEqual(await response.json(),{received:true});assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(h.payload,h.transaction);
+  assert.equal(h.persistedSigned,'synthetic');
   const writes=h.writes;h.notification={};assert.equal((await send()).status,200);assert.equal(h.writes,writes);
  }finally{delete globalThis.notificationHarness;}
 });

@@ -1,4 +1,4 @@
-import {billingConfiguration,billingDatabase,verifiedPurchaseAccount} from '@/lib/billing-server';
+import {billingConfiguration,billingDatabase,verifiedPurchaseAccount,ledgerEntitlementAfterAuth} from '@/lib/billing-server';
 import {entitlementFromTransactions,type VerifiedTransaction} from '@/lib/billing';
 export const runtime='nodejs';
 export async function GET(request:Request){
@@ -8,6 +8,12 @@ export async function GET(request:Request){
  let purchaseAccount:string|null;
  try{purchaseAccount=await verifiedPurchaseAccount(db,token.slice(7),user.id);}catch{return Response.json({error:'購入アカウントを確認できません。'},{status:503,headers});}
  if(!purchaseAccount)return Response.json({error:'現在の登録を確認できません。'},{status:403,headers});
+ if(config.storage==='verified-ledger'){
+  try{
+   const state=await ledgerEntitlementAfterAuth(db,token.slice(7),user.id,purchaseAccount);
+   return Response.json({...state,salesEnabled:false,purchaseAccountToken:purchaseAccount},{headers});
+  }catch{return Response.json({error:'契約状態を確認できません。'},{status:503,headers});}
+ }
  const result=await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id',user.id).eq('app_epoch_id',purchaseAccount);
  if(result.error)return Response.json({error:'契約状態を確認できません。'},{status:503,headers});
  return Response.json({...entitlementFromTransactions((result.data??[]).map(v=>v.payload as VerifiedTransaction).filter(v=>v.environment==='Sandbox'&&v.accountToken===purchaseAccount),Date.now()),salesEnabled:false,environment:'Sandbox',purchaseAccountToken:purchaseAccount},{headers});

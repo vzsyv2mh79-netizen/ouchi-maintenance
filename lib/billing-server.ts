@@ -3,11 +3,17 @@ import {SignedDataVerifier,Environment} from '@apple/app-store-server-library';
 import {createClient} from '@supabase/supabase-js';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
 import {normalizeAppleTransaction} from './billing';
+import type {VerifiedTransaction} from './billing';
+import {verifyAndPersistLedgerTransaction} from './billing-ledger';
+import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
+import {sessionAfterAuthVerification} from './verified-app-session';
 export function billingConfiguration(){
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,bundleId=process.env.APPLE_BUNDLE_ID,roots=process.env.APPLE_ROOT_CERTIFICATES_BASE64;
  if(process.env.BILLING_MODE!=='sandbox'||process.env.BILLING_ACCOUNT_BINDING_MODE!=='epoch'||!url||!key||!bundleId||!roots)return null;
  const certificates=roots.split(',').map(v=>Buffer.from(v,'base64'));if(certificates.some(c=>!c.length))return null;
- return {url,key,bundleId,certificates};
+ const storage=process.env.BILLING_STORAGE_MODE;
+ if(storage!==undefined&&storage!=='sandbox-legacy'&&storage!=='verified-ledger')return null;
+ return {url,key,bundleId,certificates,storage:storage??'sandbox-legacy'};
 }
 export function billingDatabase(config:NonNullable<ReturnType<typeof billingConfiguration>>){return createClient(config.url,config.key,{auth:{persistSession:false,autoRefreshToken:false}});}
 export function billingVerifier(config:NonNullable<ReturnType<typeof billingConfiguration>>){return new SignedDataVerifier(config.certificates,true,Environment.SANDBOX,config.bundleId);}
@@ -16,6 +22,22 @@ export async function verifyBillingTransaction(jws:string,config:NonNullable<Ret
  return normalizeAppleTransaction(value as unknown as Record<string,unknown>,config.bundleId);
 }
 export {readBillingBody} from './billing-body';
+
+/** transaction must be the result of verifyBillingTransaction for this exact JWS. */
+export async function persistBillingTransaction(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedTransaction:string,transaction:VerifiedTransaction){
+ if(config.storage==='verified-ledger'){
+  await verifyAndPersistLedgerTransaction(signedTransaction,{verify:async()=>transaction,persist:async(name,args)=>await db.rpc(name,args)});
+ }else{
+  const result=await db.rpc('apply_ouchi_sandbox_transaction',{payload:transaction});if(result.error)throw new Error('Persistence unavailable');
+ }
+}
+/** Caller already verified this exact bearer with Auth.getUser. */
+export async function ledgerEntitlementAfterAuth(db:ReturnType<typeof billingDatabase>,token:string,user:string,epoch:string){
+ const identity=sessionAfterAuthVerification(token,user);if(!identity)throw new Error('Session unavailable');
+ return readVerifiedLedgerEntitlement(async(name,args)=>await db.rpc(name,args),{
+  target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:'Sandbox',
+ });
+}
 
 /** Auth.getUser must already have verified this exact bearer and user. */
 export async function verifiedPurchaseAccount(db:ReturnType<typeof billingDatabase>,token:string,user:string){

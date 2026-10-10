@@ -6,7 +6,9 @@ const moduleURL=code=>`data:text/javascript;base64,${Buffer.from(code).toString(
 const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const user='11111111-1111-4111-8111-111111111111',epoch='22222222-2222-4222-8222-222222222222';
 const stub=moduleURL(`
-export function billingConfiguration(){return {};}
+export function billingConfiguration(){return {storage:globalThis.billingRouteHarness.ledger?'verified-ledger':'sandbox-legacy'};}
+export async function persistBillingTransaction(db,config,signed,transaction){const h=globalThis.billingRouteHarness;h.persistedSigned=signed;h.persistedStorage=config.storage;const result=await db.rpc('synthetic',{payload:transaction});if(result.error)throw Error('database');}
+export async function ledgerEntitlementAfterAuth(db,token,user,epoch){const h=globalThis.billingRouteHarness;h.readScope=[token,user,epoch];if(h.ledgerReadError)throw Error('read');return h.ledgerState;}
 export function billingDatabase(){
  const h=globalThis.billingRouteHarness;
  const query={eq(key,value){h.filters.push([key,value]);return query;},then(resolve){resolve({data:h.rows,error:null});}};
@@ -38,5 +40,9 @@ test('billing routes gate writes and rights on verified current enrollment',asyn
   h.rows=[{payload:{...transaction,accountToken:user}}];let response=await get();assert.equal((await response.json()).plan,'free');
   h.rows=[{payload:transaction}];response=await get();const body=await response.json();assert.equal(body.plan,'premium');assert.equal(body.purchaseAccountToken,epoch);assert.equal(body.salesEnabled,false);assert.equal(response.headers.get('cache-control'),'no-store');
   assert.deepEqual(h.filters.slice(-2),[['user_id',user],['app_epoch_id',epoch]]);
+  h.ledger=true;assert.equal((await POST(request())).status,200);assert.equal(h.persistedSigned,'synthetic');assert.equal(h.persistedStorage,'verified-ledger');
+  h.ledgerState={plan:'premium',environment:'Sandbox',productId:transaction.productId,expiresAt:transaction.expiresAt};
+  response=await get();assert.equal((await response.json()).plan,'premium');assert.deepEqual(h.readScope,['synthetic',user,epoch]);
+  h.ledgerReadError=true;response=await get();assert.equal(response.status,503);assert.equal((await response.json()).plan,undefined);
  }finally{delete globalThis.billingRouteHarness;}
 });
