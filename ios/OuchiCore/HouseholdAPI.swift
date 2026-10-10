@@ -132,7 +132,7 @@ public struct HouseholdAPI: Sendable {
         guard rows.count == 1, UUID(uuidString: rows[0].id) == uuid else { throw CloudError.unavailable }
     }
 
-    public enum DeletableRecord: String, Sendable { case product = "products", task = "maintenance_tasks" }
+    public enum DeletableRecord: String, Sendable { case product = "products", task = "maintenance_tasks", home = "homes" }
     public func deleteRecord(_ record: DeletableRecord, id: String, token: String) async throws {
         guard let uuid = UUID(uuidString: id) else { throw CloudError.invalidInput }
         let data = try await send(path: "rest/v1/" + record.rawValue, token: token, body: Data(),

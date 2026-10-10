@@ -544,6 +544,7 @@ private struct HomeEditor: View {
     @State private var name = ""
     @State private var kind = "home"
     @State private var loaded = false
+    @State private var confirmDelete = false
     var body: some View {
         Form {
             TextField("住まいの名前", text: $name)
@@ -560,6 +561,22 @@ private struct HomeEditor: View {
                     if success { dismiss() }
                 }
             }.disabled(store.busy || !(1...80).contains(name.trimmingCharacters(in: .whitespacesAndNewlines).count))
+            if let initial, initial.role == "owner", (store.household?.homes.count ?? 0) > 1 {
+                Section {
+                    Button("この住まいを削除", role: .destructive) { confirmDelete = true }
+                        .disabled(store.busy)
+                } footer: {
+                    Text("製品・お手入れ・履歴と家族の共有も削除されます。必要な記録は設定から書き出しておいてください。")
+                }
+            }
+        }.confirmationDialog("この住まいを削除しますか？", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("住まいと記録を削除", role: .destructive) {
+                guard let initial else { return }
+                Task { if await store.deleteHome(id: initial.id) { dismiss() } }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("製品・お手入れ・完了履歴が削除され、共有している家族も見られなくなります。この操作は取り消せません。")
         }.navigationTitle(initial == nil ? "住まいを追加" : "住まいを編集")
          .onAppear { if !loaded { loaded = true; name = initial?.name ?? ""; kind = initial?.kind ?? "home" } }
          .interactiveDismissDisabled(store.busy)

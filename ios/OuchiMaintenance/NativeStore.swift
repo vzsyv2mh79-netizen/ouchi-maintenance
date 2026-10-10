@@ -300,6 +300,16 @@ import OuchiCore
         guard household?.homes.first(where: { $0.id == id })?.role == "owner" else { return false }
         return await save { api, token in try await api.updateHome(id: id, name: name, kind: kind, token: token) }
     }
+    func deleteHome(id: String) async -> Bool {
+        guard let data = household, data.homes.count > 1,
+              data.homes.first(where: { $0.id == id })?.role == "owner" else { return false }
+        let success = await save { api, token in try await api.deleteRecord(.home, id: id, token: token) }
+        if success, household?.homes.contains(where: { $0.id == homeID }) != true {
+            clearFamily()
+            homeID = household?.homes.first?.id ?? ""
+        }
+        return success
+    }
     func restoreBackup(_ value: Household) async -> Bool {
         do {
             let prepared = try Backup.prepareRestore(value)

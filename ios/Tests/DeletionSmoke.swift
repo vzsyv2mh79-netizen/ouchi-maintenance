@@ -5,7 +5,7 @@ import OuchiCore
     static func main() async throws {
         let config = try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!, publishableKey: "sb_publishable_synthetic_only")
         let id = UUID().uuidString.lowercased()
-        for record in [HouseholdAPI.DeletableRecord.product, .task] {
+        for record in [HouseholdAPI.DeletableRecord.product, .task, .home] {
             let api = HouseholdAPI(config: config) { request in
                 precondition(request.httpMethod == "DELETE" && request.url?.path == "/rest/v1/" + record.rawValue)
                 precondition(request.url?.query == "id=eq.\(id)&select=id")
@@ -22,6 +22,10 @@ import OuchiCore
         catch { precondition(error as? CloudError == .invalidInput) }
         let denied = HouseholdAPI(config: config) { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!) }
         do { try await denied.deleteRecord(.product, id: id, token: "synthetic"); fatalError("denied deletion accepted") }
+        catch { precondition(error as? CloudError == .rejected(403)) }
+        do { try await zero.deleteRecord(.home, id: id, token: "synthetic"); fatalError("zero home deletion accepted") }
+        catch { precondition(error as? CloudError == .unavailable) }
+        do { try await denied.deleteRecord(.home, id: id, token: "synthetic"); fatalError("denied home deletion accepted") }
         catch { precondition(error as? CloudError == .rejected(403)) }
         print("DeletionSmoke PASS: table allowlist, UUID filter, user authentication, zero-row and denied deletion refusal. Mock only; no records deleted.")
     }
