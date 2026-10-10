@@ -1724,3 +1724,6 @@ test('SD-E151 preserves water-presence hours rather than inventing weekly cleani
 
 
 test('SD-5HC151 uses connected-power hours and its own cleaning and replacement evidence',()=>{const [c]=lookup.lookupModel('SD-5HC151');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[1,365]);assert.match(c.lookupNote,/電源コードを接続している時間の累計約168時間/);assert.match(c.lookupNote,/固定の週次予定にはしません/);assert.match(c.lookupNote,/ライトボタンを約3秒/);assert.match(c.lookupNote,/運転せず約1時間/);assert.match(c.lookupNote,/送風口に水を入れない/);assert.match(c.lookupNote,/背面フィルターは掃除機/);assert.match(c.lookupNote,/固定日数はありません/);assert.match(c.suggestions[1].sourceUrl,/sd-5hc151.pdf#page=16$/);assert.equal(lookup.lookupModel('SD-5HC1510').length,0);});
+
+
+test('SD-C213 preserves daily care and excludes unverified sibling release',()=>{const [c]=lookup.lookupModel('SD-C213');assert.equal(c.releaseYear,2025);assert.equal(c.categoryId,'humidifier');assert.deepEqual(c.suggestions.map(t=>t.intervalDays),[1,1]);assert.match(c.suggestions[1].sourceUrl,/#page=5$/);assert.match(c.lookupNote,/送風口のない側/);assert.match(c.lookupNote,/運転せず約1時間/);assert.match(c.lookupNote,/アロマオイルは使用できません/);assert.equal(lookup.lookupModel('SD-C213E').length,0);assert.equal(lookup.lookupModel('SD-C2130').length,0);});
