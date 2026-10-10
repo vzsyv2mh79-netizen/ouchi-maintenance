@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { billingConfiguration, billingDatabase } from '@/lib/billing-server';
+import { billingConfiguration, billingDatabase, verifiedPurchaseAccount } from '@/lib/billing-server';
 import { entitlementFromTransactions, type VerifiedTransaction } from '@/lib/billing';
 import { validateData } from '@/lib/backup';
 import { maintenanceReport } from '@/lib/maintenance-report';
@@ -20,9 +20,11 @@ export async function GET(request: Request) {
     const db = billingDatabase(config);
     const { data: { user }, error } = await db.auth.getUser(token.slice(7));
     if (error || !user) return Response.json({ error: 'ログインを確認できません。' }, { status: 401, headers });
-    const result = await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id', user.id);
+    const purchaseAccount = await verifiedPurchaseAccount(db, token.slice(7), user.id);
+    if (!purchaseAccount) return Response.json({ error: '現在の登録を確認できません。' }, { status: 403, headers });
+    const result = await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id', user.id).eq('app_epoch_id', purchaseAccount);
     if (result.error) throw new Error('Entitlement unavailable');
-    const transactions = (result.data ?? []).map(row => row.payload as VerifiedTransaction).filter(transaction => transaction.environment === 'Sandbox' && transaction.accountToken === user.id.toLowerCase());
+    const transactions = (result.data ?? []).map(row => row.payload as VerifiedTransaction).filter(transaction => transaction.environment === 'Sandbox' && transaction.accountToken === purchaseAccount);
     if (entitlementFromTransactions(transactions, Date.now()).plan !== 'premium') return Response.json({ error: 'テスト用の有料利用権が必要です。' }, { status: 403, headers });
     // Household reads use the caller JWT and existing RLS, never service privileges.
     const scoped = createClient(config.url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: token } } });

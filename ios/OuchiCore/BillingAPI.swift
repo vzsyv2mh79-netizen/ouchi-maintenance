@@ -7,6 +7,7 @@ public struct SandboxEntitlement: Decodable, Sendable {
     public let environment: String?
     public let expiresAt: Double?
     public let productId: String?
+    public let purchaseAccountToken: UUID?
     public func premiumIsCurrent(now: Date = Date()) -> Bool {
         plan == .premium && environment == "Sandbox" && salesEnabled == false &&
         ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(productId ?? "") &&
@@ -52,7 +53,9 @@ public struct BillingAPI: Sendable {
         let data = try await send(path: "entitlement", token: token, body: nil)
         let result = try JSONDecoder().decode(SandboxEntitlement.self, from: data)
         guard !result.salesEnabled, result.environment == nil || result.environment == "Sandbox" else { throw CloudError.malformedResponse }
+        if let account = result.purchaseAccountToken, account == UUID(uuidString: "00000000-0000-0000-0000-000000000000") { throw CloudError.malformedResponse }
         if result.plan == .premium {
+            guard result.purchaseAccountToken != nil else { throw CloudError.malformedResponse }
             guard result.environment == "Sandbox", result.expiresAt?.isFinite == true,
                   ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(result.productId ?? "") else { throw CloudError.malformedResponse }
         }

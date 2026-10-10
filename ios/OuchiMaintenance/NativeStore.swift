@@ -31,6 +31,7 @@ import OuchiCore
     @Published private(set) var report: MaintenanceReport?
     let purchases = PurchaseManager()
     private var billingAccount: UUID?
+    private var purchaseAccount: UUID?
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
     private let reminders = LocalReminders()
     @Published private(set) var remindersEnabled = false
@@ -167,7 +168,7 @@ import OuchiCore
         household = nil; signedIn = false; busy = true
         await reminders.reset(clearPreference: true)
         purchases.stopObserving(); purchases.persist = nil
-        billingAccount = nil; sandboxEntitlement = nil
+        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
         household = nil; homeID = ""; signedIn = false
         clearFamily()
         if !clearTemporaryExports() { localCleanupFailed = true }
@@ -198,7 +199,7 @@ import OuchiCore
     }
     var sandboxBillingConfigured: Bool {
         #if DEBUG
-        return billingAccount != nil && purchases.persist != nil
+        return billingAccount != nil && purchaseAccount != nil && purchases.persist != nil
         #else
         return false
         #endif
@@ -208,10 +209,11 @@ import OuchiCore
               ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains(product.id), let session else { return }
         busy = true; message = nil
         let expected = generation
+        defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard expected == generation, billingAccount == credentials.user.id else { return }
-            let outcome = try await purchases.purchase(product, account: credentials.user.id)
+            guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            let outcome = try await purchases.purchase(product, account: purchaseAccount)
             guard expected == generation else { return }
             switch outcome {
             case .saved: message = "Sandboxのチップを記録しました。実際の請求はありません。"
@@ -219,25 +221,25 @@ import OuchiCore
             case .cancelled: break
             }
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
-        if expected == generation { busy = false }
     }
     func restoreSandboxPurchases() async {
         guard !busy, sandboxBillingConfigured, let session else { return }
         busy = true; message = nil
         let expected = generation
+        defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard expected == generation, billingAccount == credentials.user.id else { return }
-            try await purchases.restore(account: credentials.user.id)
+            guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            try await purchases.restore(account: purchaseAccount)
             guard expected == generation else { return }
             let rights = try await BillingAPI().entitlement(token: credentials.access_token)
             guard expected == generation else { return }
+            guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             message = "Sandbox\u{306e}\u{5229}\u{7528}\u{6a29}\u{3092}\u{78ba}\u{8a8d}\u{3057}\u{307e}\u{3057}\u{305f}\u{3002}"
         } catch {
             if expected == generation { message = "Sandbox\u{306e}\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
         }
-        if expected == generation { busy = false }
     }
     func loadSandboxReport() async {
         guard !busy, sandboxBillingConfigured, let session,
@@ -247,9 +249,10 @@ import OuchiCore
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id else { return }
+            guard expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id, let purchaseAccount else { return }
             let rights = try await BillingAPI().entitlement(token: credentials.access_token)
             guard expected == generation, expectedReport == reportGeneration else { return }
+            guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             guard rights.premiumIsCurrent() else { message = "テスト用の有料利用権を確認できません。"; return }
             let value = try await ReportAPI(sandboxPreview: true).load(home: home, token: credentials.access_token)
@@ -265,22 +268,30 @@ import OuchiCore
         guard !busy, sandboxBillingConfigured, let session else { return }
         busy = true
         let expected = generation
+        defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard expected == generation, billingAccount == credentials.user.id else { return }
-            try await purchases.observeUnfinished(account: credentials.user.id)
+            guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            try await purchases.observeUnfinished(account: purchaseAccount)
             if expected == generation { message = "未完了のSandbox取引を確認しました。" }
         } catch { if expected == generation { purchases.markRetryNeeded(); message = "取引を再確認できませんでした。時間をおいてお試しください。" } }
-        if expected == generation { busy = false }
     }
-    private func bindSandboxBilling(account: UUID) {
+    private func bindSandboxBilling(account: UUID) async {
         #if DEBUG
         guard Bundle.main.object(forInfoDictionaryKey: "IOS_SANDBOX_BILLING") as? String == "YES",
-              billingAccount != account, let session else { return }
+              let session else { return }
         purchases.stopObserving()
         let expected = generation
-        billingAccount = account
+        billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; purchases.persist = nil
         let billing = BillingAPI()
+        let issued: SandboxEntitlement
+        do {
+            let credentials = try await session.credentials()
+            guard credentials.user.id == account, generation == expected else { return }
+            issued = try await billing.entitlement(token: credentials.access_token)
+        } catch { return }
+        guard generation == expected, let purchaseToken = issued.purchaseAccountToken, purchaseToken != account else { return }
+        billingAccount = account; purchaseAccount = purchaseToken; sandboxEntitlement = issued
         purchases.persist = { [weak self] signed in
             guard let self, self.generation == expected else { throw CancellationError() }
             let credentials = try await session.credentials()
@@ -289,12 +300,13 @@ import OuchiCore
             guard self.generation == expected else { throw CancellationError() }
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard self.generation == expected else { throw CancellationError() }
+            guard rights.purchaseAccountToken == purchaseToken else { throw CloudError.malformedResponse }
             self.sandboxEntitlement = rights
         }
-        purchases.startObserving(account: account)
+        purchases.startObserving(account: purchaseToken)
         Task { [weak self] in
             guard let self, self.generation == expected else { return }
-            do { try await self.purchases.observeUnfinished(account: account) }
+            do { try await self.purchases.observeUnfinished(account: purchaseToken) }
             catch { if self.generation == expected { self.purchases.markRetryNeeded() } }
         }
         #endif
@@ -334,7 +346,8 @@ import OuchiCore
             guard expected == generation else { return }
             snapshotAccount = credentials.user.id; showingOfflineSnapshot = false
             household = value
-            bindSandboxBilling(account: credentials.user.id)
+            await bindSandboxBilling(account: credentials.user.id)
+            guard expected == generation else { return }
             let notificationState = (try? await reminders.reconcile(data: value, account: credentials.user.id)) ?? false
             guard expected == generation else { return }
             remindersEnabled = notificationState
@@ -347,7 +360,7 @@ import OuchiCore
                     do { try snapshotStorage?.write(nil) } catch { localCleanupFailed = true }
                     snapshotAccount = nil; household = nil; showingOfflineSnapshot = false; homeID = ""
                     if !clearTemporaryExports() { localCleanupFailed = true }
-                    clearFamily(); billingAccount = nil; sandboxEntitlement = nil
+                    clearFamily(); billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil
                     purchases.stopObserving(); purchases.persist = nil
                     remindersEnabled = false
                     await reminders.reset(clearPreference: true)

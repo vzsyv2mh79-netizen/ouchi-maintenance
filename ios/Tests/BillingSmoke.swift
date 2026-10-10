@@ -17,11 +17,20 @@ import OuchiCore
         }
         let right = BillingAPI { request in
             precondition(request.httpMethod == "GET" && request.httpBody == nil)
-            return (Data(#"{"plan":"premium","salesEnabled":false,"environment":"Sandbox","expiresAt":1791633600000,"productId":"ouchi.premium.monthly"}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (Data(#"{"plan":"premium","purchaseAccountToken":"22222222-2222-4222-8222-222222222222","salesEnabled":false,"environment":"Sandbox","expiresAt":1791633600000,"productId":"ouchi.premium.monthly"}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let state = try await right.entitlement(token: "synthetic")
+        precondition(state.purchaseAccountToken == UUID(uuidString: "22222222-2222-4222-8222-222222222222"))
         precondition(state.premiumIsCurrent(now: Date(timeIntervalSince1970: 1791633599)))
         precondition(!state.premiumIsCurrent(now: Date(timeIntervalSince1970: 1791633600)))
+        for payload in [
+            #"{"plan":"premium","salesEnabled":false,"environment":"Sandbox","expiresAt":1791633600000,"productId":"ouchi.premium.monthly"}"#,
+            #"{"plan":"free","salesEnabled":false,"environment":"Sandbox","purchaseAccountToken":"00000000-0000-0000-0000-000000000000"}"#
+        ] {
+            let invalid = BillingAPI { request in (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!) }
+            do { _ = try await invalid.entitlement(token: "synthetic"); fatalError("missing or zero purchase binding accepted") }
+            catch { precondition(error as? CloudError == .malformedResponse) }
+        }
         let unavailable = BillingAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
         do { try await unavailable.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("failed persistence accepted") }
         catch { precondition(error as? CloudError == .rejected(503)) }
