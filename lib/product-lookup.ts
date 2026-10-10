@@ -14558,4 +14558,277 @@ catalog.push(...[
   }
 ] satisfies ProductCandidate[]);
 
+catalog.push(...[
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-70A01-BH",
+    "modelNumber": "ITW-70A01-BH",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576743532",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109002.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109002.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=2",
+    "lookupNote": "2025年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときや液剤が流れにくいときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109002.pdf#page=51",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書51ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。槽洗浄の水量は55Lに固定されています。におい・汚れ・洗剤かすが気になるときにも槽洗浄を行ってください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109002.pdf#page=53",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書53ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-70A01-WH",
+    "modelNumber": "ITW-70A01-WH",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576743525",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109001.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109001.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=2",
+    "lookupNote": "2025年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときや液剤が流れにくいときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109001.pdf#page=51",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書51ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。槽洗浄の水量は55Lに固定されています。におい・汚れ・洗剤かすが気になるときにも槽洗浄を行ってください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/109001.pdf#page=53",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書53ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 IAW-T606-B",
+    "modelNumber": "IAW-T606-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576743167",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108964.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108964.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=2",
+    "lookupNote": "2025年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。漂白剤注入口も汚れたら拭きます。洗剤投入ケースは汚れたら外してキャップも水洗いし、注水口を拭いて元どおり取り付けます。柔軟剤投入口は不要な歯ブラシなどで汚れを落としてください。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108964.pdf#page=54",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書54ページ。衣類を入れず、水栓を開け、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。終了後は給水栓を閉じます。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108964.pdf#page=56",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書56ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 IAW-T606-W",
+    "modelNumber": "IAW-T606-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576743150",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108963.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108963.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2025,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2025年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。漂白剤注入口も汚れたら拭きます。洗剤投入ケースは汚れたら外してキャップも水洗いし、注水口を拭いて元どおり取り付けます。柔軟剤投入口は不要な歯ブラシなどで汚れを落としてください。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108963.pdf#page=54",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書54ページ。衣類を入れず、水栓を開け、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。終了後は給水栓を閉じます。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/108963.pdf#page=56",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書56ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-100B01-W",
+    "modelNumber": "ITW-100B01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576706254",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107306.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107306.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。槽乾燥は説明書57ページで「定期的に」と案内され、日数指定はありません。衣類を入れず「槽乾燥」コースを使います。黒かびや洗剤かすは槽洗浄で除去してください。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107306.pdf#page=56",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書56ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-80B01-B",
+    "modelNumber": "ITW-80B01-B",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576709606",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107416.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107416.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。槽乾燥は説明書57ページで「定期的に」と案内され、日数指定はありません。衣類を入れず「槽乾燥」コースを使います。黒かびや洗剤かすは槽洗浄で除去してください。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107416.pdf#page=56",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書56ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-80B01-W",
+    "modelNumber": "ITW-80B01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576706247",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107305.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107305.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。槽乾燥は説明書57ページで「定期的に」と案内され、日数指定はありません。衣類を入れず「槽乾燥」コースを使います。黒かびや洗剤かすは槽洗浄で除去してください。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107305.pdf#page=56",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書56ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-60A01-W",
+    "modelNumber": "ITW-60A01-W",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576704809",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107219.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107219.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2024,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2024年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときや液剤が流れにくいときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107219.pdf#page=51",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書51ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。におい・汚れ・洗剤かすが気になるときにも槽洗浄を行ってください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/107219.pdf#page=53",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書53ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  },
+  {
+    "maker": "アイリスオーヤマ",
+    "name": "全自動電気洗濯機 ITW-70A01",
+    "modelNumber": "ITW-70A01",
+    "categoryId": "washer",
+    "productUrl": "https://www.irisohyama.co.jp/products/support/4967576670913",
+    "manualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104573.pdf",
+    "discoveredManualUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104573.pdf",
+    "verifiedAt": "2026-10-10",
+    "releaseYear": 2023,
+    "releaseSourceUrl": "https://www.irisohyama.co.jp/products/manual/70?page=3",
+    "lookupNote": "2023年発売。専用説明書のお手入れを確認しています。糸くずフィルターは洗濯のたびに取り外し、カバーを開けて糸くずを取り除き、水洗いして元どおり取り付けます。本体外側は汚れたらよくしぼったやわらかい布で拭いてください。洗剤投入ケースは汚れたときや液剤が流れにくいときに外して水洗いし、注水口の汚れも拭き取ります。部品のお手入れは運転を停止して行います。毎回・汚れ時のお手入れには固定の日数を設定していません。",
+    "suggestions": [
+      {
+        "name": "洗濯・脱水槽の槽洗浄",
+        "kind": "掃除",
+        "intervalDays": 30,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104573.pdf#page=51",
+        "frequency": "1か月に1回程度",
+        "conditions": "説明書51ページ。衣類を入れず、電源を入れて「槽洗浄」コースを選びます。ふたを閉めてスタートし、給水終了後に一時停止してふたを開けます。市販の塩素系漂白剤・槽洗浄用クリーナーを表示の分量で投入し、ふたを閉めて再開します。終了後は糸くずフィルターを清掃してください。槽洗浄の水量は55Lに固定されています。におい・汚れ・洗剤かすが気になるときにも槽洗浄を行ってください。塩素系漂白剤を酸性のものや他の液体と混ぜず、空の槽に直接付着させないでください。本体外側などに付いたら速やかに拭き取り、換気してください。"
+      },
+      {
+        "name": "洗濯・脱水槽の槽乾燥",
+        "kind": "掃除",
+        "intervalDays": 7,
+        "sourceKind": "取扱説明書",
+        "sourceUrl": "https://www.irisohyama.co.jp/products/manual/pdf/104573.pdf#page=53",
+        "frequency": "1週間に1回程度",
+        "conditions": "説明書53ページ。衣類を入れず、電源を入れて「槽乾燥」コースを選び、スタートします。約30分で終了します。黒かびや洗剤かすは槽乾燥では取り除けないため、槽洗浄を行ってください。"
+      }
+    ]
+  }
+] satisfies ProductCandidate[]);
+
 export const supportedModels = catalog.map(candidate => candidate.modelNumber);
