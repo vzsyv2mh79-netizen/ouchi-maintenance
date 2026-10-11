@@ -241,6 +241,11 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.releasePurchaseRecoveryConfigured {
+                    Section("プラン・開発を応援") {
+                        NavigationLink("購入と契約の確認") { ReleasePurchaseRecoveryView() }
+                    }
+                }
                 if store.explicitEnrollmentConfigured {
                     Section("クラウド登録") { NavigationLink("おうちメンテへの登録") { ExplicitEnrollmentView() } }
                 }
@@ -951,6 +956,44 @@ private struct SandboxReminderSettingsView: View {
             weekdays = Set(schedule.weekdays); leadDays = schedule.leadDays; includeOverdue = schedule.includeOverdue
         }
         .onDisappear { operation?.cancel(); operation = nil }
+    }
+}
+
+private struct ReleasePurchaseRecoveryView: View {
+    @EnvironmentObject private var store: NativeStore
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Form {
+                Section("無料で使える機能") {
+                    Text("家電の登録、お手入れの記録、基本の共有、記録の書き出しは無料で使えます。契約が終了しても記録は削除しません。")
+                }
+                Section("契約の確認") {
+                    if store.releasePurchaseEnvironment == .sandbox {
+                        Text("購入のテスト環境です。実際の請求は発生しません。")
+                    }
+                    if let rights = store.releaseEntitlement {
+                        if rights.premiumIsCurrent(now: context.date, expectedEnvironment: store.releasePurchaseEnvironment ?? .production) {
+                            Text("有料プランの利用権を確認しました。")
+                            if let expiry = rights.expiresAt {
+                                Text("確認した利用期限：\(Date(timeIntervalSince1970: expiry / 1000).formatted(date: .abbreviated, time: .shortened))")
+                            }
+                        } else { Text("現在有効な有料プランは確認されていません。") }
+                    } else { Text("契約状態はまだ確認できていません。通信できる状態で再確認してください。") }
+                    Button("契約状態を再確認") { Task { await store.loadReleasePurchaseState() } }.disabled(store.busy)
+                    Button("Appleの購入を復元") { Task { await store.restoreReleasePurchases() } }
+                        .disabled(store.busy || store.releaseEntitlement == nil)
+                    Link("Appleの定期購入を管理", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
+                    Text("復元は同じおうちメンテアカウントの購入を確認します。別のアカウントへ契約を移す操作ではありません。")
+                        .font(.caption)
+                }
+                Section("新しい購入・応援チップ") {
+                    Text("新しい購入と任意の応援チップは、まだ受け付けていません。この画面から請求は発生しません。")
+                }
+                if store.busy { ProgressView("確認しています") }
+            }
+        }
+        .navigationTitle("購入と契約の確認")
+        .task { await store.loadReleasePurchaseState() }
     }
 }
 

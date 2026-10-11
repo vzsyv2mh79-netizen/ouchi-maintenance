@@ -56,7 +56,10 @@ struct FormalChannelSelection {
         if oldValue != signedIn { accountBindingRevision = UUID() }
         if !signedIn { accountEmail = nil }
     } }
-    @Published private(set) var accountBindingRevision = UUID() { didSet { reminderSettings = nil; pendingRegistrationMaintenanceNeedsAttention = false } }
+    @Published private(set) var accountBindingRevision = UUID() { didSet {
+        reminderSettings = nil; pendingRegistrationMaintenanceNeedsAttention = false
+        clearReleaseBilling()
+    } }
     @Published private(set) var reminderSettings: ReminderSettingsReceipt?
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
     @Published private(set) var accountEmail: String?
@@ -84,6 +87,10 @@ struct FormalChannelSelection {
     private var attachmentExportGeneration = 0
     @Published private(set) var report: MaintenanceReport?
     let purchases = PurchaseManager()
+    lazy var releasePurchases = PurchaseManager(environment: releasePurchaseEnvironment ?? .production)
+    @Published private(set) var releaseEntitlement: VerifiedEntitlement?
+    private var releasePurchaseEpoch: UUID?
+    private var releaseBillingAccount: UUID?
     private var billingAccount: UUID?
     private var purchaseAccount: UUID?
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
@@ -767,6 +774,92 @@ struct FormalChannelSelection {
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
     }
+    // Prepared read/restore entry. This flag never enables new sales or rights.
+    var releasePurchaseRecoveryConfigured: Bool {
+        releasePurchaseEnvironment != nil
+    }
+    var releasePurchaseEnvironment: BillingEnvironment? {
+        guard api != nil, !isUIReviewSample,
+              Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED"] as? Bool == true,
+              let value = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String else { return nil }
+        return BillingEnvironment(rawValue: value)
+    }
+    private func clearReleaseBilling() {
+        releasePurchases.stopObserving(); releasePurchases.persist = nil
+        releaseEntitlement = nil; releasePurchaseEpoch = nil; releaseBillingAccount = nil
+    }
+    func loadReleasePurchaseState(notifyFailure: Bool = true) async {
+        guard !busy, signedIn, let environment = releasePurchaseEnvironment, let session else { return }
+        busy = true
+        let expected = generation, revision = accountBindingRevision
+        clearReleaseBilling()
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  snapshotAccount == credentials.user.id else { return }
+            let billing = BillingAPI(environment: environment)
+            let rights = try await billing.entitlement(token: credentials.access_token)
+            let current = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  current.user.id == credentials.user.id, current.access_token == credentials.access_token,
+                  rights.environment == environment.rawValue,
+                  let epoch = rights.purchaseAccountToken, epoch != credentials.user.id else { return }
+            clearReleaseBilling()
+            releaseBillingAccount = credentials.user.id; releasePurchaseEpoch = epoch; releaseEntitlement = rights
+            releasePurchases.persist = { [weak self] signed in
+                guard let self, !Task.isCancelled, self.generation == expected,
+                      self.accountBindingRevision == revision, self.signedIn,
+                      self.releasePurchaseEpoch == epoch, self.releaseBillingAccount == credentials.user.id else { throw CancellationError() }
+                let live = try await session.credentials()
+                guard live.user.id == credentials.user.id, self.generation == expected,
+                      self.accountBindingRevision == revision else { throw CancellationError() }
+                try await billing.submit(signedTransaction: signed, token: live.access_token)
+                let refreshed = try await billing.entitlement(token: live.access_token)
+                let after = try await session.credentials()
+                guard !Task.isCancelled, self.generation == expected, self.accountBindingRevision == revision,
+                      self.signedIn, after.user.id == credentials.user.id,
+                      after.access_token == live.access_token, refreshed.purchaseAccountToken == epoch,
+                      refreshed.environment == environment.rawValue,
+                      self.releasePurchaseEpoch == epoch else { throw CancellationError() }
+                self.releaseEntitlement = refreshed
+            }
+            releasePurchases.startObserving(account: epoch)
+            try await releasePurchases.observeUnfinished(account: epoch)
+        } catch {
+            if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
+                releaseEntitlement = nil; releasePurchases.markRetryNeeded()
+                if notifyFailure { message = "契約状態を確認できません。通信とログイン状態を確認し、もう一度お試しください。" }
+            }
+        }
+    }
+    func restoreReleasePurchases() async {
+        guard !busy, signedIn, let environment = releasePurchaseEnvironment, let session,
+              let epoch = releasePurchaseEpoch, releaseEntitlement != nil else { return }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision, account = releaseBillingAccount
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  credentials.user.id == account, snapshotAccount == account else { return }
+            let result = try await releasePurchases.restore(account: epoch)
+            let rights = try await BillingAPI(environment: environment).entitlement(token: credentials.access_token)
+            let current = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  current.user.id == account, current.access_token == credentials.access_token,
+                  rights.purchaseAccountToken == epoch, releasePurchaseEpoch == epoch else { return }
+            releaseEntitlement = rights
+            message = result.otherAccountSubscriptionFound
+                ? "別のおうちメンテアカウントに紐づく購入が見つかりました。このアカウントには移していません。購入時のアカウントで確認してください。"
+                : "Appleの購入履歴と現在の利用権を確認しました。新しい購入は行っていません。"
+        } catch {
+            if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
+                releaseEntitlement = nil; releasePurchases.markRetryNeeded()
+                message = "購入を復元できません。保存できていない取引は再確認できます。時間をおいてお試しください。"
+            }
+        }
+    }
     var sandboxBillingConfigured: Bool {
         #if DEBUG
         return billingAccount != nil && purchaseAccount != nil && purchases.persist != nil
@@ -1261,6 +1354,7 @@ struct FormalChannelSelection {
     // Approval can arrive while the app is suspended. Replay without opening a
     // purchase prompt, only after the current authenticated binding is checked.
     func recoverPurchasesOnForeground() async {
+        if releasePurchaseRecoveryConfigured { await loadReleasePurchaseState(notifyFailure: false) }
         #if DEBUG
         guard sandboxBillingConfigured, let session else { return }
         let expected = generation
@@ -1386,7 +1480,12 @@ struct FormalChannelSelection {
                 if localCleanupFailed { message = (message ?? "") + "端末内の保存記録を削除できませんでした。再度ログアウトしてください。" }
             }
         }
-        if expected == generation { busy = false }
+        if expected == generation {
+            busy = false
+            if signedIn, !showingOfflineSnapshot, household != nil {
+                await loadReleasePurchaseState(notifyFailure: false)
+            }
+        }
     }
     func complete(_ task: CareTask) async {
         guard !busy, let api, let session,
