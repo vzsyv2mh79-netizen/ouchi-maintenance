@@ -23,6 +23,11 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const userID=signup.data.user.id,claims=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url'));
   const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),unsigned=encode({alg:'HS256',typ:'JWT'})+'.'+encode({role:'service_role',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300});const service=unsigned+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(unsigned).digest('base64url');
   const admin=createClient(origin,service,options),epoch=await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:claims.session_id});assert.equal(epoch.error,null);assert.ok(epoch.data);
+  const nativeArgs={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,token:'ab'.repeat(32),push_environment:'Sandbox'};
+  const nativeRegistered=await admin.rpc('register_maintenance_native_push',nativeArgs);assert.equal(nativeRegistered.error,null);assert.match(nativeRegistered.data,/^[0-9a-f-]{36}$/i);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,true);
+  assert.equal((await admin.rpc('register_maintenance_native_push',nativeArgs)).data,nativeRegistered.data);
+  assert.ok((await user.rpc('register_maintenance_native_push',nativeArgs)).error);
   const home=randomUUID(),product=randomUUID(),file=randomUUID();assert.equal((await user.from('homes').insert({id:home,owner_id:userID,name:'Synthetic deletion home',kind:'home'})).error,null);assert.equal((await user.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic deletion product'})).error,null);
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
@@ -45,6 +50,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);const gonePush=await admin.from('maintenance_push_subscriptions').select('id').eq('id',pushID);assert.equal(gonePush.error,null);assert.deepEqual(gonePush.data,[]);
   const sharedClosed=await other.from('products').select('id').eq('id',product);assert.equal(sharedClosed.error,null);assert.deepEqual(sharedClosed.data,[]);
@@ -56,14 +62,15 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);
   assert.deepEqual(await erase(admin,scope),{completed:1,allObjectsConfirmed:true});const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
   assert.deepEqual(await erase(admin,scope),{completed:0,allObjectsConfirmed:true});assert.equal((await user.auth.getUser()).error,null);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);
   const removedHomes=await admin.from('homes').select('id').eq('id',home);assert.equal(removedHomes.error,null);assert.deepEqual(removedHomes.data,[]);const removedProducts=await admin.from('products').select('id').eq('id',product);assert.equal(removedProducts.error,null);assert.deepEqual(removedProducts.data,[]);
   const preserved=await other.from('homes').select('id').eq('id',otherHome);assert.equal(preserved.error,null);assert.deepEqual(preserved.data,[{id:otherHome}]);assert.equal((await user.auth.getUser()).error,null);assert.equal((await admin.rpc('maintenance_deletion_lease_is_current',args)).data,true);
 
-  // This isolated fixture registers no native/APNs device. Full native cleanup is
-  // NOT proven here; retained identity finalization deliberately remains pending.
+  // Registry erasure is tested with a synthetic native token; actual APNs delivery
+  // and device-side removal are NOT proven. Identity finalization remains pending.
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
  }finally{gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
