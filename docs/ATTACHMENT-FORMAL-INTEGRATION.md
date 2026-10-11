@@ -61,3 +61,11 @@ Eight local mock tests cover free/invalid Auth, wrong billing environment, entit
 The delayed-family-write scenario above passed at e3d9bd9129d047af11b5fb5799c1f324fd89f894 in migration run38102209193/job114360286274. All four workflow runs for that commit subsequently succeeded. Native UI, successful verified-entitlement adapter integration, ambiguous attempt recovery and complete account identity finalization remain release gates.
 
 The next disposable integration also seeds a synthetic transaction through the service-only formal ledger for a separate family-owned product, invokes the actual adapter to save and retry the same file, revokes that synthetic entitlement, verifies new upload denial, and verifies retained metadata remains readable. This scenario is prepared but not yet executed against running services. It does not claim Apple signature verification and does not use real purchases or owner data.
+
+## Captured owner survives product deletion
+
+20261011020434 stores the original home owner at reservation and rejects a repeated reservation whose current owner differs. Deletion capture also uses this saved owner, so deleting the product first cannot hide a family upload from the former owner's account erasure. Legacy rows are backfilled only through an existing product/home relationship; unresolved orphaned rows retain null rather than an invented owner.
+
+At270300daf0c2ebdc0a6736bdb9cf3e9b637cdbae, actual disposable Auth/PostgREST/Storage migration run38104100192/job114365827403 succeeded with normal product deletion while a real family upload was held. Owner capture still found both files, late acknowledged Storage completion was erased and absence verified. This does not implement immediate file cleanup for ordinary product deletion or full identity deletion.
+
+The local PGlite scenario also verifies legacy existing reservation backfill, unknown legacy ownership remains null/nonquiet, and a foreign home/file remains after owner record erasure. The supplemental backfill assertions require their next commit CI. No production migration or owner data deletion is authorized by these tests.
