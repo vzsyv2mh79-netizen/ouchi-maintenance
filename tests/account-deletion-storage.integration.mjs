@@ -546,6 +546,14 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   const retry=await accountEnrollmentResponse(enrollmentRequest(newBearer,true),enrollmentConfig,enrollmentFactories);assert.equal(retry.status,503,'new proof cannot reuse consumed request');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
   assert.equal((await accountEnrollmentResponse(enrollmentRequest(signup.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories)).status,503,'deletion still running cannot reopen');
+  const originalSession=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url')).session_id;
+  assert.equal(recoverySql(`select receipt_sessions_captured from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),'t');
+  recoverySql(`delete from maintenance_private.app_session_epochs where user_id='${userID}';delete from maintenance_private.app_epochs where user_id='${userID}';delete from maintenance_private.account_access where user_id='${userID}';`);
+  const independentProgress=await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID});assert.equal(independentProgress.error,null);assert.equal(independentProgress.data.state,'running');assert.equal(independentProgress.data.epochID,epoch.data);
+  assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:randomUUID(),target_request:scope.requestID})).data,null);
+  assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:originalSession})).data,null);
+  assert.equal((await user.auth.getUser()).error,null,'shared Auth preserved after simulated application identity erasure');
+  console.log('Actual independent deletion receipt: captured original Auth session still reads pending after synthetic app identity erasure; unmapped session denied; strict initializer cannot recreate enrollment; shared Auth preserved. No completion or production erasure.');
   console.log('Actual explicit consent Auth/PostgreSQL/API: read-only absent state, verified fresh temporary login, exact enrollment receipt/readback, temporary session revoked, duplicate request refused without second grant, pending deletion cannot reopen; no premium or Apple transaction.');
 
 
