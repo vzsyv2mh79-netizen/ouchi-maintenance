@@ -13,7 +13,9 @@ function attachmentModule(name){
  if(attachmentModules.has(name))return attachmentModules.get(name);
  let source=ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
  source=source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency)=>`from ${JSON.stringify(attachmentModule(dependency))}`);
- source=source.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
+ source=source.replace(/import ['"]server-only['"];?/g,''); // Framework marker only; actual server logic remains.
+ source=source.replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,dependency)=>`from ${JSON.stringify(import.meta.resolve(dependency))}`);
+
  const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');attachmentModules.set(name,url);return url;
 }
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
@@ -22,6 +24,11 @@ const formalRouteCode=ts.transpileModule(readFileSync('app/api/development/verif
  .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
  .replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
 const {POST:formalAttachmentPOST,GET:formalAttachmentGET,DELETE:formalAttachmentDELETE}=await import('data:text/javascript;base64,'+Buffer.from(formalRouteCode).toString('base64'));
+const reportRouteCode=ts.transpileModule(readFileSync('app/api/development/maintenance-report/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
+ .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
+ .replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
+const {GET:formalReportGET}=await import('data:text/javascript;base64,'+Buffer.from(reportRouteCode).toString('base64'));
+
 
 
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
@@ -101,6 +108,17 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await other.from('products').insert({id:paidProduct,homeId:otherHome,categoryId:'air',name:'Synthetic adapter product'})).error,null);
   const paidEvent={environment:'Sandbox',transactionId:'901',originalTransactionId:'900',accountToken:otherEpoch.data,productId:'ouchi.premium.monthly',signedAt:now,purchasedAt:now-1000,expiresAt:now+3600000};
   const paidSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:paidEvent,proof_sha256:'d'.repeat(64)});assert.equal(paidSeed.error,null);
+  const reportKeys=['VERCEL_ENV','OUCHI_REPORT_TEST_MODE','NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE'];
+  const reportBefore=Object.fromEntries(reportKeys.map(key=>[key,process.env[key]]));
+  async function reportRequest(targetHome){
+   try{
+    Object.assign(process.env,{VERCEL_ENV:'preview',OUCHI_REPORT_TEST_MODE:'true',NEXT_PUBLIC_SUPABASE_URL:origin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic_isolated_report',SUPABASE_SERVICE_ROLE_KEY:service,APPLE_BUNDLE_ID:'test.disposable.ouchi',APPLE_ROOT_CERTIFICATES_BASE64:'dGVzdA==',BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',BILLING_STORAGE_MODE:'verified-ledger'});
+    return await formalReportGET(new Request(origin+'/api/development/maintenance-report?homeId='+targetHome,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));
+   }finally{for(const key of reportKeys){if(reportBefore[key]===undefined)delete process.env[key];else process.env[key]=reportBefore[key];}}
+  }
+  const actualReport=await reportRequest(otherHome);assert.equal(actualReport.status,200);assert.equal(actualReport.headers.get('cache-control'),'no-store');
+  const actualReportBody=await actualReport.json();assert.equal(actualReportBody.report.homeId,otherHome);assert.equal(actualReportBody.environment,'Sandbox');assert.equal(actualReportBody.salesEnabled,false);
+  assert.equal((await reportRequest(randomUUID())).status,404);
   const adapterBytes=new Uint8Array([137,80,78,71,13,10,26,10]);
   const paidRequest=()=>new Request(origin+'/api/development/verified-product-attachments?productId='+paidProduct+'&attachmentId='+paidFile,{method:'POST',headers:{authorization:'Bearer '+otherSignup.data.session.access_token,'content-type':'image/png'},body:adapterBytes});
   const routeEnvKeys=['NODE_ENV','OUCHI_ATTACHMENT_TEST_MODE','OUCHI_ATTACHMENT_TEST_URL','OUCHI_ATTACHMENT_TEST_SERVICE_KEY'],routeEnvBefore=Object.fromEntries(routeEnvKeys.map(key=>[key,process.env[key]]));
@@ -112,6 +130,7 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const paidReadArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,attachment_id:paidFile};
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
+  assert.equal((await reportRequest(otherHome)).status,403);
   const deniedAfterRevocation=await uploadProductAttachment(paidRequest(),paidProduct,randomUUID(),storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(deniedAfterRevocation.status,403);
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
   let retainedDownload,foreignDownload,removedAttachment;
