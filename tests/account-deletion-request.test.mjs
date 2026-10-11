@@ -16,7 +16,7 @@ test('deletion request requires identity, explicit confirmation, reauthenticatio
  assert.equal((await send({},'')).status,401);assert.equal((await send({confirmation:'DELETE_OUCHI_ACCOUNT',password:'synthetic',userID:user})).status,400);assert.equal(writes,0);
  reauth=epoch;assert.equal((await send()).status,403);assert.equal(writes,0);reauth=user;
  identity={...identity,epochID:'invalid'};assert.equal((await send()).status,401);assert.equal(writes,0);identity={...identity,epochID:epoch};
- ack=null;assert.equal((await send()).status,503);ack=id;const response=await send();assert.equal(response.status,202);assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(await response.json(),{state:'pending',requestID:id});
+ ack=null;assert.equal((await send()).status,503);ack=id;const response=await send();assert.equal(response.status,202);assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(await response.json(),{state:'pending',requestID:id,epochID:epoch});
 });
 test('cancelled partial stream cannot be treated as a confirmed deletion request',async()=>{
  const controller=new AbortController();let verified=0;

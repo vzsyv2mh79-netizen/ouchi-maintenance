@@ -167,9 +167,28 @@ final class HouseholdAPITests: XCTestCase {
 }
 
 extension HouseholdAPITests {
+    @MainActor func testDeletionFlowRejectsOldEpochEvenForSameUserAndRevision() async throws {
+        let account = UUID(), oldEpoch = UUID(), newEpoch = UUID(), revision = UUID(), requestID = UUID()
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET", "A foreign-epoch receipt must never cause a POST")
+            let body = Data("{\"epochID\":\"\(oldEpoch)\",\"requestID\":\"\(requestID)\",\"state\":\"complete\"}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api)
+        flow.bind(accountID: account, epochID: oldEpoch, revision: revision)
+        let prior = try await flow.recover(token: "synthetic")
+        XCTAssertEqual(prior?.epochID, oldEpoch)
+        flow.bind(accountID: account, epochID: newEpoch, revision: revision)
+        XCTAssertNil(flow.receipt)
+        do { _ = try await flow.submit(password: "Synthetic-only", token: "synthetic"); XCTFail("Old epoch must not authorize cleanup of a new enrollment") }
+        catch { XCTAssertEqual(error as? CloudError, .authenticationRequired) }
+        XCTAssertNil(flow.receipt)
+        XCTAssertFalse(flow.busy)
+    }
+
     func testDeletionReceiptDistinguishesAcceptanceFromConfirmedCompletion() throws {
         let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
-        func payload(_ state: String) -> Data { Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"\(state)\",\"records_erased\":true}".utf8) }
+        func payload(_ state: String) -> Data { Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"\(state)\",\"records_erased\":true}".utf8) }
         XCTAssertEqual(try AccountDeletionStatus.accepted(payload("pending"), httpStatus: 202).state, .pending)
         XCTAssertThrowsError(try AccountDeletionStatus.accepted(payload("complete"), httpStatus: 202))
         for state in ["pending", "running", "failed", "complete"] {
@@ -178,7 +197,7 @@ extension HouseholdAPITests {
         XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("complete"), httpStatus: 503, expectedRequestID: id))
         XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("complete"), httpStatus: 200, expectedRequestID: UUID()))
         XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("unknown"), httpStatus: 200, expectedRequestID: id))
-        XCTAssertThrowsError(try AccountDeletionStatus.accepted(Data("{\"requestID\":\"00000000-0000-0000-0000-000000000000\",\"state\":\"pending\"}".utf8), httpStatus: 202))
+        XCTAssertThrowsError(try AccountDeletionStatus.accepted(Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"00000000-0000-0000-0000-000000000000\",\"state\":\"pending\"}".utf8), httpStatus: 202))
     }
 }
 
@@ -191,11 +210,11 @@ extension HouseholdAPITests {
             if request.httpMethod == "POST" {
                 let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
                 XCTAssertEqual(body, ["confirmation": "DELETE_OUCHI_ACCOUNT", "password": "Synthetic-only"])
-                return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"pending\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
+                return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"pending\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
             }
             XCTAssertEqual(request.url?.path, "/api/account/deletion/" + id.uuidString.lowercased())
             XCTAssertNil(request.httpBody)
-            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let accepted = try await api.request(password: "Synthetic-only", token: "synthetic")
         XCTAssertEqual(accepted.state, .pending)
@@ -214,7 +233,7 @@ extension HouseholdAPITests {
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/account/deletion")
             XCTAssertNil(request.httpBody)
-            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let result = try await api.currentProgress(token: "synthetic")
         XCTAssertEqual(result?.requestID, id)
@@ -230,24 +249,24 @@ extension HouseholdAPITests {
         let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
         let api = AccountDeletionAPI { request in
             XCTAssertEqual(request.httpMethod, "GET", "Existing receipt must prevent duplicate submission")
-            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let flow = AccountDeletionFlow(api: api)
-        flow.bind(accountID: id)
+        flow.bind(accountID: id, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         let receipt = try await flow.submit(password: "Synthetic-only", token: "synthetic")
         XCTAssertEqual(receipt?.state, .running)
         XCTAssertFalse(flow.busy)
-        flow.bind(accountID: id, revision: UUID())
+        flow.bind(accountID: id, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!, revision: UUID())
         XCTAssertNil(flow.receipt, "A new enrollment/session for the same user must clear the old receipt")
         let sameUserReceipt = try await flow.recover(token: "synthetic")
         XCTAssertNotNil(sameUserReceipt)
-        flow.bind(accountID: UUID())
+        flow.bind(accountID: UUID(), epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         XCTAssertNil(flow.receipt)
         let outage = AccountDeletionFlow(api: AccountDeletionAPI { request in
             XCTAssertEqual(request.httpMethod, "GET")
             return (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!)
         })
-        outage.bind(accountID: id)
+        outage.bind(accountID: id, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         do { _ = try await outage.submit(password: "Synthetic-only", token: "synthetic"); XCTFail("Must not submit on uncertain state") }
         catch { XCTAssertEqual(error as? CloudError, .rejected(503)) }
         XCTAssertNil(outage.receipt)
@@ -258,13 +277,13 @@ extension HouseholdAPITests {
         let api = AccountDeletionAPI { request in
             XCTAssertEqual(request.httpMethod, "GET")
             // Rebinding occurs after the old request started, before its response arrives.
-            await MainActor.run { binding.flow?.bind(accountID: account, revision: UUID()) }
-            let body = Data("{\"requestID\":\"\(account.uuidString)\",\"state\":\"running\"}".utf8)
+            await MainActor.run { binding.flow?.bind(accountID: account, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!, revision: UUID()) }
+            let body = Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(account.uuidString)\",\"state\":\"running\"}".utf8)
             return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let flow = AccountDeletionFlow(api: api)
         binding.flow = flow
-        flow.bind(accountID: account, revision: UUID())
+        flow.bind(accountID: account, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!, revision: UUID())
         do {
             _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
             XCTFail("Old response must not bind to the new enrollment/session")
@@ -280,7 +299,7 @@ extension HouseholdAPITests {
             return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
         }
         let flow = AccountDeletionFlow(api: api)
-        flow.bind(accountID: UUID())
+        flow.bind(accountID: UUID(), epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         let operation = Task { @MainActor in
             do {
                 _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
@@ -300,11 +319,11 @@ extension HouseholdAPITests {
             }
             XCTAssertEqual(request.httpMethod, "POST")
             withUnsafeCurrentTask { $0?.cancel() }
-            let body = Data("{\"requestID\":\"\(requestID.uuidString)\",\"state\":\"pending\"}".utf8)
+            let body = Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(requestID.uuidString)\",\"state\":\"pending\"}".utf8)
             return (body, HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
         }
         let flow = AccountDeletionFlow(api: api)
-        flow.bind(accountID: UUID())
+        flow.bind(accountID: UUID(), epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         let operation = Task { @MainActor in
             do {
                 _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")

@@ -42,6 +42,6 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
   // An aborted response does not undo a durable remote request. Recover its status.
   request.signal.throwIfAborted();
   if(!uuid(requestID))throw Error('Missing durable acknowledgement');
-  return reply({state:'pending',requestID},202);
+  return reply({state:'pending',requestID,epochID:identity.epochID},202);
  }catch{return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);}
 }

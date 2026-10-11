@@ -19,8 +19,8 @@ export async function handleAccountDeletionProgress(request: Request, requestID:
   if (result === null) return reply({error: 'Request not found'}, 404);
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw Error('Invalid progress');
   const row = result as Record<string, unknown>;
-  if (!uuid(row.requestID) || (requestID !== null && row.requestID !== requestID) || row.userID !== userID || !['pending', 'running', 'complete', 'failed'].includes(String(row.state))) throw Error('Unconfirmed scope');
+  if (!uuid(row.requestID) || !uuid(row.epochID) || (requestID !== null && row.requestID !== requestID) || row.userID !== userID || !['pending', 'running', 'complete', 'failed'].includes(String(row.state))) throw Error('Unconfirmed scope');
   // File/household erasure flags never imply full account completion.
-  return reply({requestID: row.requestID, state: row.state}, 200);
+  return reply({requestID: row.requestID, epochID: row.epochID, state: row.state}, 200);
  } catch {return reply({error: 'Progress unavailable'}, 503);}
 }

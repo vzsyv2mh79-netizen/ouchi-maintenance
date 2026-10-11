@@ -4,6 +4,7 @@ import Foundation
 public struct AccountDeletionStatus: Decodable, Sendable {
     public enum State: String, Decodable, Sendable { case pending, running, complete, failed }
     public let requestID: UUID
+    public let epochID: UUID
     public let state: State
 
     public static func accepted(_ data: Data, httpStatus: Int) throws -> AccountDeletionStatus {
@@ -24,7 +25,8 @@ public struct AccountDeletionStatus: Decodable, Sendable {
     private static func checked(_ data: Data, httpStatus: Int, expectedStatus: Int) throws -> AccountDeletionStatus {
         guard httpStatus == expectedStatus, data.count <= 4096 else { throw CloudError.malformedResponse }
         let result = try JSONDecoder().decode(AccountDeletionStatus.self, from: data)
-        guard result.requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else { throw CloudError.malformedResponse }
+        let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        guard result.requestID != zero, result.epochID != zero else { throw CloudError.malformedResponse }
         return result
     }
 }

@@ -5,6 +5,7 @@ import OuchiCore
 /// the shared-login boundary and retention disclosure have been finalized.
 @MainActor struct AccountDeletionView: View {
     let accountID: UUID
+    let epochID: UUID
     let bindingRevision: UUID
     let available: Bool
     let deletionExplanation: String
@@ -13,10 +14,16 @@ import OuchiCore
     let export: () -> Void
     // The adapter must check this immutable binding before every side effect.
     // A view's post-await check cannot undo cleanup applied to a new account.
-    let cleanupLocalNotifications: (_ expectedAccount: UUID, _ expectedRevision: UUID) async -> Bool
+    let cleanupLocalNotifications: (_ expectedAccount: UUID, _ expectedEpoch: UUID, _ expectedRevision: UUID) async -> Bool
     let flow: AccountDeletionFlow
     @State private var operation: Task<Void, Never>?
-    @State private var activeRevision: UUID?
+    private struct Binding: Hashable {
+        let account: UUID
+        let epoch: UUID
+        let revision: UUID
+    }
+    private var binding: Binding { Binding(account: accountID, epoch: epochID, revision: bindingRevision) }
+    @State private var activeBinding: Binding?
     @State private var password = ""
     @State private var consent = false
     @State private var confirming = false
@@ -68,23 +75,23 @@ import OuchiCore
         } message: {
             Text("削除後の記録は元に戻せません。必要な記録を保存したことを確認してください。")
         }
-        .task(id: bindingRevision) {
+        .task(id: binding) {
             operation?.cancel(); operation = nil
-            activeRevision = bindingRevision
+            activeBinding = binding
             password = ""; consent = false; receipt = nil; cleanupPending = false; busy = false; message = nil
-            flow.bind(accountID: accountID, revision: bindingRevision)
+            flow.bind(accountID: accountID, epochID: epochID, revision: bindingRevision)
             if ready { await recover() }
         }
         .onDisappear {
             operation?.cancel(); operation = nil
-            activeRevision = nil
+            activeBinding = nil
             password = ""
             flow.bind(accountID: nil)
         }
     }
 
     private func startOperation(_ action: @escaping @MainActor () async -> Void) {
-        guard !busy, activeRevision == bindingRevision else { return }
+        guard !busy, activeBinding == binding else { return }
         operation?.cancel()
         operation = Task { await action() }
     }
@@ -99,55 +106,55 @@ import OuchiCore
     }
     private func recover() async {
         guard ready, !busy, let bearer = token() else { return }
-        let expected = bindingRevision
-        busy = true; defer { if expected == activeRevision { busy = false } }
+        let expected = binding
+        busy = true; defer { if expected == activeBinding { busy = false } }
         do {
             let recovered = try await flow.recover(token: bearer)
-            guard expected == activeRevision, !Task.isCancelled else { return }
+            guard expected == activeBinding, !Task.isCancelled else { return }
             receipt = recovered; message = nil
             if recovered != nil {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications(accountID, expected)
-                guard expected == activeRevision, !Task.isCancelled else { return }
+                let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+                guard expected == activeBinding, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
         }
-        catch { guard expected == activeRevision, !Task.isCancelled else { return }; message = "状況を確認できません。通信できる状態で、もう一度確認してください。" }
+        catch { guard expected == activeBinding, !Task.isCancelled else { return }; message = "状況を確認できません。通信できる状態で、もう一度確認してください。" }
     }
     private func submit() async {
         guard ready, !busy, consent, let bearer = token() else { return }
         let entered = password; password = ""
-        let expected = bindingRevision
-        busy = true; defer { if expected == activeRevision { busy = false } }
+        let expected = binding
+        busy = true; defer { if expected == activeBinding { busy = false } }
         do {
             let accepted = try await flow.submit(password: entered, token: bearer)
-            guard expected == activeRevision, !Task.isCancelled else { return }
+            guard expected == activeBinding, !Task.isCancelled else { return }
             receipt = accepted
             message = nil
             if receipt != nil {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications(accountID, expected)
-                guard expected == activeRevision, !Task.isCancelled else { return }
+                let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+                guard expected == activeBinding, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
         } catch {
-            guard expected == activeRevision, !Task.isCancelled else { return }
+            guard expected == activeBinding, !Task.isCancelled else { return }
             message = "申請の結果を確認できません。再申請する前に状況を確認してください。"
             // Recover first after an ambiguous response; never infer completion.
             do {
                 let recovered = try await flow.recover(token: bearer)
-                guard expected == activeRevision, !Task.isCancelled else { return }
+                guard expected == activeBinding, !Task.isCancelled else { return }
                 receipt = recovered
                 if recovered != nil { cleanupPending = true }
             } catch {}
         }
     }
     private func cleanNotifications() async {
-        guard !busy, receipt != nil, activeRevision == bindingRevision else { return }
-        let expected = bindingRevision
-        busy = true; defer { if expected == activeRevision { busy = false } }
-        let cleaned = await cleanupLocalNotifications(accountID, expected)
-        guard expected == activeRevision, !Task.isCancelled else { return }
+        guard !busy, receipt != nil, activeBinding == binding else { return }
+        let expected = binding
+        busy = true; defer { if expected == activeBinding { busy = false } }
+        let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+        guard expected == activeBinding, !Task.isCancelled else { return }
         cleanupPending = !cleaned
     }
 }

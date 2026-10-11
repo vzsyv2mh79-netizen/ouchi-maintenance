@@ -56,9 +56,9 @@ import OuchiCore
     private let reminders = LocalReminders()
     /// Prepared adapter only. Caller must first obtain a durable deletion receipt.
     /// The release deletion screen is not enabled by this local operation.
-    func stopLocalNotificationsForDeletion(account: UUID, revision: UUID) async -> Bool {
+    func stopLocalNotificationsForDeletion(account: UUID, epoch: UUID, revision: UUID) async -> Bool {
         let stillBound: @MainActor @Sendable () -> Bool = { [self] in
-            signedIn && !busy && snapshotAccount == account && accountBindingRevision == revision
+            signedIn && !busy && snapshotAccount == account && purchaseAccount == epoch && accountBindingRevision == revision
         }
         guard stillBound(), !Task.isCancelled else { return false }
         let stopped = await reminders.eraseForAccountDeletion(account: account, stillBound: stillBound)

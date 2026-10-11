@@ -58,7 +58,7 @@ import OuchiCore
         } catch { precondition(error as? CloudError == .rejected(302)) }
         let deletionAPI = AccountDeletionAPI(isolatedDevelopment: true, loopbackPort: port)
         let deletionFlow = AccountDeletionFlow(api: deletionAPI)
-        deletionFlow.bind(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, revision: UUID())
+        deletionFlow.bind(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, epochID: account, revision: UUID())
         let absent = try await deletionFlow.recover(token: "synthetic")
         precondition(absent == nil)
         do { _ = try await deletionAPI.request(password: "wrong", token: "synthetic"); fatalError("wrong password accepted") }

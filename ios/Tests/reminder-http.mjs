@@ -45,7 +45,7 @@ let deletionRow=null,deletionReads=0,deletionPosts=0,deletionEnqueues=0,deletion
 const deletionDependencies={
  verify:async bearer=>bearer==='synthetic'?{...scope,email:'synthetic@example.invalid'}:null,
  reauthenticate:async(email,password)=>{assert.equal(email,'synthetic@example.invalid');deletionReauths++;return password==='synthetic-password'?scope.userID:null;},
- enqueue:async identity=>{assert.deepEqual(identity,{...scope,email:'synthetic@example.invalid'});assert.ok(Object.isFrozen(identity));deletionEnqueues++;deletionRow={requestID:deletionID,userID:scope.userID,state:'pending'};return deletionID;},
+ enqueue:async identity=>{assert.deepEqual(identity,{...scope,email:'synthetic@example.invalid'});assert.ok(Object.isFrozen(identity));deletionEnqueues++;deletionRow={requestID:deletionID,userID:scope.userID,epochID:scope.epochID,state:'pending'};return deletionID;},
 };
 const deletionProgressDependencies={
  verify:async bearer=>bearer==='synthetic'?scope.userID:null,

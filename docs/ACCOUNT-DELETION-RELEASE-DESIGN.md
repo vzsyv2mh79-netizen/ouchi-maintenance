@@ -35,6 +35,12 @@ The shared Supabase Auth identity must not be globally deleted as a shortcut. Ot
 
 No legal retention basis or deadline is assumed. Operator identity, support contact, retention policy and account boundary need finalization before activating this feature or submitting the app.
 
+## Receipt enrollment boundary
+
+Every accepted/progress receipt includes the immutable app epoch. Exact-request and current-request reads join the user's current epoch; neither may expose a prior enrollment's deletion receipt to a later enrollment. A disabled current epoch still permits pending progress. Native flow, view binding and notification cleanup require account, epoch and binding revision; an old receipt never authorizes local cleanup for a new enrollment, including the same shared Auth user.
+
+Apply the additive `ouchi_deletion_progress_epoch` migration before enabling a route or client that consumes these receipts. Missing/zero/invalid epochs fail closed rather than being inferred from the logged-in user's UUID. The migration and fixtures are prepared for isolated tests only. They do not implement final identity erasure or establish a retention exception.
+
 ## Current evidence and remaining connections
 
 At commit 861fab7 the isolated Auth/PostgREST/Storage integration confirms object removal, absence acknowledgement, owned home/product deletion, repeatable erasure, and preservation of another owner’s home. It deliberately leaves the shared Auth identity and the deletion request running; this is not proof of complete account deletion. Native Gmail login and existing record display were directly verified on the Mac iPhone 17e screen.
