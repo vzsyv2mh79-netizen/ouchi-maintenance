@@ -4,6 +4,7 @@ import {browserAttachmentAuth} from '@/lib/attachment-auth-lifecycle';
 import {getSupabase} from '@/lib/supabase';
 import {attachmentBinding,attachmentPage,downloadAttachment,removeAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
 import {browserPendingAttachments,type PendingWebAttachment} from '@/lib/pending-attachment-store';
+import {prepareAttachmentImage} from '@/lib/attachment-image-preparation';
 import {sendPendingAttachment,AttachmentScopeChanged} from '@/lib/attachment-upload-flow';
 
 export function AttachmentControls({product,account}:{product:string;account:string}){
@@ -57,26 +58,27 @@ export function AttachmentControls({product,account}:{product:string;account:str
   setMessage(!value?'確認待ちのファイルはありません。':value.product!==product.toLowerCase()?'別の製品への保存が確認待ちです。その製品の画面で確認してください。':'確認待ちのファイルがあります。同じファイルで保存結果を再確認できます。');
  });}
  function save(){
-  if(!file||!window.confirm('このファイルをクラウドへ保存しますか？結果を確認できるまで、このブラウザにファイルを保持します。'))return;
+  if(!file||!window.confirm('写真は撮影情報を除いたコピーに変換します（JPEGは再圧縮されます）。写っている文字やPDFは変更しません。このファイルをクラウドへ保存しますか？結果確認まで、このブラウザに保持します。'))return;
   const selected=file;
   void run(async(token,signal,current)=>{
    const existing=await browserPendingAttachments.read(current.account,current.epoch);signal.throwIfAborted();
    if(existing){setPending(existing);setFile(null);throw Error('別の保存が確認待ちです。先に同じファイルで結果を確認してください。');}
-   const value=await browserPendingAttachments.stage({...current,product,id:crypto.randomUUID(),blob:selected,mime:selected.type});signal.throwIfAborted();
+   const prepared=await prepareAttachmentImage(selected,signal);signal.throwIfAborted();
+   const value=await browserPendingAttachments.stage({...current,product,id:crypto.randomUUID(),blob:prepared,mime:prepared.type});signal.throwIfAborted();
    setPending(value);setFile(null);
    await sendPendingAttachment({...current,product:product.toLowerCase()},value.id,token,signal);signal.throwIfAborted();
    setPending(null);setItems([]);setNext(null);setMessage('保存を確認しました。一覧からファイルを取得できます。');
   });
  }
  function retry(){
-  if(!pending||!window.confirm('同じファイルと保存先で結果を再確認します。未保存の場合は同じIDで送信します。'))return;
+  if(!pending||!window.confirm('確認待ちのファイルは、当時の内容のまま再確認します。撮影情報を改めて除去することはありません。未保存の場合は同じIDで送信します。'))return;
   const expectedID=pending.id;
   void run(async(token,signal,current)=>{
    await sendPendingAttachment({...current,product:product.toLowerCase()},expectedID,token,signal);signal.throwIfAborted();
    setPending(null);setItems([]);setNext(null);setMessage('保存を確認しました。');
   });
  }
- return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。保存した本人または住まいの所有者は、契約終了後も削除できます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
+ return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。保存した本人または住まいの所有者は、契約終了後も削除できます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。写真は24メガピクセル以下で、変換後も約5MB以下である必要があります。撮影情報を除いたコピーを保存します（JPEGは再圧縮されます）。写っている氏名・住所やPDFの内容は変更しません。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
   <label>写真・保証書を選ぶ<input type="file" accept="image/jpeg,image/png,application/pdf" disabled={busy||pending!==null} onChange={event=>{const chosen=event.target.files?.[0]??null;event.target.value='';if(chosen&&(chosen.size<1||chosen.size>5242880||!['image/jpeg','image/png','application/pdf'].includes(chosen.type))){setFile(null);setMessage('JPEG・PNG・PDFの約5MB以下のファイルを選択してください。');return;}setFile(chosen);setMessage('');}} /></label>
   {file?<p>{file.name} <button className="text-button" disabled={busy} onClick={()=>setFile(null)}>選択を取り消す</button></p>:null}
   <div className="attachment-actions"><button className="primary-button" disabled={busy||!file||pending!==null} onClick={save}>保存する</button>
