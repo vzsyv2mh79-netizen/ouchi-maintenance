@@ -54,3 +54,23 @@ test('an unresponsive provider is bounded by ten seconds and releases resources'
   assert.equal(await pending, 'retry');
   assert.ok(seen.sessionClosed && seen.streamClosed);
 });
+test('caller cancellation skips unopened transport and closes an active request', async () => {
+  const before = new AbortController(); before.abort();
+  const untouched = fixture(() => assert.fail('must not send'));
+  assert.equal(await untouched.sender(input, before.signal), 'skipped');
+  assert.equal(untouched.seen.origin, undefined);
+  const during = new AbortController();
+  const active = fixture(stream => { during.abort(); stream.emit('response', { ':status': 200 }); stream.emit('end'); });
+  assert.equal(await active.sender(input, during.signal), 'skipped');
+  assert.ok(active.seen.streamClosed && active.seen.sessionClosed);
+});
+test('cancellation while opening transport releases the just-created session', async () => {
+  const controller = new AbortController(); let destroyed = false;
+  const session = new EventEmitter();
+  session.destroy = () => { destroyed = true; };
+  session.request = () => assert.fail('must not create stream');
+  const sender = createSandboxAPNsSender({ environment: 'Sandbox', providerToken: () => 'a.b.c',
+    connect: () => { controller.abort(); return session; } });
+  assert.equal(await sender(input, controller.signal), 'skipped');
+  assert.equal(destroyed, true);
+});

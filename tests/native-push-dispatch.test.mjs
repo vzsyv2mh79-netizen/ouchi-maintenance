@@ -10,3 +10,11 @@ test('sandbox dispatch reads exact destination and checks current registration i
  for(const change of [{environment:'Production'},{id:'22222222-2222-4222-8222-222222222222'},{topic:'other.app'},{deviceToken:'../invalid'}])assert.equal(await dispatch(id,1,200,{...deps,read:async()=>({...row,...change})}),'inspect');
  const controller=new AbortController();assert.equal(await dispatch(id,1,200,{...deps,allowed:async()=>{controller.abort();return true;}},controller.signal),'skipped');assert.equal(sent,1);
 });
+test('dispatch forwards cancellation to sender and does not publish a late acceptance',async()=>{
+ const id='11111111-1111-4111-8111-111111111111',controller=new AbortController();
+ const row={id,environment:'Sandbox',deviceToken:'ab'.repeat(32),topic:'jp.ouchi.maintenance',registeredAt:100};
+ const result=await dispatch(id,1,200,{read:async()=>row,allowed:async()=>true,send:async(_,signal)=>{
+  assert.equal(signal,controller.signal);controller.abort();return 'accepted';
+ }},controller.signal);
+ assert.equal(result,'skipped');
+});

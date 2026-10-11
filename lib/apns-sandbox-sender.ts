@@ -12,13 +12,15 @@ export function createSandboxAPNsSender(options: {
   if (options.environment !== 'Sandbox') throw new Error('Only APNs Sandbox is supported');
   const open = options.connect ?? connect;
   const providerToken = options.providerToken;
-  return async (input: Reminder): Promise<APNsDisposition | 'skipped'> => {
+  return async (input: Reminder, signal?: AbortSignal): Promise<APNsDisposition | 'skipped'> => {
+    if (signal?.aborted) return 'skipped';
     if (!Number.isSafeInteger(input.registeredAt) || input.registeredAt <= 0 || input.registeredAt > input.now) {
       throw new Error('Invalid APNs registration');
     }
     const request = maintenanceAPNsRequest(input);
     if (!request) return 'skipped';
     const token = providerToken(input.now);
+    if (signal?.aborted) return 'skipped';
     if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token) || token.length > 4096) {
       throw new Error('Invalid APNs provider token');
     }
@@ -29,22 +31,28 @@ export function createSandboxAPNsSender(options: {
       let status = 0;
       let size = 0;
       const chunks: Buffer[] = [];
-      const finish = (result: APNsDisposition) => {
+      const finish = (result: APNsDisposition | 'skipped') => {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        signal?.removeEventListener('abort', abort);
         stream?.destroy();
         session?.destroy();
         resolve(result);
       };
+      const abort = () => finish('skipped');
       const timer = setTimeout(() => finish('retry'), 10000);
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) { abort(); return; }
       try {
         session = open(request.origin, { minVersion: 'TLSv1.2' });
         session.on('error', () => finish('retry'));
         session.on('close', () => finish('retry'));
+        if (done) { session.destroy(); return; }
         stream = session.request({ ':method': 'POST', ':path': request.path,
           ...request.headers, authorization: `bearer ${token}` });
         stream.on('error', () => finish('retry'));
+        if (done) { stream.destroy(); session.destroy(); return; }
         stream.on('aborted', () => finish('retry'));
         stream.on('close', () => finish('retry'));
         stream.on('response', headers => {
