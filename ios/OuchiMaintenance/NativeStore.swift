@@ -56,7 +56,7 @@ struct FormalChannelSelection {
         if oldValue != signedIn { accountBindingRevision = UUID() }
         if !signedIn { accountEmail = nil }
     } }
-    @Published private(set) var accountBindingRevision = UUID() { didSet { reminderSettings = nil } }
+    @Published private(set) var accountBindingRevision = UUID() { didSet { reminderSettings = nil; pendingRegistrationMaintenanceNeedsAttention = false } }
     @Published private(set) var reminderSettings: ReminderSettingsReceipt?
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
     @Published private(set) var accountEmail: String?
@@ -871,6 +871,73 @@ struct FormalChannelSelection {
     var appAttestRegistrationConfigured: Bool {
         api != nil && (try? AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier)) != nil
     }
+    private func makeAppAttestCoordinator(configuration: AppAttestRegistrationConfiguration, bundle: String,
+                                         current: @escaping AppAttestRegistrationCoordinator.CurrentContext) throws -> AppAttestRegistrationCoordinator {
+        if let existing = appAttestRegistrationCoordinator {
+            guard appAttestCoordinatorConfiguration == configuration else { throw CloudError.unavailable }
+            return existing
+        }
+        let keys = try AppAttestEncryptionKeyStorage(namespace: bundle)
+        let references = try AppAttestKeyReferenceStorage(namespace: bundle)
+        let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { account, epoch in
+            guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }
+            return key
+        }, expiryAuthorization: { scope, now in
+            guard try references.pendingClosure(account: scope.userID) == nil else { return false }
+            if let generated = try references.generated(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
+                return generated.scope == scope
+            }
+            if let confirmed = try references.confirmed(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
+                return confirmed.scope == scope
+            }
+            return false
+        })
+        let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
+            references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds)
+        appAttestRegistrationCoordinator = coordinator; appAttestCoordinatorConfiguration = configuration
+        return coordinator
+    }
+    @Published private(set) var pendingRegistrationMaintenanceNeedsAttention = false
+    /// Runs only for explicitly configured registration and a current enrolled account.
+    /// No DeviceCheck generation, attestation, purchase or notification registration.
+    func maintainExpiredPendingRegistration() async {
+        guard !busy, signedIn, appAttestRegistrationConfigured, let session, let account = snapshotAccount else { return }
+        let expected = generation, revision = accountBindingRevision
+        busy = true
+        defer { if expected == generation, revision == accountBindingRevision { busy = false } }
+        do {
+            guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { throw CloudError.unavailable }
+            let probe = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { _, _ in throw CloudError.unavailable })
+            guard try await probe.hasPendingRecords(account: account) else {
+                if expected == generation, revision == accountBindingRevision { pendingRegistrationMaintenanceNeedsAttention = false }
+                return
+            }
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  signedIn, snapshotAccount == account else { return }
+            guard let configuration = try AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier),
+                  let bundle = Bundle.main.bundleIdentifier else { return }
+            let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+            let current: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
+                guard let self, await self.signedIn, await self.snapshotAccount == account else { return nil }
+                guard let context = try? await provider.load(expectedAccount: account),
+                      await self.signedIn, await self.snapshotAccount == account else { return nil }
+                return context
+            }
+            let captured = try await provider.load(expectedAccount: account)
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  signedIn, snapshotAccount == account else { return }
+            let coordinator = try makeAppAttestCoordinator(configuration: configuration, bundle: bundle, current: current)
+            _ = try await coordinator.pruneExpiredPending(captured: captured)
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  signedIn, snapshotAccount == account else { return }
+            pendingRegistrationMaintenanceNeedsAttention = false
+        } catch {
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  signedIn, snapshotAccount == account else { return }
+            pendingRegistrationMaintenanceNeedsAttention = true
+        }
+    }
     func prepareAppAttestRegistration() async -> AppAttestRegistrationPreparation? {
         guard !busy, signedIn, api != nil, let session, let account = snapshotAccount else { return nil }
         let expected = generation, revision = accountBindingRevision
@@ -894,25 +961,7 @@ struct FormalChannelSelection {
                 guard expected == generation, revision == accountBindingRevision, signedIn else { return nil }
                 return result
             }
-            let keys = try AppAttestEncryptionKeyStorage(namespace: bundle)
-            let references = try AppAttestKeyReferenceStorage(namespace: bundle)
-            let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { account, epoch in
-                guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }
-                return key
-            }, expiryAuthorization: { scope, now in
-                guard try references.pendingClosure(account: scope.userID) == nil else { return false }
-                if let generated = try references.generated(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
-                    return generated.scope == scope
-                }
-                if let confirmed = try references.confirmed(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
-                    return confirmed.scope == scope
-                }
-                return false
-            })
-            let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
-                references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds)
-            appAttestRegistrationCoordinator = coordinator; appAttestCoordinatorConfiguration = configuration
+            let coordinator = try makeAppAttestCoordinator(configuration: configuration, bundle: bundle, current: current)
             let result = try await coordinator.register(captured: captured)
             guard expected == generation, revision == accountBindingRevision, signedIn else { return nil }
             return result

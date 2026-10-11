@@ -57,6 +57,21 @@ public actor AppAttestRegistrationCoordinator {
         let waiters=completionWaiters.removeValue(forKey:account) ?? []
         for waiter in waiters { waiter.resume() }
     }
+    /// Foreground maintenance uses the same actor reservation as registration.
+    /// It neither generates a device key nor challenges/commits an attestation.
+    public func pruneExpiredPending(captured: AppAttestRegistrationContext) async throws -> Int {
+        guard activeAccount == nil, !closingAccounts.contains(captured.userID),
+              try references.pendingClosure(account: captured.userID) == nil else { throw CloudError.unavailable }
+        activeAccount = captured.userID
+        defer { finishRegistration(account: captured.userID) }
+        let placeholder = Data(repeating: 0, count: 32).base64EncodedString()
+        let service = api(keyID: placeholder), session = captured.session(keyID: placeholder)
+        try await service.validate(session)
+        guard !closingAccounts.contains(captured.userID) else { throw CloudError.unavailable }
+        let removed = try await pending.pruneExpired(account: captured.userID, nowMilliseconds: now())
+        try await service.validate(session)
+        return removed
+    }
     public func register(captured: AppAttestRegistrationContext) async throws -> AppAttestRegistrationPreparation {
         guard activeAccount==nil,!closingAccounts.contains(captured.userID) else { throw CloudError.unavailable }
         guard try references.pendingClosure(account:captured.userID)==nil else { throw CloudError.unavailable }

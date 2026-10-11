@@ -90,6 +90,13 @@ public actor AppAttestPendingRegistrationStorage {
         _ = try AppAttestRegistrationChallenge.parse(canonicalClientData: stored.challenge.clientData, expected: scope, nowMilliseconds: nowMilliseconds)
         return stored
     }
+    /// Cheap account-scoped probe; never reads a key or creates a directory.
+    public func hasPendingRecords(account: UUID) throws -> Bool {
+        let folder = try directory(account: account)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return false }
+        return try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .contains { $0.pathExtension == "attest-pending" }
+    }
     /// An unknown existing proof must block generation rather than replacement.
     public func hasPendingRecord(account: UUID, epoch: UUID) throws -> Bool {
         try readBounded(file(account: account, epoch: epoch)) != nil

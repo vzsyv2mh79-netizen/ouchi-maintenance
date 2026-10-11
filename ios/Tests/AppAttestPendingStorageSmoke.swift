@@ -27,6 +27,8 @@ import OuchiCore
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-attest-pending-synthetic-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = AppAttestPendingRegistrationStorage(root: root, keyProvider: { _,_ in key }, expiryAuthorization: { captured, _ in captured.userID == scope.userID }), value = try pending()
+        let absent = try await store.hasPendingRecords(account: scope.userID)
+        precondition(!absent && !FileManager.default.fileExists(atPath: root.path), "probe must not create storage")
         try await store.stage(value, nowMilliseconds: now)
         let file = root.appendingPathComponent(scope.userID.uuidString.lowercased()).appendingPathComponent(scope.epochID.uuidString.lowercased()+".attest-pending")
         let original = try Data(contentsOf: file)
@@ -88,6 +90,9 @@ import OuchiCore
         precondition(FileManager.default.fileExists(atPath: foreignFile.path), "other account must remain untouched, even if expired")
         let removed = try await store.pruneExpired(account: scope.userID, nowMilliseconds: now+600000)
         precondition(removed == 1)
+        let noOwnedPending = try await store.hasPendingRecords(account: scope.userID)
+        let foreignPending = try await store.hasPendingRecords(account: foreign.userID)
+        precondition(!noOwnedPending && foreignPending)
         let repeated = try await store.pruneExpired(account: scope.userID, nowMilliseconds: now+600000)
         precondition(repeated == 0)
         try await store.eraseAccount(scope.userID); try await store.eraseAccount(scope.userID)

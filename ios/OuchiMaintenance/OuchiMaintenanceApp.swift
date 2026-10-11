@@ -50,16 +50,25 @@ import OuchiCore
 }
 
 @main struct OuchiMaintenanceApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store = NativeStore()
     @UIApplicationDelegateAdaptor(RemoteNotificationDelegate.self) private var remoteNotifications
     var body: some Scene {
         WindowGroup {
+            Group {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--ouchi-report-preview") { ReportPreviewView() }
             else { NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() } }
             #else
             NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() }
             #endif
+            }.task(id: scenePhase == .active && store.signedIn) {
+                guard scenePhase == .active, store.signedIn, store.appAttestRegistrationConfigured else { return }
+                while !Task.isCancelled {
+                    await store.maintainExpiredPendingRegistration()
+                    do { try await Task.sleep(for: .seconds(300)) } catch { return }
+                }
+            }
         }
     }
 }

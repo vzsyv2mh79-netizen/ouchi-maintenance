@@ -126,11 +126,18 @@ actor CoordinatorSyntheticHTTP {
         let references=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:keychain.operations)
         let pending=AppAttestPendingRegistrationStorage(root:root,keyProvider:{ account,epoch in
             guard let key=try keys.read(account:account,epoch:epoch) else { throw CloudError.unavailable };return key
+        }, expiryAuthorization: { scope, clock in
+            if let reference = try references.generated(account: scope.userID, epoch: scope.epochID, nowMilliseconds: clock) { return reference.scope == scope }
+            if let reference = try references.confirmed(account: scope.userID, epoch: scope.epochID, nowMilliseconds: clock) { return reference.scope == scope }
+            return false
         })
         let http=CoordinatorSyntheticHTTP(context:captured,references:references,pending:pending)
         let coordinator=try AppAttestRegistrationCoordinator(currentContext:{ captured },device:AppAttestDeviceService(operations:device.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await http.send($0) },now:{ now })
         await refused { _ = try await coordinator.register(captured:captured) }
         precondition(device.counts()==(1,1))
+        let retainedLive = try await coordinator.pruneExpiredPending(captured: captured)
+        precondition(retainedLive == 0 && device.counts() == (1,1), "maintenance must not call DeviceCheck")
+        let maintenanceCounts = await http.counts(); precondition(maintenanceCounts == (1,1), "maintenance must not issue a challenge or commit")
         let reference=try references.generated(account:captured.userID,epoch:captured.epochID,nowMilliseconds:now)!
         let staged=try await pending.read(scope:reference.scope,nowMilliseconds:now);precondition(staged?.attestation==CoordinatorSyntheticDevice.proof)
         await http.allowCommit()
@@ -143,6 +150,7 @@ actor CoordinatorSyntheticHTTP {
         try await coordinator.closeAccount(account:captured.userID)
         precondition(keychain.registrationCount()==0)
         await refused { _ = try await coordinator.register(captured:captured) };precondition(device.counts()==(1,1))
+        await refused { _ = try await coordinator.pruneExpiredPending(captured: captured) }
 
         // A known generation failure still has a durable intent. Restart-style
         // retries cannot automatically create another key with an unknown result.
@@ -162,11 +170,20 @@ actor CoordinatorSyntheticHTTP {
         let cancellable=try AppAttestRegistrationCoordinator(currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await cancelledHTTP.send($0) },now:{ now })
         let registration=Task { try await cancellable.register(captured:cancelledContext) }
         await delayed.waitForAttestation()
+        await refused { _ = try await cancellable.pruneExpiredPending(captured: cancelledContext) }
         registration.cancel();delayed.finishAttestation()
         await refused { _ = try await registration.value }
         let cancellationReference=try references.generated(account:cancelledContext.userID,epoch:cancelledContext.epochID,nowMilliseconds:now)!
         let cancelledProof=try await pending.read(scope:cancellationReference.scope,nowMilliseconds:now);precondition(cancelledProof?.attestation==CoordinatorSyntheticDevice.proof)
         let cancelledCounts=await cancelledHTTP.counts();precondition(cancelledCounts==(1,0))
+        let staleMaintenance = try AppAttestRegistrationCoordinator(currentContext:{ nil },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
+        await refused { _ = try await staleMaintenance.pruneExpiredPending(captured: cancelledContext) }
+        let stillPending = try await pending.hasPendingRecord(account: cancelledContext.userID, epoch: cancelledContext.epochID); precondition(stillPending)
+        let restartedMaintenance = try AppAttestRegistrationCoordinator(currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
+        let physicallyRemoved = try await restartedMaintenance.pruneExpiredPending(captured: cancelledContext)
+        precondition(physicallyRemoved == 1 && delayed.counts() == (1,1))
+        let missingProof = try await pending.hasPendingRecord(account: cancelledContext.userID, epoch: cancelledContext.epochID); precondition(!missingProof)
+        let retainedReference = try references.generated(account: cancelledContext.userID, epoch: cancelledContext.epochID, nowMilliseconds: now+300000); precondition(retainedReference == cancellationReference)
         try await cancellable.closeAccount(account:cancelledContext.userID);precondition(keychain.registrationCount()==0)
         let cancelledClosure=try references.pendingClosure(account:cancelledContext.userID);precondition(cancelledClosure != nil)
 

@@ -244,6 +244,13 @@ private struct NativeSettings: View {
                     if let url = store.calendarURL { ShareLink("カレンダーファイルを共有・保存", item: url) }
                     Text("取り込み後の通知設定はカレンダーで確認してください。アプリで完了・周期変更・削除しても、自動では反映されません。再取り込み時は重複に注意してください。TimeTreeでの直接取り込みは未確認です。").font(.caption)
                 }
+                if store.appAttestRegistrationConfigured && store.pendingRegistrationMaintenanceNeedsAttention {
+                    Section("端末の一時データ") {
+                        Text("一時データの整理を完了できませんでした。端末のロックを解除し、通信できる状態で再確認してください。記録や購入の利用権は、この整理によって変更されません。")
+                            .font(.caption)
+                        Button("整理を再確認") { Task { await store.maintainExpiredPendingRegistration() } }.disabled(store.busy)
+                    }
+                }
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("アカウント") {
                     if let email = store.accountEmail, !email.isEmpty {
