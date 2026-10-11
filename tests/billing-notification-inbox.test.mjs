@@ -17,3 +17,11 @@ test('inbox requires durable strict acknowledgement and hashes exact proof witho
  await assert.rejects(()=>persist('synthetic',record,async()=>({data:'inserted',error:Error('outage')})));
  await assert.rejects(()=>persist('',record,async()=>{throw Error('must not write');}));
 });
+
+test('verified transaction scope is normalized and retirement is acknowledged only for scoped notifications',async()=>{
+ const scope={accountToken:'22222222-2222-4222-8222-222222222222',originalTransactionId:'10'};
+ const scoped=normalize(event,'Sandbox',true,scope);assert.equal(scoped.accountToken,scope.accountToken);assert.equal(scoped.originalTransactionId,'10');
+ await persist('synthetic',scoped,async()=>({data:'retired',error:null}));
+ await assert.rejects(()=>persist('synthetic',normalize(event,'Sandbox',false),async()=>({data:'retired',error:null})));
+ for(const invalid of [{...scope,accountToken:'bad'},{...scope,originalTransactionId:'unknown'},{...scope,accountToken:'00000000-0000-0000-0000-000000000000'}])assert.throws(()=>normalize(event,'Sandbox',true,invalid));
+});

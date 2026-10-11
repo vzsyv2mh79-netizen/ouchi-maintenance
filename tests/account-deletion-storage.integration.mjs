@@ -290,6 +290,13 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const pushID=randomUUID(),pushLease=randomUUID(),pushEndpoint='https://web.push.apple.com/synthetic-'+randomUUID();assert.equal((await admin.from('maintenance_push_subscriptions').insert({id:pushID,user_id:userID,endpoint:pushEndpoint,p256dh:'A'.repeat(87),auth:'A'.repeat(22),claim_token:pushLease,claimed_until:new Date(Date.now()+120000).toISOString()})).error,null);
   const testDispatchArgs={target_user:userID,target_endpoint:pushEndpoint};assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,true);
   const dispatchArgs={subscription_id:pushID,delivery_token:pushLease};assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,true);assert.ok((await user.rpc('can_dispatch_maintenance_push',dispatchArgs)).error);
+  const ownedNotice=randomUUID(),preservedNotice=randomUUID();
+  const ownedPurchase={environment:'Sandbox',transactionId:'888',originalTransactionId:'887',accountToken:epoch.data,productId:'ouchi.tip.small',signedAt:100,purchasedAt:50};
+  assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:ownedPurchase,proof_sha256:'1'.repeat(64)})).error,null);
+  for(const [noticeID,token,original] of [[ownedNotice,epoch.data,'887'],[preservedNotice,otherEpoch.data,'900']]){
+   const payload={environment:'Sandbox',notificationId:noticeID,notificationType:'CONSUMPTION_REQUEST',signedAt:100,disposition:'needs_reconciliation',accountToken:token,originalTransactionId:original};
+   const result=await admin.rpc('record_maintenance_verified_notification',{payload,proof_sha256:'2'.repeat(64)});assert.equal(result.error,null);assert.equal(result.data,'inserted');
+  }
   const deletionRequest=()=>new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:syntheticPassword})});
   const temporaryClients=[];const requestDeps=deletionRequestDependencies(admin,()=>{const client=createClient(origin,'synthetic-public-key',options);temporaryClients.push(client);return client;});
   const wrongPassword=new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:'Wrong-synthetic-password'})});assert.equal((await handleAccountDeletionRequest(wrongPassword,requestDeps)).status,403);
@@ -346,6 +353,14 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
 const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
   assert.deepEqual(await erase(admin,scope),{completed:0,allObjectsConfirmed:true});assert.equal((await user.auth.getUser()).error,null);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);
+  const notificationCount=id=>Number(recoverySql(`select count(*) from maintenance_private.verified_notifications where notification_id='${id}';`).trim());
+  assert.equal(notificationCount(ownedNotice),1);assert.equal(notificationCount(preservedNotice),1);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_notifications',{...args,target_lease:randomUUID()})).data,false);assert.equal(notificationCount(ownedNotice),1);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_notifications',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_notifications',args)).data,true);
+  assert.equal(notificationCount(ownedNotice),0);assert.equal(notificationCount(preservedNotice),1);
+  assert.equal(Number(recoverySql("select count(*) from maintenance_private.verified_transactions where environment='Sandbox' and transaction_id='888';").trim()),1);
+  console.log('Actual leased notification erasure: own scoped inbox removed, wrong lease refused, other-owner inbox and immutable purchase ledger preserved; no account completion claimed.');
+
   assert.ok((await user.rpc('erase_maintenance_deletion_reconciliation',args)).error);
   assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',{...args,target_lease:randomUUID()})).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,true);

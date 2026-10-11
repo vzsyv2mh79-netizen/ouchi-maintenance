@@ -59,7 +59,7 @@ const transaction=(epoch,id,original=id)=>({environment:'Sandbox',transactionId:
 try {
  execFileSync('docker',[...compose,'createdb','-U','postgres',database],{timeout:15000});
  sql('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);');
- for(const file of ['20261010141353_ouchi_billing_identity.sql','20261010142053_ouchi_verified_transaction_ledger.sql','20261010220727_ouchi_verified_entitlement_read.sql','20261010224749_ouchi_verified_renewal_state.sql','20261011083324_ouchi_retired_transaction_ingestion.sql','20261011084235_ouchi_retired_renewal_ingestion.sql'])sql(readFileSync('supabase/migrations/'+file,'utf8'));
+ for(const file of ['20261010141353_ouchi_billing_identity.sql','20261010142053_ouchi_verified_transaction_ledger.sql','20261010220727_ouchi_verified_entitlement_read.sql','20261010224749_ouchi_verified_renewal_state.sql','20261011083324_ouchi_retired_transaction_ingestion.sql','20261011084235_ouchi_retired_renewal_ingestion.sql','20261010224129_ouchi_verified_notification_inbox.sql','20261011091753_ouchi_notification_account_erasure.sql'])sql(readFileSync('supabase/migrations/'+file,'utf8'));
  {
   const {user,epoch}=identity();
   await blockedThenRetired(user,call('apply_maintenance_verified_transaction',transaction(epoch,'101')),'new ownership');
@@ -83,7 +83,14 @@ try {
   await blockedThenRetired(user,call('apply_maintenance_verified_renewal',{...renewal,signedAt:300,autoRenewStatus:0}),'renewal update');
   assert.equal(sql(`select signed_at from maintenance_private.verified_renewals where user_id='${user}';`),'100');
  }
- console.log('Actual PostgreSQL: three writers waited on the closure advisory lock; no new owner/period or renewal update after closure; existing refund update preserved.');
+ {
+  const {user,epoch}=identity();
+  assert.equal(sql('set role service_role;'+call('apply_maintenance_verified_transaction',transaction(epoch,'401'))),'inserted');
+  const notice={environment:'Sandbox',notificationId:randomUUID(),notificationType:'DID_RENEW',signedAt:100,disposition:'transaction_applied',accountToken:epoch,originalTransactionId:'401'};
+  await blockedThenRetired(user,call('record_maintenance_verified_notification',notice),'notification inbox write');
+  assert.equal(sql(`select count(*) from maintenance_private.verified_notifications where user_id='${user}';`),'0');
+ }
+ console.log('Actual PostgreSQL: four writers waited on the closure advisory lock; no new owner/period, renewal update or inbox record after closure; existing refund update preserved.');
 } finally {
  for(const child of children)child.kill('SIGKILL');
  // Terminate only sessions in this freshly generated disposable database.

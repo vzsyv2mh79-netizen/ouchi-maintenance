@@ -32,7 +32,8 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   eraseRecords: async scope => {
    if (!await rpc('erase_maintenance_deletion_records', scope)) return false;
    if (!await rpc('erase_maintenance_deletion_reconciliation', scope)) return false;
-   return rpc('erase_maintenance_deletion_reminder_schedule', scope);
+   if (!await rpc('erase_maintenance_deletion_reminder_schedule', scope)) return false;
+   return rpc('erase_maintenance_deletion_notifications', scope);
   },
   finalizeIdentityAndRetention: tail.finalizeIdentityAndRetention,
   markComplete: tail.markComplete,

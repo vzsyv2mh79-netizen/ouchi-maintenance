@@ -44,7 +44,8 @@ export async function POST(request:Request){
   if(renewal&&signedRenewal){
    if(await persistBillingRenewal(database,config,signedRenewal,renewal,'notification')==='retired')return Response.json({received:true},{headers});
   }
-  const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
+  const owner=transaction??renewal;
+  const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction),owner?{accountToken:owner.accountToken,originalTransactionId:owner.originalTransactionId}:undefined);
   await persistVerifiedNotification(signedPayload,record,async(name,args)=>await database.rpc(name,args));
   return Response.json({received:true},{headers});
  }catch{return Response.json({error:'Retry notification'},{status:503,headers});}

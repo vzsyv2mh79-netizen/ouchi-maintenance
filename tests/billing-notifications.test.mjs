@@ -6,18 +6,18 @@ export async function persistBillingTransaction(db,config,signed,transaction,con
 export function readBillingBody(request){return request.json();}
 export function billingVerifier(){return {verifyAndDecodeNotification:async()=>{const h=globalThis.notificationHarness;if(h.outerInvalid)throw Error('invalid');return h.notification;}};}
 export async function verifyBillingTransaction(){const h=globalThis.notificationHarness;if(h.innerInvalid)throw Error('invalid');return h.transaction;}
-export async function verifyBillingRenewal(signed,transaction){const h=globalThis.notificationHarness;h.verifiedRenewal=signed;if(h.renewalInvalid)throw Error('invalid renewal');return {}; }
+export async function verifyBillingRenewal(signed,transaction){const h=globalThis.notificationHarness;h.verifiedRenewal=signed;if(h.renewalInvalid)throw Error('invalid renewal');return {accountToken:"22222222-2222-4222-8222-222222222222",originalTransactionId:"10"}; }
 export async function persistBillingRenewal(db,config,signed,renewal){const h=globalThis.notificationHarness;h.persistedRenewal=signed;if(h.renewalPersistenceFailure)throw Error('renewal outage');await db.rpc('renewal',{payload:renewal});return h.retiredOnRenewalWrite?'retired':'persisted';}
-export async function verifyBillingRenewalOnly(){const h=globalThis.notificationHarness;if(h.renewalInvalid)throw Error('invalid');return {}; }
+export async function verifyBillingRenewalOnly(){const h=globalThis.notificationHarness;if(h.renewalInvalid)throw Error('invalid');return {accountToken:"22222222-2222-4222-8222-222222222222",originalTransactionId:"10"}; }
 export async function renewalRetiredAfterVerification(){const h=globalThis.notificationHarness;if(h.retirementLookupFailure)throw Error('outage');return Boolean(h.renewalRetired);}
-export async function pairBillingRenewalOnly(){const h=globalThis.notificationHarness;if(h.pairFailure)throw Error('missing period');return {}; }
+export async function pairBillingRenewalOnly(){const h=globalThis.notificationHarness;if(h.pairFailure)throw Error('missing period');return {accountToken:"22222222-2222-4222-8222-222222222222",originalTransactionId:"10"}; }
 export function billingDatabase(){return {rpc:async(name,args)=>{const h=globalThis.notificationHarness;h.writes++;if(name==='record_maintenance_verified_notification'){h.inbox=args;return {data:'inserted',error:h.inboxFailure?Error('inbox'):null};}h.payload=args.payload;if(h.networkFailure)throw Error('network');return {error:h.databaseFailure?Error('database'):null};}};}
 `);
 const compiled=ts.transpileModule(readFileSync('app/api/billing/notifications/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const inbox=moduleURL(ts.transpileModule(readFileSync('lib/billing-notification-inbox.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 const {POST}=await import(moduleURL(compiled.replaceAll("'@/lib/billing-server'",JSON.stringify(stub)).replaceAll("'@/lib/billing-notification-inbox'",JSON.stringify(inbox))));
 test('actual notification handler distinguishes invalid proof from retryable persistence failure',async()=>{
- const h=globalThis.notificationHarness={enabled:true,outerInvalid:false,innerInvalid:false,networkFailure:false,databaseFailure:false,writes:0,notification:{notificationUUID:'11111111-1111-4111-8111-111111111111',notificationType:'SUBSCRIBED',signedDate:100,data:{environment:'Sandbox',signedTransactionInfo:'synthetic'}},transaction:{transactionId:'verified-fixture'}};
+ const h=globalThis.notificationHarness={enabled:true,outerInvalid:false,innerInvalid:false,networkFailure:false,databaseFailure:false,writes:0,notification:{notificationUUID:'11111111-1111-4111-8111-111111111111',notificationType:'SUBSCRIBED',signedDate:100,data:{environment:'Sandbox',signedTransactionInfo:'synthetic'}},transaction:{transactionId:'100',originalTransactionId:'10',accountToken:'22222222-2222-4222-8222-222222222222'}};
  const send=()=>POST(new Request('https://example.invalid/api/billing/notifications',{method:'POST',body:JSON.stringify({signedPayload:'synthetic'})}));
  try{
   h.enabled=false;assert.equal((await send()).status,503);assert.equal(h.writes,0);h.enabled=true;

@@ -17,13 +17,14 @@ test('stored adapter rejects missing finalization before database access',()=>{
 test('record cleanup requires acknowledged recovery-job erasure and preserves request scope',async()=>{
  const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>true};
- for(const failed of [null,'erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule']){
+ const steps=['erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule','erase_maintenance_deletion_notifications'];
+ for(const failed of [null,...steps]){
   const calls=[];const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name!==failed,error:null};}};
-  const deps=storedDeletionDependencies(db,tail);
-  assert.equal(await deps.eraseRecords(scope),failed===null);
-  assert.deepEqual(calls.map(c=>c.name),failed==='erase_maintenance_deletion_records'?['erase_maintenance_deletion_records']:failed==='erase_maintenance_deletion_reconciliation'?['erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation']:['erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule']);
+  assert.equal(await storedDeletionDependencies(db,tail).eraseRecords(scope),failed===null);
+  assert.deepEqual(calls.map(c=>c.name),failed===null?steps:steps.slice(0,steps.indexOf(failed)+1));
   for(const c of calls)assert.deepEqual(c.args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});
  }
+
 });
 test('cancellation after record acknowledgement prevents recovery cleanup',async()=>{
  const controller=new AbortController();const calls=[];
