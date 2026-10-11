@@ -12,6 +12,7 @@ export function billingConfiguration(){return globalThis.reportHarness.config;}
 export function billingDatabase(){return {auth:{getUser:async()=>({data:{user:{id:'${userId}'}},error:null})},from:()=>({select:()=>({eq:()=>({eq:async()=>({data:globalThis.reportHarness.rows,error:null})})})})};}
 export function createClient(url,key,options){globalThis.reportHarness.client={url,key,options};return {rpc:async()=>{globalThis.reportHarness.loads++;if(globalThis.reportHarness.revokeLegacyAfterLoad){globalThis.reportHarness.rows=[];}return {data:globalThis.reportHarness.household,error:null};}};}`);
 const code=compile('app/api/development/maintenance-report/route.ts')
+ .replaceAll("'@/lib/report-read-configuration'",JSON.stringify(url(compile('lib/report-read-configuration.ts').replace(/import ['\"]server-only['\"];?/g,''))))
  .replaceAll("'@supabase/supabase-js'",JSON.stringify(stub)).replaceAll("'@/lib/billing-server'",JSON.stringify(stub))
  .replaceAll("'@/lib/billing-fetch'",JSON.stringify(url(compile('lib/billing-fetch.ts'))))
  .replaceAll("'@/lib/billing'",JSON.stringify(url(compile('lib/billing.ts'))))
@@ -19,7 +20,9 @@ const code=compile('app/api/development/maintenance-report/route.ts')
  .replaceAll("'@/lib/maintenance-report'",JSON.stringify(url(compile('lib/maintenance-report.ts'))));
 const {GET}=await import(url(code));
 test('actual route refuses production, unverified/free/expired/refunded/tip accounts and scopes household reads to caller JWT',async()=>{
- const saved={VERCEL_ENV:process.env.VERCEL_ENV,OUCHI_REPORT_TEST_MODE:process.env.OUCHI_REPORT_TEST_MODE,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY};
+ const additionalKeys=['BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64'];
+ const additionalSaved=Object.fromEntries(additionalKeys.map(key=>[key,process.env[key]]));
+ const saved={...additionalSaved,VERCEL_ENV:process.env.VERCEL_ENV,OUCHI_REPORT_TEST_MODE:process.env.OUCHI_REPORT_TEST_MODE,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY};
  globalThis.reportHarness={account:purchaseAccount,config:{url:'https://example.supabase.co',key:'synthetic_service',environment:'Sandbox'},rows:[],loads:0,household:{homes:[{id:homeId,name:'自宅',kind:'home'}],products:[],tasks:[],history:[]}};
  const h=globalThis.reportHarness;
  const request=id=>new Request('https://preview.example/api/development/maintenance-report?homeId='+id,{headers:{authorization:'Bearer synthetic_user_jwt'}});
@@ -53,6 +56,15 @@ test('actual route refuses production, unverified/free/expired/refunded/tip acco
   h.ledgerReads=0;h.loseRightsAfterLoad=true;
   assert.equal((await GET(request(homeId))).status,403);
   h.loseRightsAfterLoad=false;
+  // Read verified ledger rights without a purchase verifier; never fabricate paid access.
+  Object.assign(process.env,{BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',BILLING_STORAGE_MODE:'verified-ledger',NEXT_PUBLIC_SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic_only'});
+  delete process.env.APPLE_BUNDLE_ID;delete process.env.APPLE_ROOT_CERTIFICATES_BASE64;
+  h.config=null;h.ledgerReads=0;h.ledgerPlan='premium';
+  assert.equal((await GET(request(homeId))).status,200);
+  h.ledgerPlan='free';assert.equal((await GET(request(homeId))).status,403);
+  h.ledgerPlan='premium';process.env.BILLING_MODE='production';assert.equal((await GET(request(homeId))).status,503);
+  process.env.BILLING_MODE='sandbox';delete process.env.BILLING_STORAGE_MODE;assert.equal((await GET(request(homeId))).status,503);
+  process.env.BILLING_STORAGE_MODE='verified-ledger';
   const controller=new AbortController();controller.abort();
   assert.equal((await GET(new Request(request(homeId),{signal:controller.signal}))).status,403);
 

@@ -112,7 +112,8 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const reportBefore=Object.fromEntries(reportKeys.map(key=>[key,process.env[key]]));
   async function reportRequest(targetHome){
    try{
-    Object.assign(process.env,{VERCEL_ENV:'preview',OUCHI_REPORT_TEST_MODE:'true',NEXT_PUBLIC_SUPABASE_URL:origin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic_isolated_report',SUPABASE_SERVICE_ROLE_KEY:service,APPLE_BUNDLE_ID:'test.disposable.ouchi',APPLE_ROOT_CERTIFICATES_BASE64:'dGVzdA==',BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',BILLING_STORAGE_MODE:'verified-ledger'});
+    delete process.env.APPLE_BUNDLE_ID;delete process.env.APPLE_ROOT_CERTIFICATES_BASE64;
+    Object.assign(process.env,{VERCEL_ENV:'preview',OUCHI_REPORT_TEST_MODE:'true',NEXT_PUBLIC_SUPABASE_URL:origin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic_isolated_report',SUPABASE_SERVICE_ROLE_KEY:service,BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',BILLING_STORAGE_MODE:'verified-ledger'});
     return await formalReportGET(new Request(origin+'/api/development/maintenance-report?homeId='+targetHome,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));
    }finally{for(const key of reportKeys){if(reportBefore[key]===undefined)delete process.env[key];else process.env[key]=reportBefore[key];}}
   }

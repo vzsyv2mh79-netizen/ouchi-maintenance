@@ -1,3 +1,4 @@
+import { sandboxReportReadConfiguration } from '@/lib/report-read-configuration';
 import { createBillingFetch } from '@/lib/billing-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { billingConfiguration, billingDatabase, verifiedPurchaseAccount, ledgerEntitlementAfterAuth } from '@/lib/billing-server';
@@ -8,7 +9,7 @@ import { maintenanceReport } from '@/lib/maintenance-report';
 export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const headers = { 'Cache-Control': 'no-store' };
-  const config = billingConfiguration();
+  const config = sandboxReportReadConfiguration() ?? billingConfiguration();
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (process.env.VERCEL_ENV === 'production' || !config || config.environment !== 'Sandbox' || process.env.OUCHI_REPORT_TEST_MODE !== 'true' || !publishableKey?.startsWith('sb_publishable_')) {
     return Response.json({ error: 'レポートは準備中です。' }, { status: 503, headers });
