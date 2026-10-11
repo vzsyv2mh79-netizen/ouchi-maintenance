@@ -1,3 +1,5 @@
+import {removeProductAttachment} from '@/lib/attachment-removal';
+import {storedAttachmentRemovalServices} from '@/lib/attachment-removal-store';
 import {createClient} from '@supabase/supabase-js';
 import {createAttachmentFetch} from '@/lib/attachment-fetch';
 import {storedAttachmentUploadServices} from '@/lib/attachment-upload-store';
@@ -75,4 +77,13 @@ export async function GET(request:Request){
 
   return new Response(new Uint8Array(actual.bytes),{headers:{...headers,'Content-Type':actual.mime,'Content-Disposition':`attachment; filename="ouchi-attachment-${item.id}.${extension}"`,'X-Content-Type-Options':'nosniff'}});
  }catch{return Response.json({error:'添付を取得できませんでした。'},{status:503,headers});}
+}
+
+export async function DELETE(request:Request){
+ const headers={'Cache-Control':'no-store'};
+ const url=process.env.OUCHI_ATTACHMENT_TEST_URL,key=process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY;
+ if(process.env.NODE_ENV!=='development'||process.env.OUCHI_ATTACHMENT_TEST_MODE!=='true'||url!=='http://127.0.0.1:54321'||!key)return Response.json({error:'Local isolated test only'},{status:503,headers});
+ const signal=AbortSignal.any([request.signal,AbortSignal.timeout(30000)]);
+ const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}});
+ return removeProductAttachment(request,new URL(request.url).searchParams.get('attachmentId')??'',storedAttachmentRemovalServices(db,signal));
 }

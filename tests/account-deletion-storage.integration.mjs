@@ -13,6 +13,7 @@ function attachmentModule(name){
  if(attachmentModules.has(name))return attachmentModules.get(name);
  let source=ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
  source=source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency)=>`from ${JSON.stringify(attachmentModule(dependency))}`);
+ source=source.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
  const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');attachmentModules.set(name,url);return url;
 }
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
@@ -20,7 +21,7 @@ const {uploadProductAttachment}=await import(attachmentModule('attachment-upload
 const formalRouteCode=ts.transpileModule(readFileSync('app/api/development/verified-product-attachments/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
  .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
  .replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
-const {POST:formalAttachmentPOST,GET:formalAttachmentGET}=await import('data:text/javascript;base64,'+Buffer.from(formalRouteCode).toString('base64'));
+const {POST:formalAttachmentPOST,GET:formalAttachmentGET,DELETE:formalAttachmentDELETE}=await import('data:text/javascript;base64,'+Buffer.from(formalRouteCode).toString('base64'));
 
 
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
@@ -113,9 +114,12 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
   const deniedAfterRevocation=await uploadProductAttachment(paidRequest(),paidProduct,randomUUID(),storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(deniedAfterRevocation.status,403);
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
-  let retainedDownload,foreignDownload;
-  try{process.env.NODE_ENV='development';process.env.OUCHI_ATTACHMENT_TEST_MODE='true';process.env.OUCHI_ATTACHMENT_TEST_URL=origin;process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY=service;retainedDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));foreignDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+signup.data.session.access_token}}));}
+  let retainedDownload,foreignDownload,removedAttachment;
+  try{process.env.NODE_ENV='development';process.env.OUCHI_ATTACHMENT_TEST_MODE='true';process.env.OUCHI_ATTACHMENT_TEST_URL=origin;process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY=service;retainedDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));foreignDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+signup.data.session.access_token}}));removedAttachment=await formalAttachmentDELETE(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{method:'DELETE',headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));}
   finally{for(const key of routeEnvKeys){if(routeEnvBefore[key]===undefined)delete process.env[key];else process.env[key]=routeEnvBefore[key];}}
+  assert.equal(removedAttachment.status,200);assert.deepEqual(await removedAttachment.json(),{removed:true,attachmentId:paidFile});
+  const physicallyGone=await admin.storage.from('ouchi-product-attachments').download(`${otherSignup.data.user.id}/${otherEpoch.data}/${paidFile}.png`);assert.equal(physicallyGone.data,null);assert.equal(physicallyGone.error.code,'NoSuchKey');
+  const releasedUsage=await admin.rpc('maintenance_attachment_usage',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data});assert.equal(releasedUsage.error,null);assert.equal(releasedUsage.data.usedFiles,0);
   assert.equal(foreignDownload.status,404);assert.equal(foreignDownload.headers.get('cache-control'),'no-store');assert.ok(!(await foreignDownload.text()).includes(paidFile));
   assert.equal(retainedDownload.status,200);assert.equal(retainedDownload.headers.get('cache-control'),'no-store');assert.deepEqual(new Uint8Array(await retainedDownload.arrayBuffer()),adapterBytes);
   assert.equal((await user.from('home_members').delete().eq('homeId',home).eq('user_id',otherSignup.data.user.id)).error,null);
