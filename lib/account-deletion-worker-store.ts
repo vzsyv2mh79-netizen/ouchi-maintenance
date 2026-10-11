@@ -29,7 +29,10 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
    return await tail.eraseNativeDevices(scope) === true && !signal?.aborted;
   },
   eraseAttachments: async scope => (await eraseAccountDeletionObjects(db, scope, signal)).allObjectsConfirmed === true && !signal?.aborted,
-  eraseRecords: scope => rpc('erase_maintenance_deletion_records', scope),
+  eraseRecords: async scope => {
+   if (!await rpc('erase_maintenance_deletion_records', scope)) return false;
+   return rpc('erase_maintenance_deletion_reconciliation', scope);
+  },
   finalizeIdentityAndRetention: tail.finalizeIdentityAndRetention,
   markComplete: tail.markComplete,
  };
