@@ -867,7 +867,8 @@ private struct SandboxReminderSettingsView: View {
 
 private struct FormalReportView: View {
     @EnvironmentObject private var store: NativeStore
-    @State private var report: MaintenanceReport?
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var report: ReportDisplayLease?
     @State private var operation: Task<Void, Never>?
     private var binding: String { store.accountBindingRevision.uuidString + "/" + store.homeID }
     var body: some View {
@@ -882,14 +883,27 @@ private struct FormalReportView: View {
                         let value = await store.loadFormalReport()
                         guard !Task.isCancelled, expected == binding else { return }
                         report = value
+                        guard let value else { return }
+                        let delay = max(0, value.deadline.timeIntervalSinceNow)
+                        do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                        guard !Task.isCancelled, expected == binding else { return }
+                        report = nil
                     }
                 }.disabled(store.busy)
             }
-            if let report { MaintenanceReportSections(report: report) }
+            if let report {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if report.isCurrent(now: context.date) { MaintenanceReportSections(report: report.report) }
+                    else { Text("利用権を再確認するため、レポートを更新してください。") }
+                }
+            }
             if let message = store.message { Section { Text(message) } }
         }
         .navigationTitle("お手入れレポート")
         .task(id: binding) { operation?.cancel(); operation = nil; report = nil }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { operation?.cancel(); operation = nil; report = nil }
+        }
         .onDisappear { operation?.cancel(); operation = nil; report = nil }
     }
 }

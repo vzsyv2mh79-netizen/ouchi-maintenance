@@ -19,6 +19,24 @@ import OuchiCore
             return (bytes, HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:headers)!)
         }
         let value = try await api.load(home:home,epoch:epoch,token:"synthetic");precondition(value.overdue == 1)
+        let now = Date(timeIntervalSince1970: 1000), instant = ContinuousClock.now
+        func rights(_ expiry: Double, _ environment: String = "Production") throws -> VerifiedEntitlement {
+            try JSONDecoder().decode(VerifiedEntitlement.self, from: JSONSerialization.data(withJSONObject:
+                ["plan":"premium", "salesEnabled":false, "environment":environment, "expiresAt":expiry,
+                 "productId":"ouchi.premium.monthly", "purchaseAccountToken":epoch.uuidString]))
+        }
+        let short = try ReportDisplayLease(report:value,rights:rights(1_002_000),environment:.production,now:now,instant:instant)
+        precondition(short.isCurrent(now:now,instant:instant))
+        precondition(!short.isCurrent(now:now.addingTimeInterval(2),instant:instant))
+        precondition(!short.isCurrent(now:now,instant:instant.advanced(by:.seconds(2))))
+        precondition(!short.isCurrent(now:now.addingTimeInterval(-1),instant:instant))
+        let capped = try ReportDisplayLease(report:value,rights:rights(9_000_000),environment:.production,now:now,instant:instant)
+        precondition(capped.deadline == now.addingTimeInterval(300))
+        precondition(!capped.isCurrent(now:now,instant:instant.advanced(by:.seconds(300))))
+        for invalid in [try rights(1_000_000), try rights(1_002_000,"Sandbox")] {
+            do { _ = try ReportDisplayLease(report:value,rights:invalid,environment:.production,now:now,instant:instant);fatalError("Invalid display lease accepted") }
+            catch { precondition(error as? CloudError == .authenticationRequired) }
+        }
         for patch in [["environment":"Sandbox"],["purchaseAccountToken":home]] {
             var object:[String:Any] = ["environment":"Production","purchaseAccountToken":epoch.uuidString,"report":report]
             object.merge(patch) { _,new in new }
@@ -51,6 +69,6 @@ import OuchiCore
         }
         do { _ = try await api.load(home:home,epoch:zero,token:"synthetic");fatalError("Zero epoch accepted") }
         catch { precondition(error as? CloudError == .invalidInput) }
-        print("PASS: formal report pins HTTPS origin/path, ignores Production loopback, sends exact epoch, matches environment/epoch/home, refuses unsafe/oversized/foreign responses and cancellation. Mock transport, no real paid report.")
+        print("PASS: formal report pins HTTPS origin/path, ignores Production loopback, sends exact epoch, matches environment/epoch/home, refuses unsafe/oversized/foreign responses and cancellation. Display lease refuses wall/monotonic expiry, rollback and wrong rights, capped at five minutes. Mock transport, no real paid report.")
     }
 }

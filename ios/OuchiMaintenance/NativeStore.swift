@@ -716,7 +716,7 @@ import OuchiCore
               let value = Bundle.main.infoDictionary?["OUCHI_REPORT_ENVIRONMENT"] as? String else { return nil }
         return BillingEnvironment(rawValue: value)
     }
-    func loadFormalReport() async -> MaintenanceReport? {
+    func loadFormalReport() async -> ReportDisplayLease? {
         guard !busy, signedIn, let environment = formalReportEnvironment, let session,
               household?.homes.contains(where: { $0.id == homeID }) == true else { return nil }
         busy = true; message = nil
@@ -738,7 +738,7 @@ import OuchiCore
             guard stillBound() else { return nil }
             let current = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), current.purchaseAccountToken == epoch, current.premiumIsCurrent(expectedEnvironment: environment) else { return nil }
-            return result
+            return try ReportDisplayLease(report: result, rights: current, environment: environment)
         } catch {
             if stillBound() { message = "レポートを取得できません。ログイン状態と通信を確認してお試しください。" }
             return nil
