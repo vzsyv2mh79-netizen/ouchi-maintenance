@@ -78,3 +78,28 @@ extension HouseholdAPITests {
         XCTAssertThrowsError(try AccountDeletionStatus.accepted(Data("{\"requestID\":\"00000000-0000-0000-0000-000000000000\",\"state\":\"pending\"}".utf8), httpStatus: 202))
     }
 }
+
+extension HouseholdAPITests {
+    func testDeletionAPIAcceptsOnlyServerReceiptAndExactProgressRequest() async throws {
+        let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.url?.host, "ouchi-maintenance.vercel.app")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer synthetic")
+            if request.httpMethod == "POST" {
+                let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
+                XCTAssertEqual(body, ["confirmation": "DELETE_OUCHI_ACCOUNT", "password": "Synthetic-only"])
+                return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"pending\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
+            }
+            XCTAssertEqual(request.url?.path, "/api/account/deletion/" + id.uuidString.lowercased())
+            XCTAssertNil(request.httpBody)
+            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let accepted = try await api.request(password: "Synthetic-only", token: "synthetic")
+        XCTAssertEqual(accepted.state, .pending)
+        let progress = try await api.progress(requestID: accepted.requestID, token: "synthetic")
+        XCTAssertEqual(progress.state, .running)
+        let unavailable = AccountDeletionAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
+        do { _ = try await unavailable.progress(requestID: id, token: "synthetic"); XCTFail("Must not return completion") }
+        catch { XCTAssertEqual(error as? CloudError, .rejected(503)) }
+    }
+}

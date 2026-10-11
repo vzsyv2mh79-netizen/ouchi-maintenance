@@ -7,6 +7,18 @@ import OuchiCore
     private let preference = "ouchi.localReminder.account"
     private var generation = 0
     private var activeIDs: [String] = []
+    /// Only call after the server has durably accepted the user's deletion.
+    /// Confirmation covers this device's app-owned local notifications, not APNs.
+    func eraseForAccountDeletion() async -> Bool {
+        let expected = generation + 1
+        await reset(clearPreference: true)
+        guard generation == expected else { return false }
+        let pending = await pendingIDs()
+        let delivered = await deliveredIDs()
+        guard generation == expected else { return false }
+        return !pending.contains { $0.hasPrefix("ouchi.local.") }
+            && !delivered.contains { $0.hasPrefix("ouchi.local.") }
+    }
     func reset(clearPreference: Bool) async {
         generation += 1
         let expected = generation
