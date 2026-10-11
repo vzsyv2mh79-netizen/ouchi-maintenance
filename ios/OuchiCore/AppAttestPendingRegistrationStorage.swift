@@ -21,9 +21,11 @@ public struct AppAttestPendingRegistration: Equatable, Sendable {
 public actor AppAttestPendingRegistrationStorage {
     public typealias KeyProvider = @Sendable (UUID, UUID) throws -> SymmetricKey
     private let root: URL
+    public typealias ExpiryAuthorization = @Sendable (AppAttestRegistrationScope, Int64) throws -> Bool
     private let keyProvider: KeyProvider
+    private let expiryAuthorization: ExpiryAuthorization
     private let maximumBytes = 200_000
-    public init(root: URL, keyProvider: @escaping KeyProvider) { self.root = root.standardizedFileURL; self.keyProvider = keyProvider }
+    public init(root: URL, keyProvider: @escaping KeyProvider, expiryAuthorization: @escaping ExpiryAuthorization = { _, _ in false }) { self.root = root.standardizedFileURL; self.keyProvider = keyProvider; self.expiryAuthorization = expiryAuthorization }
     private func directory(account: UUID, create: Bool = false) throws -> URL {
         guard root.isFileURL, account != UUID(uuidString: "00000000-0000-0000-0000-000000000000")! else { throw CloudError.invalidInput }
         let folder = root.appendingPathComponent(account.uuidString.lowercased(), isDirectory: true)
@@ -92,12 +94,44 @@ public actor AppAttestPendingRegistrationStorage {
     public func hasPendingRecord(account: UUID, epoch: UUID) throws -> Bool {
         try readBounded(file(account: account, epoch: epoch)) != nil
     }
+    /// Removes only authenticated expired proofs for one explicitly selected account.
+    /// Caller must prove a matching durable key reference survives before each removal.
+    /// Missing authorization defaults to refusal; expiration never authorizes a new key.
+    /// Locked keys, corrupt records and unexpected files fail closed before removal.
+    @discardableResult
+    public func pruneExpired(account: UUID, nowMilliseconds: Int64) throws -> Int {
+        guard nowMilliseconds > 0, nowMilliseconds <= 9_007_199_254_740_991 else { throw CloudError.invalidInput }
+        let folder = try directory(account: account)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return 0 }
+        let files = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "attest-pending" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        guard files.count <= 5 else { throw CloudError.unavailable }
+        var expired: [(URL, Data)] = []
+        for url in files {
+            let name = url.deletingPathExtension().lastPathComponent
+            guard let epoch = UUID(uuidString: name), epoch.uuidString.lowercased() == name else { throw CloudError.invalidInput }
+            let expected = try file(account: account, epoch: epoch)
+            guard expected.standardizedFileURL.path == url.standardizedFileURL.path, let bytes = try readBounded(url) else { throw CloudError.unavailable }
+            let record = try decode(bytes, account: account, epoch: epoch)
+            if nowMilliseconds >= record.challenge.expiresAtMilliseconds {
+                guard try expiryAuthorization(record.scope, nowMilliseconds) else { throw CloudError.unavailable }
+                expired.append((url, bytes))
+            }
+        }
+        for (url, bytes) in expired {
+            _ = try directory(account: account)
+            guard try readBounded(url) == bytes else { throw CloudError.unavailable }
+            try FileManager.default.removeItem(at: url)
+        }
+        return expired.count
+    }
     public func stage(_ pending: AppAttestPendingRegistration, nowMilliseconds: Int64) throws {
         _ = try AppAttestRegistrationChallenge.parse(canonicalClientData: pending.challenge.clientData, expected: pending.scope, nowMilliseconds: nowMilliseconds)
         if let old = try read(scope: pending.scope, nowMilliseconds: nowMilliseconds) {
             guard old == pending else { throw CloudError.invalidInput }
             try FileManager.default.setAttributes([.posixPermissions:0o600], ofItemAtPath: file(account: pending.scope.userID, epoch: pending.scope.epochID).path); return
         }
+        try pruneExpired(account: pending.scope.userID, nowMilliseconds: nowMilliseconds)
         let url = try file(account: pending.scope.userID, epoch: pending.scope.epochID, create: true)
         let retained = try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil).filter { $0.pathExtension == "attest-pending" }
         guard retained.count < 5 else { throw CloudError.unavailable }

@@ -900,6 +900,15 @@ struct FormalChannelSelection {
             let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { account, epoch in
                 guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }
                 return key
+            }, expiryAuthorization: { scope, now in
+                guard try references.pendingClosure(account: scope.userID) == nil else { return false }
+                if let generated = try references.generated(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
+                    return generated.scope == scope
+                }
+                if let confirmed = try references.confirmed(account: scope.userID, epoch: scope.epochID, nowMilliseconds: now) {
+                    return confirmed.scope == scope
+                }
+                return false
             })
             let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
                 references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds)

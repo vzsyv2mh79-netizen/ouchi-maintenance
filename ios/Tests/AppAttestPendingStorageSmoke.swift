@@ -6,11 +6,11 @@ import OuchiCore
     static let now: Int64 = 1_791_727_200_000
     static let scope = AppAttestRegistrationScope(userID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, sessionID: UUID(uuidString: "22222222-2222-4222-8222-222222222222")!, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!, keyID: Data(repeating: 1, count: 32).base64EncodedString(), appID: "SYNTHETIC1.dev.synthetic.ouchi", environment: "production")
     static let key = SymmetricKey(data: Data(repeating: 7, count: 32))
-    static func pending(_ scope: AppAttestRegistrationScope = scope, proof: Data = Data("synthetic-private-proof-marker-never-an-Apple-proof".utf8)) throws -> AppAttestPendingRegistration {
+    static func pending(_ scope: AppAttestRegistrationScope = scope, proof: Data = Data("synthetic-private-proof-marker-never-an-Apple-proof".utf8), issued: Int64 = now) throws -> AppAttestPendingRegistration {
         let nonce = Data(repeating: 3, count: 32).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-        let text = "{\"version\":1,\"purpose\":\"register_ouchi_attested_key\",\"nonce\":\"\(nonce)\",\"issuedAt\":\(now),\"expiresAt\":\(now+300000),\"userID\":\"\(scope.userID.uuidString.lowercased())\",\"sessionID\":\"\(scope.sessionID.uuidString.lowercased())\",\"epochID\":\"\(scope.epochID.uuidString.lowercased())\",\"requestID\":\"44444444-4444-4444-8444-444444444444\",\"keyID\":\"\(scope.keyID)\",\"appID\":\"\(scope.appID)\",\"attestEnvironment\":\"\(scope.environment)\"}"
-        let c = try AppAttestRegistrationChallenge.parse(canonicalClientData: Data(text.utf8), expected: scope, nowMilliseconds: now)
-        return try AppAttestPendingRegistration(scope: scope, challenge: c, attestation: proof, nowMilliseconds: now)
+        let text = "{\"version\":1,\"purpose\":\"register_ouchi_attested_key\",\"nonce\":\"\(nonce)\",\"issuedAt\":\(issued),\"expiresAt\":\(issued+300000),\"userID\":\"\(scope.userID.uuidString.lowercased())\",\"sessionID\":\"\(scope.sessionID.uuidString.lowercased())\",\"epochID\":\"\(scope.epochID.uuidString.lowercased())\",\"requestID\":\"44444444-4444-4444-8444-444444444444\",\"keyID\":\"\(scope.keyID)\",\"appID\":\"\(scope.appID)\",\"attestEnvironment\":\"\(scope.environment)\"}"
+        let c = try AppAttestRegistrationChallenge.parse(canonicalClientData: Data(text.utf8), expected: scope, nowMilliseconds: issued)
+        return try AppAttestPendingRegistration(scope: scope, challenge: c, attestation: proof, nowMilliseconds: issued)
     }
     static func refused(_ operation: @Sendable () async throws -> Void) async { do { try await operation(); fatalError("accepted unsafe pending operation") } catch {} }
     static func acknowledgement(_ challenge: AppAttestRegistrationChallenge) async throws -> AppAttestRegistrationReceipt {
@@ -26,7 +26,7 @@ import OuchiCore
     static func main() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-attest-pending-synthetic-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let store = AppAttestPendingRegistrationStorage(root: root, keyProvider: { _,_ in key }), value = try pending()
+        let store = AppAttestPendingRegistrationStorage(root: root, keyProvider: { _,_ in key }, expiryAuthorization: { captured, _ in captured.userID == scope.userID }), value = try pending()
         try await store.stage(value, nowMilliseconds: now)
         let file = root.appendingPathComponent(scope.userID.uuidString.lowercased()).appendingPathComponent(scope.epochID.uuidString.lowercased()+".attest-pending")
         let original = try Data(contentsOf: file)
@@ -52,6 +52,7 @@ import OuchiCore
         var damaged = restoredCipher; damaged[0] ^= 1; try damaged.write(to: file)
         await refused { _ = try await restarted.read(scope: scope, nowMilliseconds: now) }
         await refused { try await restarted.stage(value, nowMilliseconds: now) }
+        await refused { _ = try await restarted.pruneExpired(account: scope.userID, nowMilliseconds: now+300000) }
         let damagedBytes = try Data(contentsOf: file); precondition(damagedBytes == damaged, "corruption must not cause silent replacement")
         try Data(repeating: 1, count: 200001).write(to: file)
         await refused { _ = try await restarted.read(scope: scope, nowMilliseconds: now) }
@@ -68,12 +69,34 @@ import OuchiCore
         try foreignBytes.write(to: foreignFile)
         for _ in 0..<5 { let s = AppAttestRegistrationScope(userID: scope.userID, sessionID: scope.sessionID, epochID: UUID(), keyID: scope.keyID, appID: scope.appID, environment: scope.environment); try await store.stage(pending(s), nowMilliseconds: now) }
         await refused { let s = AppAttestRegistrationScope(userID: scope.userID, sessionID: scope.sessionID, epochID: UUID(), keyID: scope.keyID, appID: scope.appID, environment: scope.environment); try await store.stage(pending(s), nowMilliseconds: now) }
+        let livePruned = try await store.pruneExpired(account: scope.userID, nowMilliseconds: now)
+        precondition(livePruned == 0)
+        let accountFolder = root.appendingPathComponent(scope.userID.uuidString.lowercased())
+        let beforePrune = try FileManager.default.contentsOfDirectory(at: accountFolder, includingPropertiesForKeys: nil)
+        precondition(beforePrune.count == 5)
+        let unauthorizedPruning = AppAttestPendingRegistrationStorage(root: root, keyProvider: { _,_ in key })
+        await refused { _ = try await unauthorizedPruning.pruneExpired(account: scope.userID, nowMilliseconds: now+300000) }
+        let locked = AppAttestPendingRegistrationStorage(root: root, keyProvider: { _,_ in throw CloudError.unavailable })
+        await refused { _ = try await locked.pruneExpired(account: scope.userID, nowMilliseconds: now+300000) }
+        await refused { _ = try await store.pruneExpired(account: scope.userID, nowMilliseconds: 0) }
+        let retainedAfterRefusal = try FileManager.default.contentsOfDirectory(at: accountFolder, includingPropertiesForKeys: nil)
+        precondition(retainedAfterRefusal.count == 5)
+        let nextScope = AppAttestRegistrationScope(userID: scope.userID, sessionID: scope.sessionID, epochID: UUID(), keyID: scope.keyID, appID: scope.appID, environment: scope.environment)
+        try await store.stage(pending(nextScope, issued: now+300000), nowMilliseconds: now+300000)
+        let afterPrune = try FileManager.default.contentsOfDirectory(at: accountFolder, includingPropertiesForKeys: nil)
+        precondition(afterPrune.count == 1 && afterPrune[0].lastPathComponent == nextScope.epochID.uuidString.lowercased()+".attest-pending")
+        precondition(FileManager.default.fileExists(atPath: foreignFile.path), "other account must remain untouched, even if expired")
+        let removed = try await store.pruneExpired(account: scope.userID, nowMilliseconds: now+600000)
+        precondition(removed == 1)
+        let repeated = try await store.pruneExpired(account: scope.userID, nowMilliseconds: now+600000)
+        precondition(repeated == 0)
         try await store.eraseAccount(scope.userID); try await store.eraseAccount(scope.userID)
         let remaining = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent(scope.userID.uuidString.lowercased()).path); precondition(remaining.isEmpty)
         let foreignRemaining = try await store.read(scope: foreign, nowMilliseconds: now); precondition(foreignRemaining != nil)
         let linkedRoot = root.appendingPathComponent("symlink"); try FileManager.default.createSymbolicLink(at: linkedRoot, withDestinationURL: root)
         let unsafe = AppAttestPendingRegistrationStorage(root: linkedRoot, keyProvider: { _,_ in key })
         await refused { _ = try await unsafe.read(scope: foreign, nowMilliseconds: now) }
-        print("PASS: encrypted bounded synthetic pending proof survives restart; exact retry, corruption/wrong-key/session/symlink refusal, actor conflict, expiry removal, five-file cap and owner-only erasure. Synthetic key only; no Keychain, Apple attestation or purchase grant.")
+        await refused { _ = try await unsafe.pruneExpired(account: foreign.userID, nowMilliseconds: now+600000) }
+        print("PASS: encrypted bounded synthetic pending proof survives restart; exact retry, corruption/wrong-key/session/symlink refusal, actor conflict, expiry removal, five-file cap, scoped authenticated expiry pruning with locked-key refusal, and owner-only erasure. Synthetic key only; no Keychain, Apple attestation or purchase grant.")
     }
 }
