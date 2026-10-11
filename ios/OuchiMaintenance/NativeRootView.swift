@@ -1281,7 +1281,7 @@ private struct AttachmentView: View {
                 }
             }
             Section("ファイル") {
-                Text("選択したファイルをそのまま保存します。写真の撮影場所や、保証書の氏名・住所が含まれていないか確認してください。")
+                Text("写真は撮影情報を除いたコピーに変換して保存します（JPEGは再圧縮されます）。写真に写った文字やPDFの内容は変更しません。氏名・住所などが含まれていないか確認してください。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button(store.developmentLifecycleConfigured ? "テスト用ファイルを選択" : "ファイルを選択") {
@@ -1311,8 +1311,9 @@ private struct AttachmentView: View {
                 guard !media.isEmpty else { throw CloudError.invalidInput }
                 let data = try Data(contentsOf: file)
                 guard !data.isEmpty, data.count <= 5 * 1024 * 1024 else { throw CloudError.invalidInput }
-                bytes = data; mime = media; filename = file.lastPathComponent; attachmentID = UUID(); status = nil
-            } catch { status = "JPEG・PNG・PDFの5MiB以下のファイルを選択してください。" }
+                let prepared = media == "application/pdf" ? data : try AttachmentImagePreparation.sanitizedCopy(data, mime: media)
+                bytes = prepared; mime = media; filename = file.lastPathComponent; attachmentID = UUID(); status = nil
+            } catch { status = "5MiB以下のJPEG・PNG・PDFを選択してください。写真は24メガピクセル以下で、変換後も5MiB以下である必要があります。" }
         }
         .confirmationDialog(store.developmentLifecycleConfigured ? "テスト環境へこのファイルを保存しますか？" : "このファイルを保存しますか？", isPresented: $confirmUpload, titleVisibility: .visible) {
             Button(store.developmentLifecycleConfigured ? "テスト用ファイルを送信" : "保存する") {
@@ -1333,7 +1334,7 @@ private struct AttachmentView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("ファイル内の撮影場所・氏名・住所なども保存されます。不要な情報が含まれていないことを確認してから保存してください。")
+            Text("写真の撮影情報は除きますが、写っている氏名・住所やPDFの内容はそのまま保存されます。不要な情報が含まれていないことを確認してください。")
         }
         .confirmationDialog("確認待ちのファイル削除を再確認しますか？", isPresented: $confirmRetryRemoval, titleVisibility: .visible) {
             Button("同じファイルの削除を再確認", role: .destructive) {
