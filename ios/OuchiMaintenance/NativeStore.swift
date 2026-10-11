@@ -94,7 +94,33 @@ import OuchiCore
                 purchases.stopObserving(); purchases.persist = nil
             }
         )
-        return result == .complete
+        guard result == .complete, stillBound(), !Task.isCancelled else { return false }
+        // Pending/running receipts retain credentials for authenticated recovery.
+        guard receipt.state == .complete else { return true }
+        guard let session else { return false }
+        // Reserve the store during the final actor hop. Login/logout/restore must
+        // not replace this binding while its current local session is erased.
+        busy = true
+        defer { busy = false }
+        let matches = { [self] in
+            signedIn && snapshotAccount == account && purchaseAccount == epoch && accountBindingRevision == revision
+        }
+        do {
+            let permit = try await session.prepareCompletedDeletionErasure(receipt: receipt, account: account, epoch: epoch)
+            guard matches(), !Task.isCancelled else { return false }
+            try await session.eraseCompletedDeletionSession(permit)
+            // Once credentials are erased, finish the same binding even if the view was cancelled.
+            guard matches() else { return false }
+            generation += 1
+            snapshotAccount = nil; signedIn = false
+            billingAccount = nil; purchaseAccount = nil
+            developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
+            message = "サーバー側の削除と、この端末のデータ・ログイン情報の消去を確認しました。"
+            return true
+        } catch {
+            if matches() { message = "この端末のログイン情報を消去できませんでした。状況を確認して再度お試しください。" }
+            return false
+        }
     }
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
@@ -349,6 +375,7 @@ import OuchiCore
         catch { message = "端末内の添付ファイルを消去できませんでした。ログアウトから再確認してください。" }
     }
     func restore() async {
+        guard !busy else { return }
         accountBindingRevision = UUID()
         let expected = generation
         await reminders.reset(clearPreference: false)

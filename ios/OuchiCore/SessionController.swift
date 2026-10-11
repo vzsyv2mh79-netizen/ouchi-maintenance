@@ -5,6 +5,12 @@ public protocol SessionStorage: Sendable {
     func write(_ data: Data?) throws
 }
 
+/// Issued only by the controller for its exact current login generation.
+public struct CompletedDeletionSessionPermit: Sendable {
+    fileprivate let account: UUID
+    fileprivate let generation: Int
+}
+
 public actor SessionController {
     private let api: HouseholdAPI
     private let storage: any SessionStorage
@@ -16,7 +22,10 @@ public actor SessionController {
     }
     public func restore() throws -> Bool {
         guard let data = try storage.read() else { return false }
-        session = try JSONDecoder().decode(Session.self, from: data)
+        let restored = try JSONDecoder().decode(Session.self, from: data)
+        generation += 1
+        refreshTask?.cancel(); refreshTask = nil
+        session = restored
         return true
     }
     public func signIn(email: String, password: String) async throws {
@@ -42,6 +51,26 @@ public actor SessionController {
         refreshTask?.cancel(); refreshTask = nil
         session = nil
         try storage.write(nil)
+    }
+    /// Caller must obtain this receipt from the authenticated deletion API.
+    /// Local file cleanup alone or a pending receipt never authorizes erasure.
+    public func prepareCompletedDeletionErasure(receipt: AccountDeletionStatus, account: UUID, epoch: UUID) throws -> CompletedDeletionSessionPermit {
+        let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        try Task.checkCancellation()
+        guard receipt.state == .complete, receipt.requestID != zero,
+              account != zero, epoch != zero, account != epoch,
+              receipt.epochID == epoch, session?.user.id == account else { throw CloudError.authenticationRequired }
+        return CompletedDeletionSessionPermit(account: account, generation: generation)
+    }
+    /// No suspension between comparison, Keychain deletion and memory invalidation.
+    /// A storage failure leaves the login available for explicit same-binding retry.
+    public func eraseCompletedDeletionSession(_ permit: CompletedDeletionSessionPermit) throws {
+        try Task.checkCancellation()
+        guard permit.generation == generation, session?.user.id == permit.account else { throw CloudError.authenticationRequired }
+        try storage.write(nil)
+        generation += 1
+        refreshTask?.cancel(); refreshTask = nil
+        session = nil
     }
     /// Remote-only preflight. Local session/storage are cleared separately after
     /// acknowledgement; a delayed response must not act on a replacement login.
