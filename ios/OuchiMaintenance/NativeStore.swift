@@ -572,6 +572,11 @@ struct FormalChannelSelection {
                 return
             }
         }
+        do { try await session?.signOut() }
+        catch {
+            message = "この端末のログイン情報を削除できませんでした。端末のロックを確認して、再度ログアウトしてください。"
+            return
+        }
         generation += 1
         appAttestRegistrationCoordinator = nil
         appAttestCoordinatorConfiguration = nil
@@ -588,8 +593,6 @@ struct FormalChannelSelection {
         household = nil; homeID = ""; signedIn = false
         clearFamily()
         if !clearTemporaryExports() { localCleanupFailed = true }
-        do { try await session?.signOut() }
-        catch { message = "この端末のログイン情報を削除できませんでした。もう一度お試しください。" }
         if localCleanupFailed {
             message = (message.map { $0 + "\n" } ?? "") + "端末内の保存記録や一時ファイルを一部削除できませんでした。アプリを開き直して、再度ログアウトしてください。"
         }

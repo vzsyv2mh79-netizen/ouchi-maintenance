@@ -5,12 +5,20 @@ final class DeletionVault: SessionStorage, @unchecked Sendable {
     private let lock = NSLock()
     private var data: Data?
     private var failing = false
+    private var ignoreErase = false
+    private var failingRead = false
     init(_ data: Data) { self.data = data }
-    func read() -> Data? { lock.withLock { data } }
+    func read() throws -> Data? { try lock.withLock {
+        if failingRead { throw CloudError.unavailable }
+        return data
+    } }
     func fail(_ enabled: Bool) { lock.withLock { failing = enabled } }
+    func ignoreErasure(_ enabled: Bool) { lock.withLock { ignoreErase = enabled } }
+    func failRead(_ enabled: Bool) { lock.withLock { failingRead = enabled } }
     func write(_ data: Data?) throws {
         try lock.withLock {
             if failing { throw CloudError.unavailable }
+            if data == nil && ignoreErase { return }
             self.data = data
         }
     }
@@ -57,16 +65,29 @@ actor DeletionRefreshGate {
         _ = try await controller.restore()
         do { try await controller.eraseCompletedDeletionSession(permit); fatalError("Old permit accepted after same-account restore") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
-        precondition(vault.read() == data)
+        let persistedData = try vault.read(); precondition(persistedData == data)
         let current = try await controller.prepareCompletedDeletionErasure(receipt: receipt("complete"), account: account, epoch: epoch)
         vault.fail(true)
         do { try await controller.eraseCompletedDeletionSession(current); fatalError("Storage failure ignored") }
         catch { precondition(error as? CloudError == .unavailable) }
-        precondition(vault.read() == data)
+        let failedEraseData = try vault.read(); precondition(failedEraseData == data)
         let retainedAccount = await controller.localAccount(); precondition(retainedAccount == account)
         vault.fail(false)
-        try await controller.eraseCompletedDeletionSession(current)
-        precondition(vault.read() == nil)
+        do { try await controller.eraseCompletedDeletionSession(current); fatalError("Failed-erasure generation reused") }
+        catch { precondition(error as? CloudError == .authenticationRequired) }
+        vault.ignoreErasure(true)
+        do { try await controller.signOut(); fatalError("False erase acknowledgement accepted") }
+        catch { precondition(error is SessionErasureError) }
+        let afterFalseAck = await controller.localAccount(); precondition(afterFalseAck == account)
+        let falseAckData = try vault.read(); precondition(falseAckData == data)
+        vault.ignoreErasure(false); vault.failRead(true)
+        do { try await controller.signOut(); fatalError("Readback failure accepted") }
+        catch { precondition(error as? CloudError == .unavailable) }
+        let afterReadFailure = await controller.localAccount(); precondition(afterReadFailure == account)
+        vault.failRead(false)
+        let retry = try await controller.prepareCompletedDeletionErasure(receipt: receipt("complete"), account: account, epoch: epoch)
+        try await controller.eraseCompletedDeletionSession(retry)
+        let absentData = try vault.read(); precondition(absentData == nil)
         let erasedAccount = await controller.localAccount(); precondition(erasedAccount == nil)
         do { _ = try await controller.credentials(); fatalError("Erased credentials available") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
@@ -89,7 +110,29 @@ actor DeletionRefreshGate {
         await gate.finish()
         do { _ = try await pending.value; fatalError("Refresh resurrected erased session") }
         catch { precondition(error is CancellationError || error as? CloudError == .authenticationRequired) }
-        precondition(refreshVault.read() == nil)
+        let absentRefreshData = try refreshVault.read(); precondition(absentRefreshData == nil)
+        // Failed erasure must also invalidate a refresh already in flight.
+        let failedGate = DeletionRefreshGate()
+        let failedAPI = HouseholdAPI(config: config) { request in
+            await failedGate.hold()
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let failedVault = DeletionVault(expiredData)
+        let failedController = SessionController(api: failedAPI, storage: failedVault)
+        _ = try await failedController.restore()
+        let late = Task { try await failedController.credentials(now: Date(timeIntervalSince1970: 100)) }
+        await failedGate.waitForArrival()
+        failedVault.fail(true)
+        do { try await failedController.signOut(); fatalError("Erase failure accepted") }
+        catch { precondition(error as? CloudError == .unavailable) }
+        await failedGate.finish()
+        do { _ = try await late.value; fatalError("Refresh accepted after failed erase") }
+        catch { precondition(error is CancellationError) }
+        let unchanged = try failedVault.read(); precondition(unchanged == expiredData)
+        let retryAccount = await failedController.localAccount(); precondition(retryAccount == account)
+        failedVault.fail(false)
+        try await failedController.signOut()
+        let finallyAbsent = try failedVault.read(); precondition(finallyAbsent == nil)
         print("PASS: only complete matching receipts issue local erasure permits; same-account restore rejects stale permit; storage failure retains retryable login; successful erasure clears storage and memory; reused permit rejected; delayed refresh cannot resurrect credentials. Synthetic storage/receipt, not server deletion or actual Keychain proof.")
     }
 }

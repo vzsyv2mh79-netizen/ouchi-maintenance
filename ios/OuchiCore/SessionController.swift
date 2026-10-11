@@ -5,6 +5,10 @@ public protocol SessionStorage: Sendable {
     func write(_ data: Data?) throws
 }
 
+public enum SessionErasureError: Error, Sendable {
+    case storageStillContainsSession
+}
+
 /// Issued only by the controller for its exact current login generation.
 public struct CompletedDeletionSessionPermit: Sendable {
     fileprivate let account: UUID
@@ -47,10 +51,16 @@ public actor SessionController {
         return true
     }
     public func signOut() throws {
+        try eraseLocalSession()
+    }
+    private func eraseLocalSession() throws {
+        // Invalidate suspended refreshes even when durable erasure is uncertain.
         generation += 1
         refreshTask?.cancel(); refreshTask = nil
-        session = nil
         try storage.write(nil)
+        guard try storage.read() == nil else { throw SessionErasureError.storageStillContainsSession }
+        // Retain identity until durable absence is confirmed, permitting retry.
+        session = nil
     }
     /// Caller must obtain this receipt from the authenticated deletion API.
     /// Local file cleanup alone or a pending receipt never authorizes erasure.
@@ -67,10 +77,7 @@ public actor SessionController {
     public func eraseCompletedDeletionSession(_ permit: CompletedDeletionSessionPermit) throws {
         try Task.checkCancellation()
         guard permit.generation == generation, session?.user.id == permit.account else { throw CloudError.authenticationRequired }
-        try storage.write(nil)
-        generation += 1
-        refreshTask?.cancel(); refreshTask = nil
-        session = nil
+        try eraseLocalSession()
     }
     /// Remote-only preflight. Local session/storage are cleared separately after
     /// acknowledgement; a delayed response must not act on a replacement login.
