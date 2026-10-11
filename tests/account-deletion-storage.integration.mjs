@@ -5,6 +5,8 @@ const compiled=async file=>{const code=ts.transpileModule(readFileSync(file,'utf
 const {handleAccountDeletionProgress}=await compiled('lib/account-deletion-progress.ts');
 const {deletionProgressDependencies}=await compiled('lib/account-deletion-progress-store.ts');
 const {runAccountDeletion}=await compiled('lib/account-deletion-worker.ts');
+const {dispatchRegisteredSandboxPush}=await compiled('lib/native-push-dispatch.ts');
+const {storedNativePushDispatch}=await compiled('lib/native-push-dispatch-store.ts');
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
 const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(workerStoreCode).toString('base64'));
 const {handleAccountDeletionRequest}=await compiled('lib/account-deletion-request.ts');
@@ -28,6 +30,9 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,true);
   assert.equal((await admin.rpc('register_maintenance_native_push',nativeArgs)).data,nativeRegistered.data);
   assert.ok((await user.rpc('register_maintenance_native_push',nativeArgs)).error);
+  let syntheticSends=0;const dispatchDeps=storedNativePushDispatch(admin,async input=>{syntheticSends++;assert.equal(input.deviceToken,nativeArgs.token);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';});
+  assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'accepted');assert.equal(syntheticSends,1);
+  assert.ok((await user.rpc('read_maintenance_native_sandbox_destination',{registration_id:nativeRegistered.data})).error);
   const home=randomUUID(),product=randomUUID(),file=randomUUID();assert.equal((await user.from('homes').insert({id:home,owner_id:userID,name:'Synthetic deletion home',kind:'home'})).error,null);assert.equal((await user.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic deletion product'})).error,null);
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
@@ -50,6 +55,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
+  assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,1);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);const gonePush=await admin.from('maintenance_push_subscriptions').select('id').eq('id',pushID);assert.equal(gonePush.error,null);assert.deepEqual(gonePush.data,[]);
