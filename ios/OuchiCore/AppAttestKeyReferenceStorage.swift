@@ -74,16 +74,27 @@ public struct AppAttestAccountClosure: Codable, Equatable, Sendable {
 /// no credential/private key or purchase entitlement is stored in this schema.
 /// Not instantiated by the release app. Operations are injectable for tests.
 public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
+    public struct ClosureListingOperations: Sendable {
+        public let copy: @Sendable ([String: Any]) -> (OSStatus, [[String: Any]]?)
+        public init(copy: @escaping @Sendable ([String: Any]) -> (OSStatus, [[String: Any]]?)) { self.copy = copy }
+        public static let device = ClosureListingOperations(copy: { query in
+            var value: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &value)
+            return (status, value as? [[String: Any]])
+        })
+    }
     private struct Envelope: Codable { let version: Int; let reference: AppAttestKeyReference }
     private struct IntentEnvelope: Codable { let version: Int; let intent: AppAttestGenerationIntent }
     private struct ClosureEnvelope: Codable { let version: Int; let closure: AppAttestAccountClosure }
     private let namespace: String
     private let operations: AppAttestEncryptionKeyStorage.Operations
+    private let closureListing: ClosureListingOperations
     private let lock=NSLock()
-    public init(namespace: String, operations: AppAttestEncryptionKeyStorage.Operations = .device) throws {
+    public init(namespace: String, operations: AppAttestEncryptionKeyStorage.Operations = .device,
+                closureListing: ClosureListingOperations = .device) throws {
         guard !namespace.isEmpty, namespace.utf8.count<=160,
               namespace.unicodeScalars.allSatisfy({ CharacterSet(charactersIn:"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-").contains($0) }) else { throw CloudError.invalidInput }
-        self.namespace=namespace+".attest-reference.v1"; self.operations=operations
+        self.namespace=namespace+".attest-reference.v1"; self.operations=operations; self.closureListing=closureListing
     }
     private func query(account: UUID, epoch: UUID? = nil, confirmed: Bool = false, intent: Bool = false) throws -> [String:Any] {
         let zero=UUID(uuidString:"00000000-0000-0000-0000-000000000000")!
@@ -202,8 +213,14 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     private func closureQuery(account: UUID) throws -> [String:Any] {
         var q=try query(account:account)
         // Separate service survives erasure of generated/confirmed references.
-        q[kSecAttrService as String]=namespace+".closing."+account.uuidString.lowercased()
-        q[kSecAttrAccount as String]="closing"
+        q[kSecAttrService as String]=namespace+".closing.v2"
+        q[kSecAttrAccount as String]=account.uuidString.lowercased()
+        return q
+    }
+    private func legacyClosureQuery(account: UUID) throws -> [String: Any] {
+        var q = try closureQuery(account: account)
+        q[kSecAttrService as String] = namespace+".closing."+account.uuidString.lowercased()
+        q[kSecAttrAccount as String] = "closing"
         return q
     }
     private func closureBytes(_ closure: AppAttestAccountClosure) throws -> Data {
@@ -211,7 +228,7 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
         return try encoder.encode(ClosureEnvelope(version:1,closure:closure))
     }
     private func closureUnlocked(account: UUID) throws -> AppAttestAccountClosure? {
-        guard let bytes=try bytesUnlocked(closureQuery(account:account)) else { return nil }
+        guard let bytes = try bytesUnlocked(closureQuery(account: account)) ?? bytesUnlocked(legacyClosureQuery(account: account)) else { return nil }
         let envelope=try JSONDecoder().decode(ClosureEnvelope.self,from:bytes)
         try envelope.closure.validate()
         guard envelope.version==1,envelope.closure.accountID==account,
@@ -222,6 +239,31 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     /// expiration never grants permission to recreate registration information.
     public func pendingClosure(account: UUID) throws -> AppAttestAccountClosure? {
         lock.lock();defer { lock.unlock() };return try closureUnlocked(account:account)
+    }
+    /// Attributes-only lookup scoped to this app's exact closure service. Each
+    /// record is then read individually; no passwords or other services are listed.
+    /// Pre-v2 development records require an already known account for recovery.
+    public func pendingClosures() throws -> [AppAttestAccountClosure] {
+        lock.lock(); defer { lock.unlock() }
+        var q = try closureQuery(account: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!)
+        q.removeValue(forKey: kSecAttrAccount as String)
+        q[kSecReturnAttributes as String] = true
+        q[kSecMatchLimit as String] = 65
+        let (status, items) = closureListing.copy(q)
+        if status == errSecItemNotFound { return [] }
+        guard status == errSecSuccess, let items, items.count <= 64 else { throw CloudError.unavailable }
+        var seen = Set<UUID>(), records: [AppAttestAccountClosure] = []
+        for item in items {
+            guard item[kSecAttrService as String] as? String == namespace+".closing.v2",
+                  item[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String,
+                  let sync = item[kSecAttrSynchronizable as String] as? NSNumber, sync == false,
+                  let text = item[kSecAttrAccount as String] as? String,
+                  let account = UUID(uuidString: text), text == account.uuidString.lowercased(),
+                  seen.insert(account).inserted,
+                  let record = try closureUnlocked(account: account) else { throw CloudError.unavailable }
+            records.append(record)
+        }
+        return records.sorted { $0.accountID.uuidString < $1.accountID.uuidString }
     }
     @discardableResult public func beginClosure(_ proposed: AppAttestAccountClosure) throws -> AppAttestAccountClosure {
         lock.lock();defer { lock.unlock() };try proposed.validate()
@@ -256,11 +298,33 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
         }
     }
 
+    /// Explicit restart recovery for an existing local cleanup intent only.
+    /// An empty credential store never authorizes a new closure or server deletion.
+    /// Caller must reserve its login UI throughout this asynchronous operation.
+    public func recoverAbandonedLocalClosure(expected: AppAttestAccountClosure,
+                                            session: SessionController,
+                                            pending: AppAttestPendingRegistrationStorage,
+                                            encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+        guard try pendingClosure(account: expected.accountID) == expected else { throw CloudError.authenticationRequired }
+        let permit = try await session.prepareLocalClosureRecovery(accountID: expected.accountID)
+        try Task.checkCancellation()
+        try await pending.eraseAccount(expected.accountID)
+        try Task.checkCancellation()
+        try await session.withLocalClosureRecovery(permit) { [self] in
+            guard try pendingClosure(account: expected.accountID) == expected else { throw CloudError.authenticationRequired }
+            try erase(account: expected.accountID)
+            try encryptionKeys.erase(account: expected.accountID)
+            try removeClosure(expected)
+        }
+    }
+
     func removeClosure(_ expected: AppAttestAccountClosure) throws {
         lock.lock();defer { lock.unlock() }
         guard try closureUnlocked(account:expected.accountID)==expected else { throw CloudError.authenticationRequired }
-        let q=try closureQuery(account:expected.accountID),status=operations.delete(q)
-        guard status==errSecSuccess || status==errSecItemNotFound,
-              try closureUnlocked(account:expected.accountID)==nil else { throw CloudError.unavailable }
+        for q in [try closureQuery(account: expected.accountID), try legacyClosureQuery(account: expected.accountID)] {
+            let status = operations.delete(q)
+            guard status == errSecSuccess || status == errSecItemNotFound else { throw CloudError.unavailable }
+        }
+        guard try closureUnlocked(account: expected.accountID) == nil else { throw CloudError.unavailable }
     }
 }

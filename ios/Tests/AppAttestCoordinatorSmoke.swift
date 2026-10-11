@@ -34,7 +34,11 @@ final class CoordinatorSyntheticKeychain: @unchecked Sendable {
             lock.lock();defer { lock.unlock() };check(q)
             let service=q[kSecAttrService as String] as! String
             if failClosureDeletion && service.contains(".closing.") { return errSecSuccess }
-            items=items.filter { $0.value[kSecAttrService as String] as? String != service };return errSecSuccess
+            items=items.filter { item in
+                if item.value[kSecAttrService as String] as? String != service { return true }
+                if let account = q[kSecAttrAccount as String] as? String { return item.value[kSecAttrAccount as String] as? String != account }
+                return false
+            };return errSecSuccess
         },random:{ Data(repeating:7,count:32) })
     }
     func count()->Int { lock.lock();defer { lock.unlock() };return items.count }
@@ -257,6 +261,46 @@ actor CoordinatorSyntheticHTTP {
             session: localSession, pending: pending, encryptionKeys: keys) }
         let stalePreserved = try references.pendingClosure(account: closingContext.userID)
         precondition(stalePreserved == staleClosure)
+        // Restart with empty durable credentials can finish ONLY the exact
+        // existing closure; failure retains that intent for explicit retry.
+        let restartedEmpty = SessionController(api: sessionAPI, storage: ClosureSyntheticSessionStorage(nil))
+        let restoredStorage = ClosureSyntheticSessionStorage(sessionData)
+        let restoredLogin = SessionController(api: sessionAPI, storage: restoredStorage)
+        await refused { try await references.recoverAbandonedLocalClosure(expected: staleClosure,
+            session: restoredLogin, pending: pending, encryptionKeys: keys) }
+        let stillRetained = try references.pendingClosure(account: closingContext.userID)
+        precondition(stillRetained == staleClosure)
+        let absentPermit = try await restartedEmpty.prepareLocalClosureRecovery(accountID: closingContext.userID)
+        await refused { try await foreignController.withLocalClosureRecovery(absentPermit) {} }
+        let wrongIntent = try AppAttestAccountClosure(accountID: closingContext.userID,
+            requestID: UUID(), createdAtMilliseconds: now, retainUntilMilliseconds: now + 3600000)
+        await refused { try await references.recoverAbandonedLocalClosure(expected: wrongIntent,
+            session: restartedEmpty, pending: pending, encryptionKeys: keys) }
+        let replacementStorage = ClosureSyntheticSessionStorage(nil)
+        let replacementSession = SessionController(api: sessionAPI, storage: replacementStorage)
+        let beforeLogin = try await replacementSession.prepareLocalClosureRecovery(accountID: closingContext.userID)
+        replacementStorage.write(sessionData)
+        _ = try await replacementSession.restore()
+        await refused { try await replacementSession.withLocalClosureRecovery(beforeLogin) {
+            fatalError("replacement login reached finalization")
+        } }
+        keychain.failClosureErase(true)
+        await refused { try await references.recoverAbandonedLocalClosure(expected: staleClosure,
+            session: restartedEmpty, pending: pending, encryptionKeys: keys) }
+        let retainedAfterFailure = try references.pendingClosure(account: closingContext.userID)
+        precondition(retainedAfterFailure == staleClosure)
+        keychain.failClosureErase(false)
+        try await references.recoverAbandonedLocalClosure(expected: staleClosure,
+            session: restartedEmpty, pending: pending, encryptionKeys: keys)
+        let recovered = try references.pendingClosure(account: closingContext.userID)
+        precondition(recovered == nil)
+        let unrelatedClosure = try references.pendingClosure(account: cancelledContext.userID)
+        precondition(unrelatedClosure == cancelledClosure, "recovery must preserve another account's closure")
+        await refused { try await references.recoverAbandonedLocalClosure(expected: staleClosure,
+            session: restartedEmpty, pending: pending, encryptionKeys: keys) }
+        // A login generation change also invalidates absence permission.
+        try await restartedEmpty.signOut()
+        await refused { try await restartedEmpty.withLocalClosureRecovery(absentPermit) {} }
         print("PASS: synthetic initial registration persists intent/key/reference/proof in order, exact uncertain commit retry avoids new device calls, confirmed metadata stays local-only, unknown generation blocks restart retries, cancellation retains proof, and shared-actor closing blocks commit and erases after callback. No Apple service, owner Keychain or purchase.")
     }
 }

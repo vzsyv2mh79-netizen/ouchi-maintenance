@@ -49,6 +49,56 @@ struct NativeRootView: View {
     }
 }
 
+/// Prepared explicit local recovery; release configuration defaults to off.
+private struct LocalRegistrationClosureRecoveryView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var selected: AppAttestAccountClosure?
+    @State private var confirming = false
+    var body: some View {
+        Form {
+            Section("この端末の未完了処理") {
+                Text("アプリを閉じた際に残った、端末登録の終了記録を確認します。ログイン情報が残っている場合は実行できません。")
+                Text("端末登録の情報だけを整理します。サーバー側の退会申請、記録の削除、Appleの定期購入の解約は行いません。")
+                Button("終了記録を再確認") { Task { await store.loadLocalRegistrationClosures() } }
+                    .disabled(store.busy)
+            }
+            Section("終了記録") {
+                if store.pendingLocalRegistrationClosures.isEmpty {
+                    Text("再試行できる終了記録は表示されていません。確認に失敗した場合は、再度お試しください。")
+                }
+                ForEach(Array(store.pendingLocalRegistrationClosures.enumerated()), id: \.element.requestID) { index, record in
+                    Button {
+                        selected = record; confirming = true
+                    } label: {
+                        VStack(alignment: .leading) {
+                            Text("終了記録 \(index + 1) を再試行")
+                            Text(Date(timeIntervalSince1970: Double(record.createdAtMilliseconds) / 1000), style: .date)
+                                .font(.caption)
+                        }
+                    }.disabled(store.busy)
+                }
+            }
+            if let message = store.message { Section { Text(message) } }
+            if store.busy { ProgressView("確認しています") }
+        }
+        .navigationTitle("端末登録の再確認")
+        .task { await store.loadLocalRegistrationClosures() }
+        .confirmationDialog("この終了記録の処理を再開しますか？", isPresented: $confirming, titleVisibility: .visible) {
+            Button("終了処理を再試行") {
+                guard let record = selected else { return }
+                selected = nil
+                Task {
+                    _ = await store.recoverAbandonedRegistrationClosure(record)
+                    await store.loadLocalRegistrationClosures()
+                }
+            }
+            Button("キャンセル", role: .cancel) { selected = nil }
+        } message: {
+            Text("失敗した場合は終了記録を保持し、再度確認できます。サーバー側の退会完了を示す操作ではありません。")
+        }
+    }
+}
+
 private struct SignInView: View {
     @EnvironmentObject private var store: NativeStore
     @State private var email = ""
@@ -81,6 +131,9 @@ private struct SignInView: View {
                     }.disabled(store.busy)
                     if !resetting { Button("パスワードを忘れた方") { resetting = true; creating = false; password = "" }.disabled(store.busy) }
                     NavigationLink("プライバシーについて") { PrivacyInformation() }
+                    if store.localClosureRecoveryConfigured {
+                        NavigationLink("未完了の端末登録を確認") { LocalRegistrationClosureRecoveryView() }
+                    }
 
                 }
             }.navigationTitle("おうちメンテ")

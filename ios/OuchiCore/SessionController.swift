@@ -15,6 +15,14 @@ public struct LocalSessionErasureConfirmation: Sendable {
     fileprivate let generation: Int
 }
 
+/// Local-only permission to resume a durable closure while no login exists.
+/// Does not prove server deletion, enrollment state, or a paid entitlement.
+public struct LocalClosureRecoveryPermit: Sendable {
+    public let accountID: UUID
+    fileprivate let controllerID: UUID
+    fileprivate let generation: Int
+}
+
 /// Issued only by the controller for its exact current login generation.
 public struct CompletedDeletionSessionPermit: Sendable {
     fileprivate let account: UUID
@@ -71,6 +79,21 @@ public actor SessionController {
                                      finalize: @Sendable () throws -> Void) throws {
         guard confirmation.controllerID==controllerID,confirmation.generation==generation,
               session==nil,try storage.read()==nil else { throw CloudError.authenticationRequired }
+        try finalize()
+    }
+    public func prepareLocalClosureRecovery(accountID: UUID) throws -> LocalClosureRecoveryPermit {
+        try Task.checkCancellation()
+        guard accountID != UUID(uuidString: "00000000-0000-0000-0000-000000000000")!,
+              session == nil, try storage.read() == nil else { throw CloudError.authenticationRequired }
+        return .init(accountID: accountID, controllerID: controllerID, generation: generation)
+    }
+    /// Runs synchronous finalization in the same actor turn as durable absence
+    /// readback. A restored/replacement login invalidates the permit.
+    public func withLocalClosureRecovery(_ permit: LocalClosureRecoveryPermit,
+                                        finalize: @Sendable () throws -> Void) throws {
+        try Task.checkCancellation()
+        guard permit.controllerID == controllerID, permit.generation == generation,
+              session == nil, try storage.read() == nil else { throw CloudError.authenticationRequired }
         try finalize()
     }
     private func eraseLocalSession() throws {

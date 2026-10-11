@@ -199,6 +199,51 @@ struct FormalChannelSelection {
             return false
         }
     }
+    @Published private(set) var pendingLocalRegistrationClosures: [AppAttestAccountClosure] = []
+    var localClosureRecoveryConfigured: Bool {
+        Bundle.main.infoDictionary?["OUCHI_LOCAL_CLOSURE_RECOVERY_ENABLED"] as? Bool == true
+    }
+    func loadLocalRegistrationClosures() async {
+        guard localClosureRecoveryConfigured, !busy, !signedIn, let session,
+              let bundle = Bundle.main.bundleIdentifier else { return }
+        busy = true
+        defer { busy = false }
+        pendingLocalRegistrationClosures = []
+        do {
+            // Refuse discovery while any durable login remains, even if this
+            // view is still showing the sign-in screen after a failed restore.
+            _ = try await session.prepareLocalClosureRecovery(accountID: UUID())
+            let references = try AppAttestKeyReferenceStorage(namespace: bundle)
+            pendingLocalRegistrationClosures = try await Task.detached {
+                try references.pendingClosures()
+            }.value
+        } catch {
+            message = "終了記録を確認できませんでした。ログイン状態と端末のロックを確認して、再度お試しください。"
+        }
+    }
+    /// Prepared explicit recovery after restart. It finishes only registration
+    /// cleanup from an existing local intent, never server/account deletion.
+    /// Login/restore/logout are reserved by busy throughout the actor hops.
+    func recoverAbandonedRegistrationClosure(_ expected: AppAttestAccountClosure) async -> Bool {
+        guard localClosureRecoveryConfigured, !busy, !signedIn, appAttestRegistrationCoordinator == nil, let session,
+              let bundle = Bundle.main.bundleIdentifier,
+              let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
+        busy = true
+        defer { busy = false }
+        do {
+            let pending = AppAttestPendingRegistrationStorage(
+                root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true),
+                keyProvider: { _, _ in throw CloudError.unavailable })
+            try await AppAttestKeyReferenceStorage(namespace: bundle).recoverAbandonedLocalClosure(
+                expected: expected, session: session, pending: pending,
+                encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle))
+            message = "この端末の登録情報の終了処理を確認しました。サーバー側の退会状況は、別途確認が必要です。"
+            return true
+        } catch {
+            message = "終了処理を確認できませんでした。記録を保持しています。再度お試しください。"
+            return false
+        }
+    }
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
     private var developmentRemoteRegistration: (id: UUID, account: UUID)?

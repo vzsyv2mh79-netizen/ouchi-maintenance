@@ -39,8 +39,26 @@ final class SyntheticReferenceKeychain: @unchecked Sendable {
             lock.lock();defer { lock.unlock() };check(q)
             if failedDelete { return errSecSuccess }
             let service=q[kSecAttrService as String] as! String
-            items=items.filter { $0.value[kSecAttrService as String] as? String != service };return errSecSuccess
+            items=items.filter { item in
+                if item.value[kSecAttrService as String] as? String != service { return true }
+                if let account = q[kSecAttrAccount as String] as? String { return item.value[kSecAttrAccount as String] as? String != account }
+                return false
+            };return errSecSuccess
         },random:{ fatalError("key-reference storage must not create an encryption key") })
+    }
+    var listing: AppAttestKeyReferenceStorage.ClosureListingOperations {
+        .init(copy: { [self] q in
+            lock.lock(); defer { lock.unlock() }; check(q)
+            precondition(q[kSecReturnData as String] == nil && q[kSecAttrAccount as String] == nil)
+            precondition(q[kSecAttrService as String] as? String == "dev.synthetic.ouchi.attest-reference.v1.closing.v2")
+            if unavailable { return (errSecInteractionNotAllowed, nil) }
+            let service = q[kSecAttrService as String] as! String
+            let found = items.values.filter { $0[kSecAttrService as String] as? String == service }.map { entry in
+                var attributes = entry; attributes.removeValue(forKey: kSecValueData as String)
+                return attributes
+            }
+            return found.isEmpty ? (errSecItemNotFound, nil) : (errSecSuccess, Array(found.prefix(65)))
+        })
     }
     func snapshot()->[String:Data] { lock.lock();defer { lock.unlock() };return items.mapValues { $0[kSecValueData as String] as! Data } }
 }
@@ -55,12 +73,12 @@ final class SyntheticReferenceKeychain: @unchecked Sendable {
     }
     static func main()async throws {
         let fixture=SyntheticReferenceKeychain(),request=UUID()
-        let store=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:fixture.operations)
+        let store=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:fixture.operations, closureListing: fixture.listing)
         let reference=try AppAttestKeyReference(scope:scope,requestID:request,createdAtMilliseconds:now,retainUntilMilliseconds:now+3600000)
         let absent=try store.generated(account:scope.userID,epoch:scope.epochID,nowMilliseconds:now);precondition(absent==nil && fixture.snapshot().isEmpty)
         try store.persistGenerated(reference,nowMilliseconds:now)
         let initial=fixture.snapshot()
-        let restarted=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:fixture.operations)
+        let restarted=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:fixture.operations, closureListing: fixture.listing)
         try restarted.persistGenerated(reference,nowMilliseconds:now+1);precondition(fixture.snapshot()==initial)
         let recovered=try restarted.generated(account:scope.userID,epoch:scope.epochID,nowMilliseconds:now);precondition(recovered==reference)
         let changed=try AppAttestKeyReference(scope:scope,requestID:UUID(),createdAtMilliseconds:now,retainUntilMilliseconds:now+3600000)
@@ -100,6 +118,18 @@ final class SyntheticReferenceKeychain: @unchecked Sendable {
         await refused { _ = try AppAttestKeyReference(scope:scope,requestID:request,createdAtMilliseconds:now,retainUntilMilliseconds:now+7_776_000_001) }
         let closure=try AppAttestAccountClosure(accountID:scope.userID,requestID:UUID(),createdAtMilliseconds:now,retainUntilMilliseconds:now+3600000)
         let started=try store.beginClosure(closure);precondition(started==closure)
+        let anotherClosure = try AppAttestAccountClosure(accountID: foreign.userID, requestID: UUID(),
+            createdAtMilliseconds: now, retainUntilMilliseconds: now+3600000)
+        _ = try store.beginClosure(anotherClosure)
+        let listed = try store.pendingClosures()
+        precondition(Set(listed.map(\.accountID)) == Set([scope.userID, foreign.userID]))
+
+        fixture.unavailable=true; await refused { _ = try store.pendingClosures() }; fixture.unavailable=false
+        fixture.corrupt=true; await refused { _ = try store.pendingClosures() }; fixture.corrupt=false
+        fixture.weak=true; await refused { _ = try store.pendingClosures() }; fixture.weak=false
+        let excessive = try AppAttestKeyReferenceStorage(namespace: "dev.synthetic.ouchi", operations: fixture.operations,
+            closureListing: .init(copy: { _ in (errSecSuccess, Array(repeating: [:], count: 65)) }))
+        await refused { _ = try excessive.pendingClosures() }
         let closureSnapshot=fixture.snapshot()
         let replacement=try AppAttestAccountClosure(accountID:scope.userID,requestID:UUID(),createdAtMilliseconds:now+1,retainUntilMilliseconds:now+7200000)
         let retried=try restarted.beginClosure(replacement);precondition(retried==closure && fixture.snapshot()==closureSnapshot)
