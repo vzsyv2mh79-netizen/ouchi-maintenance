@@ -100,13 +100,15 @@ struct FormalChannelSelection {
     #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
     private var releaseFixturePurchases: PurchaseManager?
     private var releaseFixtureBilling: BillingAPI?
-    init(localStoreKitWindow: NSWindow, household: HouseholdAPI, session: SessionController, billing: BillingAPI, account: UUID) throws {
+    private var releaseFixturePurchasesEnabled = false
+    init(localStoreKitWindow: NSWindow, household: HouseholdAPI, session: SessionController, billing: BillingAPI, account: UUID, allowPurchases: Bool = false) throws {
         guard Bundle.main.bundleIdentifier == "dev.ouchi.review.storekit.catalog",
               Bundle(for: NativeStore.self).bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests",
               billing.environment == .sandbox, account == NativeReviewFixture.account else { throw CloudError.unavailable }
         api = household; self.session = session; isolatedDevelopmentEnabled = false
         releaseFixturePurchases = try PurchaseManager(localStoreKitFixtureWindow: localStoreKitWindow)
         releaseFixtureBilling = billing
+        releaseFixturePurchasesEnabled = allowPurchases
         isUIReviewSample = true; snapshotAccount = account; signedIn = true
     }
     func replaceReleaseFixtureBinding() throws {
@@ -813,6 +815,91 @@ struct FormalChannelSelection {
               Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED"] as? Bool == true,
               let value = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String else { return nil }
         return BillingEnvironment(rawValue: value)
+    }
+    // Explicit rollout gates, separate from read/restore and verified paid rights.
+    func releaseNewPurchaseConfigured(subscription: Bool) -> Bool {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if releaseFixtureBilling != nil { return releaseFixturePurchasesEnabled }
+        #endif
+        guard releasePurchaseEnvironment != nil else { return false }
+        let key = subscription ? "OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED" : "OUCHI_RELEASE_TIPS_ENABLED"
+        return Bundle.main.infoDictionary?[key] as? Bool == true
+    }
+    func loadReleasePurchaseProducts() async {
+        guard !busy, signedIn, releaseEntitlement != nil,
+              releaseNewPurchaseConfigured(subscription: false) || releaseNewPurchaseConfigured(subscription: true) else { return }
+        busy = true
+        let expected = generation, revision = accountBindingRevision
+        defer { if expected == generation { busy = false } }
+        do { try await releasePurchases.load() }
+        catch {
+            if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
+                message = "ストアの価格を取得できません。通信を確認し、再度お試しください。"
+            }
+        }
+    }
+    func purchaseReleaseProduct(_ product: Product) async {
+        let subscription = product.type == .autoRenewable
+        let valid = subscription
+            ? ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(product.id)
+            : product.type == .consumable && ["ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"].contains(product.id)
+        guard valid, !busy, signedIn, releaseNewPurchaseConfigured(subscription: subscription),
+              let environment = releasePurchaseEnvironment, let session,
+              let epoch = releasePurchaseEpoch, let account = releaseBillingAccount,
+              releaseEntitlement != nil, releasePurchases.persist != nil else { return }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  credentials.user.id == account, snapshotAccount == account else { throw CancellationError() }
+            // Fresh server rights/permission check before an Apple purchase prompt.
+            let rights = try await releaseBillingAPI(environment: environment).entitlement(token: credentials.access_token)
+            let current = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  current.user.id == account, current.access_token == credentials.access_token,
+                  rights.environment == environment.rawValue, rights.purchaseAccountToken == epoch,
+                  releasePurchaseEpoch == epoch else { throw CancellationError() }
+            releaseEntitlement = rights
+            guard environment == .sandbox || rights.salesEnabled else {
+                message = "新しい購入は現在受け付けていません。既存の記録や購入の復元は利用できます。"
+                return
+            }
+            if subscription && rights.premiumIsCurrent(expectedEnvironment: environment) {
+                message = "有効な契約があります。新しく購入せず、契約の確認・復元をご利用ください。"
+                return
+            }
+            let outcome = try await releasePurchases.purchase(product, account: epoch)
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                  releaseBillingAccount == account, releasePurchaseEpoch == epoch else { return }
+            switch outcome {
+            case .saved:
+                if subscription {
+                    message = releaseEntitlement?.premiumIsCurrent(expectedEnvironment: environment) == true
+                        ? "購入と有料プランの利用権を確認しました。"
+                        : "購入の保存を確認しました。現在の利用権は契約の確認から再確認してください。"
+                } else { message = "応援ありがとうございます。チップの保存を確認しました。機能の変更や自動更新はありません。" }
+            case .pending: message = "購入は保留中です。承認後の結果を確認します。"
+            case .cancelled: break
+            }
+            if environment == .sandbox, outcome != .cancelled {
+                message = "購入のテスト環境です。実際の請求はありません。\n" + (message ?? "")
+            }
+        } catch PurchaseManager.PurchaseError.subscriptionAlreadyActive {
+            if expected == generation, revision == accountBindingRevision { message = "Appleで有効な契約が見つかりました。新しく購入せず、購入の復元から確認してください。" }
+        } catch PurchaseManager.PurchaseError.subscriptionBoundElsewhere {
+            if expected == generation, revision == accountBindingRevision { message = "別のおうちメンテアカウントに紐づく契約が見つかりました。購入時のアカウントで確認してください。" }
+        } catch PurchaseManager.PurchaseError.purchaseInProgress {
+            if expected == generation, revision == accountBindingRevision { message = "購入処理が進行中です。結果が出るまでお待ちください。" }
+        } catch PurchaseManager.PurchaseError.purchaseNotActive {
+            if expected == generation, revision == accountBindingRevision { message = "返金済みか期限切れの購入です。有効な契約として扱っていません。購入の復元から確認してください。" }
+        } catch {
+            if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
+                releaseEntitlement = nil; releasePurchases.markRetryNeeded()
+                message = "購入を完了できませんでした。通信とログイン状態を確認してください。保存できていない取引は再確認できます。"
+            }
+        }
     }
     private func releaseBillingAPI(environment: BillingEnvironment) -> BillingAPI {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)

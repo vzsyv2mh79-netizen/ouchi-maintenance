@@ -30,6 +30,10 @@
 	<string>Sandbox</string>
 	<key>OUCHI_ATTACHMENTS_ENABLED</key>
 	<false/>
+	<key>OUCHI_RELEASE_TIPS_ENABLED</key>
+	<false/>
+	<key>OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED</key>
+	<false/>
 	<key>OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED</key>
 	<false/>
 	<key>OUCHI_RELEASE_PURCHASE_ENVIRONMENT</key>

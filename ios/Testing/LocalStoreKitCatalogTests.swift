@@ -117,7 +117,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         return window
     }
-    @MainActor private func releaseStore(_ fixture: ReleaseBillingHTTPFixture, window: NSWindow) async throws -> NativeStore {
+    @MainActor private func releaseStore(_ fixture: ReleaseBillingHTTPFixture, window: NSWindow, allowPurchases: Bool = false) async throws -> NativeStore {
         let householdFixture = NativeReviewFixture()
         let configuration = try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,
                                                    publishableKey: "sb_publishable_synthetic_review_only")
@@ -127,7 +127,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         XCTAssertTrue(restored)
         let billing = BillingAPI(environment: .sandbox, transport: { try await fixture.reply($0) })
         return try NativeStore(localStoreKitWindow: window, household: household, session: session, billing: billing,
-                               account: NativeReviewFixture.account)
+                               account: NativeReviewFixture.account, allowPurchases: allowPurchases)
     }
     @MainActor func testReleaseControllerClearsRightsOnReadFailure() async throws {
         let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
@@ -169,16 +169,17 @@ final class LocalStoreKitCatalogTests: XCTestCase {
                        "host must match shipping consumable-history configuration")
         let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
         defer { window.close() }
-        let store = try await releaseStore(fixture, window: window)
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
         defer { store.releasePurchases.stopObserving() }
         await store.loadReleasePurchaseState()
         XCTAssertEqual(store.releaseEntitlement?.purchaseAccountToken, ReleaseBillingHTTPFixture.epoch)
         XCTAssertEqual(store.releaseEntitlement?.plan, .free)
-        try await store.releasePurchases.load()
+        await store.loadReleasePurchaseProducts()
         let tip = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
-        guard case .saved = try await store.releasePurchases.purchase(tip, account: ReleaseBillingHTTPFixture.epoch) else {
-            XCTFail("issued epoch purchase was not persisted"); return
-        }
+        await store.purchaseReleaseProduct(tip)
+        XCTAssertTrue(store.message?.contains("チップの保存") == true)
+        XCTAssertTrue(store.message?.contains("実際の請求はありません") == true)
+        XCTAssertFalse(store.busy)
         let transaction = try await latest(tip.id, phase: "release controller persistence") { $0.appAccountToken == ReleaseBillingHTTPFixture.epoch }
         let calls = await fixture.submissions
         XCTAssertGreaterThanOrEqual(calls, 1)
@@ -191,6 +192,88 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         let unfinished = try await unfinishedContains(transaction.id)
         XCTAssertFalse(unfinished)
         withExtendedLifetime(session) {}
+    }
+    @MainActor func testReleasePurchaseDisabledGateNeverStartsApplePurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState()
+        // Catalog can be loaded by a caller; that must not bypass the sales gate.
+        try await store.releasePurchases.load()
+        let tip = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
+        await store.purchaseReleaseProduct(tip)
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        let submissions = await fixture.submissions
+        XCTAssertEqual(submissions, 0)
+        XCTAssertFalse(store.releaseNewPurchaseConfigured(subscription: false))
+    }
+    @MainActor func testReleasePurchaseFreshRightsFailureNeverStartsApplePurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let tip = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
+        await fixture.failReads()
+        await store.purchaseReleaseProduct(tip)
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        let submissions = await fixture.submissions
+        XCTAssertEqual(submissions, 0)
+        XCTAssertNil(store.releaseEntitlement)
+        XCTAssertTrue(store.releasePurchases.needsRetry)
+        XCTAssertFalse(store.busy)
+    }
+    @MainActor func testReleaseSubscriptionFreshPremiumPreventsSecondPurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        await fixture.setPremium(true)
+        await store.purchaseReleaseProduct(product)
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        XCTAssertTrue(store.message?.contains("有効な契約") == true)
+        XCTAssertTrue(store.releaseEntitlement?.premiumIsCurrent(expectedEnvironment: .sandbox) == true)
+        XCTAssertFalse(store.busy)
+    }
+    @MainActor func testReleasePurchaseBindingChangeDuringFreshReadDoesNotPrompt() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
+        await fixture.blockNextRead()
+        let request = Task { await store.purchaseReleaseProduct(product) }
+        for _ in 0..<200 {
+            if await fixture.blocked { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let blocked = await fixture.blocked
+        XCTAssertTrue(blocked)
+        try store.replaceReleaseFixtureBinding()
+        await fixture.resumeRead(); await request.value
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        XCTAssertNil(store.releaseEntitlement)
+        XCTAssertNil(store.releasePurchases.persist)
+        XCTAssertFalse(store.busy)
+    }
+    @MainActor func testReleasePurchaseCancellationDoesNotShowSavedOrRetry() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
+        try await session.setSimulatedError(.generic(.userCancelled), forAPI: .purchase)
+        await store.purchaseReleaseProduct(product)
+        XCTAssertNil(store.message)
+        let submissions = await fixture.submissions
+        XCTAssertEqual(submissions, 0)
+        XCTAssertFalse(store.releasePurchases.needsRetry)
+        XCTAssertFalse(store.busy)
     }
     private func localClaims(_ jws: String) throws -> [String: Any] {
         let segments = jws.split(separator: ".")
