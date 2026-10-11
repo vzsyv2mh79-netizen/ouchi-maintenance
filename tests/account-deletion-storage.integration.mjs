@@ -19,6 +19,10 @@ function attachmentModule(name){
 
  const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');attachmentModules.set(name,url);return url;
 }
+const reminderRouteCode=ts.transpileModule(readFileSync('app/api/development/reminder-settings/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
+ .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
+ .replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(import.meta.resolve(name))}`);
+const {GET:reminderGET,PUT:reminderPUT}=await import('data:text/javascript;base64,'+Buffer.from(reminderRouteCode).toString('base64'));
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
@@ -173,6 +177,26 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await other.from('products').insert({id:paidProduct,homeId:otherHome,categoryId:'air',name:'Synthetic adapter product'})).error,null);
   const paidEvent={environment:'Sandbox',transactionId:'901',originalTransactionId:'900',accountToken:otherEpoch.data,productId:'ouchi.premium.monthly',signedAt:now,purchasedAt:now-1000,expiresAt:now+3600000};
   const paidSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:paidEvent,proof_sha256:'d'.repeat(64)});assert.equal(paidSeed.error,null);
+  const settingsKeys=['VERCEL_ENV','OUCHI_REMINDER_SETTINGS_TEST_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE'];
+  const settingsBefore=Object.fromEntries(settingsKeys.map(k=>[k,process.env[k]]));
+  const selectedSchedule={minuteOfDay:1230,weekdays:[7],leadDays:1,includeOverdue:false};
+  const defaultSchedule={minuteOfDay:540,weekdays:[1,2,3,4,5,6,7],leadDays:0,includeOverdue:true};
+  async function settingsRequest(token,body,environment='preview',enabled='true'){
+   try{
+    Object.assign(process.env,{VERCEL_ENV:environment,OUCHI_REMINDER_SETTINGS_TEST_MODE:enabled,NEXT_PUBLIC_SUPABASE_URL:origin,SUPABASE_SERVICE_ROLE_KEY:service,BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',BILLING_STORAGE_MODE:'verified-ledger'});
+    const request=new Request(origin+'/api/development/reminder-settings',{method:body===undefined?'GET':'PUT',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+    return await (body===undefined?reminderGET:reminderPUT)(request);
+   }finally{for(const key of settingsKeys){if(settingsBefore[key]===undefined)delete process.env[key];else process.env[key]=settingsBefore[key];}}
+  }
+  const paidToken=otherSignup.data.session.access_token;
+  assert.equal((await settingsRequest(paidToken,undefined,'production')).status,503);
+  assert.equal((await settingsRequest(paidToken,undefined,'preview','false')).status,503);
+  const freeSettings=await settingsRequest(signup.data.session.access_token);assert.equal(freeSettings.status,200);assert.deepEqual((await freeSettings.json()).effective,defaultSchedule);
+  assert.equal((await settingsRequest(signup.data.session.access_token,{revision:0,schedule:selectedSchedule})).status,403);
+  const savedSettings=await settingsRequest(paidToken,{revision:0,schedule:selectedSchedule});assert.equal(savedSettings.status,200);assert.deepEqual((await savedSettings.json()).effective,selectedSchedule);
+  assert.equal((await settingsRequest(paidToken,{revision:0,schedule:selectedSchedule})).status,200);
+  assert.equal((await settingsRequest(paidToken,{revision:0,schedule:{...selectedSchedule,minuteOfDay:1200}})).status,409);
+
   const reportKeys=['VERCEL_ENV','OUCHI_REPORT_TEST_MODE','NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE'];
   const reportBefore=Object.fromEntries(reportKeys.map(key=>[key,process.env[key]]));
   async function reportRequest(targetHome){
@@ -210,6 +234,10 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
   assert.equal((await reportRequest(otherHome)).status,403);
+  const endedSettings=await settingsRequest(paidToken);assert.equal(endedSettings.status,200);const endedValue=await endedSettings.json();assert.equal(endedValue.premiumActive,false);assert.deepEqual(endedValue.effective,defaultSchedule);assert.deepEqual(endedValue.saved,selectedSchedule);
+  assert.equal((await settingsRequest(paidToken,{revision:1,schedule:selectedSchedule})).status,403);
+  console.log('Reminder settings actual Auth and API path verified; paid save, safe retry, conflict, expiry fallback and production refusal.');
+
   const deniedAfterRevocation=await uploadProductAttachment(paidRequest(),paidProduct,randomUUID(),storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(deniedAfterRevocation.status,403);
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
   let retainedDownload,foreignDownload,removedAttachment;
