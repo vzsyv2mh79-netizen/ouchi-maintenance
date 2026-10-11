@@ -16,6 +16,7 @@ test('record deletion waits for all objects, isolates ownership and never claims
  await db.exec(readFileSync('supabase/migrations/20261011134528_ouchi_deletion_prior_preferences.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011135013_ouchi_deletion_completion_boundary.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011140654_ouchi_completion_receipt_evidence.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql','utf8'));
  await db.exec('create schema storage;create table storage.objects(bucket_id text,name text);grant usage on schema storage to service_role;grant select on storage.objects to service_role;');
  const user='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333';
  await db.query('insert into auth.users values($1),($2)',[user,other]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');

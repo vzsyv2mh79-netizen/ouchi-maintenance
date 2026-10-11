@@ -35,7 +35,7 @@ test('stored adapter rejects missing finalization before database access',()=>{
 test('record cleanup requires acknowledged recovery-job erasure and preserves request scope',async()=>{
  const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>true};
- const steps=['erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule','erase_maintenance_deletion_notifications','capture_maintenance_deletion_receipt_sessions','erase_maintenance_deletion_enrollment_consents','erase_maintenance_deletion_prior_preferences','minimize_maintenance_deletion_object_inventory','erase_maintenance_deletion_purchase_ledger'];
+ const steps=['erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule','erase_maintenance_deletion_notifications','capture_maintenance_deletion_receipt_sessions','erase_maintenance_deletion_enrollment_consents','erase_maintenance_deletion_prior_preferences','erase_maintenance_deletion_restore_proofs','minimize_maintenance_deletion_object_inventory','erase_maintenance_deletion_purchase_ledger'];
  for(const failed of [null,...steps]){
   const calls=[];const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name!==failed,error:null};}};
   assert.equal(await storedDeletionDependencies(db,tail).eraseRecords(scope),failed===null);

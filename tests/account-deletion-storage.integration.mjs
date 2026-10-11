@@ -30,6 +30,7 @@ const {reminderDeployment,reminderServiceResponse}=await import(attachmentModule
 const {nativePushDeployment,nativePushRegistrationResponse}=await import(attachmentModule('native-push-registration-service'));
 const {notificationChannelDeployment,notificationChannelResponse}=await import(attachmentModule('notification-channel-service'));
 const {accountEnrollmentResponse}=await import(attachmentModule('account-enrollment-service'));
+const {createRestoreChallenge,restoreAssertionClientData}=await import(attachmentModule('billing-restore-client-data'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -417,6 +418,15 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
    const payload={environment:'Sandbox',notificationId:noticeID,notificationType:'CONSUMPTION_REQUEST',signedAt:100,disposition:'needs_reconciliation',accountToken:token,originalTransactionId:original};
    const result=await admin.rpc('record_maintenance_verified_notification',{payload,proof_sha256:'2'.repeat(64)});assert.equal(result.error,null);assert.equal(result.data,'inserted');
   }
+  const recoverySql=sql=>execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:sql,timeout:10000,encoding:'utf8',stdio:['pipe','pipe','pipe']});
+  // Retained legacy proof rows are synthetic operator fixtures only. They do
+  // not claim Apple key/receipt verification or current registration approval.
+  const legacyRestoreKey=Buffer.alloc(32,1).toString('base64'),foreignRestoreKey=Buffer.alloc(32,2).toString('base64');
+  recoverySql(`begin;alter table maintenance_private.restore_attested_keys disable trigger restore_key_registration;alter table maintenance_private.restore_challenges disable trigger restore_challenge_binding;`+
+   [[userID,claims.session_id,epoch.data,legacyRestoreKey],[otherSignup.data.user.id,otherClaims.session_id,otherEpoch.data,foreignRestoreKey]].map(([u,sid,e,k])=>{
+    const c=createRestoreChallenge({userID:u,sessionID:sid,epochID:e,requestID:randomUUID(),keyID:k,appID:'SYNTHETIC1.dev.synthetic.ouchi',attestEnvironment:'production',purchaseEnvironment:'Sandbox',proofSHA256:'a'.repeat(64)}),hash=createHash('sha256').update(restoreAssertionClientData(c)).digest('hex');
+    return `insert into maintenance_private.restore_attested_keys(key_id,user_id,app_epoch_id,registration_session,app_id,attest_environment,public_key_x962,attestation_sha256,verified_receipt) values('${k}','${u}','${e}','${sid}','${c.appID}','production',decode('04${'01'.repeat(64)}','hex'),'${'a'.repeat(64)}',decode('01','hex'));insert into maintenance_private.restore_challenges(request_id,user_id,session_id,app_epoch_id,key_id,challenge,nonce,client_data_sha256,issued_at,expires_at) values('${c.requestID}','${u}','${sid}','${e}','${k}','${JSON.stringify(c)}','${c.nonce}','${hash}',to_timestamp(${c.issuedAt}/1000.0),to_timestamp(${c.expiresAt}/1000.0));`;
+   }).join('')+`alter table maintenance_private.restore_attested_keys enable trigger restore_key_registration;alter table maintenance_private.restore_challenges enable trigger restore_challenge_binding;commit;`);
   const deletionRequest=()=>new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:syntheticPassword})});
   const temporaryClients=[];const requestDeps=deletionRequestDependencies(admin,()=>{const client=createClient(origin,'synthetic-public-key',options);temporaryClients.push(client);return client;});
   const wrongPassword=new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:'Wrong-synthetic-password'})});assert.equal((await handleAccountDeletionRequest(wrongPassword,requestDeps)).status,403);
@@ -426,7 +436,6 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   // pending jobs out of this test's queue window, without altering production data.
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:`update maintenance_private.account_deletion_requests set available_at=now()+interval '1 day' where user_id<>'${userID}' and state='pending';`,timeout:10000,stdio:['pipe','pipe','pipe']});
   // Only this disposable database: app recovery metadata for two synthetic users.
-  const recoverySql=sql=>execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:sql,timeout:10000,encoding:'utf8',stdio:['pipe','pipe','pipe']});
   recoverySql(`insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values('${userID}','${epoch.data}','Sandbox','synthetic-deletion-recovery'),('${otherSignup.data.user.id}','${epoch.data}','Sandbox','synthetic-other-recovery');`);
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,epochID:epoch.data,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
@@ -528,6 +537,11 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   for(const table of ['transaction_ownership','verified_transactions','verified_renewals'])assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${userID}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from maintenance_private.verified_transactions where environment='Sandbox' and transaction_id='901' and user_id='${otherSignup.data.user.id}';`).trim(),'1');
   assert.equal((await admin.rpc('erase_maintenance_deletion_purchase_ledger',args)).data,true);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_attested_keys where user_id='${userID}';`).trim(),'0');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_challenges where user_id='${userID}';`).trim(),'0');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_attested_keys where user_id='${otherSignup.data.user.id}';`).trim(),'1');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_challenges where user_id='${otherSignup.data.user.id}';`).trim(),'1');
+  console.log('Actual restore proof erasure: retained synthetic key/challenge rows removed, other owner preserved. No Apple attestation or restoration authorized.');
   console.log('Actual Ouchi purchase ledger erasure: target transaction ownership, tip/subscription periods and renewal removed, another owner period preserved; repeat absence, wrong lease/browser denied. No Apple cancellation/transfer or final identity completion.');
   console.log('Actual deletion inventory minimization: confirmed object paths removed only after record erasure, pending final identity stage never claims complete.');
   // Separate synthetic user: prove the strict guard after its identity rows are
@@ -567,6 +581,18 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
   assert.equal(recoverySql(`select count(*) from auth.sessions s join maintenance_private.enrollment_consents c on c.reauthentication_session=s.id where c.request_id='${consentID}';`).trim(),'0','temporary fresh login revoked after receipt');
   assert.equal((await newAccount.auth.getUser()).error,null,'original shared login preserved');
+  // Actual Auth/PostgreSQL CAS race, with an explicitly enrolled live session.
+  // The fixture key/receipt and crypto digest remain synthetic; no Apple proof.
+  const restoreSession=JSON.parse(Buffer.from(newBearer.split('.')[1],'base64url')).session_id,restoreKey=Buffer.alloc(32,3).toString('base64');
+  const restoreChallenge=createRestoreChallenge({userID:newUserID,sessionID:restoreSession,epochID:consentReceipt.epochID,requestID:randomUUID(),keyID:restoreKey,appID:'SYNTHETIC1.dev.synthetic.ouchi',attestEnvironment:'production',purchaseEnvironment:'Sandbox',proofSHA256:'a'.repeat(64)}),restoreClientHash=createHash('sha256').update(restoreAssertionClientData(restoreChallenge)).digest('hex');
+  recoverySql(`begin;set local role service_role;insert into maintenance_private.restore_attested_keys(key_id,user_id,app_epoch_id,registration_session,app_id,attest_environment,public_key_x962,attestation_sha256,verified_receipt) values('${restoreKey}','${newUserID}','${consentReceipt.epochID}','${restoreSession}','${restoreChallenge.appID}','production',decode('04${'01'.repeat(64)}','hex'),'${'a'.repeat(64)}',decode('01','hex'));insert into maintenance_private.restore_challenges(request_id,user_id,session_id,app_epoch_id,key_id,challenge,nonce,client_data_sha256,issued_at,expires_at) values('${restoreChallenge.requestID}','${newUserID}','${restoreSession}','${consentReceipt.epochID}','${restoreKey}','${JSON.stringify(restoreChallenge)}','${restoreChallenge.nonce}','${restoreClientHash}',to_timestamp(${restoreChallenge.issuedAt}/1000.0),to_timestamp(${restoreChallenge.expiresAt}/1000.0));commit;`);
+  const restoreConsumeArgs={target_request:restoreChallenge.requestID,target_user:newUserID,verified_session:restoreSession,target_epoch:consentReceipt.epochID,target_key:restoreKey,expected_counter:0,verified_counter:1,verified_client_hash:restoreClientHash,verified_assertion_hash:'b'.repeat(64)};
+  assert.equal((await admin.rpc('consume_maintenance_restore_challenge',{...restoreConsumeArgs,verified_session:randomUUID()})).data,false);
+  assert.ok((await newAccount.rpc('consume_maintenance_restore_challenge',restoreConsumeArgs)).error);
+  const restoreRace=await Promise.all([admin.rpc('consume_maintenance_restore_challenge',restoreConsumeArgs),admin.rpc('consume_maintenance_restore_challenge',restoreConsumeArgs)]);for(const r of restoreRace)assert.equal(r.error,null);assert.deepEqual(restoreRace.map(r=>r.data).sort(),[false,true]);
+  assert.equal((await admin.rpc('consume_maintenance_restore_challenge',restoreConsumeArgs)).data,false);
+  assert.equal(recoverySql(`select assertion_counter from maintenance_private.restore_attested_keys where key_id='${restoreKey}';`).trim(),'1');
+  console.log('Actual restore challenge CAS: real Auth/enrollment, two concurrent calls accept exactly once, replay/wrong session/browser denied. Synthetic key/signature digest; no Apple purchase transfer.');
   const retry=await accountEnrollmentResponse(enrollmentRequest(newBearer,true),enrollmentConfig,enrollmentFactories);assert.equal(retry.status,503,'new proof cannot reuse consumed request');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
   assert.equal((await accountEnrollmentResponse(enrollmentRequest(signup.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories)).status,503,'deletion still running cannot reopen');
