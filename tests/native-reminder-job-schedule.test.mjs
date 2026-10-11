@@ -24,6 +24,10 @@ test('stored paid schedule drives actual native enqueue/count/start SQL with exp
  const minute=(await db.query("select extract(hour from clock_timestamp() at time zone 'Asia/Tokyo')::integer*60+extract(minute from clock_timestamp() at time zone 'Asia/Tokyo')::integer as v")).rows[0].v;
  if(minute<1439){await save(minute+1);assert.equal(await enqueue(),null,'future minute');}
  await save(0);assert.deepEqual(await schedule(production),free,'Sandbox purchase cannot customize Production');
+ const manual=(await db.query("insert into maintenance_private.native_notification_jobs(device_id,due_at,state) values($1,clock_timestamp()-interval '1 second','pending') returning id",[device])).rows[0].id;
+ const manualLease=(await db.query('select public.claim_maintenance_native_push_job($1) as v',[manual])).rows[0].v;
+ assert.equal((await db.query('select public.count_maintenance_native_job_due($1,$2) as v',[manual,manualLease])).rows[0].v,null,'historical manual work cannot bypass custom schedule');
+ await db.query('delete from maintenance_private.native_notification_jobs where id=$1',[manual]);
  const job=await enqueue();assert.ok(job);assert.equal(await enqueue(),job);assert.equal(Number((await db.query('select count(*) as v from maintenance_private.native_notification_jobs where device_id=$1',[device])).rows[0].v),1);
  const lease=(await db.query('select public.claim_maintenance_native_push_job($1) as v',[job])).rows[0].v;assert.ok(lease);
  const due=async()=>(await db.query('select public.count_maintenance_native_job_due($1,$2) as v',[job,lease])).rows[0].v;

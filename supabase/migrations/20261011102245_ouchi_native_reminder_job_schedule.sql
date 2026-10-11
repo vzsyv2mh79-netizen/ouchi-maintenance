@@ -64,6 +64,8 @@ begin
  settings:=maintenance_private.native_effective_schedule(j.device_id);
  if settings is null then return null; end if;
  local_now:=clock_timestamp() at time zone 'Asia/Tokyo';
+ -- Unscoped historical/manual jobs never authorize a custom schedule.
+ if j.delivery_day is null and settings is distinct from jsonb_build_object('minuteOfDay',540,'weekdays',array[1,2,3,4,5,6,7],'leadDays',0,'includeOverdue',true) then return null; end if;
  if j.delivery_day is not null and (j.delivery_day<>local_now::date
  or extract(hour from local_now)::integer*60+extract(minute from local_now)::integer < (settings->>'minuteOfDay')::integer
  or not (settings->'weekdays' @> to_jsonb(array[extract(dow from local_now)::integer+1]))

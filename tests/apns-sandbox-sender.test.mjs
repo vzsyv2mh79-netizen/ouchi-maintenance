@@ -7,7 +7,7 @@ import ts from 'typescript';
 const compile = source => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
 const protocol = 'data:text/javascript;base64,' + Buffer.from(compile(readFileSync('lib/apns-maintenance.ts', 'utf8'))).toString('base64');
 const source = readFileSync('lib/apns-sandbox-sender.ts', 'utf8').replace("import 'server-only';", '').replace("'./apns-maintenance'", JSON.stringify(protocol));
-const { createSandboxAPNsSender } = await import('data:text/javascript;base64,' + Buffer.from(compile(source)).toString('base64'));
+const { createSandboxAPNsSender, createAPNsSender } = await import('data:text/javascript;base64,' + Buffer.from(compile(source)).toString('base64'));
 const input = { deviceToken: 'ab'.repeat(32), bundleId: 'jp.ouchi.maintenance', dueCount: 2, now: 1791637200000, registeredAt: 1791637100000 };
 function fixture(event) {
   const session = new EventEmitter(), stream = new EventEmitter(), seen = {};
@@ -100,17 +100,31 @@ test('real loopback HTTP/2 transport accepts a response and cancels an unfinishe
         stream.respond({ ':status': 200 }); stream.end();
       });
     });
-    const sender = createSandboxAPNsSender({ environment: 'Sandbox', providerToken: () => 'a.b.c',
-      connect: (destination, options) => {
-        assert.equal(destination, 'https://api.sandbox.push.apple.com');
-        assert.equal(options.minVersion, 'TLSv1.2');
-        return http2Connect(origin);
-      } });
-    assert.equal(await sender(input), 'accepted');
-    cancel = new AbortController();
-    assert.equal(await sender(input, cancel.signal), 'delivery-unknown');
+    for(const environment of ['Sandbox','Production']) {
+      cancel=undefined;
+      const sender = createAPNsSender({ environment, providerToken: () => 'a.b.c',
+        connect: (destination, options) => {
+          assert.equal(destination, environment==='Production'?'https://api.push.apple.com':'https://api.sandbox.push.apple.com');
+          assert.equal(options.minVersion, 'TLSv1.2');
+          return http2Connect(origin);
+        } });
+      assert.equal(await sender(input), 'accepted');
+      cancel = new AbortController();
+      assert.equal(await sender(input, cancel.signal), 'delivery-unknown');
+    }
   } finally {
     for (const session of sessions) session.destroy();
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test('trusted Production transport fixes Apple host, freezes environment and preserves development refusal', async () => {
+ const session=new EventEmitter(),stream=new EventEmitter(),seen={};
+ session.destroy=()=>{};stream.destroy=()=>{};session.request=headers=>{seen.headers=headers;return stream;};
+ stream.end=body=>{seen.body=body;queueMicrotask(()=>{stream.emit('response',{':status':200});stream.emit('end');});};
+ const options={environment:'Production',providerToken:()=> 'a.b.c',connect:(origin,tls)=>{seen.origin=origin;seen.tls=tls;return session;}};
+ const sender=createAPNsSender(options);options.environment='Sandbox';
+ assert.equal(await sender(input),'accepted');assert.equal(seen.origin,'https://api.push.apple.com');assert.equal(seen.tls.minVersion,'TLSv1.2');assert.equal(seen.headers['apns-topic'],'jp.ouchi.maintenance');assert.match(JSON.parse(seen.body).aps.alert.body,/2件/);
+ for(const environment of [undefined,null,'production','https://foreign.invalid'])assert.throws(()=>createAPNsSender({environment,providerToken:()=> 'a.b.c'}),/environment/);
+ assert.throws(()=>createSandboxAPNsSender({environment:'Production',providerToken:()=> 'a.b.c'}),/Sandbox/);
 });

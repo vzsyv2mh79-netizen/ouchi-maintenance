@@ -1,15 +1,17 @@
 import 'server-only';
 import { connect, type ClientHttp2Session, type ClientHttp2Stream } from 'node:http2';
-import { maintenanceAPNsRequest, maintenanceAPNsResponse, type APNsDisposition } from './apns-maintenance';
+import { maintenanceAPNsRequest, maintenanceAPNsResponse, type APNsDisposition, type APNsEnvironment } from './apns-maintenance';
 
 type Reminder = Parameters<typeof maintenanceAPNsRequest>[0] & { registeredAt: number };
-/** Explicit test adapter. Not wired to a route, scheduler, database or production host. */
-export function createSandboxAPNsSender(options: {
-  environment: 'Sandbox';
+/** Internal transport with an explicit trusted deployment environment. No route
+ * or scheduler activates this factory. APNs and purchase environments differ. */
+export function createAPNsSender(options: {
+  environment: APNsEnvironment;
   providerToken: (now: number) => string;
   connect?: typeof connect;
 }) {
-  if (options.environment !== 'Sandbox') throw new Error('Only APNs Sandbox is supported');
+  if (options.environment !== 'Sandbox' && options.environment !== 'Production') throw new Error('Invalid APNs environment');
+  const environment = options.environment;
   const open = options.connect ?? connect;
   const providerToken = options.providerToken;
   return async (input: Reminder, signal?: AbortSignal): Promise<APNsDisposition | 'skipped'> => {
@@ -17,7 +19,7 @@ export function createSandboxAPNsSender(options: {
     if (!Number.isSafeInteger(input.registeredAt) || input.registeredAt <= 0 || input.registeredAt > input.now) {
       throw new Error('Invalid APNs registration');
     }
-    const request = maintenanceAPNsRequest(input);
+    const request = maintenanceAPNsRequest(input, environment);
     if (!request) return 'skipped';
     const token = providerToken(input.now);
     if (signal?.aborted) return 'skipped';
@@ -74,4 +76,10 @@ export function createSandboxAPNsSender(options: {
       } catch { transportFailed(); }
     });
   };
+}
+
+/** Preserve the existing development adapter's refusal of Production. */
+export function createSandboxAPNsSender(options: {environment:'Sandbox';providerToken:(now:number)=>string;connect?:typeof connect}) {
+  if(options.environment!=='Sandbox')throw new Error('Only APNs Sandbox is supported');
+  return createAPNsSender(options);
 }

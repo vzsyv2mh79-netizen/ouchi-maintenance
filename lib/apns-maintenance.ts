@@ -1,5 +1,7 @@
 /** Pure APNs protocol preparation. No network, signing keys, scheduling or activation. */
-export function maintenanceAPNsRequest(input:{deviceToken:string;bundleId:string;dueCount:number;now:number}){
+export type APNsEnvironment = 'Sandbox' | 'Production';
+export function maintenanceAPNsRequest(input:{deviceToken:string;bundleId:string;dueCount:number;now:number}, environment:APNsEnvironment='Sandbox'){
+ if(environment!=='Sandbox'&&environment!=='Production')throw new Error('Invalid APNs environment');
  const {deviceToken,bundleId,dueCount,now}=input;
  // Apple advises against assuming a fixed device-token size.
  if(typeof deviceToken!=='string'||!/^([0-9a-f]{2}){16,512}$/i.test(deviceToken)||typeof bundleId!=='string'||bundleId.length>200||!/^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)+$/.test(bundleId)||!Number.isSafeInteger(dueCount)||dueCount<0||dueCount>100000||!Number.isSafeInteger(now)||now<=0)throw new Error('Invalid APNs reminder input');
@@ -7,10 +9,10 @@ export function maintenanceAPNsRequest(input:{deviceToken:string;bundleId:string
  const expiration=Math.floor(now/1000)+3600;
  if(!Number.isSafeInteger(expiration))throw new Error('Invalid APNs expiry');
  return {
-  origin:'https://api.sandbox.push.apple.com',
+  origin:environment==='Production'?'https://api.push.apple.com':'https://api.sandbox.push.apple.com',
   path:`/3/device/${deviceToken.toLowerCase()}`,
   headers:{'apns-topic':bundleId,'apns-push-type':'alert','apns-priority':'10','apns-collapse-id':'ouchi-maintenance-due','apns-expiration':String(expiration)},
-  body:JSON.stringify({aps:{alert:{title:'おうちメンテ',body:`期限が来たお手入れが${dueCount}件あります。アプリで確認してください。`},sound:'default'}}),
+  body:JSON.stringify({aps:{alert:{title:'おうちメンテ',body:`お手入れ予定が${dueCount}件あります。アプリで確認してください。`},sound:'default'}}),
  };
 }
 export type APNsDisposition='accepted'|'retry'|'delivery-unknown'|'credentials'|'disable-device'|'stale-unregistration'|'inspect';
