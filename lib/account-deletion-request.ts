@@ -29,12 +29,16 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
  if(!header||header.length>16384||!/^Bearer [^\s]+$/.test(header))return reply({error:'Authentication required'},401);
  let password:string;try{password=await readConfirmation(request);}catch{return reply({error:'Explicit confirmation and password required'},400);}
  try{
+  request.signal.throwIfAborted();
   const identity=await deps.verify(header.slice(7));
+  request.signal.throwIfAborted();
   if(!identity||![identity.userID,identity.sessionID,identity.epochID].every(uuid)||typeof identity.email!=='string'||!identity.email||identity.email.length>320)return reply({error:'Authentication required'},401);
   const confirmed=await deps.reauthenticate(identity.email,password);
   if(!uuid(confirmed)||confirmed.toLowerCase()!==identity.userID.toLowerCase())return reply({error:'Reauthentication required'},403);
   if(request.signal.aborted)return reply({error:'Request cancelled'},409);
   const requestID=await deps.enqueue(Object.freeze({...identity}));
+  // An aborted response does not undo a durable remote request. Recover its status.
+  request.signal.throwIfAborted();
   if(!uuid(requestID))throw Error('Missing durable acknowledgement');
   return reply({state:'pending',requestID},202);
  }catch{return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);}

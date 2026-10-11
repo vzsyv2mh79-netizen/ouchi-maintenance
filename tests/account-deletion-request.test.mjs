@@ -17,3 +17,20 @@ test('cancelled partial stream cannot be treated as a confirmed deletion request
  const request=new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer synthetic'},body,duplex:'half',signal:controller.signal});
  const pending=handle(request,{verify:async()=>{verified++;return null;},reauthenticate:async()=>null,enqueue:async()=>null});controller.abort();assert.equal((await pending).status,400);assert.equal(verified,0);
 });
+
+test('cancellation at each remote boundary stops later stages or requires durable status recovery',async()=>{
+ const identity={userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',epochID:'33333333-3333-4333-8333-333333333333',email:'synthetic@example.invalid'};
+ const id='44444444-4444-4444-8444-444444444444';
+ for(const boundary of ['verify','reauthenticate','enqueue']){
+  const controller=new AbortController();const calls=[];
+  const finish=(name,value)=>{calls.push(name);if(name===boundary)controller.abort();return value;};
+  const response=await handle(new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:'synthetic'}),signal:controller.signal}),{
+   verify:async()=>finish('verify',identity),reauthenticate:async()=>finish('reauthenticate',identity.userID),enqueue:async()=>finish('enqueue',id),
+  });
+  assert.equal(response.status,boundary==='reauthenticate'?409:503);
+  assert.deepEqual(calls,['verify','reauthenticate','enqueue'].slice(0,['verify','reauthenticate','enqueue'].indexOf(boundary)+1));
+  assert.equal(response.headers.get('cache-control'),'no-store');
+  const body=await response.json();assert.equal(body.state,undefined);assert.equal(body.requestID,undefined);
+  if(boundary==='enqueue')assert.match(body.error,/Check status before retrying/);
+ }
+});
