@@ -59,7 +59,10 @@ final class PurchaseManager: ObservableObject {
         guard case .verified(let app) = try await AppTransaction.shared, app.environment == storeEnvironment,
               app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
         guard expected == bindingGeneration, boundAccount == account, persist != nil else { throw CancellationError() }
-        switch try await product.purchase(options: [.appAccountToken(account)]) {
+        let result = try await product.purchase(options: [.appAccountToken(account)])
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        switch result {
         case .success(let result):
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             try await deliver(result, account: account, finish: true)
