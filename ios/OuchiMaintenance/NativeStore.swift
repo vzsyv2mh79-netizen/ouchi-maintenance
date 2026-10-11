@@ -72,6 +72,7 @@ struct FormalChannelSelection {
     private let api: HouseholdAPI?
     private let session: SessionController?
     private let isolatedDevelopmentEnabled: Bool
+    private(set) var isUIReviewSample = false
     private var generation = 0 { didSet { accountBindingRevision = UUID() } }
     private var familyGeneration = 0
     private var reportGeneration = 0
@@ -281,6 +282,18 @@ struct FormalChannelSelection {
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
         #if DEBUG
+        if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
+           info["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES",
+           let stamp=info["OUCHI_REVIEW_BUILD_ID"] as? String,
+           stamp.range(of:"^[a-f0-9]{40}$",options:.regularExpression) != nil,
+           let config=try? CloudConfiguration(url:URL(string:"https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,publishableKey:"sb_publishable_synthetic_review_only"),
+           let bytes=try? NativeReviewFixture.sessionBytes() {
+            let fixture=NativeReviewFixture()
+            let client=HouseholdAPI(config:config,transport:{ try await fixture.reply($0) })
+            api=client;session=SessionController(api:client,storage:NativeReviewSessionStorage(bytes))
+            isolatedDevelopmentEnabled=false;isUIReviewSample=true
+            return
+        }
         let isolatedDevelopment = ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"
         let address = isolatedDevelopment ? "http://127.0.0.1:54321" : info["SUPABASE_URL"] as? String
         let key = isolatedDevelopment ? ProcessInfo.processInfo.environment["OUCHI_ISOLATED_PUBLISHABLE_KEY"] : info["SUPABASE_PUBLISHABLE_KEY"] as? String
@@ -1085,6 +1098,7 @@ struct FormalChannelSelection {
     }
     private func bindSandboxBilling(account: UUID) async {
         #if DEBUG
+        guard !isUIReviewSample else { return }
         guard Bundle.main.object(forInfoDictionaryKey: "IOS_SANDBOX_BILLING") as? String == "YES",
               let session else { return }
         purchases.stopObserving()

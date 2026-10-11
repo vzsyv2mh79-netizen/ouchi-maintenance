@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
         run(common + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
         run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
-    typechecked = ['KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeStore.swift']
+    typechecked = ['KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
     run(common + ['-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])

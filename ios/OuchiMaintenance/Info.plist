@@ -4,6 +4,8 @@
 <dict>
 	<key>OUCHI_REVIEW_BUILD_ID</key>
 	<string>$(OUCHI_REVIEW_BUILD_ID)</string>
+	<key>OUCHI_REVIEW_SAMPLE_DATA</key>
+	<string>$(OUCHI_REVIEW_SAMPLE_DATA)</string>
 	<key>OUCHI_APP_ATTEST_REGISTRATION_ENABLED</key>
 	<false/>
 	<key>OUCHI_APP_ATTEST_APP_ID</key>

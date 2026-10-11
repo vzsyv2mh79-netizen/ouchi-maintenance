@@ -29,6 +29,7 @@ struct NativeRootView: View {
                     Text("確認用 \(stamp.prefix(7))")
                         .font(.caption).accessibilityIdentifier("ouchi.reviewBuild")
                         .accessibilityLabel("確認用ビルド \(stamp)")
+                    if store.isUIReviewSample { Text("サンプルデータ").font(.caption).accessibilityIdentifier("ouchi.reviewSample") }
                 }
                 #endif
                 if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
