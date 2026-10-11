@@ -37,7 +37,7 @@ struct KeychainSessionStorage: SessionStorage {
 }
 
 /// One account-scoped file; logged-out copies are removed, never placed in backups.
-struct HouseholdSnapshotStorage {
+@MainActor struct HouseholdSnapshotStorage {
     let namespace: String
     private let directory: URL
     init(namespace: String, directory: URL? = nil) {
@@ -51,6 +51,31 @@ struct HouseholdSnapshotStorage {
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
         guard size <= 10 * 1024 * 1024 else { throw CloudError.invalidInput }
         return try OfflineSnapshot.decode(Data(contentsOf: file), account: account)
+    }
+    /// Prepared account-scoped cleanup. General logout write(nil) stays separate.
+    func remove(account: UUID) throws {
+        guard account != UUID(uuidString: "00000000-0000-0000-0000-000000000000"),
+              directory.isFileURL, !namespace.isEmpty, !namespace.contains("/"), !namespace.contains("\\") else {
+            throw CloudError.invalidInput
+        }
+        do {
+            let rootAttributes = try FileManager.default.attributesOfItem(atPath: directory.path)
+            guard rootAttributes[.type] as? FileAttributeType == .typeDirectory else { throw CloudError.invalidInput }
+            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+            guard attributes[.type] as? FileAttributeType == .typeRegular,
+                  let size = attributes[.size] as? NSNumber, size.intValue <= 10 * 1024 * 1024 else { throw CloudError.invalidInput }
+            _ = try OfflineSnapshot.decode(Data(contentsOf: file), account: account)
+            try FileManager.default.removeItem(at: file)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return
+        }
+        // Durable absence must be confirmed, rather than inferred from a call.
+        do {
+            _ = try FileManager.default.attributesOfItem(atPath: file.path)
+            throw CocoaError(.fileWriteUnknown)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return
+        }
     }
     func write(_ snapshot: OfflineSnapshot?) throws {
         guard let snapshot else {

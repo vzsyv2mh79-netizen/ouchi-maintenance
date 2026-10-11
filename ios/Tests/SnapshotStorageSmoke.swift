@@ -1,7 +1,7 @@
 import Foundation
 import OuchiCore
 
-@main struct SnapshotStorageSmoke {
+@main @MainActor struct SnapshotStorageSmoke {
     static func main() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-snapshot-test-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -18,6 +18,33 @@ import OuchiCore
         #endif
         do { _ = try storage.read(account: UUID()); fatalError("another account read snapshot") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
+        do { try storage.remove(account: UUID()); fatalError("another account removed snapshot") }
+        catch { precondition(error as? CloudError == .authenticationRequired) }
+        precondition(FileManager.default.fileExists(atPath: file.path))
+        let originalSnapshot = try Data(contentsOf: file)
+        try Data("{invalid}".utf8).write(to: file)
+        do { try storage.remove(account: account); fatalError("corrupt snapshot removed without ownership proof") } catch {}
+        let corruptSnapshot = try Data(contentsOf: file)
+        precondition(corruptSnapshot == Data("{invalid}".utf8))
+        try originalSnapshot.write(to: file)
+        let linkedDirectory = folder.appendingPathComponent("linked-directory")
+        try FileManager.default.createSymbolicLink(at: linkedDirectory, withDestinationURL: folder)
+        let replacedStorage = HouseholdSnapshotStorage(namespace: "synthetic", directory: linkedDirectory)
+        do { try replacedStorage.remove(account: account); fatalError("linked directory accepted") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        precondition(FileManager.default.fileExists(atPath: file.path))
+        let traversing = HouseholdSnapshotStorage(namespace: "../synthetic", directory: folder)
+        do { try traversing.remove(account: account); fatalError("traversing namespace accepted") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        let linked = HouseholdSnapshotStorage(namespace: "link", directory: folder)
+        let link = folder.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        do { try linked.remove(account: account); fatalError("linked snapshot removed") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        precondition(FileManager.default.fileExists(atPath: file.path))
+        try storage.remove(account: account)
+        try storage.remove(account: account)
+        precondition(!FileManager.default.fileExists(atPath: file.path))
         try storage.write(nil)
         let deleted = try storage.read(account: account); precondition(deleted == nil)
         try storage.write(nil)
