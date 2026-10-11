@@ -53,7 +53,7 @@ import OuchiCore
             catch { precondition(error as? CloudError == .rejected(status)) }
         }
         let task = Task { () throws -> NotificationChannelReceipt in
-            try Task.checkCancellation()
+            withUnsafeCurrentTask { $0?.cancel() }
             return try await api(payload()).load(epoch:epoch,token:"synthetic")
         };task.cancel();do { _ = try await task.value;fatalError("Cancellation accepted") } catch { precondition(error is CancellationError) }
         print("PASS: channel API fixed HTTPS/path, exact environment/epoch/revision/channel, free choices, declared size/MIME/cache, foreign URL and failed/cancelled responses refused. Synthetic transport only; no Apple or notification.")

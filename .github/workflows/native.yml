@@ -43,6 +43,8 @@ jobs:
         run: node ios/Tests/attachment-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Native formal report HTTP transport with synthetic records
         run: node ios/Tests/formal-report-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
+      - name: Native free notification channels actual HTTP contract
+        run: node ios/Tests/formal-notification-channel-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Verify synthetic core and local snapshot tests
         run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests
