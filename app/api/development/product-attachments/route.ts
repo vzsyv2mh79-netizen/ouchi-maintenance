@@ -1,4 +1,4 @@
-import {createClient} from '@supabase/supabase-js';
+import {createClient,StorageApiError} from '@supabase/supabase-js';
 import {createAttachmentFetch} from '@/lib/attachment-fetch';
 import {uploadProductAttachment,type AttachmentReservation} from '@/lib/attachment-upload';
 import {readProductAttachment,attachmentLimits} from '@/lib/product-attachment';
@@ -42,6 +42,7 @@ export async function POST(request:Request){
   },
   inspect:async r=>{
    const result=await bucket.download(r.path);
+   if(!result.data&&result.error instanceof StorageApiError&&result.error.code==='NoSuchKey')return null;
    if(result.error||!result.data||result.data.size>attachmentLimits.fileBytes)throw new Error('Object unavailable');
    const actual=await readProductAttachment(new Request('http://127.0.0.1/attachment',{method:'POST',headers:{'content-type':result.data.type,'content-length':String(result.data.size)},body:await result.data.arrayBuffer()}));
    return {size:actual.size,mime:actual.mime,sha256:actual.sha256};
