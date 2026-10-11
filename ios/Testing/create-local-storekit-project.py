@@ -29,7 +29,7 @@ test_sources=phase('test-sources','PBXSourcesBuildPhase',[tests,purchase])
 core_build=obj('core-link','PBXBuildFile',productRef=core)
 test_frameworks=obj('test-frameworks','PBXFrameworksBuildPhase',buildActionMask=2147483647,files=[core_build],runOnlyForDeploymentPostprocessing=0)
 test_resources=phase('test-resources','PBXResourcesBuildPhase',[catalog])
-common={'SDKROOT':'macosx','MACOSX_DEPLOYMENT_TARGET':'15.0','SWIFT_VERSION':'6.0','CODE_SIGNING_ALLOWED':'NO','ENABLE_APP_SANDBOX':'NO','ENABLE_HARDENED_RUNTIME':'NO','GENERATE_INFOPLIST_FILE':'YES','PRODUCT_NAME':'$(TARGET_NAME)','CLANG_ENABLE_MODULES':'YES','LD_RUNPATH_SEARCH_PATHS':['$(inherited)','@executable_path/../Frameworks','@loader_path/../Frameworks']}
+common={'SDKROOT':'macosx','MACOSX_DEPLOYMENT_TARGET':'15.2','SWIFT_VERSION':'6.0','CODE_SIGNING_ALLOWED':'NO','ENABLE_APP_SANDBOX':'NO','ENABLE_HARDENED_RUNTIME':'NO','GENERATE_INFOPLIST_FILE':'YES','PRODUCT_NAME':'$(TARGET_NAME)','CLANG_ENABLE_MODULES':'YES','LD_RUNPATH_SEARCH_PATHS':['$(inherited)','@executable_path/../Frameworks','@loader_path/../Frameworks']}
 def configs(name, extra):
     ids=[]
     for configuration in ['Debug','Release']:
