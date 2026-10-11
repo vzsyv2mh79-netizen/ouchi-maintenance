@@ -23,3 +23,5 @@ test('oversized signed input never reaches verifier or persistence',async()=>{
  let calls=0;const dependencies={verify:async()=>{calls++;return transaction;},persist:async()=>{calls++;return {data:'inserted',error:null};}};
  await assert.rejects(()=>save('あ'.repeat(50000),dependencies));await assert.rejects(()=>save('',dependencies));assert.equal(calls,0);
 });
+
+test('retirement is not a purchase persistence acknowledgement; only explicit verified notification context may discard it',async()=>{const dependencies={verify:async()=>transaction,persist:async()=>({data:'retired',error:null})};await assert.rejects(()=>save('signed-jws',dependencies,'account'));assert.equal((await save('signed-jws',dependencies,undefined,true)).outcome,'retired');await assert.rejects(()=>save('signed-jws',{...dependencies,persist:async()=>({data:'retired',error:Error('outage')})},undefined,true));});

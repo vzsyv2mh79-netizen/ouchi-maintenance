@@ -32,7 +32,12 @@ export async function POST(request:Request){
  try{
   const database=billingDatabase(config);
   if(unpairedRenewal)renewal=await pairBillingRenewalOnly(database,config,unpairedRenewal);
-  if(transaction&&signedTransaction)await persistBillingTransaction(database,config,signedTransaction,transaction);
+  if(transaction&&signedTransaction){
+   const result=await persistBillingTransaction(database,config,signedTransaction,transaction,'notification');
+   // Only an Apple-verified event plus the authoritative SQL retirement result
+   // may be acknowledged without creating more account-associated records.
+   if(result==='retired')return Response.json({received:true},{headers});
+  }
   if(renewal&&signedRenewal)await persistBillingRenewal(database,config,signedRenewal,renewal);
   const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
   await persistVerifiedNotification(signedPayload,record,async(name,args)=>await database.rpc(name,args));

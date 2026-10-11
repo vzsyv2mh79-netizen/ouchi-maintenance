@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import ts f
 const moduleURL=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
 const stub=moduleURL(`
 export function billingConfiguration(){return globalThis.notificationHarness.enabled?{storage:'verified-ledger',environment:'Sandbox'}:null;}
-export async function persistBillingTransaction(db,config,signed,transaction){const h=globalThis.notificationHarness;h.persistedSigned=signed;const result=await db.rpc('synthetic',{payload:transaction});if(result.error)throw Error('database');}
+export async function persistBillingTransaction(db,config,signed,transaction,context){const h=globalThis.notificationHarness;h.persistedSigned=signed;const result=await db.rpc('synthetic',{payload:transaction});if(result.error)throw Error('database');h.context=context;return h.retired?'retired':'persisted';}
 export function readBillingBody(request){return request.json();}
 export function billingVerifier(){return {verifyAndDecodeNotification:async()=>{const h=globalThis.notificationHarness;if(h.outerInvalid)throw Error('invalid');return h.notification;}};}
 export async function verifyBillingTransaction(){const h=globalThis.notificationHarness;if(h.innerInvalid)throw Error('invalid');return h.transaction;}
@@ -35,6 +35,9 @@ test('actual notification handler distinguishes invalid proof from retryable per
   h.renewalInvalid=true;assert.equal((await send()).status,400);assert.equal(h.writes,beforePairFailure);h.renewalInvalid=false;
   h.renewalPersistenceFailure=true;assert.equal((await send()).status,503);assert.equal(h.writes,beforePairFailure);h.renewalPersistenceFailure=false;assert.equal(h.inbox.payload.disposition,'needs_reconciliation');
   h.notification={...h.notification,notificationType:'TEST',data:{environment:'Sandbox'}};assert.equal((await send()).status,200);assert.equal(h.inbox.payload.disposition,'test');
+  h.notification={notificationUUID:'11111111-1111-4111-8111-111111111111',notificationType:'DID_RENEW',signedDate:200,data:{environment:'Sandbox',signedTransactionInfo:'synthetic',signedRenewalInfo:'synthetic-renewal'}};h.retired=true;h.inbox=undefined;h.persistedRenewal=undefined;
+  const beforeRetired=h.writes;assert.equal((await send()).status,200);assert.equal(h.writes,beforeRetired+1);assert.equal(h.inbox,undefined);assert.equal(h.persistedRenewal,undefined);assert.equal(h.context,'notification');
+  h.databaseFailure=true;assert.equal((await send()).status,503);h.databaseFailure=false;h.renewalInvalid=true;const beforeRetiredInvalid=h.writes;assert.equal((await send()).status,400);assert.equal(h.writes,beforeRetiredInvalid);h.renewalInvalid=false;h.retired=false;
   const invalidWrites=h.writes;h.notification={};assert.equal((await send()).status,400);assert.equal(h.writes,invalidWrites);
  }finally{delete globalThis.notificationHarness;}
 });

@@ -106,3 +106,5 @@ test('actual renewal-only adapter pairs only the exact verified ledger period',a
  for(const result of [{data:null,error:null},{data:row,error:Error('outage')}])await assert.rejects(()=>server.pairBillingRenewalOnly({rpc:async()=>result},config,renewal));
  await assert.rejects(()=>server.verifyBillingRenewalOnly('e30.e30.c2ln',{...config,certificates:[]}));
 });
+
+test('retired SQL result cannot complete a client purchase and is distinct from notification persistence',async()=>{const db={rpc:async()=>({data:'retired',error:null})},config={storage:'verified-ledger'},transaction={accountToken:'synthetic',environment:'Sandbox'};await assert.rejects(()=>server.persistBillingTransaction(db,config,'synthetic',transaction));assert.equal(await server.persistBillingTransaction(db,config,'synthetic',transaction,'notification'),'retired');await assert.rejects(()=>server.persistBillingTransaction({rpc:async()=>({data:'retired',error:Error('outage')})},config,'synthetic',transaction,'notification'));});

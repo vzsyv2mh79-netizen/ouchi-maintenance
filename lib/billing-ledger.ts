@@ -12,6 +12,7 @@ export async function verifyAndPersistLedgerTransaction(
   signedTransaction: string,
   dependencies: LedgerDependencies,
   expectedAccountToken?: string,
+  allowRetiredNotification = false,
 ) {
   if (!signedTransaction || Buffer.byteLength(signedTransaction, 'utf8') > 131072) throw new Error('Invalid signed transaction');
   const transaction = await dependencies.verify(signedTransaction);
@@ -21,6 +22,7 @@ export async function verifyAndPersistLedgerTransaction(
     // Audit reference to the exact verified JWS; this hash is not signature proof.
     proof_sha256: createHash('sha256').update(signedTransaction, 'utf8').digest('hex'),
   });
+  if (!result.error && result.data === 'retired' && allowRetiredNotification) return {transaction, outcome: 'retired' as const};
   if (result.error || !['inserted', 'updated', 'ignored'].includes(result.data as string)) throw new Error('Verified transaction persistence unavailable');
   return {transaction, outcome: result.data as 'inserted' | 'updated' | 'ignored'};
 }

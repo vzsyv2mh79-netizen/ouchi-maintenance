@@ -58,11 +58,13 @@ export async function verifyBillingRenewal(jws:string,transaction:VerifiedTransa
 export {readBillingBody} from './billing-body';
 
 /** transaction must be the result of verifyBillingTransaction for this exact JWS. */
-export async function persistBillingTransaction(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedTransaction:string,transaction:VerifiedTransaction){
+export async function persistBillingTransaction(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedTransaction:string,transaction:VerifiedTransaction,context:'purchase'|'notification'='purchase'){
  if(config.storage==='verified-ledger'){
-  await verifyAndPersistLedgerTransaction(signedTransaction,{verify:async()=>transaction,persist:async(name,args)=>await db.rpc(name,args)});
+  const saved=await verifyAndPersistLedgerTransaction(signedTransaction,{verify:async()=>transaction,persist:async(name,args)=>await db.rpc(name,args)},undefined,context==='notification');
+  return saved.outcome==='retired'?'retired' as const:'persisted' as const;
  }else{
   const result=await db.rpc('apply_ouchi_sandbox_transaction',{payload:transaction});if(result.error)throw new Error('Persistence unavailable');
+  return 'persisted' as const;
  }
 }
 /** renewal must come from verifyBillingRenewal for this exact signed input and paired transaction. */
@@ -105,7 +107,7 @@ export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>
   statuses:async(transactionId)=>await boundedBillingRead(()=>client.getAllSubscriptionStatuses(transactionId),signal) as unknown as Record<string,unknown>,
   verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
   verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
-  saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
+  saveTransaction:async(jws,transaction)=>{await persistBillingTransaction(db,config,jws,transaction);},
   saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
  },{revision,signal});
 }
@@ -140,7 +142,7 @@ export async function runBillingRecoveryJob(db:ReturnType<typeof billingDatabase
    statuses:async(id)=>await boundedBillingRead(()=>client.getAllSubscriptionStatuses(id),signal) as unknown as Record<string,unknown>,
    verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
    verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
-   saveTransaction:async(jws,transaction)=>await persistBillingTransaction(db,config,jws,transaction),
+   saveTransaction:async(jws,transaction)=>{await persistBillingTransaction(db,config,jws,transaction);},
    saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
   },
  },signal);
