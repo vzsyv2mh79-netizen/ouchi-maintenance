@@ -800,7 +800,7 @@ private struct SandboxReminderSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Text("テスト用の確認画面です。販売と端末への通知適用は準備中です。")
+                Text("テスト用の確認画面です。販売は準備中です。通知は適用ボタンを押したときに、この端末だけに設定します。")
                     .font(.caption).foregroundStyle(.secondary)
                 Button(store.busy ? "確認中…" : "最新の設定を読み込む") {
                     operation = Task { await store.loadSandboxReminderSettings() }
@@ -838,6 +838,9 @@ private struct SandboxReminderSettingsView: View {
                         weekdays: Array(weekdays), leadDays: leadDays, includeOverdue: includeOverdue) else { return }
                     operation = Task { await store.saveSandboxReminderSettings(schedule) }
                 }.disabled(!canEdit || weekdays.isEmpty)
+                Button("この端末の通知に適用（テスト）") {
+                    operation = Task { await store.applySandboxReminderSettings() }
+                }.disabled(store.busy || store.reminderSettings == nil)
                 if let message = store.message { Text(message).font(.caption) }
             }
         }

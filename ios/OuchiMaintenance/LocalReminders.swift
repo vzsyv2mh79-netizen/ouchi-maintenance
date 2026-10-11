@@ -85,43 +85,60 @@ import OuchiCore
             }
         }
     }
-    func enable(data: Household, account: UUID) async throws -> Bool {
+    func enable(data: Household, account: UUID, schedule: ReminderSchedule = .free,
+                premiumValidUntil: Date? = nil) async throws -> Bool {
+        if schedule != .free {
+            guard let premiumValidUntil, premiumValidUntil.timeIntervalSince1970.isFinite else { throw CloudError.invalidInput }
+        }
         let expected = generation
         let granted = try await requestAuthorization()
-        guard granted, expected == generation else { return false }
+        guard granted, expected == generation, !Task.isCancelled else { return false }
         UserDefaults.standard.set(account.uuidString, forKey: preference)
-        return try await reconcile(data: data, account: account)
+        return try await reconcile(data: data, account: account, schedule: schedule, premiumValidUntil: premiumValidUntil)
     }
-    func reconcile(data: Household, account: UUID) async throws -> Bool {
+    /// Custom options require the caller's fresh server-verified expiry. The
+    /// release caller continues using the free defaults until that flow is ready.
+    func reconcile(data: Household, account: UUID, schedule: ReminderSchedule = .free,
+                   premiumValidUntil: Date? = nil) async throws -> Bool {
         guard UserDefaults.standard.string(forKey: preference) == account.uuidString else { return false }
         let expected = generation
         let authorized = await notificationAuthorized()
-        guard expected == generation else { return false }
+        guard expected == generation, !Task.isCancelled else { return false }
         guard authorized else {
             await reset(clearPreference: true); return false
         }
-        let plan = try ReminderPlan.make(data)
+        let plan: [DailyReminder]
+        if schedule != .free {
+            guard let premiumValidUntil else { throw CloudError.invalidInput }
+            plan = try ReminderPlan.make(data, premiumSchedule: schedule, premiumValidUntil: premiumValidUntil)
+        } else { plan = try ReminderPlan.make(data) }
+        // In-memory identifiers disappear on process restart. Read the actual
+        // account-scoped requests so a refresh cannot leave duplicate schedules.
+        let pending = await pendingIDs()
+        guard expected == generation, !Task.isCancelled else { return false }
+        let previous = ReminderCleanupPlan(identifiers: pending, account: account)
+        guard !previous.ambiguousLegacy else { throw CloudError.invalidInput }
         generation += 1
         let current = generation
-        center.removePendingNotificationRequests(withIdentifiers: activeIDs)
+        center.removePendingNotificationRequests(withIdentifiers: previous.identifiers)
         activeIDs = []
         let prefix = "ouchi.local." + account.uuidString.lowercased() + "." + UUID().uuidString + "."
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
         var added: [String] = []
         do {
             for (index, reminder) in plan.enumerated() {
-                guard current == generation else { center.removePendingNotificationRequests(withIdentifiers: added); return false }
+                guard current == generation, !Task.isCancelled else { center.removePendingNotificationRequests(withIdentifiers: added); return false }
                 let id = prefix + String(index)
                 let content = UNMutableNotificationContent()
                 content.title = "おうちメンテ"
-                content.body = "保存した予定では、期限が来たお手入れが\(reminder.count)件あります。アプリで最新の予定を確認してください。"
+                content.body = "保存したお手入れの予定が\(reminder.count)件あります。アプリで最新の予定を確認してください。"
                 content.sound = .default
                 var components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: reminder.date)
                 components.calendar = calendar; components.timeZone = calendar.timeZone
                 try await addNotification(UNNotificationRequest(identifier: id, content: content,
                     trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)))
                 added.append(id)
-                guard current == generation else { center.removePendingNotificationRequests(withIdentifiers: added); return false }
+                guard current == generation, !Task.isCancelled else { center.removePendingNotificationRequests(withIdentifiers: added); return false }
             }
             activeIDs = added
             return true

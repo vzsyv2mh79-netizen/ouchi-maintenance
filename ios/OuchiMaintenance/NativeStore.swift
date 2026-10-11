@@ -550,6 +550,36 @@ import OuchiCore
     func loadSandboxReminderSettings() async {
         await changeSandboxReminderSettings(schedule: nil)
     }
+    /// Explicit confirmation only; fetch both the authoritative settings and
+    /// verified purchase expiry before scheduling any custom notification.
+    func applySandboxReminderSettings() async {
+        guard !busy, sandboxBillingConfigured, let session, let data = household else { return }
+        let expected = generation, binding = accountBindingRevision
+        busy = true; message = nil
+        defer { if expected == generation, binding == accountBindingRevision { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+                  signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id,
+                  let purchaseAccount else { return }
+            let receipt = try await ReminderSettingsAPI().load(token: credentials.access_token)
+            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+                  billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
+            guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
+            let useCustom = receipt.premiumActive && rights.premiumIsCurrent()
+            let expiry = useCustom ? rights.expiresAt.map { Date(timeIntervalSince1970: $0 / 1000) } : nil
+            let accepted = try await reminders.enable(data: data, account: credentials.user.id,
+                schedule: useCustom ? receipt.effective : .free, premiumValidUntil: expiry)
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision else { return }
+            reminderSettings = receipt; sandboxEntitlement = rights; remindersEnabled = accepted
+            message = accepted ? "この端末にテスト用の通知を設定しました。有料期間が終わった後は無料の設定を使用します。" : "通知が許可されていません。iPhoneの通知設定を確認してください。"
+        } catch {
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision else { return }
+            reminderSettings = nil
+            message = "通知を適用できません。テスト用サービスと最新の設定を確認してください。"
+        }
+    }
     func saveSandboxReminderSettings(_ schedule: ReminderSchedule) async {
         await changeSandboxReminderSettings(schedule: schedule)
     }
@@ -574,7 +604,7 @@ import OuchiCore
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
             reminderSettings = result
-            message = schedule == nil ? nil : "テスト用の設定をサーバーで確認しました。端末への通知適用は準備中です。"
+            message = schedule == nil ? nil : "テスト用の設定をサーバーで確認しました。この端末で受け取るには通知への適用を押してください。"
         } catch {
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision else { return }
             // A lost acknowledgement can follow a successful write. Require a

@@ -27,6 +27,16 @@ public struct ReminderSchedule: Codable, Equatable, Sendable {
     }
 }
 public enum ReminderPlan {
+    /// An already verified paid period bounds custom notifications. Pending
+    /// requests after expiry use the free schedule even if the app stays closed.
+    /// This helper does not verify or grant an entitlement itself.
+    public static func make(_ data: Household, now: Date = Date(),
+                            premiumSchedule: ReminderSchedule, premiumValidUntil: Date) throws -> [DailyReminder] {
+        guard premiumValidUntil.timeIntervalSince1970.isFinite else { throw CloudError.invalidInput }
+        let custom = try make(data, now: now, schedule: premiumSchedule).filter { $0.date < premiumValidUntil }
+        let free = try make(data, now: now, schedule: .free).filter { $0.date >= premiumValidUntil }
+        return (custom + free).sorted { $0.date < $1.date }
+    }
     public static func make(_ data: Household, now: Date = Date(), schedule: ReminderSchedule = .free) throws -> [DailyReminder] {
         _ = try Backup.canonical(data)
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
