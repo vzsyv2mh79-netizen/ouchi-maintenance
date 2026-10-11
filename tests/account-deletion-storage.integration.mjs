@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
+import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-objects.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
 const {eraseAccountDeletionObjects:erase}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const compiled=async file=>{const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
@@ -38,9 +38,19 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
   const sharedBefore=await other.from('products').select('id').eq('id',product);assert.equal(sharedBefore.error,null);assert.deepEqual(sharedBefore.data,[{id:product}]);
   for(const id of [userID,epoch.data,product,file])assert.match(id,/^[0-9a-f-]{36}$/i);
-  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:`insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime) values('${file}','${userID}','${epoch.data}','${product}',100,'image/png');`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  const bytes=Buffer.from('synthetic-disposable-file'),hash=createHash('sha256').update(bytes).digest('hex');
+  const reservation={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,target_product:product,attachment_id:file,byte_count:bytes.length,media_type:'image/png',measured_sha256:hash};
+  const reserved=await admin.rpc('reserve_maintenance_attachment',reservation);assert.equal(reserved.error,null);assert.equal(reserved.data,file);
+  assert.equal((await admin.rpc('reserve_maintenance_attachment',reservation)).data,file);assert.ok((await user.rpc('reserve_maintenance_attachment',reservation)).error);
   assert.equal((await admin.storage.createBucket('ouchi-product-attachments',{public:false})).error,null);const path=`${userID}/${epoch.data}/${file}.png`;
-  assert.equal((await admin.storage.from('ouchi-product-attachments').upload(path,Buffer.from('synthetic-disposable-file'),{contentType:'image/png'})).error,null);assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);assert.ok((await user.storage.from('ouchi-product-attachments').download(path)).error);
+  assert.equal((await admin.storage.from('ouchi-product-attachments').upload(path,bytes,{contentType:'image/png',upsert:false})).error,null);
+  const downloaded=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(downloaded.error,null);assert.ok(downloaded.data);
+  const measured=Buffer.from(await downloaded.data.arrayBuffer());assert.deepEqual(measured,bytes);
+  const completion={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,attachment_id:file,actual_bytes:measured.length,verified_sha256:createHash('sha256').update(measured).digest('hex')};
+  assert.ok((await admin.rpc('finalize_maintenance_attachment',{...completion,actual_bytes:measured.length+1})).error);
+  const completedAttachment=await admin.rpc('finalize_maintenance_attachment',completion);assert.equal(completedAttachment.error,null);assert.equal(completedAttachment.data,file);
+  assert.equal((await admin.rpc('finalize_maintenance_attachment',completion)).data,file);assert.ok((await user.rpc('finalize_maintenance_attachment',completion)).error);
+  assert.ok((await user.storage.from('ouchi-product-attachments').download(path)).error);
   const pushID=randomUUID(),pushLease=randomUUID(),pushEndpoint='https://web.push.apple.com/synthetic-'+randomUUID();assert.equal((await admin.from('maintenance_push_subscriptions').insert({id:pushID,user_id:userID,endpoint:pushEndpoint,p256dh:'A'.repeat(87),auth:'A'.repeat(22),claim_token:pushLease,claimed_until:new Date(Date.now()+120000).toISOString()})).error,null);
   const testDispatchArgs={target_user:userID,target_endpoint:pushEndpoint};assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,true);
   const dispatchArgs={subscription_id:pushID,delivery_token:pushLease};assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,true);assert.ok((await user.rpc('can_dispatch_maintenance_push',dispatchArgs)).error);
@@ -55,6 +65,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
+  assert.ok((await admin.rpc('reserve_maintenance_attachment',{...reservation,attachment_id:randomUUID()})).error);assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,1);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);

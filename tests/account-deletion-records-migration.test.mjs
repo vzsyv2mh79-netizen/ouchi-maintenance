@@ -2,14 +2,42 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 test('record deletion waits for all objects, isolates ownership and never claims account completion',async()=>{
  const db=new PGlite();try{
  await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);');
- await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,\"homeId\" uuid references public.homes(id) on delete cascade);create table public.home_members(user_id uuid);create table public.maintenance_push_subscriptions(user_id uuid);create table public.maintenance_backup_restores(owner_id uuid);create table public.maintenance_push_test_limits(user_id uuid);grant all on public.maintenance_push_test_limits to service_role;grant select on public.homes,public.products to service_role;grant update on public.homes to service_role;');
- for(const f of ['20261010141353_ouchi_billing_identity.sql','20261010234402_ouchi_account_deletion_requests.sql','20261010234907_ouchi_account_deletion_leases.sql','20261010235205_ouchi_attachment_erasure_inventory.sql','20261010235332_ouchi_deletion_object_progress.sql','20261010235933_ouchi_deletion_household_records.sql','20261011002005_ouchi_deletion_web_push_erasure.sql','20261011004515_ouchi_native_notification_registry.sql'])await db.exec(readFileSync('supabase/migrations/'+f,'utf8'));
+ await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,\"homeId\" uuid references public.homes(id) on delete cascade);create table public.home_members(user_id uuid,\"homeId\" uuid);create table public.maintenance_push_subscriptions(user_id uuid);create table public.maintenance_backup_restores(owner_id uuid);create table public.maintenance_push_test_limits(user_id uuid);grant all on public.maintenance_push_test_limits to service_role;grant select on public.homes,public.products,public.home_members to service_role;grant update on public.homes to service_role;');
+ for(const f of ['20261010141353_ouchi_billing_identity.sql','20261010234402_ouchi_account_deletion_requests.sql','20261010234907_ouchi_account_deletion_leases.sql','20261010235205_ouchi_attachment_erasure_inventory.sql','20261010235332_ouchi_deletion_object_progress.sql','20261010235933_ouchi_deletion_household_records.sql','20261011002005_ouchi_deletion_web_push_erasure.sql','20261011004515_ouchi_native_notification_registry.sql','20261011005859_ouchi_attachment_upload_reservation.sql','20261011010239_ouchi_attachment_verified_completion.sql'])await db.exec(readFileSync('supabase/migrations/'+f,'utf8'));
  await db.exec('create schema storage;create table storage.objects(bucket_id text,name text);grant usage on schema storage to service_role;grant select on storage.objects to service_role;');
  const user='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333';
  await db.query('insert into auth.users values($1),($2)',[user,other]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
  const nativeDevice='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', otherDevice='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
  const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2) as value',[user,session])).rows[0].value;
  const request=async(u=user,s=session,e=epoch)=>(await db.query('select public.request_maintenance_account_deletion($1,$2,$3) as value',[u,s,e])).rows[0].value;
+ const productQuota='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',homeQuota='dddddddd-dddd-4ddd-8ddd-dddddddddddd',fileQuota='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+ await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',[homeQuota,user]);await db.query('insert into public.products values($1,$2)',[productQuota,homeQuota]);await db.exec('set role service_role');
+ const reserve=async (size,file=fileQuota)=>(await db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7,$8) as value',[user,session,epoch,productQuota,file,size,'image/png','a'.repeat(64)])).rows[0].value;
+ assert.equal(await reserve(10),fileQuota);assert.equal(await reserve(10),fileQuota);await assert.rejects(()=>reserve(11));await assert.rejects(()=>reserve(5242881));
+ const finalize=async(size=10,hash='a'.repeat(64),u=user,e=epoch)=>(await db.query('select public.finalize_maintenance_attachment($1,$2,$3,$4,$5,$6) as value',[u,session,e,fileQuota,size,hash])).rows[0].value;
+ await assert.rejects(()=>finalize(9));await assert.rejects(()=>finalize(10,'b'.repeat(64)));await assert.rejects(()=>finalize(10,'a'.repeat(64),other));
+ assert.equal((await db.query('select state from maintenance_private.product_attachments where id=$1',[fileQuota])).rows[0].state,'reserved');
+ assert.equal(await finalize(),fileQuota);assert.equal(await finalize(),fileQuota);
+ assert.deepEqual((await db.query('select state,sha256 from maintenance_private.product_attachments where id=$1',[fileQuota])).rows,[{state:'stored',sha256:'a'.repeat(64)}]);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>finalize(),/permission denied/);await db.exec('reset role;set role service_role');
+
+
+ // Reservations count before upload completion, including retained prior enrollments.
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where id=$1',[fileQuota]);await db.exec('set role service_role');
+ const quotaID=i=>`cccccccc-cccc-4ccc-8ccc-${String(i).padStart(12,'0')}`;
+ for(let i=1;i<=20;i++)assert.equal(await reserve(5242880,quotaID(i)),quotaID(i));
+ await assert.rejects(()=>reserve(1,quotaID(21)),/quota exceeded/);
+ assert.equal(await reserve(5242880,quotaID(1)),quotaID(1));
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where product_id=$1',[productQuota]);await db.exec('set role service_role');
+ for(let i=1;i<=100;i++)await reserve(1,quotaID(i));
+ await assert.rejects(()=>reserve(1,quotaID(101)),/quota exceeded/);
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where product_id=$1',[productQuota]);
+ await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);await db.exec('set role service_role');
+ await assert.rejects(()=>reserve(1),/Owner unavailable/);
+ await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=true where user_id=$1',[user]);await db.exec('set role authenticated');
+ await assert.rejects(()=>reserve(1),/permission denied/);await db.exec('reset role;set role service_role');
+ // Remove only the synthetic reservation so the pre-existing erasure fixture remains unchanged.
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where id=$1',[fileQuota]);await db.query('delete from public.homes where id=$1',[homeQuota]);await db.exec('set role service_role');
  const id=await request();assert.match(id,/^[0-9a-f-]{36}$/);assert.equal(await request(),id);
  const rows=(await db.query('select user_id,app_epoch_id,state from maintenance_private.account_deletion_requests')).rows;assert.deepEqual(rows,[{user_id:user,app_epoch_id:epoch,state:'pending'}]);
  const claim=async()=>(await db.query('select public.claim_maintenance_account_deletion() as value')).rows[0].value;
@@ -28,7 +56,7 @@ test('record deletion waits for all objects, isolates ownership and never claims
  const erasePush=async j=>(await db.query('select public.erase_maintenance_deletion_web_push($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
  const erase=async j=>(await db.query('select public.erase_maintenance_deletion_records($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
  assert.equal(await erase(first),false);
- await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',other]);for(const table of ['home_members','maintenance_push_subscriptions'])await db.query(`insert into public.${table} values($1),($2)`,[user,other]);await db.exec('set role service_role');
+ await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',other]);for(const table of ['home_members','maintenance_push_subscriptions'])await db.query(`insert into public.${table}(user_id) values($1),($2)`,[user,other]);await db.exec('set role service_role');
  await db.exec('reset role');await db.query('insert into public.maintenance_push_test_limits values($1),($2)',[user,other]);await db.exec('set role service_role');assert.equal(await erasePush({...first,userID:other}),false);assert.equal(await erasePush(first),true);assert.equal(await erasePush(first),true);assert.deepEqual((await db.query('select user_id from public.maintenance_push_subscriptions')).rows,[{user_id:other}]);assert.deepEqual((await db.query('select user_id from public.maintenance_push_test_limits')).rows,[{user_id:other}]);
  assert.equal((await read(first)).length,2);await assert.rejects(()=>read({...first,userID:other}));assert.equal(await confirm({...first,userID:other}),false);assert.equal(await confirm(first,'99999999-9999-4999-8999-999999999999'),false);
  await db.exec('reset role');await db.query('insert into storage.objects values($1,$2)',['ouchi-product-attachments',inventory[0].object_path]);await db.exec('set role service_role');assert.equal(await confirm(first),false);
