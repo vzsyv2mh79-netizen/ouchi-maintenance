@@ -29,6 +29,7 @@ const {reportDeployment,reportServiceResponse}=await import(attachmentModule('re
 const {reminderDeployment,reminderServiceResponse}=await import(attachmentModule('reminder-service-handler'));
 const {nativePushDeployment,nativePushRegistrationResponse}=await import(attachmentModule('native-push-registration-service'));
 const {notificationChannelDeployment,notificationChannelResponse}=await import(attachmentModule('notification-channel-service'));
+const {accountEnrollmentResponse}=await import(attachmentModule('account-enrollment-service'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -506,7 +507,7 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   const guardSignup=await guard.auth.signUp({email:`enrollment-${randomUUID()}@example.invalid`,password:syntheticPassword});assert.equal(guardSignup.error,null);assert.ok(guardSignup.data.session);
   const guardID=guardSignup.data.user.id,guardToken=guardSignup.data.session.access_token,guardSession=JSON.parse(Buffer.from(guardToken.split('.')[1],'base64url')).session_id;
   const guardArgs={target_user:guardID,verified_session:guardSession};const guardEpoch=await admin.rpc('current_maintenance_purchase_account',guardArgs);assert.equal(guardEpoch.error,null);assert.ok(guardEpoch.data);
-  const guardHome=randomUUID();assert.equal((await guard.from('homes').insert({id:guardHome,name:'Synthetic enrollment guard'})).error,null);
+  const guardHome=randomUUID();assert.equal((await guard.from('homes').insert({id:guardHome,owner_id:guardID,name:'Synthetic enrollment guard'})).error,null);
   const freshGuard=createClient(origin,'synthetic-public-key',options);const freshLogin=await freshGuard.auth.signInWithPassword({email:guardSignup.data.user.email,password:syntheticPassword});assert.equal(freshLogin.error,null);const freshSession=JSON.parse(Buffer.from(freshLogin.data.session.access_token.split('.')[1],'base64url')).session_id;assert.notEqual(freshSession,guardSession);
   recoverySql('update maintenance_private.enrollment_policy set require_explicit=true where id=1;');
   assert.equal((await admin.rpc('maintenance_explicit_enrollment_is_required')).data,true);
@@ -514,7 +515,7 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await guard.from('homes').select('id').eq('id',guardHome)).data.length,1);
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:freshSession})).data,null);
   assert.deepEqual((await freshGuard.from('homes').select('id').eq('id',guardHome)).data,[]);
-  assert.ok((await freshGuard.from('homes').insert({name:'Must refuse implicit enrollment'})).error);
+  assert.equal((await freshGuard.from('homes').insert({id:randomUUID(),owner_id:guardID,name:'Must refuse implicit enrollment'})).error?.code,'42501');
   recoverySql(`begin;delete from maintenance_private.app_session_epochs where user_id='${guardID}';delete from maintenance_private.app_epochs where user_id='${guardID}';delete from maintenance_private.account_access where user_id='${guardID}';commit;`);
   for(const sessionID of [guardSession,freshSession])assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:sessionID})).data,null);
   assert.deepEqual((await guard.from('homes').select('id').eq('id',guardHome)).data,[]);
@@ -522,6 +523,23 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await guard.auth.getUser()).error,null,'shared Auth original session remains valid');assert.equal((await freshGuard.auth.getUser()).error,null,'other shared Auth login remains valid');
   assert.deepEqual((await other.from('homes').select('id').eq('id',otherHome)).data,[{id:otherHome}]);
   console.log('Actual explicit enrollment guard: mapped live session works, unmapped login denied, erased identity not automatically recreated, shared Auth and other owner preserved. Strict policy enabled only inside disposable test; no new enrollment granted.');
+  // Explicit enrollment API: same real Auth/DB, fresh temporary login, no Apple.
+  const newAccount=createClient(origin,'synthetic-public-key',options),newSignup=await newAccount.auth.signUp({email:`consent-${randomUUID()}@example.invalid`,password:syntheticPassword});assert.equal(newSignup.error,null);assert.ok(newSignup.data.session);
+  const consentID=randomUUID(),newBearer=newSignup.data.session.access_token,newUserID=newSignup.data.user.id;
+  const enrollmentConfig={url:'https://synthetic.supabase.co/',key:'synthetic-service',publishableKey:'synthetic-public'};
+  const enrollmentFactories={database:()=>admin,temporaryAuth:()=>createClient(origin,'synthetic-public-key',options)};
+  const enrollmentRequest=(token,post=false,id=consentID)=>new Request('https://example.invalid/api/account/enrollment',{method:post?'POST':'GET',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:post?JSON.stringify({confirmation:'ENROLL_OUCHI_MAINTENANCE',password:syntheticPassword,requestID:id}):undefined});
+  const beforeEnrollment=await accountEnrollmentResponse(enrollmentRequest(newBearer),enrollmentConfig,enrollmentFactories);assert.equal(beforeEnrollment.status,200);assert.equal((await beforeEnrollment.json()).enrolled,false);
+  const enrolled=await accountEnrollmentResponse(enrollmentRequest(newBearer,true),enrollmentConfig,enrollmentFactories);assert.equal(enrolled.status,200);const consentReceipt=await enrolled.json();assert.equal(consentReceipt.userID,newUserID);assert.equal(consentReceipt.requestID,consentID);
+  const afterEnrollment=await accountEnrollmentResponse(enrollmentRequest(newBearer),enrollmentConfig,enrollmentFactories);assert.equal(afterEnrollment.status,200);assert.equal((await afterEnrollment.json()).epochID,consentReceipt.epochID);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
+  assert.equal(recoverySql(`select count(*) from auth.sessions s join maintenance_private.enrollment_consents c on c.reauthentication_session=s.id where c.request_id='${consentID}';`).trim(),'0','temporary fresh login revoked after receipt');
+  assert.equal((await newAccount.auth.getUser()).error,null,'original shared login preserved');
+  const retry=await accountEnrollmentResponse(enrollmentRequest(newBearer,true),enrollmentConfig,enrollmentFactories);assert.equal(retry.status,503,'new proof cannot reuse consumed request');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
+  assert.equal((await accountEnrollmentResponse(enrollmentRequest(signup.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories)).status,503,'deletion still running cannot reopen');
+  console.log('Actual explicit consent Auth/PostgreSQL/API: read-only absent state, verified fresh temporary login, exact enrollment receipt/readback, temporary session revoked, duplicate request refused without second grant, pending deletion cannot reopen; no premium or Apple transaction.');
+
 
 
  }finally{releaseWrite();gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
