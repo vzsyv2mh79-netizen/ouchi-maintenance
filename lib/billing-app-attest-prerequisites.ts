@@ -3,10 +3,11 @@ import {verifyAppAttestCertificateProof} from './billing-app-attest-certificate'
 import {verifyAppAttestAuthenticator} from './billing-app-attest-authenticator';
 import {verifyInitialAppAttestReceipt} from './billing-app-attest-receipt';
 import type {AttestBuildPolicy} from './billing-app-attest-assertion';
+import {registrationClientDataHash,type RegistrationChallenge} from './billing-app-attest-registration-challenge';
 type Scope={appID:string;keyID:string;attestEnvironment:'development'|'production'};
 /** Compose both prerequisites with the SAME authenticated bytes/key. Still
  * not registration: caller must independently verify the receipt and complete
- * certificate purpose policy, live enrollment and one-use challenge checks.
+ * live enrollment and one-use challenge checks.
  * No endpoint or key write is enabled by this helper.
  */
 export function verifyAppAttestPrerequisites(attestation:Buffer,storedScope:Scope,storedClientDataHash:Buffer,policy:AttestBuildPolicy,rootPEM:string,now=Date.now()){
@@ -22,11 +23,21 @@ export function verifyAppAttestPrerequisites(attestation:Buffer,storedScope:Scop
  return Object.freeze({certificate,authenticator,receiptToVerify:Buffer.from(receipt)});
 }
 /** Bind the independently verified receipt to these SAME certificate/challenge
- * prerequisites. Full certificate purpose policy and live/atomic registration
+ * prerequisites. Live/atomic registration
  * gates remain mandatory; this function does not persist or authorize a key.
  */
 export function verifyAppAttestRegistrationProofs(attestation:Buffer,storedScope:Scope,storedClientDataHash:Buffer,policy:AttestBuildPolicy,privateRootPEM:string,publicRootDER:Buffer,now=Date.now()){
  const prerequisites=verifyAppAttestPrerequisites(attestation,storedScope,storedClientDataHash,policy,privateRootPEM,now);
  const receipt=verifyInitialAppAttestReceipt(prerequisites.receiptToVerify,{appID:storedScope.appID,attestedCertificateSHA256:prerequisites.certificate.attestationCertificateSHA256,publicKeyX962:prerequisites.certificate.publicKeyX962,clientDataHash:storedClientDataHash},publicRootDER,now);
  return Object.freeze({prerequisites,receipt});
+}
+/** Server-stored registration challenge only. The hash and proof scope are
+ * derived together rather than accepted independently from the device. Caller
+ * must still recheck live Auth/enrollment and atomically consume/persist once.
+ * No rights grant, registration endpoint or database write is enabled here.
+ */
+export function verifyStoredRegistrationChallengeProofs(attestation:Buffer,storedChallenge:RegistrationChallenge,policy:AttestBuildPolicy,privateRootPEM:string,publicRootDER:Buffer,now=Date.now()){
+ const hash=registrationClientDataHash(storedChallenge,now);
+ const scope={appID:storedChallenge.appID,keyID:storedChallenge.keyID,attestEnvironment:storedChallenge.attestEnvironment};
+ return verifyAppAttestRegistrationProofs(attestation,scope,hash,policy,privateRootPEM,publicRootDER,now);
 }

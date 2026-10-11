@@ -2,12 +2,19 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 function loadModule(name){let code=ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;code=code.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,p)=>'from '+JSON.stringify(loadModule(p)));return 'data:text/javascript;base64,'+Buffer.from(code).toString('base64');}
 const {verifyAppAttestAuthenticator:check}=await import(loadModule('billing-app-attest-authenticator'));
 const {decodeAttestCBOR:decode,decodeAttestCOSEPrefix:prefix}=await import(loadModule('billing-app-attest-cbor'));
-const {verifyAppAttestPrerequisites:prerequisites}=await import(loadModule('billing-app-attest-prerequisites'));
+const {verifyAppAttestPrerequisites:prerequisites,verifyStoredRegistrationChallengeProofs:storedProofs}=await import(loadModule('billing-app-attest-prerequisites'));
+const {createRegistrationChallenge:createRegistration}=await import(loadModule('billing-app-attest-registration-challenge'));
 const fixture=JSON.parse(readFileSync('tests/fixtures/app-attest/apple-public-example.json','utf8')),object=decode(Buffer.from(fixture.attestationBase64,'base64')),data=object.get('authData'),cert=new X509Certificate(object.get('attStmt').get('x5c')[0]),jwk=cert.publicKey.export({format:'jwk'}),point=Buffer.concat([Buffer.from([4]),Buffer.from(jwk.x,'base64url'),Buffer.from(jwk.y,'base64url')]);
 const scope={appID:fixture.exampleAppID,keyID:createHash('sha256').update(point).digest('base64'),attestEnvironment:'production',publicKeyX962:point},policy={validationCategories:[4],bundleVersions:['1']};
 // Authenticator stage fixtures only. Mutating bytes here invalidates the real
 // certificate nonce, and must NEVER constitute a fully verified attestation.
 const synthetic=()=>{const value=Buffer.from(data);value.writeUInt32LE(4,value.length-4);return value;};
+test('stored registration composition refuses a public attestation for a different server challenge and expired records',()=>{
+ const now=Date.parse(fixture.historicalVerificationTime),c=createRegistration({userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',epochID:'33333333-3333-4333-8333-333333333333',requestID:'44444444-4444-4444-8444-444444444444',keyID:scope.keyID,appID:scope.appID,attestEnvironment:'production'},now),rootDER=new X509Certificate(readFileSync('tests/fixtures/app-attest/apple-root-g3.pem')).raw;
+ assert.throws(()=>storedProofs(Buffer.from(fixture.attestationBase64,'base64'),c,policy,fixture.rootPEM,rootDER,now),/nonce mismatch/);
+ assert.throws(()=>storedProofs(Buffer.alloc(0),c,policy,fixture.rootPEM,rootDER,c.expiresAt),/Registration challenge expired/);
+ assert.throws(()=>storedProofs(Buffer.alloc(0),{...c,purpose:'restore_ouchi_subscription'},policy,fixture.rootPEM,rootDER,now),/Invalid registration challenge/);
+});
 test('authenticator prerequisite binds RP, key, COSE, environment, initial counter and explicit build policy',()=>{
  const value=synthetic(),result=check(value,scope,policy);assert.ok(Object.isFrozen(result));assert.equal(result.keyID,scope.keyID);assert.equal(result.initialCounter,0);assert.equal(result.validationCategory,4);assert.equal(result.bundleVersion,'1');assert.ok(!Object.hasOwn(result,'authorized'));
  const cose=prefix(value.subarray(87));assert.equal(cose.bytesRead,77);assert.equal(cose.value.get(3),-7);assert.deepEqual(cose.value.get(-2),point.subarray(1,33));
