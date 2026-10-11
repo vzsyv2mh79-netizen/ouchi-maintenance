@@ -62,3 +62,19 @@ final class HouseholdAPITests: XCTestCase {
         XCTAssertEqual(restored.history.count, 2)
     }
 }
+
+extension HouseholdAPITests {
+    func testDeletionReceiptDistinguishesAcceptanceFromConfirmedCompletion() throws {
+        let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        func payload(_ state: String) -> Data { Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"\(state)\",\"records_erased\":true}".utf8) }
+        XCTAssertEqual(try AccountDeletionStatus.accepted(payload("pending"), httpStatus: 202).state, .pending)
+        XCTAssertThrowsError(try AccountDeletionStatus.accepted(payload("complete"), httpStatus: 202))
+        for state in ["pending", "running", "failed", "complete"] {
+            XCTAssertEqual(try AccountDeletionStatus.progress(payload(state), httpStatus: 200, expectedRequestID: id).state.rawValue, state)
+        }
+        XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("complete"), httpStatus: 503, expectedRequestID: id))
+        XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("complete"), httpStatus: 200, expectedRequestID: UUID()))
+        XCTAssertThrowsError(try AccountDeletionStatus.progress(payload("unknown"), httpStatus: 200, expectedRequestID: id))
+        XCTAssertThrowsError(try AccountDeletionStatus.accepted(Data("{\"requestID\":\"00000000-0000-0000-0000-000000000000\",\"state\":\"pending\"}".utf8), httpStatus: 202))
+    }
+}
