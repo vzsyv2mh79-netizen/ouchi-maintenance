@@ -19,6 +19,14 @@ tests = ref('tests-source','LocalStoreKitCatalogTests.swift','sourcecode.swift')
 catalog = ref('catalog','OuchiLocal.storekit','text')
 purchase = ref('purchase-source','../OuchiMaintenance/PurchaseManager.swift','sourcecode.swift')
 native_sources = [ref('native-'+name, '../OuchiMaintenance/'+name+'.swift','sourcecode.swift') for name in ['NativeStore','KeychainSessionStorage','LocalReminders','NativeReviewFixture']]
+# Extract the actual shipping tip view; only visibility differs in the test module.
+ui_source = (root.parent/'OuchiMaintenance/NativeRootView.swift').read_text()
+ui_start = ui_source.index('private struct ReleaseTipPurchaseSection: View {')
+ui_end = ui_source.index('\nprivate struct FormalReminderSettingsView:', ui_start)
+ui_body = ui_source[ui_start:ui_end].replace('private struct ReleaseTipPurchaseSection:', 'struct ReleaseTipPurchaseSection:', 1)
+(root/'ReleaseTipUIReview.swift').write_text('import SwiftUI\nimport StoreKit\nimport OuchiCore\n\n'+ui_body+'\n')
+native_sources.append(ref('tip-ui-source','ReleaseTipUIReview.swift','sourcecode.swift'))
+
 package=obj('core-package','XCLocalSwiftPackageReference',relativePath='..')
 core=obj('core-product','XCSwiftPackageProductDependency',package=package,productName='OuchiCore')
 app_product = ref('app-product','LocalStoreKitHost.app','wrapper.application','BUILT_PRODUCTS_DIR')
@@ -44,7 +52,7 @@ def configs(name, extra):
 host_info={'CFBundleExecutable':'$(EXECUTABLE_NAME)','CFBundleIdentifier':'$(PRODUCT_BUNDLE_IDENTIFIER)',
            'CFBundleName':'$(PRODUCT_NAME)','CFBundlePackageType':'APPL','CFBundleShortVersionString':'1.0',
            'CFBundleVersion':'1','LSMinimumSystemVersion':'$(MACOSX_DEPLOYMENT_TARGET)',
-           'NSPrincipalClass':'NSApplication','SKIncludeConsumableInAppPurchaseHistory':True}
+           'NSPrincipalClass':'NSApplication','SKIncludeConsumableInAppPurchaseHistory':True,'OUCHI_LOCAL_TIP_UI_REVIEW':'$(OUCHI_LOCAL_TIP_UI_REVIEW)'}
 (root/'LocalStoreKitHost-Info.plist').write_bytes(plistlib.dumps(host_info))
 app_configs=configs('app',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog','GENERATE_INFOPLIST_FILE':'NO','INFOPLIST_FILE':'LocalStoreKitHost-Info.plist'})
 test_configs=configs('test',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog.tests','TEST_HOST':'$(BUILT_PRODUCTS_DIR)/LocalStoreKitHost.app/Contents/MacOS/LocalStoreKitHost','BUNDLE_LOADER':'$(TEST_HOST)','FRAMEWORK_SEARCH_PATHS':['$(inherited)','$(PLATFORM_DIR)/Developer/Library/Frameworks']})

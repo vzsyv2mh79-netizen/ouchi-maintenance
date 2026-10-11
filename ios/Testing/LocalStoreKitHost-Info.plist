@@ -18,6 +18,8 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>OUCHI_LOCAL_TIP_UI_REVIEW</key>
+	<string>$(OUCHI_LOCAL_TIP_UI_REVIEW)</string>
 	<key>SKIncludeConsumableInAppPurchaseHistory</key>
 	<true/>
 </dict>

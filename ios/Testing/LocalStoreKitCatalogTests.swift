@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import XCTest
 import StoreKitTest
+import SwiftUI
 import OuchiCore
 
 private actor ReleaseBillingHTTPFixture {
@@ -65,9 +66,9 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         session.clearTransactions()
         return session
     }
-    @MainActor private func latest(_ id: String, phase: String, accepting predicate: (Transaction) -> Bool) async throws -> Transaction {
+    @MainActor private func latest(_ id: String, phase: String, accepting predicate: (StoreKit.Transaction) -> Bool) async throws -> StoreKit.Transaction {
         for _ in 0..<100 {
-            if let result = await Transaction.latest(for: id) {
+            if let result = await StoreKit.Transaction.latest(for: id) {
                 switch result {
                 case .verified(let transaction):
                     guard transaction.environment == .xcode else { throw FixtureError.wrongEnvironment }
@@ -82,7 +83,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
     }
     @MainActor private func unfinishedContains(_ id: UInt64) async throws -> Bool {
         for _ in 0..<100 {
-            for await result in Transaction.unfinished {
+            for await result in StoreKit.Transaction.unfinished {
                 if case .verified(let transaction) = result, transaction.id == id {
                     guard transaction.environment == .xcode else { throw FixtureError.wrongEnvironment }
                     return true
@@ -92,7 +93,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         }
         return false
     }
-    @MainActor private func purchaseLocal(_ id: String, account: UUID) async throws -> Transaction {
+    @MainActor private func purchaseLocal(_ id: String, account: UUID) async throws -> StoreKit.Transaction {
         guard case .verified(let app) = try await AppTransaction.shared, app.environment == .xcode,
               app.bundleID == "dev.ouchi.review.storekit.catalog" else { throw FixtureError.wrongEnvironment }
         let products = try await Product.products(for: [id])
@@ -279,6 +280,31 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         XCTAssertFalse(store.releasePurchases.needsRetry)
         XCTAssertFalse(store.busy)
     }
+    @MainActor func testOptionalActualTipViewRendering() async throws {
+        guard Bundle.main.infoDictionary?["OUCHI_LOCAL_TIP_UI_REVIEW"] as? String == "YES" else {
+            throw XCTSkip("Opt-in CUA review of actual shipping tip view; no real store/server.")
+        }
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        XCTAssertEqual(store.releasePurchases.products.filter { $0.type == .consumable }.count, 3)
+        XCTAssertTrue(store.releasePurchaseSalesAvailable(subscription: false))
+        window.title = "おうちメンテ・チップ画面確認（請求なし）"
+        window.setContentSize(NSSize(width: 460, height: 620))
+        window.contentView = NSHostingView(rootView:
+            Form { ReleaseTipPurchaseSection(purchases: store.releasePurchases) }
+                .environmentObject(store).preferredColorScheme(.light).padding())
+        window.makeKeyAndOrderFront(nil)
+        print("LOCAL_TIP_UI_REVIEW_READY")
+        // Opt-in visual review only, not part of routine CI. CUA opens a price
+        // confirmation then cancels. Bounded hold; disposable host and mock API.
+        try await Task.sleep(for: .seconds(90))
+        let submissions = await fixture.submissions
+        XCTAssertEqual(submissions, 0, "visual review cancels before local purchase")
+        XCTAssertTrue(session.allTransactions().isEmpty)
+    }
     private func localClaims(_ jws: String) throws -> [String: Any] {
         let segments = jws.split(separator: ".")
         guard segments.count == 3 else { throw FixtureError.missingTransaction }
@@ -381,17 +407,37 @@ final class LocalStoreKitCatalogTests: XCTestCase {
     }
     @MainActor func testLocalRenewalExpiryAndRefundMetadata() async throws {
         let session = try await disposableSession()
-        let updates = Task { for await _ in Transaction.updates { if Task.isCancelled { break } } }
+        let updates = Task { for await _ in StoreKit.Transaction.updates { if Task.isCancelled { break } } }
         defer { updates.cancel() }
         await Task.yield()
         let account = UUID(uuidString: "A1111111-1111-4111-8111-111111111111")!
-        session.timeRate = .oneRenewalEveryTwoSeconds
+        // This case explicitly forces each transition. Avoid racing the same
+        // subscription against a two-second automatic renewal clock.
+        session.timeRate = .realTime
         let monthly = try await purchaseLocal("ouchi.premium.monthly", account: account)
         XCTAssertEqual(monthly.environment, .xcode)
         XCTAssertEqual(monthly.appAccountToken, account)
         XCTAssertEqual(monthly.productType, .autoRenewable)
         XCTAssertNotNil(monthly.expirationDate)
+        XCTAssertNil(monthly.revocationDate)
+        XCTAssertFalse(monthly.isUpgraded)
         await monthly.finish() // fixture-only; no application persistence acknowledgement
+        try session.enableAutoRenewForTransaction(identifier: XCTUnwrap(UInt(exactly: monthly.id)))
+        let initialProducts = try await Product.products(for: [monthly.productID])
+        let initialInfo = try XCTUnwrap(initialProducts.first?.subscription)
+        var currentRenewalObserved = false
+        for _ in 0..<100 {
+            for status in try await initialInfo.status {
+                if case .verified(let transaction) = status.transaction,
+                   case .verified(let renewal) = status.renewalInfo,
+                   transaction.id == monthly.id, renewal.willAutoRenew {
+                    currentRenewalObserved = true
+                }
+            }
+            if currentRenewalObserved { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(currentRenewalObserved, "current new subscription must acknowledge auto-renew before forcing renewal")
         try session.forceRenewalOfSubscription(productIdentifier: monthly.productID)
         print("LOCAL_RENEWAL_FIXTURE_COUNT", session.allTransactions().count)
         let renewed = try await latest(monthly.productID, phase: "forced renewal") { $0.id != monthly.id }
@@ -419,7 +465,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
     }
     @MainActor func testActualManagerRefusesLocalTransactionWithoutFinishing() async throws {
         let session = try await disposableSession()
-        let updates = Task { for await _ in Transaction.updates { if Task.isCancelled { break } } }
+        let updates = Task { for await _ in StoreKit.Transaction.updates { if Task.isCancelled { break } } }
         defer { updates.cancel() }
         await Task.yield()
         let account = UUID(uuidString: "B2222222-2222-4222-8222-222222222222")!
@@ -558,7 +604,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         try session.approveAskToBuyTransaction(identifier: pending.identifier)
         let approved = try await latest(product.id, phase: "approval propagation") { $0.appAccountToken == account }
         var unfinishedIDs = Set<UInt64>()
-        for await result in Transaction.unfinished {
+        for await result in StoreKit.Transaction.unfinished {
             if case .verified(let transaction) = result, transaction.environment == .xcode { unfinishedIDs.insert(transaction.id) }
         }
         XCTAssertTrue(unfinishedIDs.contains(approved.id), "approval must remain unfinished before acknowledgement")
