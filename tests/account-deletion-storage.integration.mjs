@@ -1,6 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-objects.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
 const {eraseAccountDeletionObjects:erase}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const compiled=async file=>{const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
+const {handleAccountDeletionProgress}=await compiled('lib/account-deletion-progress.ts');
+const {deletionProgressDependencies}=await compiled('lib/account-deletion-progress-store.ts');
+const {handleAccountDeletionRequest}=await compiled('lib/account-deletion-request.ts');
+const sessionCode=ts.transpileModule(readFileSync('lib/verified-app-session.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+const requestStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-request-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./verified-app-session'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(sessionCode).toString('base64')));
+const {deletionRequestDependencies}=await import('data:text/javascript;base64,'+Buffer.from(requestStoreCode).toString('base64'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
  const gateway=createServer((req,res)=>{
   const auth=req.url?.startsWith('/auth/v1/'),rest=req.url?.startsWith('/rest/v1/'),storage=req.url?.startsWith('/storage/v1/');if(!auth&&!rest&&!storage){res.writeHead(404).end();return;}
@@ -8,7 +15,8 @@ test('actual private Storage removal verifies absence and persists exact leased 
  });await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
  try{
   const options={auth:{persistSession:false,autoRefreshToken:false}},origin='http://127.0.0.1:54321';
-  const user=createClient(origin,'synthetic-public-key',options),signup=await user.auth.signUp({email:'deletion-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(signup.error,null);assert.ok(signup.data.session);
+  const syntheticPassword='Synthetic-'+randomUUID();
+  const user=createClient(origin,'synthetic-public-key',options),signup=await user.auth.signUp({email:'deletion-'+randomUUID()+'@example.invalid',password:syntheticPassword});assert.equal(signup.error,null);assert.ok(signup.data.session);
   const userID=signup.data.user.id,claims=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url'));
   const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),unsigned=encode({alg:'HS256',typ:'JWT'})+'.'+encode({role:'service_role',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300});const service=unsigned+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(unsigned).digest('base64url');
   const admin=createClient(origin,service,options),epoch=await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:claims.session_id});assert.equal(epoch.error,null);assert.ok(epoch.data);
@@ -20,15 +28,23 @@ test('actual private Storage removal verifies absence and persists exact leased 
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:`insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime) values('${file}','${userID}','${epoch.data}','${product}',100,'image/png');`,timeout:10000,stdio:['pipe','pipe','pipe']});
   assert.equal((await admin.storage.createBucket('ouchi-product-attachments',{public:false})).error,null);const path=`${userID}/${epoch.data}/${file}.png`;
   assert.equal((await admin.storage.from('ouchi-product-attachments').upload(path,Buffer.from('synthetic-disposable-file'),{contentType:'image/png'})).error,null);assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);assert.ok((await user.storage.from('ouchi-product-attachments').download(path)).error);
-  const requested=await admin.rpc('request_maintenance_account_deletion',{target_user:userID,verified_session:claims.session_id,target_epoch:epoch.data});assert.equal(requested.error,null);
+  const deletionRequest=()=>new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:syntheticPassword})});
+  const temporaryClients=[];const requestDeps=deletionRequestDependencies(admin,()=>{const client=createClient(origin,'synthetic-public-key',options);temporaryClients.push(client);return client;});
+  const wrongPassword=new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',password:'Wrong-synthetic-password'})});assert.equal((await handleAccountDeletionRequest(wrongPassword,requestDeps)).status,403);
+  const submitted=await handleAccountDeletionRequest(deletionRequest(),requestDeps);assert.equal(submitted.status,202);const submittedBody=await submitted.json();assert.equal(submittedBody.state,'pending');const requested={data:submittedBody.requestID};
+  const retrySubmitted=await handleAccountDeletionRequest(deletionRequest(),requestDeps);assert.equal(retrySubmitted.status,202);assert.equal((await retrySubmitted.json()).requestID,requested.data);assert.equal((await user.auth.getUser()).error,null);for(const temporary of temporaryClients){const session=await temporary.auth.getSession();assert.equal(session.error,null);assert.equal(session.data.session,null);}
   // Other earlier integration fixtures share this disposable database. Keep their
   // pending jobs out of this test's queue window, without altering production data.
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:`update maintenance_private.account_deletion_requests set available_at=now()+interval '1 day' where user_id<>'${userID}' and state='pending';`,timeout:10000,stdio:['pipe','pipe','pipe']});
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
+  const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
   const sharedClosed=await other.from('products').select('id').eq('id',product);assert.equal(sharedClosed.error,null);assert.deepEqual(sharedClosed.data,[]);
   assert.ok((await other.from('products').insert({id:randomUUID(),homeId:home,categoryId:'air',name:'Blocked synthetic write'})).error);
   const ownOpen=await other.from('homes').select('id').eq('id',otherHome);assert.equal(ownOpen.error,null);assert.deepEqual(ownOpen.data,[{id:otherHome}]);
+  const statusRequest=token=>new Request('https://example.invalid/deletion/'+requested.data,{headers:{authorization:'Bearer '+token}});
+  const ownStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(ownStatus.status,200);assert.deepEqual(await ownStatus.json(),{requestID:requested.data,state:'running'});
+  const foreignStatus=await handleAccountDeletionProgress(statusRequest(otherSignup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(foreignStatus.status,404);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   assert.deepEqual(await erase(admin,scope),{completed:1,allObjectsConfirmed:true});const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
