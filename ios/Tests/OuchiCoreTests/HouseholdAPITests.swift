@@ -1,6 +1,8 @@
 import XCTest
 @testable import OuchiCore
 
+@MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
+
 final class HouseholdAPITests: XCTestCase {
     private func config() throws -> CloudConfiguration {
         try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!, publishableKey: "sb_publishable_synthetic_test_only")
@@ -149,4 +151,68 @@ extension HouseholdAPITests {
         catch { XCTAssertEqual(error as? CloudError, .rejected(503)) }
         XCTAssertNil(outage.receipt)
     }
+    @MainActor func testDeletionFlowRejectsInFlightResultAfterSameAccountRevisionChanges() async throws {
+        let account = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let binding = DeletionFlowBindingBox()
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            // Rebinding occurs after the old request started, before its response arrives.
+            await MainActor.run { binding.flow?.bind(accountID: account, revision: UUID()) }
+            let body = Data("{\"requestID\":\"\(account.uuidString)\",\"state\":\"running\"}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api)
+        binding.flow = flow
+        flow.bind(accountID: account, revision: UUID())
+        do {
+            _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
+            XCTFail("Old response must not bind to the new enrollment/session")
+        } catch { XCTAssertEqual(error as? CloudError, .authenticationRequired) }
+        XCTAssertNil(flow.receipt)
+        XCTAssertFalse(flow.busy)
+    }
+
+    @MainActor func testDeletionFlowCancellationAfterLookupNeverSubmits() async throws {
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET", "Cancelled lookup must never become a deletion POST")
+            withUnsafeCurrentTask { $0?.cancel() }
+            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api)
+        flow.bind(accountID: UUID())
+        let operation = Task { @MainActor in
+            do {
+                _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
+                XCTFail("Cancellation must stop submission")
+            } catch { XCTAssertTrue(error is CancellationError) }
+        }
+        await operation.value
+        XCTAssertNil(flow.receipt)
+        XCTAssertFalse(flow.busy)
+    }
+
+    @MainActor func testDeletionFlowCancellationAfterAcceptanceDoesNotPublishReceipt() async throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let api = AccountDeletionAPI { request in
+            if request.httpMethod == "GET" {
+                return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
+            }
+            XCTAssertEqual(request.httpMethod, "POST")
+            withUnsafeCurrentTask { $0?.cancel() }
+            let body = Data("{\"requestID\":\"\(requestID.uuidString)\",\"state\":\"pending\"}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api)
+        flow.bind(accountID: UUID())
+        let operation = Task { @MainActor in
+            do {
+                _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
+                XCTFail("A cancelled screen must recover durable state later")
+            } catch { XCTAssertTrue(error is CancellationError) }
+        }
+        await operation.value
+        XCTAssertNil(flow.receipt)
+        XCTAssertFalse(flow.busy)
+    }
+
 }

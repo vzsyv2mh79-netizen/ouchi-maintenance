@@ -21,6 +21,7 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   revokeAndCaptureInventory: scope => rpc('capture_maintenance_deletion_objects', scope),
   eraseDeviceRegistrations: async scope => {
    if (!await rpc('erase_maintenance_deletion_web_push', scope)) return false;
+   if (!await rpc('erase_maintenance_deletion_native_push', scope)) return false;
    return await tail.eraseNativeDevices(scope) === true && !signal?.aborted;
   },
   eraseAttachments: async scope => (await eraseAccountDeletionObjects(db, scope, signal)).allObjectsConfirmed === true && !signal?.aborted,

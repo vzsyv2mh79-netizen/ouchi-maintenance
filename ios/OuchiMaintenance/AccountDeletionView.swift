@@ -13,6 +13,7 @@ import OuchiCore
     let export: () -> Void
     let cleanupLocalNotifications: () async -> Bool
     let flow: AccountDeletionFlow
+    @State private var operation: Task<Void, Never>?
     @State private var activeRevision: UUID?
     @State private var password = ""
     @State private var consent = false
@@ -41,14 +42,14 @@ import OuchiCore
                 Section("申請状況") {
                     Text(statusText(receipt.state))
                     if cleanupPending { Text("この端末の通知を停止できたか確認が必要です。") }
-                    Button("状況を確認") { Task { await recover() } }.disabled(busy || !ready)
+                    Button("状況を確認") { startOperation { await recover() } }.disabled(busy || !ready)
                     if cleanupPending {
-                        Button("この端末の通知停止を再確認") { Task { await cleanNotifications() } }.disabled(busy)
+                        Button("この端末の通知停止を再確認") { startOperation { await cleanNotifications() } }.disabled(busy)
                     }
                 }
             } else {
                 Section("本人確認") {
-                    Button("申請状況を確認") { Task { await recover() } }.disabled(busy || !ready)
+                    Button("申請状況を確認") { startOperation { await recover() } }.disabled(busy || !ready)
                     SecureField("現在のパスワード", text: $password)
                     Toggle("削除について確認しました", isOn: $consent)
                     Button("アカウントを削除", role: .destructive) { confirming = true }
@@ -60,22 +61,30 @@ import OuchiCore
         }
         .navigationTitle("アカウントの削除")
         .confirmationDialog("アカウントの削除を申請しますか？", isPresented: $confirming, titleVisibility: .visible) {
-            Button("削除を申請", role: .destructive) { Task { await submit() } }
+            Button("削除を申請", role: .destructive) { startOperation { await submit() } }
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("削除後の記録は元に戻せません。必要な記録を保存したことを確認してください。")
         }
         .task(id: bindingRevision) {
+            operation?.cancel(); operation = nil
             activeRevision = bindingRevision
             password = ""; consent = false; receipt = nil; cleanupPending = false; busy = false; message = nil
             flow.bind(accountID: accountID, revision: bindingRevision)
             if ready { await recover() }
         }
         .onDisappear {
+            operation?.cancel(); operation = nil
             activeRevision = nil
             password = ""
             flow.bind(accountID: nil)
         }
+    }
+
+    private func startOperation(_ action: @escaping @MainActor () async -> Void) {
+        guard !busy, activeRevision == bindingRevision else { return }
+        operation?.cancel()
+        operation = Task { await action() }
     }
 
     private func statusText(_ state: AccountDeletionStatus.State) -> String {

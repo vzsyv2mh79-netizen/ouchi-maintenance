@@ -27,11 +27,13 @@ import Foundation
     }
     private func perform(token: String, password: String?) async throws -> AccountDeletionStatus? {
         guard let accountID, accountID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else { throw CloudError.authenticationRequired }
+        try Task.checkCancellation()
         guard !busy else { throw CloudError.unavailable }
         let expected = generation
         busy = true
         defer { if generation == expected { busy = false } }
         let current = try await api.currentProgress(token: token)
+        try Task.checkCancellation()
         guard generation == expected else { throw CloudError.authenticationRequired }
         if let current {
             receipt = current
@@ -40,6 +42,7 @@ import Foundation
         // Explicitly empty current epoch may submit; an outage must never do so.
         guard let password else { receipt = nil; return nil }
         let accepted = try await api.request(password: password, token: token)
+        try Task.checkCancellation()
         guard generation == expected else { throw CloudError.authenticationRequired }
         receipt = accepted
         return accepted
