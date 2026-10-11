@@ -137,6 +137,7 @@ private struct SignInView: View {
                     }.disabled(store.busy)
                     if !resetting { Button("パスワードを忘れた方") { resetting = true; creating = false; password = "" }.disabled(store.busy) }
                     NavigationLink("プライバシーについて") { PrivacyInformation() }
+                    NavigationLink("使い方・困ったとき") { HelpInformation() }
                     if store.localClosureRecoveryConfigured {
                         NavigationLink("未完了の端末登録を確認") { LocalRegistrationClosureRecoveryView() }
                     }
@@ -324,6 +325,7 @@ private struct NativeSettings: View {
                     }
                 }
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
+                Section("ヘルプ") { NavigationLink("使い方・困ったとき") { HelpInformation() } }
                 Section("アカウント") {
                     if let email = store.accountEmail, !email.isEmpty {
                         LabeledContent("ログイン中", value: email)
@@ -659,6 +661,55 @@ private struct FamilySettings: View {
          .confirmationDialog("\(removing?.nickname ?? "家族")の共有アクセスを解除しますか？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
              if let member = removing { Button("共有を解除", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: member.user_id) }; removing = nil } }
          }
+    }
+}
+
+private struct HelpInformation: View {
+    @EnvironmentObject private var store: NativeStore
+    var body: some View {
+        List {
+            Section("家電とお手入れを登録する") {
+                Text("「製品」から家電を追加し、品番を入力して候補を調べます。候補の品番とメーカーの根拠ページを確認して、必要なお手入れを選んでください。対応する候補がないときは、説明書を確認して手入力できます。")
+                Text("使用状況で必要なお手入れが変わる場合があります。説明書の条件を確認してください。読み取れない周期を推測で登録することはありません。")
+            }
+            Section("完了を記録する") {
+                Text("お手入れが済んだら「完了」を押します。完了履歴と次回予定を確認してください。周期や次回予定は、お手入れ項目の編集で変更できます。")
+            }
+            Section("家族と共有する") {
+                Text("設定の「家族と共有」で、住まいの所有者が招待を作ります。家族は自分のおうちメンテアカウントでログインし、受け取った招待から参加します。ログイン用のパスワードを渡す必要はありません。")
+                Text("共有後は右上の住まいを確認してください。共有した記録の変更や削除は家族にも反映されます。別端末の変更が見えない場合は、通信できる状態で記録を再読み込みしてください。")
+            }
+            Section("通知が届かないとき") {
+                Text("設定の「この端末のお手入れ通知」で「朝9時に通知する」をオンにします。iPhoneの設定でも、おうちメンテの通知が許可されているか確認してください。集中モードなど、iPhone側の設定によって通知の表示が変わります。")
+                Text("この端末の通知は、読み込んだ予定から次の30日間を予約します。定期的にアプリを開いて記録を読み込み直してください。Web版の通知設定とは別に、このiPhoneで設定します。")
+            }
+            Section("カレンダーに予定を入れる") {
+                Text("設定の「予定をカレンダー用に保存」でファイルを作り、対応するカレンダーへ取り込みます。取り込み後の予定は、おうちメンテで完了・編集・削除しても自動で変わりません。再取り込み時は重複を確認してください。TimeTreeへの直接取り込みは未確認です。")
+            }
+            Section("記録を保存・移す") {
+                Text("設定の「すべての記録を書き出す」から、無料でバックアップ用ファイルを保存できます。元の記録は消えません。保存したファイルは「バックアップから復元」で読み込めます。ほかのアプリへの移行には、そのアプリがこの形式に対応している必要があります。")
+                Text("書き出したファイルには住まいや家電の情報が含まれます。保存先・共有先を確認し、必要なファイルを大切に保管してください。")
+            }
+            Section("ログイン・購入の確認") {
+                Text("Web版とiPhone版は、同じおうちメンテアカウントでログインしてください。設定の「ログイン中」でメールアドレスを確認できます。Appleの購入に使うアカウントと、おうちメンテのログインは別です。")
+                Text("購入・契約の確認機能が利用できる場合は、設定の「購入と契約の確認」から再確認・復元できます。通信を確認し、購入をひもづけたおうちメンテアカウントで操作してください。結果が分からないときは、新しい購入を繰り返さず確認してください。")
+                Link("Appleの定期購入を確認・解約", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
+                Text("解約しても既存の記録は削除しません。記録の閲覧・書き出しは引き続き利用できます。")
+            }
+            Section("問い合わせ") {
+                if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+                   let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+                    LabeledContent("アプリのバージョン", value: "\(version)（\(build)）")
+                        .textSelection(.enabled)
+                }
+                if let links = store.releasePurchaseDisclosureLinks {
+                    Link("問い合わせ先を開く", destination: links.support)
+                } else {
+                    Text("このiPhone版は公開準備中です。正式な問い合わせ先は公開前に掲載します。")
+                }
+                Text("問い合わせには、困った操作、表示されたエラー、発生した時刻、アプリとiPhoneのバージョンを添えてください。パスワード・確認コード・支払い情報は送らないでください。画面の写真を送るときは、個人情報が写っていないか確認してください。")
+            }
+        }.navigationTitle("使い方・困ったとき")
     }
 }
 
