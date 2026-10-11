@@ -123,7 +123,7 @@ extension HouseholdAPITests {
 }
 
 extension HouseholdAPITests {
-    @MainActor func testDeletionFlowRecoversBeforeRetryingAndDiscardsSwitchedAccountResult() async throws {
+    @MainActor func testDeletionFlowRecoversBeforeRetryingAndClearsReboundReceipt() async throws {
         let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
         let api = AccountDeletionAPI { request in
             XCTAssertEqual(request.httpMethod, "GET", "Existing receipt must prevent duplicate submission")
@@ -134,6 +134,10 @@ extension HouseholdAPITests {
         let receipt = try await flow.submit(password: "Synthetic-only", token: "synthetic")
         XCTAssertEqual(receipt?.state, .running)
         XCTAssertFalse(flow.busy)
+        flow.bind(accountID: id, revision: UUID())
+        XCTAssertNil(flow.receipt, "A new enrollment/session for the same user must clear the old receipt")
+        let sameUserReceipt = try await flow.recover(token: "synthetic")
+        XCTAssertNotNil(sameUserReceipt)
         flow.bind(accountID: UUID())
         XCTAssertNil(flow.receipt)
         let outage = AccountDeletionFlow(api: AccountDeletionAPI { request in

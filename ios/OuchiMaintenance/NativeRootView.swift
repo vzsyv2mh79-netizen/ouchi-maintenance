@@ -159,6 +159,8 @@ private struct NativeSettings: View {
     @State private var confirmLogout = false
     @State private var choosingBackup = false
     @State private var pendingBackup: Household?
+    @State private var deletionPreviewRevision = UUID()
+    @State private var deletionPreviewFlow = AccountDeletionFlow()
     var body: some View {
         NavigationStack {
             Form {
@@ -170,6 +172,14 @@ private struct NativeSettings: View {
                 if store.developmentLifecycleConfigured {
                     Section("開発用") {
                         NavigationLink("アカウント処理のテスト") { DevelopmentLifecycleView() }
+#if DEBUG
+                        NavigationLink("退会画面の表示確認") {
+                            AccountDeletionView(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!,
+                                bindingRevision: deletionPreviewRevision, available: false, deletionExplanation: "",
+                                token: { nil }, exportAvailable: false, export: {},
+                                cleanupLocalNotifications: { false }, flow: deletionPreviewFlow)
+                        }
+#endif
                         NavigationLink("写真・保証書の保存テスト") { DevelopmentAttachmentView() }
                         NavigationLink("iPhone通知の登録テスト") { DevelopmentRemoteNotificationView() }
                     }

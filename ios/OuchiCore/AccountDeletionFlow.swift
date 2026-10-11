@@ -6,11 +6,13 @@ import Foundation
     public private(set) var busy = false
     private var accountID: UUID?
     private var generation = 0
+    private var bindingRevision: UUID?
     private let api: AccountDeletionAPI
     public init(api: AccountDeletionAPI = AccountDeletionAPI()) { self.api = api }
 
-    public func bind(accountID: UUID?) {
-        guard self.accountID != accountID else { return }
+    public func bind(accountID: UUID?, revision: UUID? = nil) {
+        guard self.accountID != accountID || bindingRevision != revision else { return }
+        bindingRevision = revision
         generation += 1
         self.accountID = accountID
         receipt = nil
