@@ -17,6 +17,7 @@ import type {BillingEnvironment,VerifiedTransaction} from './billing';
 import {verifyAndPersistLedgerTransaction} from './billing-ledger';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
 import {sessionAfterAuthVerification} from './verified-app-session';
+import {verifyStoreAccountPair} from './billing-store-account-pair';
 export function billingConfiguration(){
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,bundleId=process.env.APPLE_BUNDLE_ID,roots=process.env.APPLE_ROOT_CERTIFICATES_BASE64;
  const mode=process.env.BILLING_MODE;
@@ -38,6 +39,16 @@ export function billingVerifier(config:NonNullable<ReturnType<typeof billingConf
 export async function verifyBillingTransaction(jws:string,config:NonNullable<ReturnType<typeof billingConfiguration>>){
  const value=await billingVerifier(config).verifyAndDecodeTransaction(jws);
  return normalizeAppleTransaction(value as unknown as Record<string,unknown>,config.bundleId,config.environment);
+}
+/** Preparation only: signed pairing is insufficient for ownership transfer.
+ * No route, persistence or account rebind invokes this helper yet.
+ */
+export async function verifyBillingStoreAccountPair(signedApp:string,signedTransaction:string,config:NonNullable<ReturnType<typeof billingConfiguration>>){
+ const verifier=billingVerifier(config);
+ return verifyStoreAccountPair(signedApp,signedTransaction,{bundleId:config.bundleId,environment:config.environment,appAppleId:config.appAppleId},{
+  verifyApp:async jws=>await verifier.verifyAndDecodeAppTransaction(jws) as unknown as Record<string,unknown>,
+  verifyTransaction:async jws=>await verifier.verifyAndDecodeTransaction(jws) as unknown as Record<string,unknown>,
+ });
 }
 /** No renewal flag is trusted before Apple verifies this separate signed payload. */
 export async function verifyBillingRenewal(jws:string,transaction:VerifiedTransaction,config:NonNullable<ReturnType<typeof billingConfiguration>>){
