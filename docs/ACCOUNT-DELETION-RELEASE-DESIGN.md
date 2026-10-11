@@ -40,3 +40,7 @@ No legal retention basis or deadline is assumed. Operator identity, support cont
 At commit 861fab7 the isolated Auth/PostgREST/Storage integration confirms object removal, absence acknowledgement, owned home/product deletion, repeatable erasure, and preservation of another owner’s home. It deliberately leaves the shared Auth identity and the deletion request running; this is not proof of complete account deletion. Native Gmail login and existing record display were directly verified on the Mac iPhone 17e screen.
 
 The closed-owner household helper and member isolation tests are prepared separately. Native deletion UI, authenticated request/progress routes, bounded worker adapters, delivery cancellation, local-file cleanup and justified purchase retention still require implementation and end-to-end verification. No production deletion endpoint or scheduler is active.
+
+## Push deployment ordering
+
+The reminder sender must always invoke the service-only dispatch guard before sending. Install the formal guard migration before deploying this sender change; a missing or unavailable guard must fail closed. Validate that the current subscription and delivery lease still exist and the app account/epoch is open. This check cannot recall notifications already accepted by a push provider or eliminate the final network dispatch race. Clear local schedules on the client and purge subscriptions as part of erasure; APNs registration/queue cleanup remains a release gate.

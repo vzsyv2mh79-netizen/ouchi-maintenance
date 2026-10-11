@@ -18,7 +18,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDependencies,signal?:AbortSignal){
  if(!scope||Object.keys(scope).sort().join(',')!=='epochID,leaseToken,requestID,userID'||Object.values(scope).some(v=>typeof v!=='string'||!uuid.test(v)||v==='00000000-0000-0000-0000-000000000000'))throw new Error('Invalid deletion scope');
  const fixed=Object.freeze({...scope});
- const steps=[deps.revokeAndCaptureInventory,deps.eraseAttachments,deps.eraseRecords,deps.eraseDeviceRegistrations,deps.finalizeIdentityAndRetention,deps.markComplete];
+ const steps=[deps.revokeAndCaptureInventory,deps.eraseDeviceRegistrations,deps.eraseAttachments,deps.eraseRecords,deps.finalizeIdentityAndRetention,deps.markComplete];
  for(const step of steps){
   if(signal?.aborted)return {state:'pending' as const};
   try{

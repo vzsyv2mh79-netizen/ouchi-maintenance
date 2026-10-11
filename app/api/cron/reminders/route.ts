@@ -24,10 +24,10 @@ export async function GET(request:Request) {
     let delivered=false,gone=false;
     try{
      const send=()=>sendPush(config,job,reminderPayload(Number(job.due_count),job.delivery_day));
-     if(process.env.OUCHI_ACCOUNT_ACCESS_GATE==='true') {
+     {
       const allowed=await dispatchAuthorizedPush(async()=>{const result=await db.rpc('can_dispatch_maintenance_push',{subscription_id:job.id,delivery_token:job.claim_token});return {data:result.data,error:result.error};},send);
       if(!allowed){skipped++;return;}
-     }else await send();
+     }
      delivered=true;sent++;
     }
     catch(cause){const code=(cause as {statusCode?:number})?.statusCode;gone=code===404||code===410;if(gone)expired++;else failed++;}

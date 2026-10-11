@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import ts f
 const source=ts.transpileModule(readFileSync('lib/account-deletion-worker.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {runAccountDeletion:run}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const scope={requestID:'11111111-1111-4111-8111-111111111111',userID:'22222222-2222-4222-8222-222222222222',epochID:'33333333-3333-4333-8333-333333333333',leaseToken:'44444444-4444-4444-8444-444444444444'};
-const names=['revokeAndCaptureInventory','eraseAttachments','eraseRecords','eraseDeviceRegistrations','finalizeIdentityAndRetention','markComplete'];
+const names=['revokeAndCaptureInventory','eraseDeviceRegistrations','eraseAttachments','eraseRecords','finalizeIdentityAndRetention','markComplete'];
 test('deletion never completes or continues beyond unconfirmed durable work',async()=>{
  for(let fail=0;fail<names.length;fail++)for(const mode of ['false','throw']){
   const calls=[];const deps={leaseCurrent:async()=>true};names.forEach((n,i)=>deps[n]=async s=>{assert.deepEqual(s,scope);assert.ok(Object.isFrozen(s));calls.push(n);if(i===fail){if(mode==='throw')throw Error('outage');return false;}return true;});
