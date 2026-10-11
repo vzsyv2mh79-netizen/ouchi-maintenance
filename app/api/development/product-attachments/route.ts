@@ -92,13 +92,20 @@ export async function GET(request:Request){
   const result=await db.rpc('read_maintenance_attachment',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,attachment_id:attachment!.toLowerCase()});
   if(result.error)throw new Error('Metadata unavailable');
   if(!result.data)return Response.json({error:'添付を確認できません。'},{status:404,headers});
-  const item=result.data as {id:string;user:string;epoch:string;size:number;mime:string;sha256:string};
+  const item=Object.freeze({...result.data}) as Readonly<{id:string;user:string;epoch:string;size:number;mime:string;sha256:string}>;
   if(item.id!==attachment!.toLowerCase()||typeof item.user!=='string'||!uuid.test(item.user)||typeof item.epoch!=='string'||!uuid.test(item.epoch)||!Number.isSafeInteger(item.size)||item.size<1||item.size>attachmentLimits.fileBytes||!['image/jpeg','image/png','application/pdf'].includes(item.mime)||typeof item.sha256!=='string'||!/^[0-9a-f]{64}$/.test(item.sha256))throw new Error('Invalid metadata');
   const extension=item.mime==='image/jpeg'?'jpg':item.mime==='image/png'?'png':'pdf';
   const file=await db.storage.from('ouchi-product-attachments-test').download(`${item.user}/${item.epoch}/${item.id}.${extension}`);
   if(file.error||!file.data||file.data.size!==item.size)throw new Error('Object unavailable');
   const actual=await readProductAttachment(new Request('http://127.0.0.1/attachment',{method:'POST',headers:{'content-type':file.data.type,'content-length':String(file.data.size)},body:await file.data.arrayBuffer()}));
   if(actual.sha256!==item.sha256||actual.mime!==item.mime)throw new Error('Object mismatch');
+  // Remote reads can outlast a household membership change or account closure.
+  // Revalidate from live server state after reading/verifying, before returning bytes.
+  const current=await db.rpc('read_maintenance_attachment',{target_user:user,verified_session:identity.sessionID,expected_epoch:epoch,attachment_id:item.id});
+  if(current.error)throw new Error('Read authorization unavailable');
+  if(!current.data)return Response.json({error:'添付を確認できません。'},{status:404,headers});
+  if(request.signal.aborted||(['id','user','epoch','size','mime','sha256'] as const).some(key=>current.data[key]!==item[key]))throw new Error('Attachment authorization changed');
+
   return new Response(new Uint8Array(actual.bytes),{headers:{...headers,'Content-Type':actual.mime,'Content-Disposition':`attachment; filename="ouchi-attachment-${item.id}.${extension}"`,'X-Content-Type-Options':'nosniff'}});
  }catch{return Response.json({error:'添付を取得できませんでした。'},{status:503,headers});}
 }

@@ -4,7 +4,7 @@ const compile=path=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOption
 const reader=url(compile('lib/product-attachment.ts')),sessionModule=url(compile('lib/verified-app-session.ts'));
 const upload=url(compile('lib/attachment-upload.ts').replace("'./product-attachment'",JSON.stringify(reader)));
 const binding=url(compile('lib/billing-account.ts').replace("'./verified-app-session'",JSON.stringify(sessionModule)));
-const sdk=url(`export function createClient(){const h=globalThis.attachmentRouteHarness;h.clients++;const query={eq(){return query;},then(resolve){resolve({data:h.rows,error:null});}};return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},from:()=>({select:()=>query}),rpc:async(name,args)=>{h.rpc.push(name);if(name==='reserve_maintenance_attachment')h.lastReserve=args;return {data:name==='current_maintenance_purchase_account'?h.epoch:name==='read_maintenance_attachment'?h.metadata:name==='list_maintenance_attachments'?h.items:name==='maintenance_attachment_usage'?h.usage:args.attachment_id,error:null}},storage:{from:()=>({upload:async(path,bytes,options)=>{h.uploads++;h.path=path;if(options.upsert!==false)throw Error("overwrite allowed");h.blob=new Blob([bytes],{type:options.contentType});return {error:null}},download:async()=>({data:h.blob,error:h.blob?null:Error('not found')})})}};}`);
+const sdk=url(`export function createClient(){const h=globalThis.attachmentRouteHarness;h.clients++;const query={eq(){return query;},then(resolve){resolve({data:h.rows,error:null});}};return {auth:{getUser:async()=>({data:{user:{id:h.user}},error:h.authError})},from:()=>({select:()=>query}),rpc:async(name,args)=>{h.rpc.push(name);if(name==='reserve_maintenance_attachment')h.lastReserve=args;return {data:name==='current_maintenance_purchase_account'?h.epoch:name==='read_maintenance_attachment'?h.metadata:name==='list_maintenance_attachments'?h.items:name==='maintenance_attachment_usage'?h.usage:args.attachment_id,error:name==='read_maintenance_attachment'?h.metadataError:null}},storage:{from:()=>({upload:async(path,bytes,options)=>{h.uploads++;h.path=path;if(options.upsert!==false)throw Error("overwrite allowed");h.blob=new Blob([bytes],{type:options.contentType});return {error:null}},download:async()=>{await h.downloadHook?.();return {data:h.blob,error:h.blob?null:Error('not found')}}})}};}`);
 let source=compile('app/api/development/product-attachments/route.ts');
 for(const [path,module] of [['@supabase/supabase-js',sdk],['@/lib/attachment-upload',upload],['@/lib/product-attachment',reader],['@/lib/verified-app-session',sessionModule],['@/lib/billing-account',binding],['@/lib/billing',url(compile('lib/billing.ts'))]])source=source.replaceAll("'"+path+"'",JSON.stringify(module));
 const {POST,GET}=await import(url(source));
@@ -24,6 +24,19 @@ test('actual attachment route refuses production/shared config and wires authent
   h.rows=[];h.metadata={id,user,epoch,size:8,mime:'image/png',sha256:createHash('sha256').update(new Uint8Array([137,80,78,71,13,10,26,10])).digest('hex')};
   const download=()=>GET(new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${id}`,{headers:{authorization:'Bearer '+token}}));
   const retained=await download();assert.equal(retained.status,200);assert.equal(retained.headers.get('x-content-type-options'),'nosniff');assert.equal((await retained.arrayBuffer()).byteLength,8);
+
+  const originalMetadata={...h.metadata};
+  h.downloadHook=()=>{h.metadata=null;};
+  const removedDuringRead=await download();assert.equal(removedDuringRead.status,404);assert.equal(removedDuringRead.headers.get('cache-control'),'no-store');assert.equal(removedDuringRead.headers.get('content-disposition'),null);
+  h.metadata={...originalMetadata};h.downloadHook=()=>{h.metadata={...originalMetadata,epoch:'66666666-6666-4666-8666-666666666666'};};
+  assert.equal((await download()).status,503);
+  // A reused/mutated SDK object must not change the original validation snapshot.
+  h.metadata={...originalMetadata};h.downloadHook=()=>{h.metadata.sha256='b'.repeat(64);};assert.equal((await download()).status,503);
+
+  h.metadata={...originalMetadata};h.downloadHook=()=>{h.metadataError=Error('temporary reauthorization outage');};assert.equal((await download()).status,503);h.metadataError=null;
+  const abortedRead=new AbortController();h.metadata={...originalMetadata};h.downloadHook=()=>abortedRead.abort();
+  const cancelled=await GET(new Request(`http://127.0.0.1:3000/api/development/product-attachments?attachmentId=${id}`,{headers:{authorization:'Bearer '+token},signal:abortedRead.signal}));assert.equal(cancelled.status,503);assert.equal(cancelled.headers.get('content-disposition'),null);
+  h.metadata={...originalMetadata};h.downloadHook=undefined;assert.equal((await download()).status,200);
   h.metadata=null;assert.equal((await download()).status,404);
   h.items=[{id,size:8,mime:'image/png',createdAt:new Date().toISOString(),user:'must-not-expose'}];
   const listing=()=>GET(new Request(`http://127.0.0.1:3000/api/development/product-attachments?productId=${product}`,{headers:{authorization:'Bearer '+token}}));
