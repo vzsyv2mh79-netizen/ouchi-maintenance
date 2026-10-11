@@ -36,7 +36,7 @@ def configs(name, extra):
         settings=dict(common,**extra)
         settings['ONLY_ACTIVE_ARCH']='YES'
         settings['SWIFT_OPTIMIZATION_LEVEL']='-Onone' if configuration=='Debug' else '-O'
-        if configuration=='Debug': settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS']='DEBUG'
+        if configuration=='Debug': settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS']='DEBUG OUCHI_LOCAL_STOREKIT_TESTS' if name=='test' else 'DEBUG'
         ids.append(obj(name+configuration,'XCBuildConfiguration',buildSettings=settings,name=configuration))
     return obj(name+'configs','XCConfigurationList',buildConfigurations=ids,defaultConfigurationIsVisible=0,defaultConfigurationName='Debug')
 app_configs=configs('app',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog'})

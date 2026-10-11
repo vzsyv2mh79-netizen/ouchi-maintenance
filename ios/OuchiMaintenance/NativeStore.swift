@@ -815,6 +815,8 @@ struct FormalChannelSelection {
             if expected == generation { message = "Appleで有効な契約が見つかりました。新しく購入せず、購入の復元から確認してください。" }
         } catch PurchaseManager.PurchaseError.subscriptionBoundElsewhere {
             if expected == generation { message = "Appleで有効な契約が見つかりましたが、別のおうちメンテアカウントに紐づいています。新しく購入せず、購入時のアカウントを確認してください。" }
+        } catch PurchaseManager.PurchaseError.purchaseInProgress {
+            if expected == generation { message = "購入処理が進行中です。結果が出るまでお待ちください。" }
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
     }
     func restoreSandboxPurchases() async {
@@ -1253,6 +1255,22 @@ struct FormalChannelSelection {
                 message = "レポートを取得できません。テスト用サービスの準備と通信を確認してください。"
             }
         }
+    }
+    // Approval can arrive while the app is suspended. Replay without opening a
+    // purchase prompt, only after the current authenticated binding is checked.
+    func recoverPurchasesOnForeground() async {
+        #if DEBUG
+        guard sandboxBillingConfigured, let session else { return }
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation,
+                  billingAccount == credentials.user.id, let purchaseAccount else { return }
+            try await purchases.observeUnfinished(account: purchaseAccount)
+        } catch {
+            if !Task.isCancelled, expected == generation { purchases.markRetryNeeded() }
+        }
+        #endif
     }
     func retrySandboxTransactions() async {
         guard !busy, sandboxBillingConfigured, let session else { return }

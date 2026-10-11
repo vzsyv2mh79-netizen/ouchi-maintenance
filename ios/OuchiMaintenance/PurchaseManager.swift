@@ -2,6 +2,9 @@ import Foundation
 import Combine
 import StoreKit
 import OuchiCore
+#if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+import AppKit
+#endif
 
 // Server persistence must succeed before finish. Default remains Sandbox; production sales are not wired.
 @MainActor
@@ -13,14 +16,34 @@ final class PurchaseManager: ObservableObject {
     }
     let environment: BillingEnvironment
     init(environment: BillingEnvironment = .sandbox) { self.environment = environment }
+    #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+    // Dedicated hosted-test module only. Shipping targets never define this flag.
+    // No local entitlement: the test persistence callback is still required.
+    private var localFixtureWindow: NSWindow?
+    convenience init(localStoreKitFixtureWindow window: NSWindow) throws {
+        self.init(environment: .sandbox)
+        guard Bundle.main.bundleIdentifier == "dev.ouchi.review.storekit.catalog",
+              Bundle(for: PurchaseManager.self).bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests" else {
+            throw PurchaseError.notConfigured
+        }
+        localFixtureWindow = window
+    }
+    #endif
     private var storeEnvironment: AppStore.Environment {
-        environment == .sandbox ? .sandbox : .production
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if localFixtureWindow != nil { return .xcode }
+        #endif
+        return environment == .sandbox ? .sandbox : .production
     }
     @Published private(set) var products: [Product] = []
     @Published private(set) var needsRetry = false
     private var observer: Task<Void, Never>?
     private var bindingGeneration = 0
     private var boundAccount: UUID?
+    private var purchaseReservation: UUID?
+    // Prompt suppression only, never premium rights. Bridges StoreKit propagation
+    // after a verified purchase; cleared with the authentication binding.
+    private var verifiedSubscriptionPromptGuard: Transaction?
     private let ids: Set<String> = ["ouchi.premium.monthly", "ouchi.premium.annual", "ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"]
     var persist: ((String) async throws -> Void)?
     // Start after authentication and stop before switching account/session.
@@ -38,7 +61,15 @@ final class PurchaseManager: ObservableObject {
             }
         }
     }
-    func stopObserving() { bindingGeneration += 1; boundAccount = nil; observer?.cancel(); observer = nil }
+    func stopObserving() { bindingGeneration += 1; boundAccount = nil; verifiedSubscriptionPromptGuard = nil; observer?.cancel(); observer = nil }
+    private func rememberSubscriptionForPrompt(_ transaction: Transaction) {
+        guard transaction.productType == .autoRenewable else { return }
+        if let current = verifiedSubscriptionPromptGuard,
+           current.originalID == transaction.originalID, current.purchaseDate > transaction.purchaseDate { return }
+        if transaction.revocationDate != nil || (transaction.expirationDate ?? .distantPast) <= Date() {
+            if verifiedSubscriptionPromptGuard?.originalID == transaction.originalID { verifiedSubscriptionPromptGuard = nil }
+        } else { verifiedSubscriptionPromptGuard = transaction }
+    }
     private func deliver(_ result: VerificationResult<Transaction>, account: UUID, finish: Bool) async throws {
         guard case .verified(let transaction) = result,
               ids.contains(transaction.productID), transaction.environment == storeEnvironment,
@@ -47,6 +78,7 @@ final class PurchaseManager: ObservableObject {
         guard let persist, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
         try Task.checkCancellation()
+        rememberSubscriptionForPrompt(transaction)
         try await persist(result.jwsRepresentation)
         guard bindingGeneration == expected, boundAccount == account else { throw CancellationError() }
         try Task.checkCancellation()
@@ -81,11 +113,21 @@ final class PurchaseManager: ObservableObject {
         guard ids.contains(product.id), product.type == expectedType(for: product.id),
               products.contains(where: { descriptor($0)==descriptor(product) }),
               persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        guard purchaseReservation == nil else { throw PurchaseError.purchaseInProgress }
+        let reservation = UUID()
+        purchaseReservation = reservation
+        defer { if purchaseReservation == reservation { purchaseReservation = nil } }
         let expected = bindingGeneration
         guard case .verified(let app) = try await AppTransaction.shared, app.environment == storeEnvironment,
               app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
         guard expected == bindingGeneration, boundAccount == account, persist != nil else { throw CancellationError() }
         if product.type == .autoRenewable {
+            if let recent = verifiedSubscriptionPromptGuard,
+               recent.revocationDate == nil, (recent.expirationDate ?? .distantPast) > Date(),
+               !app.appTransactionID.isEmpty, recent.appTransactionID == app.appTransactionID {
+                if recent.appAccountToken != account { throw PurchaseError.subscriptionBoundElsewhere }
+                throw PurchaseError.subscriptionAlreadyActive
+            }
             // StoreKit includes subscribed and grace-period subscriptions here.
             // This prevents a second purchase prompt; it never grants app rights.
             for await entitlement in Transaction.currentEntitlements {
@@ -103,7 +145,17 @@ final class PurchaseManager: ObservableObject {
         }
         guard expected == bindingGeneration, boundAccount == account, persist != nil else { throw CancellationError() }
         try Task.checkCancellation()
-        let result = try await product.purchase(options: [.appAccountToken(account)])
+        let result: Product.PurchaseResult
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if let window = localFixtureWindow {
+            guard #available(macOS 15.2, *) else { throw PurchaseError.notConfigured }
+            result = try await product.purchase(confirmIn: window, options: [.appAccountToken(account)])
+        } else {
+            result = try await product.purchase(options: [.appAccountToken(account)])
+        }
+        #else
+        result = try await product.purchase(options: [.appAccountToken(account)])
+        #endif
         guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
         try Task.checkCancellation()
         switch result {
@@ -170,5 +222,5 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         needsRetry = false
     }
-    enum PurchaseError: Error { case notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere }
+    enum PurchaseError: Error { case notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere, purchaseInProgress }
 }

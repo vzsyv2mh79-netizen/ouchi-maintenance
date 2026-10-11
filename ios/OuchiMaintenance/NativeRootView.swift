@@ -6,6 +6,7 @@ import StoreKit
 struct NativeRootView: View {
     @EnvironmentObject private var store: NativeStore
     @Environment(\.colorScheme) private var appearance
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("ouchi.appearance") private var preferredAppearance = "system"
     var body: some View {
         Group {
@@ -20,6 +21,9 @@ struct NativeRootView: View {
             } else { SignInView() }
         }
         .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
+        .task(id: scenePhase) {
+            if scenePhase == .active { await store.recoverPurchasesOnForeground() }
+        }
         .safeAreaInset(edge: .top) {
             HStack {
                 #if DEBUG

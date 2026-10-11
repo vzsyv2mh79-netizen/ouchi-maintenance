@@ -16,6 +16,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         let session = try SKTestSession(contentsOf: url)
         guard case .verified(let app) = try await AppTransaction.shared,
               app.environment == .xcode, app.bundleID == Bundle.main.bundleIdentifier else { throw FixtureError.wrongEnvironment }
+        session.resetToDefaultState()
         session.disableDialogs = true
         // Only this dedicated local app's disposable journal, after .xcode proof.
         session.clearTransactions()
@@ -64,6 +65,25 @@ final class LocalStoreKitCatalogTests: XCTestCase {
             throw FixtureError.missingTransaction
         }
         return transaction
+    }
+    @MainActor private func fixtureWindow() -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 240, height: 160),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.title = "おうちメンテ・購入コード検証"
+        window.isReleasedWhenClosed = false
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+    private func localTransactionID(_ jws: String) throws -> String {
+        let segments = jws.split(separator: ".")
+        guard segments.count == 3 else { throw FixtureError.missingTransaction }
+        var body = String(segments[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        body += String(repeating: "=", count: (4 - body.count % 4) % 4)
+        let data = try XCTUnwrap(Data(base64Encoded: body))
+        let claims = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        return try XCTUnwrap(claims["transactionId"] as? String)
+        // Fixture callback bookkeeping only; SDK verifies local signature.
+        // This parser is NOT server-side verification and grants no rights.
     }
     func testLocalCatalogLoadsWithoutPurchase() async throws {
         let bundle = Bundle(for: Self.self)
@@ -180,6 +200,163 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         let stillUnfinished = try await unfinishedContains(tip.id)
         XCTAssertTrue(stillUnfinished, "refused local transaction must remain unfinished")
         await tip.finish() // owned fixture only, after the refusal assertion
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testActualManagerPersistenceFailureThenRetry() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        let account = UUID(uuidString: "C3333333-3333-4333-8333-333333333333")!
+        var attempts: [String] = [], shouldFail = true, acknowledgements = Set<String>()
+        manager.persist = { [self] jws in
+            let id = try localTransactionID(jws); attempts.append(id)
+            if shouldFail { throw URLError(.notConnectedToInternet) }
+            acknowledgements.insert(id) // disposable idempotent mock acknowledgement
+        }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield()
+        try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.tip.medium" })
+        do { _ = try await manager.purchase(product, account: account); XCTFail("failed persistence accepted") }
+        catch is URLError { }
+        let transaction = try await latest(product.id, phase: "lost persistence acknowledgement") { $0.appAccountToken == account }
+        XCTAssertTrue(acknowledgements.isEmpty)
+        let retained = try await unfinishedContains(transaction.id)
+        XCTAssertTrue(retained, "server failure must precede finish")
+        shouldFail = false
+        try await manager.observeUnfinished(account: account)
+        XCTAssertEqual(acknowledgements, [String(transaction.id)])
+        XCTAssertTrue(attempts.count >= 2 && Set(attempts) == [String(transaction.id)])
+        let remains = try await unfinishedContains(transaction.id)
+        XCTAssertFalse(remains, "mock acknowledgement must precede fixture finish")
+        XCTAssertFalse(manager.needsRetry)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testActualManagerRestoreAndOtherAccountRefusal() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let account = UUID(uuidString: "D4444444-4444-4444-8444-444444444444")!
+        let other = UUID(uuidString: "E5555555-5555-4555-8555-555555555555")!
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        var acknowledgements = Set<String>()
+        manager.persist = { [self] jws in acknowledgements.insert(try localTransactionID(jws)) }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.premium.monthly" })
+        guard case .saved = try await manager.purchase(product, account: account) else { XCTFail("purchase not acknowledged"); return }
+        XCTAssertEqual(acknowledgements.count, 1)
+        let before = session.allTransactions().count
+        do { _ = try await manager.purchase(product, account: account); XCTFail("second subscription allowed") }
+        catch PurchaseManager.PurchaseError.subscriptionAlreadyActive { }
+        XCTAssertEqual(session.allTransactions().count, before)
+        let restored = try await manager.restore(account: account)
+        XCTAssertEqual(restored.savedTransactions, 1)
+        XCTAssertFalse(restored.otherAccountSubscriptionFound)
+        XCTAssertEqual(acknowledgements.count, 1, "replay must not create another mock acknowledgement")
+        manager.stopObserving()
+        let otherManager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        var otherPersistenceCalls = 0
+        otherManager.persist = { _ in otherPersistenceCalls += 1 }
+        otherManager.startObserving(account: other)
+        defer { otherManager.stopObserving() }
+        await Task.yield(); try await otherManager.load()
+        let otherProduct = try XCTUnwrap(otherManager.products.first { $0.id == product.id })
+        do { _ = try await otherManager.purchase(otherProduct, account: other); XCTFail("other-account subscription accepted") }
+        catch PurchaseManager.PurchaseError.subscriptionBoundElsewhere { }
+        let otherRestore = try await otherManager.restore(account: other)
+        XCTAssertEqual(otherRestore.savedTransactions, 0)
+        XCTAssertTrue(otherRestore.otherAccountSubscriptionFound)
+        XCTAssertEqual(otherPersistenceCalls, 0)
+        XCTAssertEqual(session.allTransactions().count, before)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testActualManagerCancelledPurchaseAllowsLaterAttempt() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        let account = UUID(uuidString: "F6666666-6666-4666-8666-666666666666")!
+        var persistenceCalls = 0
+        manager.persist = { _ in persistenceCalls += 1 }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.tip.small" })
+        try await session.setSimulatedError(.generic(.userCancelled), forAPI: .purchase)
+        guard case .cancelled = try await manager.purchase(product, account: account) else { XCTFail("cancel outcome not preserved"); return }
+        XCTAssertEqual(persistenceCalls, 0)
+        XCTAssertFalse(session.allTransactions().contains { $0.state == .purchased })
+        try await session.setSimulatedError(nil, forAPI: .purchase)
+        session.resetToDefaultState(); session.disableDialogs = true
+        guard case .saved = try await manager.purchase(product, account: account) else { XCTFail("reservation not released after cancel"); return }
+        XCTAssertGreaterThanOrEqual(persistenceCalls, 1)
+        XCTAssertEqual(session.allTransactions().filter { $0.state == .purchased }.count, 1)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testActualManagerPendingPurchaseWaitsForApproval() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        session.askToBuyEnabled = true
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        let account = UUID(uuidString: "17777777-7777-4777-8777-777777777777")!
+        var acknowledgements = Set<String>()
+        manager.persist = { [self] jws in acknowledgements.insert(try localTransactionID(jws)) }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.tip.large" })
+        guard case .pending = try await manager.purchase(product, account: account) else { XCTFail("pending outcome not preserved"); return }
+        XCTAssertTrue(acknowledgements.isEmpty, "pending purchase must not be acknowledged")
+        let pending = try XCTUnwrap(session.allTransactions().first { $0.pendingAskToBuyConfirmation })
+        try session.approveAskToBuyTransaction(identifier: pending.identifier)
+        let approved = try await latest(product.id, phase: "approval propagation") { $0.appAccountToken == account }
+        var unfinishedIDs = Set<UInt64>()
+        for await result in Transaction.unfinished {
+            if case .verified(let transaction) = result, transaction.environment == .xcode { unfinishedIDs.insert(transaction.id) }
+        }
+        XCTAssertTrue(unfinishedIDs.contains(approved.id), "approval must remain unfinished before acknowledgement")
+        // Foreground/startup replay also covers a missed approval notification.
+        // Real device notification delivery is a separate acceptance requirement.
+        try await manager.observeUnfinished(account: account)
+        for _ in 0..<100 {
+            if acknowledgements.count == 1 { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertEqual(acknowledgements.count, 1, "approved purchase must be recovered from unfinished transactions")
+        let id = try XCTUnwrap(acknowledgements.first.flatMap(UInt64.init))
+        let stillUnfinished = try await unfinishedContains(id)
+        XCTAssertFalse(stillUnfinished, "only acknowledged approval may finish")
+        XCTAssertFalse(manager.needsRetry)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testActualManagerRejectsOverlappingPurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        let account = UUID(uuidString: "28888888-8888-4888-8888-888888888888")!
+        var startedPersistence = false, acknowledgements = Set<String>()
+        manager.persist = { [self] jws in
+            startedPersistence = true
+            try await Task.sleep(for: .milliseconds(300))
+            acknowledgements.insert(try localTransactionID(jws))
+        }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.tip.medium" })
+        let first = Task { try await manager.purchase(product, account: account) }
+        defer { first.cancel() }
+        for _ in 0..<200 {
+            if startedPersistence { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(startedPersistence)
+        do { _ = try await manager.purchase(product, account: account); XCTFail("overlapping purchase accepted") }
+        catch PurchaseManager.PurchaseError.purchaseInProgress { }
+        guard case .saved = try await first.value else { XCTFail("first purchase not acknowledged"); return }
+        XCTAssertEqual(acknowledgements.count, 1)
+        XCTAssertEqual(session.allTransactions().count, 1)
         withExtendedLifetime(session) {}
     }
 }
