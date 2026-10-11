@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
+import {browserAttachmentAuth} from '@/lib/attachment-auth-lifecycle';
 import {getSupabase} from '@/lib/supabase';
 import {attachmentBinding,attachmentPage,downloadAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
 import {browserPendingAttachments,type PendingWebAttachment} from '@/lib/pending-attachment-store';
@@ -11,7 +12,8 @@ export function AttachmentControls({product,account}:{product:string;account:str
  const [file,setFile]=useState<File|null>(null),[pending,setPending]=useState<PendingWebAttachment|null>(null);
  useEffect(()=>{
   const client=getSupabase();
-  const subscription=client?.auth.onAuthStateChange((_event,session)=>{if(session?.user.id!==account){operation.current?.abort();binding.current=null;setItems([]);setNext(null);setFile(null);setPending(null);setMessage('アカウントが変わりました。画面を開き直してください。');}}).data.subscription;
+  let previousToken:string|null|undefined;
+  const subscription=client?.auth.onAuthStateChange((event,session)=>{const nextToken=session?.access_token??null,changed=previousToken!==undefined&&previousToken!==nextToken;previousToken=nextToken;if(session?.user.id!==account||event==='SIGNED_OUT'||(event==='SIGNED_IN'&&changed)){operation.current?.abort();binding.current=null;setItems([]);setNext(null);setFile(null);setPending(null);setMessage('アカウントが変わりました。画面を開き直してください。');}}).data.subscription;
   return ()=>{operation.current?.abort();operation.current=null;binding.current=null;subscription?.unsubscribe();};
  },[product,account]);
  async function run(action:(token:string,signal:AbortSignal,current:AttachmentBinding)=>Promise<void>){
@@ -19,6 +21,7 @@ export function AttachmentControls({product,account}:{product:string;account:str
   try{
    const client=getSupabase();const session=await client?.auth.getSession();controller.signal.throwIfAborted();
    if(!session||session.error||session.data.session?.user.id!==account)throw Error('クラウド保存へログインしてください。');
+   await browserAttachmentAuth.ready(account);controller.signal.throwIfAborted();
    const token=session.data.session.access_token,current=await attachmentBinding(token,controller.signal);controller.signal.throwIfAborted();
    if(current.account!==account.toLowerCase())throw Error('アカウントを確認してください。');
    if(binding.current&&binding.current!==current.epoch){setItems([]);setNext(null);setFile(null);setPending(null);binding.current=null;throw Error('登録状態が変わりました。一覧を確認し直してください。');}

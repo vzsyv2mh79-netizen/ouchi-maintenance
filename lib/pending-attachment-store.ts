@@ -1,5 +1,5 @@
 export type PendingWebAttachment={version:1;account:string;epoch:string;product:string;id:string;mime:string;sha256:string;blob:Blob};
-export type PendingAttachmentDriver={read:(key:string)=>Promise<unknown>;revision:(key:string)=>Promise<number>;stage:(key:string,item:PendingWebAttachment,revision:number)=>Promise<unknown>;reset:(account:string,blocked:boolean)=>Promise<void>;complete:(key:string,id:string)=>Promise<void>};
+export type PendingAttachmentDriver={read:(key:string)=>Promise<unknown>;revision:(key:string)=>Promise<number>;stage:(key:string,item:PendingWebAttachment,revision:number)=>Promise<unknown>;reset:(account:string,blocked:boolean)=>Promise<void>;resetAll:()=>Promise<void>;complete:(key:string,id:string)=>Promise<void>};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const valid=(value:unknown):value is string=>typeof value==='string'&&uuid.test(value)&&value!=='00000000-0000-0000-0000-000000000000';
 function scope(account:string,epoch:string){if(!valid(account)||!valid(epoch)||account.toLowerCase()===epoch.toLowerCase())throw Error('登録状態を確認できません。');return `${account.toLowerCase()}/${epoch.toLowerCase()}`;}
@@ -27,6 +27,7 @@ export function pendingAttachmentStore(driver:PendingAttachmentDriver){return {
   if(!saved||saved.id!==item.id||saved.product!==item.product||saved.sha256!==item.sha256||saved.mime!==item.mime)throw Error('別のファイルの保存が確認待ちです。先にその結果を確認してください。');
   return saved;
  },
+ clearAllAccounts:async()=>driver.resetAll(),
  clearAccount:async(account:string)=>{if(!valid(account))throw Error('アカウントを確認してください。');await driver.reset(account.toLowerCase(),true);},
  resumeAccount:async(account:string)=>{if(!valid(account))throw Error('アカウントを確認してください。');await driver.reset(account.toLowerCase(),false);},
  complete:async(account:string,epoch:string,id:string)=>{if(!valid(id))throw Error('添付IDを確認してください。');await driver.complete(scope(account,epoch),id.toLowerCase());},
@@ -62,6 +63,18 @@ async function resetAccount(account:string,blocked:boolean){
   tx.oncomplete=()=>resolve();tx.onabort=()=>reject(error??Error('端末の確認待ちファイルを消去できません。'));tx.onerror=()=>{error??=Error('端末の確認待ちファイルを消去できません。');};
  });}finally{db.close();}
 }
+async function resetAllAccounts(){
+ const db=await database();try{await new Promise<void>((resolve,reject)=>{
+  const tx=db.transaction('uploads','readwrite'),store=tx.objectStore('uploads'),cursor=store.openCursor(),accounts=new Set<string>();let error:unknown;
+  const abort=(reason:unknown)=>{error=reason;tx.abort();};
+  cursor.onsuccess=()=>{try{
+   const row=cursor.result;
+   if(row){const key=String(row.key),account=key.startsWith('@account/')?key.slice(9):key.split('/')[0];if(valid(account)){accounts.add(account.toLowerCase());if(!key.startsWith('@account/'))row.delete();}else row.delete();row.continue();return;}
+   for(const account of accounts){const request=store.get(fenceKey(account));request.onsuccess=()=>{try{const current=fence(request.result);store.put({revision:current.revision+1,blocked:true},fenceKey(account));}catch(reason){abort(reason);}};}
+  }catch(reason){abort(reason);}};
+  tx.oncomplete=()=>resolve();tx.onabort=()=>reject(error??Error('端末の確認待ちファイルを消去できません。'));tx.onerror=()=>{error??=Error('端末の確認待ちファイルを消去できません。');};
+ });}finally{db.close();}
+}
 export const browserPendingAttachments=pendingAttachmentStore({
  read:key=>transaction(key,'readonly',value=>value),
  revision:async key=>{const current=fence(await transaction(fenceKey(key.split('/')[0]),'readonly',value=>value));if(current.blocked)throw Error('ログインし直してから保存してください。');return current.revision;},
@@ -72,6 +85,6 @@ export const browserPendingAttachments=pendingAttachmentStore({
    tx.oncomplete=()=>resolve(result);tx.onabort=()=>reject(error??Error('端末への保存を確認できません。'));tx.onerror=()=>{error??=Error('端末への保存を確認できません。');};
   });}finally{db.close();}
  },
- reset:resetAccount,
+ reset:resetAccount,resetAll:resetAllAccounts,
  complete:async(key,id)=>{await transaction(key,'readwrite',(value,store)=>{if(value===undefined)return;if((value as PendingWebAttachment).id!==id)throw Error('別のファイルの確認待ち情報は消去できません。');store.delete(key);});},
 });

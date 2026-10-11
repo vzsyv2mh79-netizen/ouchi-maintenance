@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import { browserPendingAttachments } from "@/lib/pending-attachment-store";
+import { browserAttachmentAuth } from "@/lib/attachment-auth-lifecycle";
 
 export function CloudAccount({ disabled }: { disabled: boolean }) {
   const [email, setEmail] = useState("");
@@ -26,7 +26,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
     if (process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED !== "true") return;
     const result = await client.auth.getSession();
     if (result.error || !result.data.session?.user.id) throw new Error("ログイン状態を確認してください。");
-    await browserPendingAttachments.clearAccount(result.data.session.user.id);
+    await browserAttachmentAuth.clear(result.data.session.user.id);
   };
   const logout = async () => {
     setBusy(true); setMessage("");
@@ -52,7 +52,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
       if (result.error) throw result.error;
       setPassword("");
       if (result.data.session && process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true") {
-        try { await browserPendingAttachments.resumeAccount(result.data.session.user.id); }
+        try { await browserAttachmentAuth.activate(result.data.session.user.id); }
         catch { setMessage("ログインしましたが、写真・保証書の端末保存を準備できませんでした。再度ログインしてください。"); return; }
       }
       if (signup && !result.data.session) setMessage("確認メールを開いてから、ログインしてください。届かない場合は迷惑メールフォルダも確認し、見つかったメールを「迷惑メールではない」にしてください。");
