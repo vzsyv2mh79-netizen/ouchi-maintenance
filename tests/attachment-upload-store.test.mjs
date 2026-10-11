@@ -20,7 +20,7 @@ function fixture(options={}){
   else throw Error(`unexpected ${name}`);
   return {data,error:null};
  }};
- const run=()=>uploadProductAttachment(new Request('https://example.invalid/upload',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png'},body:bytes}),product,id,storedAttachmentUploadServices(db,'Sandbox'));
+ const run=()=>uploadProductAttachment(new Request('https://example.invalid/upload',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png','X-Ouchi-App-Epoch':epoch},body:bytes}),product,id,storedAttachmentUploadServices(db,'Sandbox'));
  return {run,calls};
 }
 test('formal adapter verifies server entitlement; editable premium hint cannot grant uploads',async()=>{
@@ -46,7 +46,7 @@ test('lost settlement response reconciles through a read without resending the o
 test('aborted callers cannot authenticate or start a remote write',async()=>{
  const f=fixture(),controller=new AbortController();controller.abort();
  const services=storedAttachmentUploadServices({auth:{getUser:async()=>{throw Error('Auth must not run');}},storage:{from:()=>({})}},'Sandbox',controller.signal);
- const result=await uploadProductAttachment(new Request('https://example.invalid/upload',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png'},body:bytes}),product,id,services);
+ const result=await uploadProductAttachment(new Request('https://example.invalid/upload',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png','X-Ouchi-App-Epoch':epoch},body:bytes}),product,id,services);
  assert.equal(result.status,503);assert.deepEqual(f.calls,[]);
 });
 test('formal adapter rejects a caller-selected unsupported billing environment',()=>{

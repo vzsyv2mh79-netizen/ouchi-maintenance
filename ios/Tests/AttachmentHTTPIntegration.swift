@@ -10,10 +10,10 @@ import OuchiCore
         let binding = try await api.binding(token: "fixture")
         precondition(binding.account != binding.epoch)
         let bytes = Data([137,80,78,71,13,10,26,10])
-        try await api.upload(product: product, attachment: attachment, bytes: bytes, mime: "image/png", token: "fixture", confirmed: true)
+        try await api.upload(product: product, attachment: attachment, bytes: bytes, mime: "image/png", token: "fixture", confirmed: true, expectedEpoch: binding.epoch)
         let file = try await api.download(attachment: attachment, token: "fixture")
         precondition(file.bytes == bytes && file.fileExtension == "png")
-        try await api.remove(attachment: attachment, token: "fixture", confirmed: true)
+        try await api.remove(attachment: attachment, token: "fixture", confirmed: true, expectedEpoch: binding.epoch)
         for token in ["oversized-control", "oversized-header"] {
             do { _ = try await api.binding(token: token); fatalError("Unbounded response accepted") }
             catch { precondition(error as? CloudError == .malformedResponse) }

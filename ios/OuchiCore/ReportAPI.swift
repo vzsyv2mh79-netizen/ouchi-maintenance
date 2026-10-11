@@ -252,6 +252,13 @@ public struct AttachmentAPI: Sendable {
         try Task.checkCancellation()
         return result
     }
+    private func bindWrite(_ request: inout URLRequest, expectedEpoch: UUID?) throws {
+        guard !endpoint.hasPrefix("https://") || expectedEpoch != nil else { throw CloudError.invalidInput }
+        if let expectedEpoch {
+            guard expectedEpoch.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+            request.setValue(expectedEpoch.uuidString.lowercased(), forHTTPHeaderField: "X-Ouchi-App-Epoch")
+        }
+    }
     public struct Binding: Decodable, Sendable {
         public let account: UUID
         public let epoch: UUID
@@ -384,7 +391,7 @@ public struct AttachmentAPI: Sendable {
         return DownloadedFile(bytes: body, mime: mime, fileExtension: fileExtension)
     }
     /// Deletion remains available after paid access expires; server verifies scope.
-    public func remove(attachment: UUID, token: String, confirmed: Bool) async throws {
+    public func remove(attachment: UUID, token: String, confirmed: Bool, expectedEpoch: UUID? = nil) async throws {
         guard confirmed, attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
@@ -393,6 +400,7 @@ public struct AttachmentAPI: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        try bindWrite(&request, expectedEpoch: expectedEpoch)
         let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
@@ -401,7 +409,7 @@ public struct AttachmentAPI: Sendable {
         guard value.removed, value.attachmentId == attachment else { throw CloudError.malformedResponse }
     }
     /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
-    public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool) async throws {
+    public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool, expectedEpoch: UUID? = nil) async throws {
         guard confirmed, !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024,
               ["image/jpeg", "image/png", "application/pdf"].contains(mime),
               product.uuidString != "00000000-0000-0000-0000-000000000000",
@@ -416,6 +424,7 @@ public struct AttachmentAPI: Sendable {
         request.setValue(mime, forHTTPHeaderField: "Content-Type")
         request.setValue(String(bytes.count), forHTTPHeaderField: "Content-Length")
         request.httpBody = bytes
+        try bindWrite(&request, expectedEpoch: expectedEpoch)
         let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }

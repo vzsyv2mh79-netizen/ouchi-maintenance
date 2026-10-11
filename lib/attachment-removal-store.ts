@@ -2,6 +2,7 @@ import {StorageApiError,type SupabaseClient} from '@supabase/supabase-js';
 import {sessionAfterAuthVerification} from './verified-app-session';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
 import type {AttachmentRemovalScope,AttachmentRemovalServices} from './attachment-removal';
+import {attachmentEpochMatches} from './attachment-epoch';
 /** One request only, with a bounded server service client. No paid plan required. */
 export function storedAttachmentRemovalServices(db:SupabaseClient,signal?:AbortSignal):AttachmentRemovalServices{
  let caller:{user:string;session:string;epoch:string}|null=null,approved:AttachmentRemovalScope|null=null;
@@ -22,13 +23,14 @@ export function storedAttachmentRemovalServices(db:SupabaseClient,signal?:AbortS
  return {
   begin:async(request,id)=>{
    caller=null;approved=null;requestSignal=request.signal;active();
+   const expectedEpoch=request.headers.get('X-Ouchi-App-Epoch');
    const header=request.headers.get('authorization');if(!header?.startsWith('Bearer ')||header.length>16384)return null;
    const token=header.slice(7);if(!token||/\s/.test(token))return null;
    const verified=await db.auth.getUser(token);active();if(verified.error||!verified.data.user)return null;
    const session=sessionAfterAuthVerification(token,verified.data.user.id);if(!session)return null;
    const epoch=await purchaseAccountAfterAuthVerification(token,session.userID,async(user,sessionID)=>{
     const value=await db.rpc('current_maintenance_purchase_account',{target_user:user,verified_session:sessionID});if(value.error)throw Error('Removal binding unavailable');return value.data;
-   });active();if(!epoch)return null;
+   });active();if(!epoch||!attachmentEpochMatches(expectedEpoch,epoch))return null;
    caller=Object.freeze({user:session.userID,session:session.sessionID,epoch});
    const result=await db.rpc('begin_maintenance_attachment_removal',args(id));active();
    if(result.error)throw Error('Removal fence unavailable');if(result.data===null)return null;

@@ -6,6 +6,7 @@ import {purchaseAccountAfterAuthVerification} from './billing-account';
 import {readVerifiedLedgerEntitlement} from './billing-ledger-entitlement';
 import {readProductAttachment,attachmentLimits} from './product-attachment';
 import type {AttachmentIdentity,AttachmentReservation,AttachmentUploadServices} from './attachment-upload';
+import {attachmentEpochMatches} from './attachment-epoch';
 
 /** One instance per server request, used only through uploadProductAttachment.
  * Caller provides a bounded service client and a server-selected purchase environment.
@@ -33,6 +34,7 @@ export function storedAttachmentUploadServices(db:SupabaseClient,environment:Bil
  return {
   authorize:async request=>{
    authorized=null;approved=null;inspected=false;requestSignal=request.signal;active();
+   const expectedEpoch=request.headers.get('X-Ouchi-App-Epoch');
    const header=request.headers.get('authorization');
    if(!header?.startsWith('Bearer ')||header.length>16384)return null;
    const token=header.slice(7);if(!token||/\s/.test(token))return null;
@@ -43,7 +45,7 @@ export function storedAttachmentUploadServices(db:SupabaseClient,environment:Bil
     const binding=await db.rpc('current_maintenance_purchase_account',{target_user:user,verified_session:session});
     if(binding.error)throw Error('Attachment binding unavailable');return binding.data;
    });
-   active();if(!epoch)return null;
+   active();if(!epoch||!attachmentEpochMatches(expectedEpoch,epoch))return null;
    const entitlement=await readVerifiedLedgerEntitlement(async(name,args)=>await db.rpc(name,args),{
     target_user:identity.userID,verified_session:identity.sessionID,target_epoch:epoch,target_environment:environment,
    });

@@ -15,7 +15,7 @@ function fixture(options={}){
   if(name==='complete_maintenance_attachment_removal'){assert.equal(args.confirmed_path,scope.path);return {data:!options.ackLost,error:options.ackLost?Error('timeout'):null};}
   throw Error('Unexpected RPC');
  }};
- return {calls,run:()=>removeProductAttachment(new Request('https://example.invalid/file',{method:'DELETE',headers:{authorization:'Bearer '+token}}),id,storedAttachmentRemovalServices(db))};
+ return {calls,run:()=>removeProductAttachment(new Request('https://example.invalid/file',{method:'DELETE',headers:{authorization:'Bearer '+token,'X-Ouchi-App-Epoch':epoch}}),id,storedAttachmentRemovalServices(db))};
 }
 test('adapter requires exact SDK absence and never infers missing bytes from general404 or timeout',async()=>{
  for(const options of [{generic404:true},{present:true},{ackLost:true},{removeTimeout:true},{}]){

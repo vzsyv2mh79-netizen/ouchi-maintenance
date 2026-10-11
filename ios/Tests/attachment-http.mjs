@@ -26,12 +26,13 @@ const server=createServer(async(req,res)=>{
   if(url.searchParams.has('binding')){res.setHeader('content-type','application/json');res.end(JSON.stringify({account,epoch}));return;}
   assert.equal(url.searchParams.get('attachmentId'),attachment);
   if(req.method==='POST'){
+   assert.equal(req.headers['x-ouchi-app-epoch'],epoch);
    assert.equal(url.searchParams.get('productId'),product);assert.equal(req.headers['content-type'],'image/png');
    const chunks=[];for await(const chunk of req)chunks.push(chunk);
    assert.deepEqual(Buffer.concat(chunks),bytes);uploads++;
    res.end(JSON.stringify({saved:true,attachmentId:attachment}));return;
   }
-  if(req.method==='DELETE'){removals++;res.end(JSON.stringify({removed:true,attachmentId:attachment}));return;}
+  if(req.method==='DELETE'){assert.equal(req.headers['x-ouchi-app-epoch'],epoch);removals++;res.end(JSON.stringify({removed:true,attachmentId:attachment}));return;}
   assert.equal(req.method,'GET');downloads++;
   res.writeHead(200,{'content-type':'image/png','content-disposition':`attachment; filename="ouchi-attachment-${attachment}.png"`});res.end(bytes);
  }catch(error){res.writeHead(500);res.end('Fixture failed');console.error(error);}

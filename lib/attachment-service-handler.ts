@@ -5,6 +5,7 @@ import {uploadProductAttachment} from './attachment-upload';
 import {storedAttachmentUploadServices} from './attachment-upload-store';
 import {removeProductAttachment} from './attachment-removal';
 import {storedAttachmentRemovalServices} from './attachment-removal-store';
+import {validAttachmentEpoch} from './attachment-epoch';
 
 type Deployment={url:string;key:string;environment:BillingEnvironment;storage:string};
 /** Explicit opt-in only; live uploads must use the verified ledger, never a client flag or legacy grant. */
@@ -25,6 +26,7 @@ export async function attachmentServiceResponse(request:Request,config:Deploymen
  const query=new URL(request.url).searchParams;
  const allowed=request.method==='GET'?['binding','usage','productId','attachmentId','page','after']:request.method==='POST'?['productId','attachmentId']:['attachmentId'];
  if([...query.keys()].some(key=>!allowed.includes(key)||query.getAll(key).length!==1))return Response.json({error:'保存先を確認してください。'},{status:400,headers});
+ if(request.method!=='GET'&&!validAttachmentEpoch(request.headers.get('X-Ouchi-App-Epoch')))return Response.json({error:'登録状態を確認し直してください。'},{status:400,headers});
  const signal=AbortSignal.any([request.signal,AbortSignal.timeout(30000)]);
  try{
   signal.throwIfAborted();

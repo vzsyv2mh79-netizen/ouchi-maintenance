@@ -199,7 +199,7 @@ import OuchiCore
             }
             try Task.checkCancellation()
             try storage.write(pending)
-            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
+            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed, expectedEpoch: binding.epoch)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingAttachmentStorage?.write(nil)
             message = "ファイルの保存をサーバーで確認しました。"
@@ -301,7 +301,7 @@ import OuchiCore
                 guard household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { throw CloudError.invalidInput }
             }
             try storage.write(pending)
-            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).remove(attachment: attachment, token: credentials.access_token, confirmed: true)
+            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).remove(attachment: attachment, token: credentials.access_token, confirmed: true, expectedEpoch: binding.epoch)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingRemovalStorage?.write(nil)
             clearDevelopmentAttachmentExport()

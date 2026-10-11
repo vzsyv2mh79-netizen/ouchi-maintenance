@@ -3,22 +3,26 @@ import OuchiCore
 @main struct AttachmentSmoke {
  static func main() async throws {
   let product=UUID(),attachment=UUID(),bytes=Data([137,80,78,71,13,10,26,10])
+  let account=UUID(),epoch=UUID()
   let api=AttachmentAPI { request in
    precondition(request.url?.scheme=="https" && request.url?.host=="ouchi-maintenance.vercel.app" && request.url?.port==nil && request.url?.path=="/api/product-attachments")
+   precondition(request.value(forHTTPHeaderField:"X-Ouchi-App-Epoch")==epoch.uuidString.lowercased())
    precondition(request.httpMethod=="POST" && request.httpBody==bytes)
    precondition(request.value(forHTTPHeaderField:"Content-Type")=="image/png" && request.value(forHTTPHeaderField:"Content-Length")=="8")
    let query=URLComponents(url:request.url!,resolvingAgainstBaseURL:false)!.queryItems!
    precondition(query.first(where:{$0.name=="attachmentId"})?.value==attachment.uuidString.lowercased())
    return (Data("{\"saved\":true,\"attachmentId\":\"\(attachment.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
-  try await api.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true)
+  try await api.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true,expectedEpoch:epoch)
   let forbidden=AttachmentAPI { _ in fatalError("invalid upload reached transport") }
-  do { try await forbidden.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:false);fatalError("missing consent accepted") } catch { precondition(error as? CloudError == .invalidInput) }
-  do { try await forbidden.upload(product:product,attachment:attachment,bytes:Data(count:5*1024*1024+1),mime:"image/png",token:"synthetic",confirmed:true);fatalError("oversize accepted") } catch { precondition(error as? CloudError == .invalidInput) }
+  do { try await forbidden.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true);fatalError("formal upload without enrollment sent") } catch { precondition(error as? CloudError == .invalidInput) }
+  do { try await forbidden.remove(attachment:attachment,token:"synthetic",confirmed:true);fatalError("formal deletion without enrollment sent") } catch { precondition(error as? CloudError == .invalidInput) }
+  do { try await forbidden.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:false,expectedEpoch:epoch);fatalError("missing consent accepted") } catch { precondition(error as? CloudError == .invalidInput) }
+  do { try await forbidden.upload(product:product,attachment:attachment,bytes:Data(count:5*1024*1024+1),mime:"image/png",token:"synthetic",confirmed:true,expectedEpoch:epoch);fatalError("oversize accepted") } catch { precondition(error as? CloudError == .invalidInput) }
   let mismatch=AttachmentAPI { request in (Data("{\"saved\":true,\"attachmentId\":\"\(UUID())\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!) }
-  do { try await mismatch.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true);fatalError("different saved ID accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  do { try await mismatch.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true,expectedEpoch:epoch);fatalError("different saved ID accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   let redirected=AttachmentAPI { _ in (Data(),HTTPURLResponse(url:URL(string:"https://untrusted.example")!,statusCode:200,httpVersion:nil,headerFields:nil)!) }
-  do { try await redirected.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true);fatalError("redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  do { try await redirected.upload(product:product,attachment:attachment,bytes:bytes,mime:"image/png",token:"synthetic",confirmed:true,expectedEpoch:epoch);fatalError("redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   let downloaded=AttachmentAPI { request in
    precondition(request.httpMethod=="GET" && request.httpBody==nil)
    return (bytes,HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"image/png","Content-Disposition":"attachment; filename=\"ouchi-attachment-\(attachment.uuidString.lowercased()).png\""])!)
@@ -44,7 +48,6 @@ import OuchiCore
    (Data("{\"usage\":{\"usedBytes\":8,\"usedFiles\":1,\"reservedBytes\":8,\"reservedFiles\":1,\"limitBytes\":104857600,\"limitFiles\":100,\"fileLimitBytes\":5242880}}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
   let usage=try await usageAPI.usage(token:"synthetic");precondition(usage.usedBytes==8 && usage.reservedFiles==1)
-  let account=UUID(),epoch=UUID()
   let bindingAPI=AttachmentAPI { request in
    precondition(request.url?.query=="binding=true")
    return (Data("{\"account\":\"\(account.uuidString)\",\"epoch\":\"\(epoch.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
@@ -60,13 +63,13 @@ import OuchiCore
    precondition(query.count==1 && query[0].name=="attachmentId" && query[0].value==attachment.uuidString.lowercased())
    return (Data("{\"removed\":true,\"attachmentId\":\"\(attachment.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
-  try await removalAPI.remove(attachment:attachment,token:"synthetic",confirmed:true)
-  do { try await forbidden.remove(attachment:attachment,token:"synthetic",confirmed:false);fatalError("unconfirmed deletion sent") } catch { precondition(error as? CloudError == .invalidInput) }
+  try await removalAPI.remove(attachment:attachment,token:"synthetic",confirmed:true,expectedEpoch:epoch)
+  do { try await forbidden.remove(attachment:attachment,token:"synthetic",confirmed:false,expectedEpoch:epoch);fatalError("unconfirmed deletion sent") } catch { precondition(error as? CloudError == .invalidInput) }
   let wrongRemoval=AttachmentAPI { request in
    (Data("{\"removed\":true,\"attachmentId\":\"\(UUID())\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
-  do { try await wrongRemoval.remove(attachment:attachment,token:"synthetic",confirmed:true);fatalError("different file deletion accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
-  do { try await redirected.remove(attachment:attachment,token:"synthetic",confirmed:true);fatalError("deletion redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  do { try await wrongRemoval.remove(attachment:attachment,token:"synthetic",confirmed:true,expectedEpoch:epoch);fatalError("different file deletion accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  do { try await redirected.remove(attachment:attachment,token:"synthetic",confirmed:true,expectedEpoch:epoch);fatalError("deletion redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   let pending=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:bytes,mime:"image/png")
   let serialized=try pending.encode(),restored=try PendingAttachment.decode(serialized,account:account,epoch:epoch)
   precondition(restored.id==attachment && restored.product==product && restored.bytes==bytes)

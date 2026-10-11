@@ -53,6 +53,20 @@ test('membership lost during object read prevents returning private bytes',async
  assert.equal(response.status,404);assert.notEqual(response.headers.get('content-type'),'image/png');
 });
 test('new uploads check Production ledger and reject free access before Storage',async()=>{
- const f=fixture();const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?productId=${user}&attachmentId=${id}`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png'},body:bytes}),config,()=>f.db);
+ const f=fixture();const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?productId=${user}&attachmentId=${id}`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png','X-Ouchi-App-Epoch':epoch},body:bytes}),config,()=>f.db);
  assert.equal(response.status,403);assert.ok(f.calls.includes('read_maintenance_verified_entitlement'));assert.ok(!f.calls.includes('download'));
+});
+test('formal mutations require a valid expected enrollment before constructing a database',async()=>{
+ for(const method of ['POST','DELETE'])for(const epochHeader of [null,'bad','00000000-0000-0000-0000-000000000000',epoch+','+user]){
+  let constructed=0;const headers=epochHeader===null?{}:{'X-Ouchi-App-Epoch':epochHeader};
+  const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?attachmentId=${id}`,{method,headers}),config,()=>{constructed++;throw Error('invalid enrollment');});
+  assert.equal(response.status,400);assert.equal(constructed,0);
+ }
+});
+test('same Auth user with a different enrollment cannot upload or erase old pending files',async()=>{
+ for(const method of ['POST','DELETE']){
+  const f=fixture({free:false});const headers={authorization:`Bearer ${token}`,'content-type':'image/png','X-Ouchi-App-Epoch':user};
+  const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?attachmentId=${id}${method==='POST'?`&productId=${id}`:''}`,{method,headers,body:method==='POST'?bytes:undefined}),config,()=>f.db);
+  assert.notEqual(response.status,200);assert.deepEqual(f.calls,['auth','current_maintenance_purchase_account']);
+ }
 });
