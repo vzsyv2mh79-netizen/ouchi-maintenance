@@ -21,6 +21,7 @@ function attachmentModule(name){
  const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');attachmentModules.set(name,url);return url;
 }
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
+const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {uploadProductAttachment}=await import(attachmentModule('attachment-upload'));
 const formalRouteCode=ts.transpileModule(readFileSync('app/api/development/verified-product-attachments/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
  .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
@@ -59,13 +60,15 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,true);
   assert.equal((await admin.rpc('register_maintenance_native_push',nativeArgs)).data,nativeRegistered.data);
   assert.ok((await user.rpc('register_maintenance_native_push',nativeArgs)).error);
-  let syntheticSends=0;const dispatchDeps=storedNativePushDispatch(admin,async input=>{syntheticSends++;assert.equal(input.deviceToken,nativeArgs.token);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';});
+  let syntheticSends=0;const dispatchDeps=storedNativePushDispatch(admin,async input=>{syntheticSends++;assert.equal(input.deviceToken,nativeArgs.token);assert.equal(input.bundleId,'jp.ouchi.maintenance');assert.equal(input.dueCount,1);return 'accepted';});
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'accepted');assert.equal(syntheticSends,1);
   assert.ok((await user.rpc('read_maintenance_native_sandbox_destination',{registration_id:nativeRegistered.data})).error);
+  const home=randomUUID(),product=randomUUID(),file=randomUUID();assert.equal((await user.from('homes').insert({id:home,owner_id:userID,name:'Synthetic deletion home',kind:'home'})).error,null);assert.equal((await user.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic deletion product'})).error,null);
+  assert.equal((await user.from('maintenance_tasks').insert([{id:randomUUID(),productId:product,name:'Synthetic due task',kind:'掃除',intervalDays:30,nextDueAt:'2000-01-01',sourceKind:'ユーザー設定'},{id:randomUUID(),productId:product,name:'Synthetic future task',kind:'点検',intervalDays:30,nextDueAt:'2099-01-01',sourceKind:'ユーザー設定'}])).error,null);
   const nativeJob=randomUUID(),racingJob=randomUUID();
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{
    input:`insert into maintenance_private.native_notification_jobs(id,device_id,due_at,state) values('${nativeJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending'),('${racingJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending');`,timeout:10000,stdio:['pipe','pipe','pipe']});
-  const jobDeps=storedNativePushJob(admin,(registration,_job,_lease,signal)=>dispatchRegisteredSandboxPush(registration,1,Date.now()+1000,dispatchDeps,signal));
+  const jobDeps=storedNativePushJob(admin,countedNativePushDispatch(admin,dispatchDeps,()=>Date.now()+1000));
   assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'recorded',outcome:'accepted'});
   assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'unclaimed'});assert.equal(syntheticSends,2);
   const competing=await Promise.all([admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob}),admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob})]);
@@ -81,7 +84,6 @@ test('actual private Storage removal verifies absence and persists exact leased 
    ['start_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease}],
    ['finish_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease,outcome:'accepted'}],
   ])assert.ok((await user.rpc(name,args)).error);
-  const home=randomUUID(),product=randomUUID(),file=randomUUID();assert.equal((await user.from('homes').insert({id:home,owner_id:userID,name:'Synthetic deletion home',kind:'home'})).error,null);assert.equal((await user.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic deletion product'})).error,null);
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
   const sharedBefore=await other.from('products').select('id').eq('id',product);assert.equal(sharedBefore.error,null);assert.deepEqual(sharedBefore.data,[{id:product}]);
