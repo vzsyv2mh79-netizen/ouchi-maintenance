@@ -25,6 +25,7 @@ const reminderRouteCode=ts.transpileModule(readFileSync('app/api/development/rem
 const {GET:reminderGET,PUT:reminderPUT}=await import('data:text/javascript;base64,'+Buffer.from(reminderRouteCode).toString('base64'));
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
 const {attachmentDeployment,attachmentServiceResponse}=await import(attachmentModule('attachment-service-handler'));
+const {reportDeployment,reportServiceResponse}=await import(attachmentModule('report-service-handler'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -210,6 +211,14 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const actualReport=await reportRequest(otherHome);assert.equal(actualReport.status,200);assert.equal(actualReport.headers.get('cache-control'),'no-store');
   const actualReportBody=await actualReport.json();assert.equal(actualReportBody.report.homeId,otherHome);assert.equal(actualReportBody.environment,'Sandbox');assert.equal(actualReportBody.salesEnabled,false);
   assert.equal((await reportRequest(randomUUID())).status,404);
+  const formalReportConfig=reportDeployment({url:'https://disposable.supabase.co/',key:service,storage:'verified-ledger',environment:'Sandbox'},'true','sb_publishable_synthetic_isolated_report');assert.ok(formalReportConfig);
+  const reportFactories={service:(value,signal)=>{assert.equal(value.url,'https://disposable.supabase.co/');return createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}});},caller:(value,token,signal)=>createClient(origin,value.publishableKey,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:'Bearer '+token},fetch:createAttachmentFetch(signal)}})};
+  const formalReportRequest=(targetHome=otherHome,token=otherSignup.data.session.access_token,expectedEpoch=otherEpoch.data)=>new Request(origin+'/api/maintenance-report?homeId='+targetHome,{headers:{authorization:'Bearer '+token,'X-Ouchi-App-Epoch':expectedEpoch}});
+  assert.equal((await reportServiceResponse(formalReportRequest(randomUUID()),formalReportConfig,reportFactories)).status,404);
+  const formalPaidReport=await reportServiceResponse(formalReportRequest(),formalReportConfig,reportFactories);assert.equal(formalPaidReport.status,200);const formalPaidBody=await formalPaidReport.json();assert.equal(formalPaidBody.environment,'Sandbox');assert.equal(formalPaidBody.purchaseAccountToken,otherEpoch.data);assert.equal(formalPaidBody.report.homeId,otherHome);
+  assert.equal((await reportServiceResponse(formalReportRequest(otherHome,signup.data.session.access_token,epoch.data),formalReportConfig,reportFactories)).status,403);
+  assert.equal((await reportServiceResponse(formalReportRequest(otherHome,otherSignup.data.session.access_token,randomUUID()),formalReportConfig,reportFactories)).status,403);
+
   const adapterBytes=new Uint8Array([137,80,78,71,13,10,26,10]);
   const paidRequest=()=>new Request(origin+'/api/development/verified-product-attachments?productId='+paidProduct+'&attachmentId='+paidFile,{method:'POST',headers:{authorization:'Bearer '+otherSignup.data.session.access_token,'content-type':'image/png'},body:adapterBytes});
   // Real Auth, ledger and reservation RPCs, with a failed Storage read.
@@ -244,6 +253,8 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   // Expiration has no refund/revocation field and does not close the account.
   const expiredSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,expiresAt:now-1},proof_sha256:'f'.repeat(64)});assert.equal(expiredSeed.error,null);assert.equal(expiredSeed.data,'updated');
   const expiredRights=await admin.rpc('read_maintenance_verified_entitlement',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,target_epoch:otherEpoch.data,target_environment:'Sandbox'});assert.equal(expiredRights.error,null);assert.equal(expiredRights.data.plan,'free');
+  assert.equal((await reportServiceResponse(formalReportRequest(),formalReportConfig,reportFactories)).status,403);
+  console.log('Formal report shared handler actual Auth/ledger/RLS: paid report, exact enrollment, free foreign caller and ordinary expiry denial verified. Synthetic Apple transaction; no production deployment.');
   const expiredNewID=randomUUID();assert.equal((await attachmentServiceResponse(expiryRequest('POST',expiredNewID),expiryConfig,formalClient)).status,403);
   const expiredRead=await attachmentServiceResponse(expiryRequest('GET',expiryFile),expiryConfig,formalClient);assert.equal(expiredRead.status,200);assert.deepEqual(new Uint8Array(await expiredRead.arrayBuffer()),adapterBytes);
   const foreignRemoval=await attachmentServiceResponse(expiryRequest('DELETE',expiryFile,signup.data.session.access_token,epoch.data),expiryConfig,formalClient);assert.equal(foreignRemoval.status,404);
