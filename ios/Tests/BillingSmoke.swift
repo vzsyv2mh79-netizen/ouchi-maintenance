@@ -15,6 +15,26 @@ import OuchiCore
             do { try await invalid.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("invalid receipt ack accepted") }
             catch { precondition(error as? CloudError == .malformedResponse) }
         }
+        // A receipt from a different endpoint must never finish a purchase.
+        for destination in [
+            "https://foreign.example.invalid/api/billing/transactions",
+            "https://ouchi-maintenance.vercel.app/api/billing/transactions?changed=1",
+            "https://ouchi-maintenance.vercel.app:8443/api/billing/transactions",
+            "https://ouchi-maintenance.vercel.app/api/billing/recovery",
+            "http://ouchi-maintenance.vercel.app/api/billing/transactions"
+        ] {
+            let redirected = BillingAPI { _ in
+                (Data(#"{"saved":true,"environment":"Sandbox"}"#.utf8),
+                 HTTPURLResponse(url: URL(string: destination)!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            do { try await redirected.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("foreign endpoint ack accepted") }
+            catch { precondition(error as? CloudError == .malformedResponse) }
+        }
+        let oversized = BillingAPI { request in
+            (Data(count: 1_000_001), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        do { try await oversized.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("oversized acknowledgement accepted") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
         let right = BillingAPI { request in
             precondition(request.httpMethod == "GET" && request.httpBody == nil)
             return (Data(#"{"plan":"premium","purchaseAccountToken":"22222222-2222-4222-8222-222222222222","salesEnabled":false,"environment":"Sandbox","expiresAt":1791633600000,"productId":"ouchi.premium.monthly"}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)

@@ -1,5 +1,13 @@
 import Foundation
 
+private final class BillingRedirectBlocker: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+
 public enum BillingEnvironment: String, Codable, Sendable {
     case sandbox = "Sandbox"
     case production = "Production"
@@ -37,11 +45,24 @@ public enum BillingRecoveryRequest: String, Decodable, Sendable { case accepted;
 public struct BillingAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     public let environment: BillingEnvironment
-    public init(environment: BillingEnvironment = .sandbox, transport: @escaping HouseholdAPI.Transport = { request in
-        let (bytes, response) = try await URLSession.shared.data(for: request)
-        guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
-        return (bytes, response)
-    }) { self.environment = environment; self.transport = transport }
+    public init(environment: BillingEnvironment = .sandbox, transport: HouseholdAPI.Transport? = nil) {
+        self.environment = environment
+        self.transport = transport ?? { request in
+            // Reject redirects before transmitting a bearer or signed transaction
+            // to any second endpoint; a response URL check alone is too late.
+            let session = URLSession(configuration: .ephemeral, delegate: BillingRedirectBlocker(), delegateQueue: nil)
+            defer { session.invalidateAndCancel() }
+            let (bytes, response) = try await session.bytes(for: request)
+            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            var data = Data()
+            for try await byte in bytes {
+                try Task.checkCancellation()
+                guard data.count < 1_000_000 else { throw CloudError.malformedResponse }
+                data.append(byte)
+            }
+            return (data, response)
+        }
+    }
     private func send(path: String, token: String, body: Data?, allowedStatuses: Set<Int> = [200]) async throws -> (data: Data, status: Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/" + path)!
@@ -51,7 +72,7 @@ public struct BillingAPI: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         let (data, response) = try await transport(request)
-        guard response.url?.scheme == "https", response.url?.host == url.host, response.url?.path == url.path else { throw CloudError.malformedResponse }
+        guard response.url == url else { throw CloudError.malformedResponse }
         guard allowedStatuses.contains(response.statusCode) else {
             if response.statusCode == 401 { throw CloudError.authenticationRequired }
             throw CloudError.rejected(response.statusCode)
