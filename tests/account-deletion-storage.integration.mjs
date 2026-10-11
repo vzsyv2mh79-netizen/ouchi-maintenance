@@ -22,6 +22,8 @@ function attachmentModule(name){
 }
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
+const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
+const {storedNativePushBatch}=await compiled('lib/native-push-batch-store.ts');
 const {uploadProductAttachment}=await import(attachmentModule('attachment-upload'));
 const formalRouteCode=ts.transpileModule(readFileSync('app/api/development/verified-product-attachments/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
  .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
@@ -84,6 +86,19 @@ test('actual private Storage removal verifies absence and persists exact leased 
    ['start_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease}],
    ['finish_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease,outcome:'accepted'}],
   ])assert.ok((await user.rpc(name,args)).error);
+  const batchRegistered=await admin.rpc('register_maintenance_native_push',{...nativeArgs,token:'cd'.repeat(32)});assert.equal(batchRegistered.error,null);
+  const productionRegistered=await admin.rpc('register_maintenance_native_push',{...nativeArgs,token:'ef'.repeat(32),push_environment:'Production'});assert.equal(productionRegistered.error,null);
+  const page=await admin.rpc('page_maintenance_native_sandbox_devices',{after_id:null,batch_size:25});assert.equal(page.error,null);
+  assert.deepEqual(page.data,[nativeRegistered.data,batchRegistered.data].sort());assert.ok(!page.data.includes(productionRegistered.data));
+  assert.ok((await user.rpc('page_maintenance_native_sandbox_devices',{after_id:null,batch_size:25})).error);
+  let batchSends=0;
+  const batchDestination=storedNativePushDispatch(admin,async input=>{assert.equal(input.deviceToken,'cd'.repeat(32));assert.equal(input.dueCount,1);batchSends++;return 'accepted';});
+  const batchJob=storedNativePushJob(admin,countedNativePushDispatch(admin,batchDestination));
+  const batch=storedNativePushBatch(admin,(job,signal)=>runNativePushJob(job,batchJob,signal));
+  const afterNine=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',hour:'numeric',hourCycle:'h23'}).format(new Date()))>=9;
+  const firstBatch=await runNativePushBatch(batch);assert.equal(firstBatch.status,'complete');assert.equal(firstBatch.visited,2);assert.equal(firstBatch.unconfirmed,0);assert.equal(firstBatch.accepted,afterNine?1:0);
+  const repeatBatch=await runNativePushBatch(batch);assert.equal(repeatBatch.status,'complete');assert.equal(repeatBatch.accepted,0);assert.equal(batchSends,afterNine?1:0);
+  console.log(afterNine?'Native daily batch actual RPC path verified after Tokyo 09:00; repeat did not resend.':'Native daily batch morning gate verified; positive send path not exercised before Tokyo 09:00.');
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
   const sharedBefore=await other.from('products').select('id').eq('id',product);assert.equal(sharedBefore.error,null);assert.deepEqual(sharedBefore.data,[{id:product}]);
