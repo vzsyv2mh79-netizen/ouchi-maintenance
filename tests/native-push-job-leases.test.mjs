@@ -7,7 +7,7 @@ test('native job leases fence stale workers and never automatically resend uncer
  try {
   await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz);');
   await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,"homeId" uuid);create table public.maintenance_tasks(id uuid primary key,"productId" uuid,"nextDueAt" date);create table public.home_members("homeId" uuid,user_id uuid);grant select on public.homes,public.products,public.maintenance_tasks,public.home_members to service_role;');
-  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
+  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql','20261011042826_ouchi_native_push_delivery_day_gate.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
   const user='11111111-1111-4111-8111-111111111111', session='22222222-2222-4222-8222-222222222222', wrong='33333333-3333-4333-8333-333333333333';
   await db.query('insert into auth.users values($1)',[user]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
   const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2) as e',[user,session])).rows[0].e;
@@ -45,6 +45,7 @@ test('native job leases fence stale workers and never automatically resend uncer
   const replacement=await claim(recoverable);assert.ok(replacement);assert.notEqual(old,replacement);
   assert.equal(await start(recoverable,old),false);assert.equal(await start(recoverable,replacement),true);
   assert.equal(await finish(recoverable,replacement,'delivery-unknown'),true);assert.equal(await claim(recoverable),null);
+  const overdueDaily=await job();await db.query("update maintenance_private.native_notification_jobs set delivery_day=(clock_timestamp() at time zone 'Asia/Tokyo')::date-1 where id=$1",[overdueDaily]);const overdueLease=await claim(overdueDaily);assert.ok(overdueLease);assert.equal((await db.query('select public.count_maintenance_native_job_due($1,$2) as n',[overdueDaily,overdueLease])).rows[0].n,null);
   const legacy=await job('claimed');assert.equal(await claim(legacy),null);assert.equal(await start(legacy,null),false);
   const retrying=await job();
   for(let attempt=0;attempt<3;attempt++){
