@@ -1002,11 +1002,16 @@ private struct DevelopmentAttachmentView: View {
             Button("テスト用ファイルを送信") {
                 guard let bytes, let product = UUID(uuidString: productID) else { return }
                 let id = attachmentID, media = mime
+                let home = store.homeID, selected = productID, expected = listingGeneration
                 Task {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
+                        guard !Task.isCancelled, home == store.homeID, selected == productID, expected == listingGeneration, id == attachmentID else { return }
                         self.bytes = nil; filename = ""; mime = ""
                         await loadAttachmentPage(reset: true)
-                        attachmentUsage = await store.developmentAttachmentUsage()
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        let usage = await store.developmentAttachmentUsage()
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        attachmentUsage = usage
                     }
                 }
             }
@@ -1021,7 +1026,10 @@ private struct DevelopmentAttachmentView: View {
                           !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
                     pendingRemoval = nil
                     await loadAttachmentPage(reset: true)
-                    attachmentUsage = await store.developmentAttachmentUsage()
+                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        let usage = await store.developmentAttachmentUsage()
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        attachmentUsage = usage
                 }
             }
             Button("キャンセル", role: .cancel) {}
@@ -1037,7 +1045,10 @@ private struct DevelopmentAttachmentView: View {
                     pendingRemoval = await store.resumeDevelopmentAttachmentRemoval()
                     guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, removed else { return }
                     await loadAttachmentPage(reset: true)
-                    attachmentUsage = await store.developmentAttachmentUsage()
+                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        let usage = await store.developmentAttachmentUsage()
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        attachmentUsage = usage
                 }
             }
             Button("キャンセル", role: .cancel) { removalID = nil }
@@ -1052,7 +1063,7 @@ private struct DevelopmentAttachmentView: View {
             listingLoading = false; nextAttachment = nil
             savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
                 let pendingProduct = pending.product.uuidString.lowercased()
                 guard store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == pendingProduct }) == true else {
                     status = "確認待ちのファイルは別の住まいの製品に保存予定です。添付先の住まいに切り替えてから、この画面を開き直してください。製品が削除された場合は、サーバーの予約状態を確認する必要があります。"
@@ -1062,14 +1073,16 @@ private struct DevelopmentAttachmentView: View {
                 if productID.lowercased() != pendingProduct { productID = pendingProduct; return }
             }
             let usage = await store.developmentAttachmentUsage()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
             attachmentUsage = usage
             await loadAttachmentPage(reset: true)
         }
         .onChange(of: store.homeID) { _, _ in
             listingGeneration += 1; listingLoading = false; nextAttachment = nil; savedAttachments = []
             if bytes == nil { productID = "" }
-            confirmRemoval = false; removalID = nil
+            confirmUpload = false; confirmRemoval = false; removalID = nil
+            confirmRetryRemoval = false; pendingRemoval = nil; attachmentUsage = nil
+            store.clearDevelopmentAttachmentExport()
             status = "住まいを変更しました。添付先の製品を確認してください。"
         }
         .onDisappear { listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
