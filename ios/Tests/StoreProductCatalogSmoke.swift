@@ -33,6 +33,15 @@ import OuchiCore
             precondition(PurchaseDisclosureLinks(reviewed: true, terms: terms, privacy: privacy, support: invalid) == nil)
         }
         print("PASS: new purchase disclosure configuration requires reviewed destinations; missing, relative, insecure, credential-bearing and malformed destinations are refused. Synthetic URLs are not published or fetched; policy contents and availability remain unverified.")
+        let retention = "合成テスト専用。正式な保存方針ではありません。"
+        precondition(SubscriptionOfferDisclosure(reviewed: false, maximumBytes: 100, maximumFiles: 2, maximumFileBytes: 50, retention: retention) == nil)
+        let invalidOffers: [(Int64, Int, Int64, String)] = [(0, 2, 50, retention), (100, 0, 50, retention), (100, 2, 0, retention), (100, 2, 101, retention), (-1, 2, 50, retention), (100, 2, 50, " \n "), (100, 2, 50, String(repeating: "x", count: 2001))]
+        for values in invalidOffers {
+            precondition(SubscriptionOfferDisclosure(reviewed: true, maximumBytes: values.0, maximumFiles: values.1, maximumFileBytes: values.2, retention: values.3) == nil)
+        }
+        let offer = SubscriptionOfferDisclosure(reviewed: true, maximumBytes: 100, maximumFiles: 2, maximumFileBytes: 50, retention: retention)
+        precondition(offer?.maximumBytes == 100 && offer?.maximumFiles == 2 && offer?.maximumFileBytes == 50 && offer?.retention == retention)
+        print("PASS: subscription disclosures require reviewed positive and consistent limits plus a finite nonempty retention explanation. Synthetic limits are not actual service capacity or a verified paid benefit.")
         print("PASS: synthetic store metadata offers same-group one-month/one-year plans; refuses missing/mismatched group, duration/type errors, unknown IDs and duplicate catalogs; optional consumable tips remain independent. No StoreKit price lookup, purchase, entitlement or actual App Store Connect configuration verified.")
     }
 }

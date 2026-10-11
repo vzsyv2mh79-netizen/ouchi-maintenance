@@ -825,11 +825,25 @@ struct FormalChannelSelection {
             privacy: info["OUCHI_PRIVACY_URL"] as? String ?? "",
             support: info["OUCHI_SUPPORT_URL"] as? String ?? "")
     }
+    var releaseSubscriptionDisclosure: SubscriptionOfferDisclosure? {
+        guard let environment = releasePurchaseEnvironment,
+              formalReportEnvironment == environment, formalReminderEnvironment == environment,
+              !developmentLifecycleConfigured,
+              Bundle.main.infoDictionary?["OUCHI_ATTACHMENTS_ENABLED"] as? Bool == true else { return nil }
+        let info = Bundle.main.infoDictionary ?? [:]
+        return SubscriptionOfferDisclosure(
+            reviewed: info["OUCHI_SUBSCRIPTION_OFFER_REVIEWED"] as? Bool == true,
+            maximumBytes: (info["OUCHI_ATTACHMENT_MAXIMUM_BYTES"] as? NSNumber)?.int64Value ?? 0,
+            maximumFiles: (info["OUCHI_ATTACHMENT_MAXIMUM_FILES"] as? NSNumber)?.intValue ?? 0,
+            maximumFileBytes: (info["OUCHI_ATTACHMENT_MAXIMUM_FILE_BYTES"] as? NSNumber)?.int64Value ?? 0,
+            retention: info["OUCHI_ATTACHMENT_RETENTION_DESCRIPTION"] as? String ?? "")
+    }
     func releaseNewPurchaseConfigured(subscription: Bool) -> Bool {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
         if releaseFixtureBilling != nil { return releaseFixturePurchasesEnabled }
         #endif
         guard releasePurchaseEnvironment != nil, releasePurchaseDisclosureLinks != nil else { return false }
+        if subscription && releaseSubscriptionDisclosure == nil { return false }
         let key = subscription ? "OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED" : "OUCHI_RELEASE_TIPS_ENABLED"
         return Bundle.main.infoDictionary?[key] as? Bool == true
     }

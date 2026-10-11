@@ -42,6 +42,16 @@
 	<string></string>
 	<key>OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED</key>
 	<false/>
+	<key>OUCHI_SUBSCRIPTION_OFFER_REVIEWED</key>
+	<false/>
+	<key>OUCHI_ATTACHMENT_MAXIMUM_BYTES</key>
+	<integer>0</integer>
+	<key>OUCHI_ATTACHMENT_MAXIMUM_FILES</key>
+	<integer>0</integer>
+	<key>OUCHI_ATTACHMENT_MAXIMUM_FILE_BYTES</key>
+	<integer>0</integer>
+	<key>OUCHI_ATTACHMENT_RETENTION_DESCRIPTION</key>
+	<string></string>
 	<key>OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED</key>
 	<false/>
 	<key>OUCHI_RELEASE_PURCHASE_ENVIRONMENT</key>

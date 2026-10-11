@@ -25,6 +25,22 @@ public struct PurchaseDisclosureLinks: Equatable, Sendable {
     }
 }
 
+/// Reviewed service limits, not an entitlement or proof of service delivery.
+public struct SubscriptionOfferDisclosure: Equatable, Sendable {
+    public let maximumBytes: Int64
+    public let maximumFiles: Int
+    public let maximumFileBytes: Int64
+    public let retention: String
+    public init?(reviewed: Bool, maximumBytes: Int64, maximumFiles: Int,
+                 maximumFileBytes: Int64, retention: String) {
+        let text = retention.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard reviewed, maximumBytes > 0, maximumFiles > 0, maximumFileBytes > 0,
+              maximumFileBytes <= maximumBytes, !text.isEmpty, text.count <= 2000 else { return nil }
+        self.maximumBytes = maximumBytes; self.maximumFiles = maximumFiles
+        self.maximumFileBytes = maximumFileBytes; self.retention = text
+    }
+}
+
 /// Public store metadata only. This policy never verifies a transaction or grants access.
 public struct StoreProductDescriptor: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case consumable, autoRenewable, other }
