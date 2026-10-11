@@ -10,7 +10,7 @@ const arg=name=>process.argv.includes(name)?process.argv[process.argv.indexOf(na
 assert.ok(arg('--playwright-module'));const imported=await import(pathToFileURL(arg('--playwright-module')).href),{chromium}=imported.default??imported;
 const directory=mkdtempSync(join(tmpdir(),'ouchi-reminder-ui-')),root=process.cwd();let browser,child,logs='';
 const write=(name,value)=>{mkdirSync(join(directory,name,'..'),{recursive:true});writeFileSync(join(directory,name),value);};
-const account='11111111-1111-4111-8111-111111111111',home='22222222-2222-4222-8222-222222222222',epoch='33333333-3333-4333-8333-333333333333';
+const account='11111111-1111-4111-8111-111111111111',epoch='33333333-3333-4333-8333-333333333333';
 try{
  symlinkSync(join(root,'node_modules'),join(directory,'node_modules'),'dir');
  for(const name of ['components/reminder-settings-controls.tsx','lib/web-reminder-client.ts','lib/reminder-schedule.ts','app/globals.css','postcss.config.mjs']){mkdirSync(join(directory,name,'..'),{recursive:true});copyFileSync(join(root,name),join(directory,name));}

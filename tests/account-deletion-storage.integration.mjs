@@ -209,6 +209,24 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await reminderServiceResponse(formalReminderRequest(undefined,paidToken,randomUUID()),formalReminderConfig,formalReminderFactory)).status,403);
   assert.equal((await reminderServiceResponse(formalReminderRequest({revision:0,schedule:selectedSchedule},signup.data.session.access_token,epoch.data),formalReminderConfig,formalReminderFactory)).status,403);
 
+
+  // Real disposable PostgreSQL/Auth RPC job path; APNs is never contacted.
+  const scheduledRegistration=await admin.rpc('register_maintenance_native_push',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,token:'34'.repeat(32),push_environment:'Sandbox'});assert.equal(scheduledRegistration.error,null);
+  const todayWeekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',weekday:'short'}).format(new Date()))+1;
+  const jobSchedule={minuteOfDay:0,weekdays:[todayWeekday],leadDays:3,includeOverdue:false};
+  assert.equal((await settingsRequest(paidToken,{revision:1,schedule:jobSchedule})).status,200);
+  const tomorrow=new Date(Date.now()+86400000).toLocaleDateString('en-CA',{timeZone:'Asia/Tokyo'}),scheduledTask=randomUUID();
+  assert.equal((await other.from('maintenance_tasks').insert({id:scheduledTask,productId:paidProduct,name:'Synthetic schedule lead task',kind:'点検',intervalDays:30,nextDueAt:tomorrow,sourceKind:'ユーザー設定'})).error,null);
+  const queued=await admin.rpc('enqueue_maintenance_native_daily_job',{registration_id:scheduledRegistration.data});assert.equal(queued.error,null);assert.ok(queued.data);
+  assert.equal((await admin.rpc('enqueue_maintenance_native_daily_job',{registration_id:scheduledRegistration.data})).data,queued.data);
+  const queuedLease=await admin.rpc('claim_maintenance_native_push_job',{target_job:queued.data});assert.equal(queuedLease.error,null);assert.ok(queuedLease.data);
+  const countedArgs={target_job:queued.data,target_lease:queuedLease.data};assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,1);
+  assert.equal((await settingsRequest(paidToken,{revision:2,schedule:selectedSchedule})).status,200);
+  assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,null);
+  assert.equal((await admin.rpc('start_maintenance_native_push_job',countedArgs)).data,false);
+  assert.equal((await other.from('maintenance_tasks').delete().eq('id',scheduledTask)).error,null);
+  console.log('Native stored schedule actual Auth/PostgreSQL RPC: lead-day enqueue, daily uniqueness, claimed count and changed-setting start refusal. No APNs delivery or Apple signature.');
+
   const reportKeys=['VERCEL_ENV','OUCHI_REPORT_TEST_MODE','NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE'];
   const reportBefore=Object.fromEntries(reportKeys.map(key=>[key,process.env[key]]));
   async function reportRequest(targetHome){
