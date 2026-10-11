@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import plistlib
 
 root = Path(__file__).resolve().parent
 project = root / 'LocalStoreKitCatalog.xcodeproj'
@@ -17,6 +18,7 @@ host = ref('host-source','LocalStoreKitHost.swift','sourcecode.swift')
 tests = ref('tests-source','LocalStoreKitCatalogTests.swift','sourcecode.swift')
 catalog = ref('catalog','OuchiLocal.storekit','text')
 purchase = ref('purchase-source','../OuchiMaintenance/PurchaseManager.swift','sourcecode.swift')
+native_sources = [ref('native-'+name, '../OuchiMaintenance/'+name+'.swift','sourcecode.swift') for name in ['NativeStore','KeychainSessionStorage','LocalReminders','NativeReviewFixture']]
 package=obj('core-package','XCLocalSwiftPackageReference',relativePath='..')
 core=obj('core-product','XCSwiftPackageProductDependency',package=package,productName='OuchiCore')
 app_product = ref('app-product','LocalStoreKitHost.app','wrapper.application','BUILT_PRODUCTS_DIR')
@@ -25,7 +27,7 @@ def phase(name, isa, refs):
     builds = [obj(name+str(i), 'PBXBuildFile', fileRef=r) for i,r in enumerate(refs)]
     return obj(name, isa, buildActionMask=2147483647, files=builds, runOnlyForDeploymentPostprocessing=0)
 app_sources=phase('app-sources','PBXSourcesBuildPhase',[host])
-test_sources=phase('test-sources','PBXSourcesBuildPhase',[tests,purchase])
+test_sources=phase('test-sources','PBXSourcesBuildPhase',[tests,purchase,*native_sources])
 core_build=obj('core-link','PBXBuildFile',productRef=core)
 test_frameworks=obj('test-frameworks','PBXFrameworksBuildPhase',buildActionMask=2147483647,files=[core_build],runOnlyForDeploymentPostprocessing=0)
 test_resources=phase('test-resources','PBXResourcesBuildPhase',[catalog])
@@ -39,14 +41,19 @@ def configs(name, extra):
         if configuration=='Debug': settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS']='DEBUG OUCHI_LOCAL_STOREKIT_TESTS' if name=='test' else 'DEBUG'
         ids.append(obj(name+configuration,'XCBuildConfiguration',buildSettings=settings,name=configuration))
     return obj(name+'configs','XCConfigurationList',buildConfigurations=ids,defaultConfigurationIsVisible=0,defaultConfigurationName='Debug')
-app_configs=configs('app',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog'})
+host_info={'CFBundleExecutable':'$(EXECUTABLE_NAME)','CFBundleIdentifier':'$(PRODUCT_BUNDLE_IDENTIFIER)',
+           'CFBundleName':'$(PRODUCT_NAME)','CFBundlePackageType':'APPL','CFBundleShortVersionString':'1.0',
+           'CFBundleVersion':'1','LSMinimumSystemVersion':'$(MACOSX_DEPLOYMENT_TARGET)',
+           'NSPrincipalClass':'NSApplication','SKIncludeConsumableInAppPurchaseHistory':True}
+(root/'LocalStoreKitHost-Info.plist').write_bytes(plistlib.dumps(host_info))
+app_configs=configs('app',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog','GENERATE_INFOPLIST_FILE':'NO','INFOPLIST_FILE':'LocalStoreKitHost-Info.plist'})
 test_configs=configs('test',{'PRODUCT_BUNDLE_IDENTIFIER':'dev.ouchi.review.storekit.catalog.tests','TEST_HOST':'$(BUILT_PRODUCTS_DIR)/LocalStoreKitHost.app/Contents/MacOS/LocalStoreKitHost','BUNDLE_LOADER':'$(TEST_HOST)','FRAMEWORK_SEARCH_PATHS':['$(inherited)','$(PLATFORM_DIR)/Developer/Library/Frameworks']})
 app_id=obj('app-target','PBXNativeTarget',buildConfigurationList=app_configs,buildPhases=[app_sources],buildRules=[],dependencies=[],name='LocalStoreKitHost',productName='LocalStoreKitHost',productReference=app_product,productType='com.apple.product-type.application')
 proxy=obj('dependency-proxy','PBXContainerItemProxy',containerPortal=key('project'),proxyType=1,remoteGlobalIDString=app_id,remoteInfo='LocalStoreKitHost')
 dependency=obj('dependency','PBXTargetDependency',target=app_id,targetProxy=proxy)
 test_id=obj('test-target','PBXNativeTarget',buildConfigurationList=test_configs,buildPhases=[test_sources,test_resources,test_frameworks],buildRules=[],dependencies=[dependency],packageProductDependencies=[core],name='LocalStoreKitCatalogTests',productName='LocalStoreKitCatalogTests',productReference=test_product,productType='com.apple.product-type.bundle.unit-test')
 products=obj('products','PBXGroup',children=[app_product,test_product],name='Products',sourceTree='<group>')
-group=obj('main-group','PBXGroup',children=[host,tests,catalog,purchase,products],sourceTree='<group>')
+group=obj('main-group','PBXGroup',children=[host,tests,catalog,purchase,*native_sources,products],sourceTree='<group>')
 project_configs=configs('project',{})
 obj('project','PBXProject',attributes={'LastUpgradeCheck':'2700','TargetAttributes':{test_id:{'TestTargetID':app_id}}},buildConfigurationList=project_configs,compatibilityVersion='Xcode 14.0',developmentRegion='ja',hasScannedForEncodings=0,knownRegions=['ja','en','Base'],mainGroup=group,productRefGroup=products,packageReferences=[package],projectDirPath='',projectRoot='',targets=[app_id,test_id])
 def render(v):

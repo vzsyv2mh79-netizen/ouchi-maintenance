@@ -2,6 +2,9 @@ import Foundation
 import Combine
 import StoreKit
 import OuchiCore
+#if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+import AppKit
+#endif
 
 struct FormalNativePushSelection {
     let receipt: NativePushRegistrationReceipt
@@ -87,7 +90,29 @@ struct FormalChannelSelection {
     private var attachmentExportGeneration = 0
     @Published private(set) var report: MaintenanceReport?
     let purchases = PurchaseManager()
-    lazy var releasePurchases = PurchaseManager(environment: releasePurchaseEnvironment ?? .production)
+    lazy var releasePurchases: PurchaseManager = {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if let releaseFixturePurchases { return releaseFixturePurchases }
+        #endif
+        return PurchaseManager(environment: releasePurchaseEnvironment ?? .production)
+    }()
+    #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+    private var releaseFixturePurchases: PurchaseManager?
+    private var releaseFixtureBilling: BillingAPI?
+    init(localStoreKitWindow: NSWindow, household: HouseholdAPI, session: SessionController, billing: BillingAPI, account: UUID) throws {
+        guard Bundle.main.bundleIdentifier == "dev.ouchi.review.storekit.catalog",
+              Bundle(for: NativeStore.self).bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests",
+              billing.environment == .sandbox, account == NativeReviewFixture.account else { throw CloudError.unavailable }
+        api = household; self.session = session; isolatedDevelopmentEnabled = false
+        releaseFixturePurchases = try PurchaseManager(localStoreKitFixtureWindow: localStoreKitWindow)
+        releaseFixtureBilling = billing
+        isUIReviewSample = true; snapshotAccount = account; signedIn = true
+    }
+    func replaceReleaseFixtureBinding() throws {
+        guard releaseFixtureBilling != nil else { throw CloudError.unavailable }
+        accountBindingRevision = UUID()
+    }
+    #endif
     @Published private(set) var releaseEntitlement: VerifiedEntitlement?
     private var releasePurchaseEpoch: UUID?
     private var releaseBillingAccount: UUID?
@@ -779,10 +804,19 @@ struct FormalChannelSelection {
         releasePurchaseEnvironment != nil
     }
     var releasePurchaseEnvironment: BillingEnvironment? {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if let releaseFixtureBilling { return releaseFixtureBilling.environment }
+        #endif
         guard api != nil, !isUIReviewSample,
               Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED"] as? Bool == true,
               let value = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String else { return nil }
         return BillingEnvironment(rawValue: value)
+    }
+    private func releaseBillingAPI(environment: BillingEnvironment) -> BillingAPI {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if let releaseFixtureBilling { return releaseFixtureBilling }
+        #endif
+        return BillingAPI(environment: environment)
     }
     private func clearReleaseBilling() {
         releasePurchases.stopObserving(); releasePurchases.persist = nil
@@ -798,7 +832,7 @@ struct FormalChannelSelection {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
                   snapshotAccount == credentials.user.id else { return }
-            let billing = BillingAPI(environment: environment)
+            let billing = releaseBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             let current = try await session.credentials()
             guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
@@ -844,7 +878,7 @@ struct FormalChannelSelection {
             guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
                   credentials.user.id == account, snapshotAccount == account else { return }
             let result = try await releasePurchases.restore(account: epoch)
-            let rights = try await BillingAPI(environment: environment).entitlement(token: credentials.access_token)
+            let rights = try await releaseBillingAPI(environment: environment).entitlement(token: credentials.access_token)
             let current = try await session.credentials()
             guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
                   current.user.id == account, current.access_token == credentials.access_token,

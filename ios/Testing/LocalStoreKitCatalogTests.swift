@@ -2,6 +2,49 @@ import Foundation
 import AppKit
 import XCTest
 import StoreKitTest
+import OuchiCore
+
+private actor ReleaseBillingHTTPFixture {
+    static let epoch = UUID(uuidString: "6CCCCCCC-CCCC-4CCC-8CCC-CCCCCCCCCCCC")!
+    private var premium = false
+    private var fail = false
+    private var block = false
+    private var gate: CheckedContinuation<Void, Never>?
+    private(set) var blocked = false
+    private(set) var submissions = 0
+    func setPremium(_ value: Bool) { premium = value }
+    func failReads() { fail = true }
+    func blockNextRead() { block = true }
+    func resumeRead() { gate?.resume(); gate = nil }
+    func reply(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        guard let url = request.url, url.scheme == "https", url.host == "ouchi-maintenance.vercel.app",
+              request.value(forHTTPHeaderField: "Authorization") == "Bearer " + NativeReviewFixture.token else { throw CloudError.invalidInput }
+        let body: [String: Any]
+        switch (request.httpMethod, url.path) {
+        case ("GET", "/api/billing/entitlement"):
+            if block {
+                block = false; blocked = true
+                await withCheckedContinuation { gate = $0 }
+            }
+            if fail { throw URLError(.notConnectedToInternet) }
+            var rights: [String: Any] = ["plan": premium ? "premium" : "free", "salesEnabled": false,
+                "environment": "Sandbox", "purchaseAccountToken": Self.epoch.uuidString]
+            if premium {
+                rights["productId"] = "ouchi.premium.monthly"
+                rights["expiresAt"] = Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000
+            }
+            body = rights
+        case ("POST", "/api/billing/transactions"):
+            let input = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
+            guard input.count == 1, input["signedTransaction"]?.split(separator: ".").count == 3 else { throw CloudError.invalidInput }
+            submissions += 1; body = ["saved": true, "environment": "Sandbox"]
+        default: throw CloudError.unavailable
+        }
+        return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: url, statusCode: 200,
+            httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
+        // Mock acknowledgement, not Apple JWS verification or a paid-right grant.
+    }
+}
 import StoreKit
 
 // Dedicated test bundle only. Do not include in OuchiMaintenance app sources.
@@ -73,6 +116,81 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
         return window
+    }
+    @MainActor private func releaseStore(_ fixture: ReleaseBillingHTTPFixture, window: NSWindow) async throws -> NativeStore {
+        let householdFixture = NativeReviewFixture()
+        let configuration = try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,
+                                                   publishableKey: "sb_publishable_synthetic_review_only")
+        let household = HouseholdAPI(config: configuration, transport: { try await householdFixture.reply($0) })
+        let session = SessionController(api: household, storage: NativeReviewSessionStorage(try NativeReviewFixture.sessionBytes()))
+        let restored = try await session.restore()
+        XCTAssertTrue(restored)
+        let billing = BillingAPI(environment: .sandbox, transport: { try await fixture.reply($0) })
+        return try NativeStore(localStoreKitWindow: window, household: household, session: session, billing: billing,
+                               account: NativeReviewFixture.account)
+    }
+    @MainActor func testReleaseControllerClearsRightsOnReadFailure() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        await fixture.setPremium(true)
+        let store = try await releaseStore(fixture, window: window)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState()
+        XCTAssertTrue(store.releaseEntitlement?.premiumIsCurrent(expectedEnvironment: .sandbox) == true)
+        await fixture.failReads()
+        await store.loadReleasePurchaseState()
+        XCTAssertNil(store.releaseEntitlement, "failed verification must not retain an old premium display")
+        XCTAssertTrue(store.releasePurchases.needsRetry)
+        XCTAssertFalse(store.busy)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testReleaseControllerDiscardsDelayedRightsAfterBindingReplacement() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        await fixture.setPremium(true); await fixture.blockNextRead()
+        let store = try await releaseStore(fixture, window: window)
+        defer { store.releasePurchases.stopObserving() }
+        let request = Task { await store.loadReleasePurchaseState() }
+        for _ in 0..<200 {
+            if await fixture.blocked { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let blocked = await fixture.blocked
+        XCTAssertTrue(blocked)
+        try store.replaceReleaseFixtureBinding()
+        await fixture.resumeRead(); await request.value
+        XCTAssertNil(store.releaseEntitlement)
+        XCTAssertNil(store.releasePurchases.persist)
+        XCTAssertFalse(store.busy)
+        withExtendedLifetime(session) {}
+    }
+    @MainActor func testReleaseControllerPurchasePersistenceAndRestoreUseIssuedEpoch() async throws {
+        XCTAssertEqual(Bundle.main.infoDictionary?["SKIncludeConsumableInAppPurchaseHistory"] as? Bool, true,
+                       "host must match shipping consumable-history configuration")
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState()
+        XCTAssertEqual(store.releaseEntitlement?.purchaseAccountToken, ReleaseBillingHTTPFixture.epoch)
+        XCTAssertEqual(store.releaseEntitlement?.plan, .free)
+        try await store.releasePurchases.load()
+        let tip = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.tip.small" })
+        guard case .saved = try await store.releasePurchases.purchase(tip, account: ReleaseBillingHTTPFixture.epoch) else {
+            XCTFail("issued epoch purchase was not persisted"); return
+        }
+        let transaction = try await latest(tip.id, phase: "release controller persistence") { $0.appAccountToken == ReleaseBillingHTTPFixture.epoch }
+        let calls = await fixture.submissions
+        XCTAssertGreaterThanOrEqual(calls, 1)
+        XCTAssertEqual(store.releaseEntitlement?.plan, .free, "a tip must not create premium rights")
+        await store.restoreReleasePurchases()
+        XCTAssertTrue(store.message?.contains("購入履歴") == true)
+        XCTAssertEqual(store.releaseEntitlement?.purchaseAccountToken, ReleaseBillingHTTPFixture.epoch)
+        let restoredCalls = await fixture.submissions
+        XCTAssertGreaterThan(restoredCalls, calls)
+        let unfinished = try await unfinishedContains(transaction.id)
+        XCTAssertFalse(unfinished)
+        withExtendedLifetime(session) {}
     }
     private func localClaims(_ jws: String) throws -> [String: Any] {
         let segments = jws.split(separator: ".")
