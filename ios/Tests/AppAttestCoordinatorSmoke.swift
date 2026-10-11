@@ -223,6 +223,16 @@ actor CoordinatorSyntheticHTTP {
         try await restarted.completeLocalClosure(confirmation:confirmation,session:localSession)
         let removed=try references.pendingClosure(account:closingContext.userID);precondition(removed==nil)
         await refused { _ = try await restarted.register(captured:closingContext) }
+        // A foreign-controller proof must not poison a fresh instance after
+        // another instance has completed the durable closure.
+        let fresh = try AppAttestRegistrationCoordinator(currentContext: { closingContext },
+            device: AppAttestDeviceService(operations: closingDevice.operations),
+            encryptionKeys: keys, references: references, pending: pending,
+            retentionMilliseconds: 3600000,
+            transport: { _ in fatalError("rejected closure reached HTTP") }, now: { now })
+        await refused { try await fresh.completeLocalClosure(confirmation: confirmation, session: foreignController) }
+        let untouched = try await fresh.pruneExpiredPending(captured: closingContext)
+        precondition(untouched == 0, "invalid proof must not disable unrelated future maintenance")
         // The coordinator-free path uses the same session-bound finalizer.
         let fallbackClosure = try references.beginClosure(AppAttestAccountClosure(
             accountID: closingContext.userID, requestID: UUID(), createdAtMilliseconds: now,

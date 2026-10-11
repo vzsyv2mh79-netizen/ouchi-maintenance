@@ -142,6 +142,10 @@ public actor AppAttestRegistrationCoordinator {
     }
     public func completeLocalClosure(confirmation: LocalSessionErasureConfirmation, session: SessionController) async throws {
         let account=confirmation.accountID
+        // A rejected proof must not close an otherwise usable coordinator.
+        // Recheck the reservation after the actor hop before changing state.
+        try await session.withConfirmedErasure(confirmation) {}
+        try Task.checkCancellation()
         guard activeAccount != account else { throw CloudError.authenticationRequired }
         closingAccounts.insert(account)
         try await references.completeLocalClosure(confirmation: confirmation, session: session,
