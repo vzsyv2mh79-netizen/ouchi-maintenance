@@ -21,3 +21,26 @@ iPhone: ReportAPIで本人JWTを固定ホストの開発APIへ送る通信と、
 サーバーは30秒の全体期限と10秒の個別通信期限を組み合わせ、返却直前に現在のアカウント・正式または旧Sandbox台帳の利用権を再確認する。iPhone側も中断された応答を表示しない。共有表示部品を使うDEBUG限定のレポートサンプルをSimulatorで表示確認し、Releaseバイナリからサンプル画面と専用起動引数が除外されることを確認済み。
 
 最新Previewの配信成功はAPIの利用可能性を証明しない。fd14bfe7のPreviewはREADYだったが、既存Vercel認証を使ったAPI確認では503だった。iPhoneの固定Previewへの実データ取得、本番用の環境構成、Appleの実購入、署名付き配布および実機での表示確認は引き続き未完了。冒頭の旧検証記述をこれらの追加結果で補足するが、販売可能な特典とはまだ扱わない。
+
+
+## Read-only ledger configuration update (b6922c4)
+
+The development report now supports a separate read-only Sandbox configuration:
+`OUCHI_REPORT_TEST_MODE=true`, `BILLING_MODE=sandbox`,
+`BILLING_ACCOUNT_BINDING_MODE=epoch`, `BILLING_STORAGE_MODE=verified-ledger`,
+and the server database/publishable settings. No Apple bundle ID/root certificates
+are required for this *existing verified ledger read*. Purchase proof acceptance
+still uses the unchanged Apple verifier configuration. Never create paid rights
+in a shared project to demonstrate the screen.
+
+Auth verifies the exact bearer, current session/epoch is required, and household
+reads use the caller JWT/RLS. Authoritative paid rights and current identity are
+rechecked before returning the report. Free/expired/revoked accounts remain
+refused. Production remains disabled. Existing explicitly configured legacy
+Sandbox test behavior remains available; it does not bypass epoch checks.
+
+Four route/calculation tests, typecheck and lint passed locally. The actual
+Auth/PostgREST test removes Apple bundle/root settings before checking paid200,
+unknown-home404 and revoked403; all four b6922c4 CI workflows succeeded (native38109502207, Auth38109502267, migration38109502265, regression38109502194). Actual integration job114381932425 ran one Storage lifecycle test with zero skips.
+These synthetic ledger transactions are not Apple-signed purchases. Preview
+configuration has not been changed and its last observed API response was503.
