@@ -198,6 +198,19 @@ actor CoordinatorSyntheticHTTP {
         let closing=try AppAttestRegistrationCoordinator(currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await closingHTTP.send($0) },now:{ now })
         let running=Task { try await closing.register(captured:closingContext) }
         await closingDevice.waitForAttestation()
+        // A second coordinator/storage actor must share the process-wide lease.
+        let separatePending = AppAttestPendingRegistrationStorage(root: root, keyProvider: { account, epoch in
+            guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }; return key
+        })
+        let separate = try AppAttestRegistrationCoordinator(currentContext: { closingContext }, device: AppAttestDeviceService(operations: closingDevice.operations), encryptionKeys: keys, references: references, pending: separatePending, retentionMilliseconds: 3600000,
+            transport: { _ in fatalError("overlapping coordinator reached network") }, now: { now })
+        await refused { _ = try await separate.register(captured: closingContext) }
+        await refused { _ = try await separate.pruneExpiredPending(captured: closingContext) }
+        await refused { try await separate.closeAccount(account: closingContext.userID) }
+        let overlappingClosure = try references.pendingClosure(account: closingContext.userID)
+        precondition(overlappingClosure == nil, "refused competing cleanup must not mutate closure or keys")
+        let duringCallback = try references.generated(account: closingContext.userID, epoch: closingContext.epochID, nowMilliseconds: now)
+        precondition(duringCallback != nil && closingDevice.counts() == (1,1))
         await refused { _ = try await closing.register(captured:closingContext) }
         try await closing.stopAcceptingRegistration(account:closingContext.userID)
         let cleanup=Task { try await closing.closeAccount(account:closingContext.userID) }

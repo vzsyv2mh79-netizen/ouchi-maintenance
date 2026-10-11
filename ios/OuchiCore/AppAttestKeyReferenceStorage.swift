@@ -283,6 +283,8 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
                                      session: SessionController,
                                      pending: AppAttestPendingRegistrationStorage,
                                      encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+        let lease = try await pending.acquireMutationLease()
+        defer { lease.release() }
         let account = confirmation.accountID
         guard let record = try pendingClosure(account: account) else { throw CloudError.authenticationRequired }
         try await session.withConfirmedErasure(confirmation) {}
@@ -305,6 +307,8 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
                                             session: SessionController,
                                             pending: AppAttestPendingRegistrationStorage,
                                             encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+        let lease = try await pending.acquireMutationLease()
+        defer { lease.release() }
         guard try pendingClosure(account: expected.accountID) == expected else { throw CloudError.authenticationRequired }
         let permit = try await session.prepareLocalClosureRecovery(accountID: expected.accountID)
         try Task.checkCancellation()

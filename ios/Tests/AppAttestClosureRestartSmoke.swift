@@ -102,12 +102,17 @@ struct RestartEmptySession: SessionStorage {
         let session = SessionController(api: api, storage: RestartEmptySession())
         let before = try references.pendingClosures()
         precondition(before == original, "new process must recover exact durable intent without extending its deadline")
-        if name == "uncertain" {
+        if name == "uncertain" || name == "contended" {
             do {
                 try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys)
                 fatalError("false deletion acknowledgement was accepted")
             } catch { }
             let retained = try references.pendingClosures(); precondition(retained == original)
+            if name == "contended" {
+                let proofStillPresent = try await pending.hasPendingRecord(account: account, epoch: epoch)
+                let keyStillPresent = try keys.read(account: account, epoch: epoch)
+                precondition(proofStillPresent && keyStillPresent != nil, "overlapping process must refuse before erasure")
+            }
         } else {
             try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys)
             let remaining = try references.pendingClosures(); precondition(remaining == original.filter { $0.accountID == other })
@@ -123,13 +128,15 @@ struct RestartEmptySession: SessionStorage {
             try await phase(CommandLine.arguments[1], root: URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)); return
         }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-restart-synthetic-" + UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: root) }
-        for name in ["stage", "uncertain", "recover"] {
+        for name in ["stage", "contended", "uncertain", "recover"] {
+            let reservation = name == "contended" ? try AppAttestMutationLease.acquire(root: root.appendingPathComponent("pending")) : nil
+            defer { reservation?.release() }
             let child = Process(); child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
             child.arguments = [name, root.path]; try child.run(); child.waitUntilExit()
             precondition(child.terminationStatus == 0, "restart phase failed: " + name)
         }
-        print("PASS: three separate processes preserve exact closure on disk, retain uncertain finalization, retry encrypted proof/key cleanup, and preserve another account. Synthetic Keychain substitute; no owner credentials, Apple service or real account deletion.")
+        print("PASS: separate processes preserve closure on disk, refuse competing cleanup before proof/key erasure, retain uncertain finalization and retry selected cleanup while preserving another account. Synthetic Keychain substitute; no owner credentials, Apple service or real account deletion.")
     }
 }

@@ -123,6 +123,10 @@ struct FormalChannelSelection {
                 let pending = AppAttestPendingRegistrationStorage(
                     root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true),
                     keyProvider: { _, _ in throw CloudError.unavailable })
+                let lease: AppAttestMutationLease
+                do { lease = try await pending.acquireMutationLease() }
+                catch { return stillBound() ? .pending : .staleBinding }
+                defer { lease.release() }
                 return await eraseAppAttestLocalRegistration(account: account, stillBound: stillBound,
                     prepareClosure: {
                         let now = Int64(Date().timeIntervalSince1970 * 1000)

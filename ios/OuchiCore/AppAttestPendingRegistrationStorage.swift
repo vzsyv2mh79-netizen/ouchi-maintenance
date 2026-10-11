@@ -26,6 +26,16 @@ public actor AppAttestPendingRegistrationStorage {
     private let expiryAuthorization: ExpiryAuthorization
     private let maximumBytes = 200_000
     public init(root: URL, keyProvider: @escaping KeyProvider, expiryAuthorization: @escaping ExpiryAuthorization = { _, _ in false }) { self.root = root.standardizedFileURL; self.keyProvider = keyProvider; self.expiryAuthorization = expiryAuthorization }
+    /// Whole-operation callers share this stable root, including across actors
+    /// and processes. Retain until all device callbacks and writes have finished.
+    public func acquireMutationLease() throws -> AppAttestMutationLease {
+        guard root.isFileURL else { throw CloudError.invalidInput }
+        if !FileManager.default.fileExists(atPath: root.path) {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+        }
+        return try AppAttestMutationLease.acquire(root: root)
+    }
     private func directory(account: UUID, create: Bool = false) throws -> URL {
         guard root.isFileURL, account != UUID(uuidString: "00000000-0000-0000-0000-000000000000")! else { throw CloudError.invalidInput }
         let folder = root.appendingPathComponent(account.uuidString.lowercased(), isDirectory: true)

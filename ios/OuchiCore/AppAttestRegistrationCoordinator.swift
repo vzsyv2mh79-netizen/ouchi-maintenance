@@ -18,8 +18,9 @@ public enum AppAttestRegistrationPreparation: Equatable, Sendable {
 }
 
 /// Prepared initial-registration/recovery flow. Not connected to release UI.
-/// One shared instance coordinates its registration and local account cleanup;
-/// it is not a durable cross-process fence or a purchase entitlement source.
+/// Prepared operations share a stable pending-directory lease across instances
+/// and processes. Direct low-level storage writes must also be fenced by callers.
+/// Neither this coordinator nor the lease is a purchase entitlement source.
 public actor AppAttestRegistrationCoordinator {
     public typealias CurrentContext = @Sendable () async -> AppAttestRegistrationContext?
     private let currentContext: CurrentContext
@@ -64,6 +65,8 @@ public actor AppAttestRegistrationCoordinator {
               try references.pendingClosure(account: captured.userID) == nil else { throw CloudError.unavailable }
         activeAccount = captured.userID
         defer { finishRegistration(account: captured.userID) }
+        let lease = try await pending.acquireMutationLease()
+        defer { lease.release() }
         let placeholder = Data(repeating: 0, count: 32).base64EncodedString()
         let service = api(keyID: placeholder), session = captured.session(keyID: placeholder)
         try await service.validate(session)
@@ -76,6 +79,8 @@ public actor AppAttestRegistrationCoordinator {
         guard activeAccount==nil,!closingAccounts.contains(captured.userID) else { throw CloudError.unavailable }
         guard try references.pendingClosure(account:captured.userID)==nil else { throw CloudError.unavailable }
         activeAccount=captured.userID;defer { finishRegistration(account:captured.userID) }
+        let lease = try await pending.acquireMutationLease()
+        defer { lease.release() }
         // Validate identity/JWT binding before a device operation. This dummy key
         // is used only by the local validator, never sent to Apple or the server.
         let placeholder=Data(repeating:0,count:32).base64EncodedString()
@@ -130,11 +135,15 @@ public actor AppAttestRegistrationCoordinator {
         try Task.checkCancellation();try stopAcceptingRegistration(account:account)
         let created=now()
         guard created>0,created<=9_007_199_254_740_991-retentionMilliseconds else { throw CloudError.invalidInput }
-        try references.beginClosure(AppAttestAccountClosure(accountID:account,requestID:UUID(),createdAtMilliseconds:created,retainUntilMilliseconds:created+retentionMilliseconds))
         if activeAccount==account {
             await withCheckedContinuation { completionWaiters[account,default:[]].append($0) }
         }
         try Task.checkCancellation()
+        let lease = try await pending.acquireMutationLease()
+        defer { lease.release() }
+        // A same-instance callback finishes under its existing lease first.
+        // A different process/instance is refused before any persistent mutation.
+        try references.beginClosure(AppAttestAccountClosure(accountID:account,requestID:UUID(),createdAtMilliseconds:created,retainUntilMilliseconds:created+retentionMilliseconds))
         try await pending.eraseAccount(account)
         try Task.checkCancellation()
         try references.erase(account:account)
