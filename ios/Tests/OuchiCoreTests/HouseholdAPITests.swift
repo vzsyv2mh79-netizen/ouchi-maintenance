@@ -103,3 +103,46 @@ extension HouseholdAPITests {
         catch { XCTAssertEqual(error as? CloudError, .rejected(503)) }
     }
 }
+
+extension HouseholdAPITests {
+    func testDeletionCurrentProgressRecoversLostReceiptWithoutAssumingCompletion() async throws {
+        let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/account/deletion")
+            XCTAssertNil(request.httpBody)
+            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let result = try await api.currentProgress(token: "synthetic")
+        XCTAssertEqual(result?.requestID, id)
+        XCTAssertEqual(result?.state, .running)
+        let absent = AccountDeletionAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!) }
+        let missing = try await absent.currentProgress(token: "synthetic")
+        XCTAssertNil(missing)
+    }
+}
+
+extension HouseholdAPITests {
+    @MainActor func testDeletionFlowRecoversBeforeRetryingAndDiscardsSwitchedAccountResult() async throws {
+        let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let api = AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET", "Existing receipt must prevent duplicate submission")
+            return (Data("{\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api)
+        flow.bind(accountID: id)
+        let receipt = try await flow.submit(password: "Synthetic-only", token: "synthetic")
+        XCTAssertEqual(receipt?.state, .running)
+        XCTAssertFalse(flow.busy)
+        flow.bind(accountID: UUID())
+        XCTAssertNil(flow.receipt)
+        let outage = AccountDeletionFlow(api: AccountDeletionAPI { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!)
+        })
+        outage.bind(accountID: id)
+        do { _ = try await outage.submit(password: "Synthetic-only", token: "synthetic"); XCTFail("Must not submit on uncertain state") }
+        catch { XCTAssertEqual(error as? CloudError, .rejected(503)) }
+        XCTAssertNil(outage.receipt)
+    }
+}

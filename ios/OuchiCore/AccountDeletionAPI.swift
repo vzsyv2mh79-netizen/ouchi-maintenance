@@ -36,7 +36,13 @@ public struct AccountDeletionAPI: Sendable {
         let result = try await send(path: "/" + requestID.uuidString.lowercased(), token: token, body: nil)
         return try AccountDeletionStatus.progress(result.0, httpStatus: result.1, expectedRequestID: requestID)
     }
-    private func send(path: String, token: String, body: Data?) async throws -> (Data, Int) {
+    /// Check this before retrying a request whose server acknowledgement was lost.
+    public func currentProgress(token: String) async throws -> AccountDeletionStatus? {
+        let result = try await send(path: "", token: token, body: nil, allowNotFound: true)
+        if result.1 == 404 { return nil }
+        return try AccountDeletionStatus.currentProgress(result.0, httpStatus: result.1)
+    }
+    private func send(path: String, token: String, body: Data?, allowNotFound: Bool = false) async throws -> (Data, Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: "https://ouchi-maintenance.vercel.app/api/account/deletion" + path)!
         var request = URLRequest(url: url)
@@ -49,7 +55,7 @@ public struct AccountDeletionAPI: Sendable {
         let (data, response) = try await transport(request)
         guard response.url == url, data.count <= 4096 else { throw CloudError.malformedResponse }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
-        guard response.statusCode == (body == nil ? 200 : 202) else { throw CloudError.rejected(response.statusCode) }
+        guard response.statusCode == (body == nil ? 200 : 202) || (allowNotFound && body == nil && response.statusCode == 404) else { throw CloudError.rejected(response.statusCode) }
         return (data, response.statusCode)
     }
 }

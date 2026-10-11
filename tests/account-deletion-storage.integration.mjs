@@ -51,7 +51,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.ok((await other.from('products').insert({id:randomUUID(),homeId:home,categoryId:'air',name:'Blocked synthetic write'})).error);
   const ownOpen=await other.from('homes').select('id').eq('id',otherHome);assert.equal(ownOpen.error,null);assert.deepEqual(ownOpen.data,[{id:otherHome}]);
   const statusRequest=token=>new Request('https://example.invalid/deletion/'+requested.data,{headers:{authorization:'Bearer '+token}});
-  const ownStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(ownStatus.status,200);assert.deepEqual(await ownStatus.json(),{requestID:requested.data,state:'running'});
+  const ownStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(ownStatus.status,200);assert.deepEqual(await ownStatus.json(),{requestID:requested.data,state:'running'});const recoveredStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),null,deletionProgressDependencies(admin));assert.equal(recoveredStatus.status,200);assert.deepEqual(await recoveredStatus.json(),{requestID:requested.data,state:'running'});
   const foreignStatus=await handleAccountDeletionProgress(statusRequest(otherSignup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(foreignStatus.status,404);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);

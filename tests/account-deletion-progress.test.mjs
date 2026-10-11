@@ -8,6 +8,7 @@ test('progress authenticates exact ownership and never upgrades partial erasure 
   const response=await handle(req(),requestID,{verify:async()=>userID,read:async scope=>{assert.deepEqual(scope,{requestID,userID});assert.ok(Object.isFrozen(scope));return {...scope,state,records_erased:true,absence_confirmed:true,privateToken:'not-returned'};}});
   assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(await response.json(),{requestID,state});
  }
+ const recovered=await handle(req(),null,{verify:async()=>userID,read:async scope=>{assert.deepEqual(scope,{requestID:null,userID});return {requestID,userID,state:'running'};}});assert.equal(recovered.status,200);assert.deepEqual(await recovered.json(),{requestID,state:'running'});
  assert.equal((await handle(req(),requestID,{verify:async()=>userID,read:async()=>null})).status,404);
  assert.equal((await handle(req(),requestID,{verify:async()=>userID,read:async()=>({requestID,userID:requestID,state:'complete'})})).status,503);
  assert.equal((await handle(req(),requestID,{verify:async()=>null,read:async()=>{throw Error('must not read');}})).status,401);

@@ -4,9 +4,11 @@ import type { DeletionProgressDependencies } from './account-deletion-progress';
  * No production route or global client is initialized here.
  */
 export function deletionProgressReader(db: SupabaseClient) {
- return async (scope: Readonly<{requestID: string; userID: string}>): Promise<unknown> => {
+ return async (scope: Readonly<{requestID: string | null; userID: string}>): Promise<unknown> => {
   const fixed = Object.freeze({...scope});
-  const result = await db.rpc('read_maintenance_deletion_progress', {target_request: fixed.requestID, target_user: fixed.userID});
+  const result = fixed.requestID === null
+   ? await db.rpc('read_maintenance_current_deletion_progress', {target_user: fixed.userID})
+   : await db.rpc('read_maintenance_deletion_progress', {target_request: fixed.requestID, target_user: fixed.userID});
   if (result.error) throw new Error('Deletion progress unavailable');
   return result.data;
  };

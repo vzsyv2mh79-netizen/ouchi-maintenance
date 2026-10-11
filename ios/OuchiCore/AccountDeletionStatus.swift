@@ -17,6 +17,9 @@ public struct AccountDeletionStatus: Decodable, Sendable {
         guard result.requestID == expectedRequestID else { throw CloudError.malformedResponse }
         return result
     }
+    public static func currentProgress(_ data: Data, httpStatus: Int) throws -> AccountDeletionStatus {
+        try checked(data, httpStatus: httpStatus, expectedStatus: 200)
+    }
 
     private static func checked(_ data: Data, httpStatus: Int, expectedStatus: Int) throws -> AccountDeletionStatus {
         guard httpStatus == expectedStatus, data.count <= 4096 else { throw CloudError.malformedResponse }
