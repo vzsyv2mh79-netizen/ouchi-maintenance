@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
+import { createServer, connect as http2Connect } from 'node:http2';
 import ts from 'typescript';
 const compile = source => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
 const protocol = 'data:text/javascript;base64,' + Buffer.from(compile(readFileSync('lib/apns-maintenance.ts', 'utf8'))).toString('base64');
@@ -73,4 +74,43 @@ test('cancellation while opening transport releases the just-created session', a
     connect: () => { controller.abort(); return session; } });
   assert.equal(await sender(input, controller.signal), 'skipped');
   assert.equal(destroyed, true);
+});
+test('real loopback HTTP/2 transport accepts a response and cancels an unfinished request', async () => {
+  const server = createServer(), sessions = new Set();
+  server.on('session', session => {
+    sessions.add(session); session.on('error', () => {});
+    session.on('close', () => sessions.delete(session));
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject); server.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    let cancel;
+    server.on('stream', (stream, headers) => {
+      stream.on('error', () => {});
+      assert.equal(headers[':method'], 'POST');
+      assert.equal(headers['apns-topic'], 'jp.ouchi.maintenance');
+      assert.equal(headers.authorization, 'bearer a.b.c');
+      if (cancel) { cancel.abort(); return; }
+      let body = '';
+      stream.setEncoding('utf8'); stream.on('data', bytes => { body += bytes; });
+      stream.on('end', () => {
+        assert.equal(JSON.parse(body).aps.alert.title, 'おうちメンテ');
+        stream.respond({ ':status': 200 }); stream.end();
+      });
+    });
+    const sender = createSandboxAPNsSender({ environment: 'Sandbox', providerToken: () => 'a.b.c',
+      connect: (destination, options) => {
+        assert.equal(destination, 'https://api.sandbox.push.apple.com');
+        assert.equal(options.minVersion, 'TLSv1.2');
+        return http2Connect(origin);
+      } });
+    assert.equal(await sender(input), 'accepted');
+    cancel = new AbortController();
+    assert.equal(await sender(input, cancel.signal), 'skipped');
+  } finally {
+    for (const session of sessions) session.destroy();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
