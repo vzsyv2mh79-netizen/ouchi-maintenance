@@ -73,6 +73,11 @@ struct FormalChannelSelection {
     private let session: SessionController?
     private let isolatedDevelopmentEnabled: Bool
     private(set) var isUIReviewSample = false
+    #if DEBUG
+    private var isClosureUIReviewSample = false
+    private var reviewClosureRecords: [AppAttestAccountClosure] = []
+    private var reviewClosureFailure = true
+    #endif
     private var generation = 0 { didSet { accountBindingRevision = UUID() } }
     private var familyGeneration = 0
     private var reportGeneration = 0
@@ -201,9 +206,19 @@ struct FormalChannelSelection {
     }
     @Published private(set) var pendingLocalRegistrationClosures: [AppAttestAccountClosure] = []
     var localClosureRecoveryConfigured: Bool {
-        Bundle.main.infoDictionary?["OUCHI_LOCAL_CLOSURE_RECOVERY_ENABLED"] as? Bool == true
+        #if DEBUG
+        if isClosureUIReviewSample { return true }
+        #endif
+        return Bundle.main.infoDictionary?["OUCHI_LOCAL_CLOSURE_RECOVERY_ENABLED"] as? Bool == true
     }
     func loadLocalRegistrationClosures() async {
+        #if DEBUG
+        if isClosureUIReviewSample {
+            guard !busy, !signedIn else { return }
+            pendingLocalRegistrationClosures = reviewClosureRecords
+            return
+        }
+        #endif
         guard localClosureRecoveryConfigured, !busy, !signedIn, let session,
               let bundle = Bundle.main.bundleIdentifier else { return }
         busy = true
@@ -225,6 +240,19 @@ struct FormalChannelSelection {
     /// cleanup from an existing local intent, never server/account deletion.
     /// Login/restore/logout are reserved by busy throughout the actor hops.
     func recoverAbandonedRegistrationClosure(_ expected: AppAttestAccountClosure) async -> Bool {
+        #if DEBUG
+        if isClosureUIReviewSample {
+            guard !busy, !signedIn, reviewClosureRecords.contains(expected) else { return false }
+            if reviewClosureFailure {
+                reviewClosureFailure = false
+                message = "サンプル：確認失敗を再現しました。終了記録を保持しています。再度お試しください。"
+                return false
+            }
+            reviewClosureRecords.removeAll { $0 == expected }
+            message = "サンプル：選んだ終了記録の処理を確認しました。本物の記録やサーバーには変更していません。"
+            return true
+        }
+        #endif
         guard localClosureRecoveryConfigured, !busy, !signedIn, appAttestRegistrationCoordinator == nil, let session,
               let bundle = Bundle.main.bundleIdentifier,
               let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return false }
@@ -346,6 +374,19 @@ struct FormalChannelSelection {
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
         #if DEBUG
+        if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.") == true,
+           info["OUCHI_REVIEW_SAMPLE_CLOSURE_DATA"] as? String == "YES",
+           let stamp = info["OUCHI_REVIEW_BUILD_ID"] as? String,
+           stamp.range(of: "^[a-f0-9]{40}$", options: .regularExpression) != nil {
+            api = nil; session = nil; isolatedDevelopmentEnabled = false
+            isUIReviewSample = true; isClosureUIReviewSample = true
+            let now = Int64(Date().timeIntervalSince1970 * 1000)
+            reviewClosureRecords = [
+                try! AppAttestAccountClosure(accountID: UUID(), requestID: UUID(), createdAtMilliseconds: now - 86400000, retainUntilMilliseconds: now + 3600000),
+                try! AppAttestAccountClosure(accountID: UUID(), requestID: UUID(), createdAtMilliseconds: now, retainUntilMilliseconds: now + 3600000)
+            ]
+            return
+        }
         if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
            info["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES",
            let stamp=info["OUCHI_REVIEW_BUILD_ID"] as? String,
@@ -565,6 +606,9 @@ struct FormalChannelSelection {
         catch { message = "端末内の添付ファイルを消去できませんでした。ログアウトから再確認してください。" }
     }
     func restore() async {
+        #if DEBUG
+        if isClosureUIReviewSample { return }
+        #endif
         guard !busy else { return }
         accountBindingRevision = UUID()
         let expected = generation

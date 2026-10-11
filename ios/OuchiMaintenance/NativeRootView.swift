@@ -52,6 +52,7 @@ struct NativeRootView: View {
 /// Prepared explicit local recovery; release configuration defaults to off.
 private struct LocalRegistrationClosureRecoveryView: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
     @State private var selected: AppAttestAccountClosure?
     @State private var confirming = false
     var body: some View {
@@ -61,6 +62,7 @@ private struct LocalRegistrationClosureRecoveryView: View {
                 Text("端末登録の情報だけを整理します。サーバー側の退会申請、記録の削除、Appleの定期購入の解約は行いません。")
                 Button("終了記録を再確認") { Task { await store.loadLocalRegistrationClosures() } }
                     .disabled(store.busy)
+                Button("ログイン画面へ戻る") { dismiss() }.disabled(store.busy)
             }
             Section("終了記録") {
                 if store.pendingLocalRegistrationClosures.isEmpty {
