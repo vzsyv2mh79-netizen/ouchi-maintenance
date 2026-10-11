@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash,X509Certificate} from 'node:crypto';import ts from 'typescript';
-const module=async name=>{const code=ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
-const {decodeAttestCBOR:decode}=await module('billing-app-attest-cbor');
-const {verifyAppAttestCertificateProof:check,appAttestCertificateNonce:extract}=await module('billing-app-attest-certificate');
+const loadModule=async name=>{const code=ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
+const {decodeAttestCBOR:decode}=await loadModule('billing-app-attest-cbor');
+const {verifyAppAttestCertificateProof:check,appAttestCertificateNonce:extract}=await loadModule('billing-app-attest-certificate');
 const fixture=JSON.parse(readFileSync('tests/fixtures/app-attest/apple-public-example.json','utf8')),object=decode(Buffer.from(fixture.attestationBase64,'base64')),statement=object.get('attStmt'),certs=statement.get('x5c'),data=object.get('authData'),now=Date.parse(fixture.historicalVerificationTime),hash=createHash('sha256').update(fixture.exampleChallenge).digest();
 test('Apple documentation fixture inconsistently uses raw challenge instead of documented hash; reject rather than weaken verification',()=>{
  const stored=extract(certs[0]);
