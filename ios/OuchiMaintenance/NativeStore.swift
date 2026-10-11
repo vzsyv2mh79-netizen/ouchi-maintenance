@@ -491,6 +491,10 @@ import OuchiCore
             case .pending: message = "購入は保留中です。承認後の結果を確認します。"
             case .cancelled: break
             }
+        } catch PurchaseManager.PurchaseError.subscriptionAlreadyActive {
+            if expected == generation { message = "Appleで有効な契約が見つかりました。新しく購入せず、購入の復元から確認してください。" }
+        } catch PurchaseManager.PurchaseError.subscriptionBoundElsewhere {
+            if expected == generation { message = "Appleで有効な契約が見つかりましたが、別のおうちメンテアカウントに紐づいています。新しく購入せず、購入時のアカウントを確認してください。" }
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
     }
     func restoreSandboxPurchases() async {
@@ -501,7 +505,7 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
-            try await purchases.restore(account: purchaseAccount)
+            let restored = try await purchases.restore(account: purchaseAccount)
             guard expected == generation else { return }
             let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard expected == generation else { return }
@@ -521,6 +525,9 @@ import OuchiCore
                 }
             } catch {
                 if expected == generation { billingRecoveryStatus = nil; message = "\u{73fe}\u{5728}\u{306e}\u{5229}\u{7528}\u{6a29}\u{306f}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{3057}\u{305f}\u{304c}\u{3001}\u{5c65}\u{6b74}\u{306e}\u{8ffd}\u{52a0}\u{7167}\u{5408}\u{306f}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
+            }
+            if expected == generation, restored.otherAccountSubscriptionFound {
+                message = (message ?? "") + " 別のおうちメンテアカウントに紐づく購入が見つかりました。このアカウントには移していません。購入時のアカウントを確認してください。退会後に作り直したアカウントでは、この画面から復元できません。"
             }
         } catch {
             if expected == generation { message = "Sandbox\u{306e}\u{8cfc}\u{5165}\u{3092}\u{5fa9}\u{5143}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
