@@ -37,6 +37,8 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Native HTTP billing, settings, reports and deletion contracts
         run: node ios/Tests/reminder-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
+      - name: Native attachment HTTP transport with synthetic files
+        run: node ios/Tests/attachment-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Verify synthetic core and local snapshot tests
         run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests

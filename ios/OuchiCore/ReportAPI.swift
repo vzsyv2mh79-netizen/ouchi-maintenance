@@ -208,20 +208,49 @@ public struct DevelopmentAccountLifecycleAPI: Sendable {
 }
 
 /// Disposable loopback attachment tests only. Production transport is unavailable.
-public struct DevelopmentAttachmentAPI: Sendable {
+/// Prepared formal client. Server enablement and a paid entitlement are separate checks.
+public struct AttachmentAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    public init(transport: HouseholdAPI.Transport? = nil) {
+    private let endpoint: String
+    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
+        #if DEBUG
+        endpoint = isolatedDevelopment && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)/api/development/verified-product-attachments"
+            : "https://ouchi-maintenance.vercel.app/api/product-attachments"
+        #else
+        endpoint = "https://ouchi-maintenance.vercel.app/api/product-attachments"
+        #endif
         self.transport = transport ?? { request in
-            #if DEBUG
             let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
-            defer { session.finishTasksAndInvalidate() }
-            let (bytes, response) = try await session.data(for: request)
+            defer { session.invalidateAndCancel() }
+            try Task.checkCancellation()
+            let (stream, response) = try await session.bytes(for: request)
             guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let limit = request.httpMethod == "GET" && query.contains(where: { $0.name == "attachmentId" })
+                ? 5 * 1024 * 1024
+                : request.httpMethod == "GET" && query.contains(where: { $0.name == "productId" })
+                    ? (query.contains(where: { $0.name == "page" }) ? 32768 : 1024 * 1024) : 4096
+            if let declared = response.value(forHTTPHeaderField: "Content-Length") {
+                guard !declared.isEmpty, declared.utf8.allSatisfy({ (48...57).contains($0) }),
+                      let count = Int(declared), count <= limit else { throw CloudError.malformedResponse }
+            }
+            var bytes = Data()
+            for try await byte in stream {
+                try Task.checkCancellation()
+                guard bytes.count < limit else { throw CloudError.malformedResponse }
+                bytes.append(byte)
+            }
+            try Task.checkCancellation()
             return (bytes, response)
-            #else
-            throw CloudError.rejected(503)
-            #endif
         }
+    }
+    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try Task.checkCancellation()
+        let result = try await transport(request)
+        try Task.checkCancellation()
+        return result
     }
     public struct Binding: Decodable, Sendable {
         public let account: UUID
@@ -229,11 +258,11 @@ public struct DevelopmentAttachmentAPI: Sendable {
     }
     public func binding(token: String) async throws -> Binding {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "http://127.0.0.1:3000/api/development/verified-product-attachments?binding=true")!
+        let url = URL(string: endpoint + "?binding=true")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         let value = try JSONDecoder().decode(Binding.self, from: body)
@@ -252,11 +281,11 @@ public struct DevelopmentAttachmentAPI: Sendable {
     }
     public func usage(token: String) async throws -> Usage {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "http://127.0.0.1:3000/api/development/verified-product-attachments?usage=true")!
+        let url = URL(string: endpoint + "?usage=true")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Envelope: Decodable { let usage: Usage }
@@ -280,14 +309,14 @@ public struct DevelopmentAttachmentAPI: Sendable {
         let nilID = "00000000-0000-0000-0000-000000000000"
         guard product.uuidString != nilID, after?.uuidString != nilID else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "page", value: "true")]
         if let after { components.queryItems?.append(URLQueryItem(name: "after", value: after.uuidString.lowercased())) }
         let url = components.url!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 32768 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Envelope: Decodable { let items: [StoredAttachment]; let next: UUID? }
@@ -304,13 +333,13 @@ public struct DevelopmentAttachmentAPI: Sendable {
     public func list(product: UUID, token: String) async throws -> [StoredAttachment] {
         guard product.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased())]
         let url = components.url!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         guard body.count <= 1024 * 1024 else { throw CloudError.malformedResponse }
@@ -331,14 +360,14 @@ public struct DevelopmentAttachmentAPI: Sendable {
     public func download(attachment: UUID, token: String) async throws -> DownloadedFile {
         guard attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        var components = URLComponents(string: endpoint)!
         let identifier = attachment.uuidString.lowercased()
         components.queryItems = [URLQueryItem(name: "attachmentId", value: identifier)]
         let url = components.url!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         guard !body.isEmpty, body.count <= 5 * 1024 * 1024 else { throw CloudError.malformedResponse }
@@ -358,13 +387,13 @@ public struct DevelopmentAttachmentAPI: Sendable {
     public func remove(attachment: UUID, token: String, confirmed: Bool) async throws {
         guard confirmed, attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
         let url = components.url!
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Result: Decodable { let removed: Bool; let attachmentId: UUID }
@@ -378,7 +407,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
               product.uuidString != "00000000-0000-0000-0000-000000000000",
               attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
         let url = components.url!
         var request = URLRequest(url: url)
@@ -387,7 +416,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
         request.setValue(mime, forHTTPHeaderField: "Content-Type")
         request.setValue(String(bytes.count), forHTTPHeaderField: "Content-Length")
         request.httpBody = bytes
-        let (body, response) = try await transport(request)
+        let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Result: Decodable { let saved: Bool; let attachmentId: UUID }
@@ -398,6 +427,9 @@ public struct DevelopmentAttachmentAPI: Sendable {
 
 /// Credential-free retry payload. A server-issued enrollment binding is required
 /// again before resuming; local data never proves rights or a completed upload.
+/// Source compatibility for isolated development screens; their calls opt in explicitly.
+public typealias DevelopmentAttachmentAPI = AttachmentAPI
+
 public struct PendingAttachment: Codable, Sendable {
     public let account: UUID
     public let epoch: UUID

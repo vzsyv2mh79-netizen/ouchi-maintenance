@@ -123,7 +123,7 @@ import OuchiCore
         if let address, let url = URL(string: address), let key,
            let config = try? CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: isolatedDevelopment) {
             isolatedDevelopmentEnabled = isolatedDevelopment
-            if isolatedDevelopment { pendingAttachmentStorage = PendingAttachmentStorage(); pendingRemovalStorage = PendingAttachmentRemovalStorage() }
+            if isolatedDevelopment || info["OUCHI_ATTACHMENTS_ENABLED"] as? Bool == true { pendingAttachmentStorage = PendingAttachmentStorage(); pendingRemovalStorage = PendingAttachmentRemovalStorage() }
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
@@ -136,6 +136,10 @@ import OuchiCore
         #else
         return false
         #endif
+    }
+    /// Build-time availability only. It never grants paid access; server ledger checks every new upload.
+    var attachmentServiceConfigured: Bool {
+        developmentLifecycleConfigured || (api != nil && Bundle.main.infoDictionary?["OUCHI_ATTACHMENTS_ENABLED"] as? Bool == true)
     }
     func testAccountLifecycle(password: String, reenrolling: Bool, confirmed: Bool) async {
         guard developmentLifecycleConfigured, !busy, let session, confirmed else { return }
@@ -179,7 +183,7 @@ import OuchiCore
         if expected == generation { busy = false }
     }
     func uploadDevelopmentAttachment(product: UUID, attachment: UUID, bytes: Data, mime: String, confirmed: Bool) async -> Bool {
-        guard developmentLifecycleConfigured, !busy, let session, confirmed,
+        guard attachmentServiceConfigured, !busy, let session, confirmed,
               household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
         busy = true; message = nil
         let expected = generation, home = homeID
@@ -187,7 +191,7 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
-            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id, let storage = pendingAttachmentStorage else { return false }
             let pending = try PendingAttachment(account: binding.account, epoch: binding.epoch, product: product, id: attachment, bytes: bytes, mime: mime)
             if let existing = try storage.read(account: binding.account, epoch: binding.epoch) {
@@ -195,10 +199,10 @@ import OuchiCore
             }
             try Task.checkCancellation()
             try storage.write(pending)
-            try await DevelopmentAttachmentAPI().upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
+            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingAttachmentStorage?.write(nil)
-            message = "テスト用ファイルの保存をサーバーで確認しました。"
+            message = "ファイルの保存をサーバーで確認しました。"
             return true
         } catch {
             if !Task.isCancelled, expected == generation, home == homeID { message = "保存完了を確認できません。ファイルを選び直さず、同じ添付IDで再確認してください。" }
@@ -206,11 +210,11 @@ import OuchiCore
         }
     }
     func resumeDevelopmentAttachment() async -> PendingAttachment? {
-        guard developmentLifecycleConfigured, let session, let storage = pendingAttachmentStorage else { return nil }
+        guard attachmentServiceConfigured, let session, let storage = pendingAttachmentStorage else { return nil }
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id else { return nil }
             let pending = try storage.read(account: binding.account, epoch: binding.epoch)
             guard !Task.isCancelled, expected == generation else { return nil }
@@ -221,11 +225,11 @@ import OuchiCore
         }
     }
     func developmentAttachmentUsage() async -> DevelopmentAttachmentAPI.Usage? {
-        guard developmentLifecycleConfigured, let session else { return nil }
+        guard attachmentServiceConfigured, let session else { return nil }
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let usage = try await DevelopmentAttachmentAPI().usage(token: credentials.access_token)
+            let usage = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).usage(token: credentials.access_token)
             guard expected == generation else { return nil }
             return usage
         } catch {
@@ -234,12 +238,12 @@ import OuchiCore
         }
     }
     func pageDevelopmentAttachments(product: UUID, after: UUID? = nil) async -> DevelopmentAttachmentAPI.AttachmentPage? {
-        guard developmentLifecycleConfigured, let session,
+        guard attachmentServiceConfigured, let session,
               household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return nil }
         let expected = generation, home = homeID
         do {
             let credentials = try await session.credentials()
-            let items = try await DevelopmentAttachmentAPI().page(product: product, after: after, token: credentials.access_token)
+            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token)
             guard expected == generation, home == homeID else { return nil }
             return items
         } catch {
@@ -248,7 +252,7 @@ import OuchiCore
         }
     }
     func exportDevelopmentAttachment(_ attachment: UUID) async {
-        guard developmentLifecycleConfigured, !busy, let session else { return }
+        guard attachmentServiceConfigured, !busy, let session else { return }
         attachmentExportGeneration += 1
         let exportGeneration = attachmentExportGeneration
         busy = true; message = nil
@@ -256,7 +260,7 @@ import OuchiCore
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            let file = try await DevelopmentAttachmentAPI().download(attachment: attachment, token: credentials.access_token)
+            let file = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).download(attachment: attachment, token: credentials.access_token)
             guard expected == generation, exportGeneration == attachmentExportGeneration else { return }
             if let old = attachmentExportURL {
                 if FileManager.default.fileExists(atPath: old.path) { try FileManager.default.removeItem(at: old) }
@@ -267,11 +271,11 @@ import OuchiCore
         } catch { if expected == generation, exportGeneration == attachmentExportGeneration { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
     }
     func resumeDevelopmentAttachmentRemoval() async -> PendingAttachmentRemoval? {
-        guard developmentLifecycleConfigured, let session, let storage = pendingRemovalStorage else { return nil }
+        guard attachmentServiceConfigured, let session, let storage = pendingRemovalStorage else { return nil }
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id else { return nil }
             return try storage.read(account: binding.account, epoch: binding.epoch)
         } catch {
@@ -280,14 +284,14 @@ import OuchiCore
         }
     }
     func removeDevelopmentAttachment(_ attachment: UUID, product: UUID, confirmed: Bool) async -> Bool {
-        guard developmentLifecycleConfigured, confirmed, !busy, let session else { return false }
+        guard attachmentServiceConfigured, confirmed, !busy, let session else { return false }
         let expected = generation, home = homeID
         busy = true; message = nil
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
-            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id,
                   let storage = pendingRemovalStorage else { return false }
             let pending = try PendingAttachmentRemoval(account: binding.account, epoch: binding.epoch, product: product, id: attachment)
@@ -297,11 +301,11 @@ import OuchiCore
                 guard household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { throw CloudError.invalidInput }
             }
             try storage.write(pending)
-            try await DevelopmentAttachmentAPI().remove(attachment: attachment, token: credentials.access_token, confirmed: true)
+            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).remove(attachment: attachment, token: credentials.access_token, confirmed: true)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingRemovalStorage?.write(nil)
             clearDevelopmentAttachmentExport()
-            message = "テスト用ファイルの消去と容量の解放を確認しました。"
+            message = "ファイルの消去と容量の解放を確認しました。"
             return true
         } catch {
             if expected == generation, home == homeID { message = "削除完了を確認できません。同じファイルで再確認してください。保存した人か住まいの所有者が操作できます。" }

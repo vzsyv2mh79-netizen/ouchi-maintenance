@@ -128,9 +128,9 @@ private struct ApplianceList: View {
                         NavigationLink { ProductEditor(home: product.homeId, initial: product) } label: { Text(product.name).font(.headline) }
                         Text("\(product.maker) \(product.modelNumber)").foregroundStyle(.secondary)
                         if let memo = product.memo, !memo.isEmpty { Text(memo).font(.caption) }
-                        if store.developmentLifecycleConfigured {
-                            NavigationLink("写真・保証書の保存を確認") {
-                                DevelopmentAttachmentView(productID: product.id)
+                        if store.attachmentServiceConfigured {
+                            NavigationLink("写真・保証書") {
+                                AttachmentView(productID: product.id)
                             }
                         }
                     }
@@ -189,9 +189,11 @@ private struct NativeSettings: View {
                                 cleanupLocalNotifications: { _, _, _ in false }, flow: deletionPreviewFlow)
                         }
 #endif
-                        NavigationLink("写真・保証書の保存テスト") { DevelopmentAttachmentView() }
                         NavigationLink("iPhone通知の登録テスト") { DevelopmentRemoteNotificationView() }
                     }
+                }
+                if store.attachmentServiceConfigured {
+                    Section("写真・保証書") { NavigationLink("保存したファイルを管理") { AttachmentView() } }
                 }
                 Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
                 Section("家族") {
@@ -967,7 +969,7 @@ private struct DevelopmentLifecycleView: View {
     }
 }
 
-private struct DevelopmentAttachmentView: View {
+private struct AttachmentView: View {
     @EnvironmentObject private var store: NativeStore
     private let fixedProductID: String?
     @State private var productID = ""
@@ -1026,8 +1028,12 @@ private struct DevelopmentAttachmentView: View {
                         .disabled(store.busy)
                 }
             }
-            Section("独立したテスト環境専用") {
-                Text("実際の写真や個人情報を含む保証書を使わず、テスト用ファイルで確認してください。公開版の保管機能はまだ有効にしていません。")
+            Section(store.developmentLifecycleConfigured ? "独立したテスト環境専用" : "保存について") {
+                if store.developmentLifecycleConfigured {
+                    Text("実際の写真や個人情報を含む保証書を使わず、テスト用ファイルで確認してください。公開版の保管機能はまだ有効にしていません。")
+                } else {
+                    Text("新しいファイルの保存には有料プランが必要です。契約終了後も、住まいへのアクセス権がある保存済みファイルを取得できます。")
+                }
                 Text("1ファイル5MiB、合計100MiB・100ファイルまで。JPEG・PNG・PDFに対応します。")
             }
             if let usage = attachmentUsage {
@@ -1075,7 +1081,7 @@ private struct DevelopmentAttachmentView: View {
                 }
             }
             Section("ファイル") {
-                Button("テスト用ファイルを選択") {
+                Button(store.developmentLifecycleConfigured ? "テスト用ファイルを選択" : "ファイルを選択") {
                     fileSelectionBinding = selectionBinding
                     choosingFile = true
                 }.disabled(bytes != nil || store.busy || UUID(uuidString: productID) == nil || !hasSelectedProduct)
@@ -1087,7 +1093,7 @@ private struct DevelopmentAttachmentView: View {
                 }
                 if let status { Text(status) }
             }
-        }.navigationTitle("添付のテスト")
+        }.navigationTitle(store.developmentLifecycleConfigured ? "添付のテスト" : "写真・保証書")
         .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.jpeg, .png, .pdf]) { result in
             guard fileSelectionBinding == selectionBinding else { return }
             fileSelectionBinding = nil
@@ -1105,8 +1111,8 @@ private struct DevelopmentAttachmentView: View {
                 bytes = data; mime = media; filename = file.lastPathComponent; attachmentID = UUID(); status = nil
             } catch { status = "JPEG・PNG・PDFの5MiB以下のファイルを選択してください。" }
         }
-        .confirmationDialog("テスト環境へこのファイルを保存しますか？", isPresented: $confirmUpload, titleVisibility: .visible) {
-            Button("テスト用ファイルを送信") {
+        .confirmationDialog(store.developmentLifecycleConfigured ? "テスト環境へこのファイルを保存しますか？" : "このファイルを保存しますか？", isPresented: $confirmUpload, titleVisibility: .visible) {
+            Button(store.developmentLifecycleConfigured ? "テスト用ファイルを送信" : "保存する") {
                 guard let bytes, let product = UUID(uuidString: productID) else { return }
                 let id = attachmentID, media = mime
                 let home = store.homeID, selected = productID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
@@ -1141,7 +1147,7 @@ private struct DevelopmentAttachmentView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: { Text("未完了なら削除を再実行します。削除済みなら結果を確認します。元に戻せません。") }
-        .confirmationDialog("テスト用ファイルを削除しますか？", isPresented: $confirmRemoval, titleVisibility: .visible) {
+        .confirmationDialog("このファイルを削除しますか？", isPresented: $confirmRemoval, titleVisibility: .visible) {
             Button("ファイルを削除", role: .destructive) {
                 guard let id = removalID, let product = UUID(uuidString: productID) else { return }
                 let selected = productID, home = store.homeID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
@@ -1180,7 +1186,7 @@ private struct DevelopmentAttachmentView: View {
                     status = "確認待ちのファイルは別の住まいの製品に保存予定です。添付先の住まいに切り替えてから、この画面を開き直してください。製品が削除された場合は、サーバーの予約状態を確認する必要があります。"
                     return
                 }
-                bytes = pending.bytes; mime = pending.mime; filename = "確認待ちのテスト用ファイル"; attachmentID = pending.id
+                bytes = pending.bytes; mime = pending.mime; filename = "保存結果を確認中のファイル"; attachmentID = pending.id
                 if productID.lowercased() != pendingProduct { productID = pendingProduct; return }
             }
             let usage = await store.developmentAttachmentUsage()
