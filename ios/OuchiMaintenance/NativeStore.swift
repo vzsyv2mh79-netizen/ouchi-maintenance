@@ -400,7 +400,8 @@ import OuchiCore
             } catch { return false }
         }
         var pendingRemoved = true
-        do { try pendingAttachmentStorage?.write(nil); try pendingRemovalStorage?.write(nil) } catch { pendingRemoved = false }
+        do { try pendingAttachmentStorage?.write(nil) } catch { pendingRemoved = false }
+        do { try pendingRemovalStorage?.write(nil) } catch { pendingRemoved = false }
         let backupRemoved = remove(exportURL)
         let calendarRemoved = remove(calendarURL)
         let attachmentRemoved = remove(attachmentExportURL)

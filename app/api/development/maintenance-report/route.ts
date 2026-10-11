@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { billingConfiguration, billingDatabase, verifiedPurchaseAccount } from '@/lib/billing-server';
+import { billingConfiguration, billingDatabase, verifiedPurchaseAccount, ledgerEntitlementAfterAuth } from '@/lib/billing-server';
 import { entitlementFromTransactions, type VerifiedTransaction } from '@/lib/billing';
 import { validateData } from '@/lib/backup';
 import { maintenanceReport } from '@/lib/maintenance-report';
@@ -22,16 +22,33 @@ export async function GET(request: Request) {
     if (error || !user) return Response.json({ error: 'ログインを確認できません。' }, { status: 401, headers });
     const purchaseAccount = await verifiedPurchaseAccount(db, token.slice(7), user.id);
     if (!purchaseAccount) return Response.json({ error: '現在の登録を確認できません。' }, { status: 403, headers });
-    const result = await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id', user.id).eq('app_epoch_id', purchaseAccount);
-    if (result.error) throw new Error('Entitlement unavailable');
-    const transactions = (result.data ?? []).map(row => row.payload as VerifiedTransaction).filter(transaction => transaction.environment === 'Sandbox' && transaction.accountToken === purchaseAccount);
-    if (entitlementFromTransactions(transactions, Date.now()).plan !== 'premium') return Response.json({ error: 'テスト用の有料利用権が必要です。' }, { status: 403, headers });
+    let premium: boolean;
+    if (config.storage === 'verified-ledger') {
+      const rights = await ledgerEntitlementAfterAuth(db, token.slice(7), user.id, purchaseAccount, 'Sandbox');
+      premium = rights.plan === 'premium';
+    } else {
+      const result = await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id', user.id).eq('app_epoch_id', purchaseAccount);
+      if (result.error) throw new Error('Entitlement unavailable');
+      const transactions = (result.data ?? []).map(row => row.payload as VerifiedTransaction).filter(transaction => transaction.environment === 'Sandbox' && transaction.accountToken === purchaseAccount);
+      premium = entitlementFromTransactions(transactions, Date.now()).plan === 'premium';
+    }
+    if (!premium) return Response.json({ error: 'テスト用の有料利用権が必要です。' }, { status: 403, headers });
     // Household reads use the caller JWT and existing RLS, never service privileges.
     const scoped = createClient(config.url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: token } } });
     const loaded = await scoped.rpc('load_household');
     if (loaded.error) throw new Error('Household unavailable');
     const data = validateData(loaded.data);
     if (!data.homes.some(home => home.id.toLowerCase() === homeId.toLowerCase())) return Response.json({ error: '住まいを確認できません。' }, { status: 404, headers });
+    const current = await db.auth.getUser(token.slice(7));
+    if (request.signal.aborted || current.error || current.data.user?.id !== user.id ||
+        await verifiedPurchaseAccount(db, token.slice(7), user.id) !== purchaseAccount) {
+      return Response.json({ error: 'ログイン状態が変わりました。' }, { status: 403, headers });
+    }
+    if (config.storage === 'verified-ledger') {
+      const currentRights = await ledgerEntitlementAfterAuth(db, token.slice(7), user.id, purchaseAccount, 'Sandbox');
+      if (currentRights.plan !== 'premium') return Response.json({ error: 'テスト用利用権が終了しました。' }, { status: 403, headers });
+    }
+    if (request.signal.aborted) throw new Error('Request cancelled');
     return Response.json({ environment: 'Sandbox', salesEnabled: false, report: maintenanceReport(data, data.homes.find(home => home.id.toLowerCase() === homeId.toLowerCase())!.id, Date.now()) }, { headers });
   } catch {
     return Response.json({ error: 'レポートを作成できません。時間をおいてお試しください。' }, { status: 503, headers });

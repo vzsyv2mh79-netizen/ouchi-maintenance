@@ -7,6 +7,7 @@ const compile = path => ts.transpileModule(readFileSync(path,'utf8'), {compilerO
 const purchaseAccount='33333333-3333-4333-8333-333333333333';
 const userId='11111111-1111-4111-8111-111111111111',homeId='22222222-2222-4222-8222-222222222222';
 const stub=url(`export async function verifiedPurchaseAccount(){return globalThis.reportHarness.account;}
+export async function ledgerEntitlementAfterAuth(db,token,user,epoch,environment){globalThis.reportHarness.ledgerScope={token,user,epoch,environment};const h=globalThis.reportHarness;h.ledgerReads=(h.ledgerReads??0)+1;return {plan:h.loseRightsAfterLoad && h.ledgerReads>1 ? 'free' : h.ledgerPlan ?? 'free'};}
 export function billingConfiguration(){return globalThis.reportHarness.config;}
 export function billingDatabase(){return {auth:{getUser:async()=>({data:{user:{id:'${userId}'}},error:null})},from:()=>({select:()=>({eq:()=>({eq:async()=>({data:globalThis.reportHarness.rows,error:null})})})})};}
 export function createClient(url,key,options){globalThis.reportHarness.client={url,key,options};return {rpc:async()=>{globalThis.reportHarness.loads++;return {data:globalThis.reportHarness.household,error:null};}};}`);
@@ -37,5 +38,17 @@ test('actual route refuses production, unverified/free/expired/refunded/tip acco
   const body=await response.json();assert.equal(body.environment,'Sandbox');assert.equal(body.salesEnabled,false);assert.equal(body.report.homeId,homeId);
   assert.equal(h.client.key,'sb_publishable_synthetic_only');assert.equal(h.client.options.global.headers.Authorization,'Bearer synthetic_user_jwt');
   assert.equal((await GET(new Request('https://preview.example/api/development/maintenance-report?homeId='+homeId))).status,401);
+  h.config.storage='verified-ledger';h.rows=[{payload}];h.ledgerPlan='free';
+  assert.equal((await GET(request(homeId))).status,403);
+  h.rows=[];h.ledgerPlan='premium';
+  assert.equal((await GET(request(homeId))).status,200);
+  assert.deepEqual(h.ledgerScope,{token:'synthetic_user_jwt',user:userId,epoch:purchaseAccount,environment:'Sandbox'});
+  h.ledgerReads=0;h.loseRightsAfterLoad=true;
+  assert.equal((await GET(request(homeId))).status,403);
+  h.loseRightsAfterLoad=false;
+  const controller=new AbortController();controller.abort();
+  assert.equal((await GET(new Request(request(homeId),{signal:controller.signal}))).status,403);
+
+
  } finally {for(const [key,value] of Object.entries(saved)){if(value===undefined)delete process.env[key];else process.env[key]=value;}delete globalThis.reportHarness;}
 });
