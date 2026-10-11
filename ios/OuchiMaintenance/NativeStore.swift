@@ -109,7 +109,10 @@ struct FormalChannelSelection {
                     keyProvider: { _, _ in throw CloudError.unavailable })
                 return await eraseAppAttestLocalRegistration(account: account, stillBound: stillBound,
                     erasePendingProofs: { try await pending.eraseAccount(account) },
-                    eraseEncryptionKeys: { try AppAttestEncryptionKeyStorage(namespace: bundle).erase(account: account) })
+                    eraseEncryptionKeys: {
+                        try AppAttestKeyReferenceStorage(namespace: bundle).erase(account: account)
+                        try AppAttestEncryptionKeyStorage(namespace: bundle).erase(account: account)
+                    })
             },
             eraseSnapshot: { [self] in
                 guard let snapshotStorage else { throw CloudError.unavailable }

@@ -13,6 +13,13 @@ public actor AppAttestRegistrationRecovery {
     private var active = false
     public init(storage: AppAttestPendingRegistrationStorage, api: AppAttestRegistrationAPI,
                 currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+                references: AppAttestKeyReferenceStorage,
+                now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        self.storage=storage;self.api=api;self.currentSession=currentSession;self.now=now
+        self.persistReceipt={ try references.confirm($0,nowMilliseconds:now()) }
+    }
+    public init(storage: AppAttestPendingRegistrationStorage, api: AppAttestRegistrationAPI,
+                currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 persistReceipt: @escaping ReceiptWriter,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
         self.storage = storage; self.api = api; self.currentSession = currentSession
