@@ -4,6 +4,19 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    func testReminderCleanupKeepsForeignAccountAndUnknownLegacyNotifications() {
+        let account = UUID(), other = UUID(), nonce = UUID().uuidString
+        let owned = "ouchi.local.\(account.uuidString.lowercased()).\(nonce).0"
+        let foreign = "ouchi.local.\(other.uuidString.lowercased()).\(nonce).1"
+        let legacy = "ouchi.local.\(nonce).2"
+        let malformed = "ouchi.local.\(account.uuidString.lowercased()).invalid.3"
+        let unknown = ReminderCleanupPlan(identifiers: [owned, foreign, legacy, malformed, "other.app"], account: account)
+        XCTAssertEqual(unknown.identifiers, [owned]); XCTAssertTrue(unknown.ambiguousLegacy)
+        let known = ReminderCleanupPlan(identifiers: [owned, foreign], account: account)
+        XCTAssertEqual(known.identifiers, [owned]); XCTAssertFalse(known.ambiguousLegacy)
+        let rebound = ReminderCleanupPlan(identifiers: [owned, foreign, legacy], account: other)
+        XCTAssertEqual(rebound.identifiers, [foreign]); XCTAssertTrue(rebound.ambiguousLegacy)
+    }
     private func cleanupFixture(root: URL, account: UUID, suffix: String, contents: String) throws -> URL {
         // Scope-only test fixture. Protected write() and locked-device behavior
         // remain separate tests; do not change the production protection level.

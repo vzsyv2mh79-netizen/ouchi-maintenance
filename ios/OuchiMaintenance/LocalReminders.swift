@@ -9,15 +9,30 @@ import OuchiCore
     private var activeIDs: [String] = []
     /// Only call after the server has durably accepted the user's deletion.
     /// Confirmation covers this device's app-owned local notifications, not APNs.
-    func eraseForAccountDeletion() async -> Bool {
-        let expected = generation + 1
-        await reset(clearPreference: true)
-        guard generation == expected else { return false }
+    func eraseForAccountDeletion(account: UUID, stillBound: @MainActor () -> Bool) async -> Bool {
+        guard stillBound(), !Task.isCancelled else { return false }
+        generation += 1
+        let expected = generation
+        let preferenceAccount = UserDefaults.standard.string(forKey: preference).flatMap(UUID.init(uuidString:))
         let pending = await pendingIDs()
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
         let delivered = await deliveredIDs()
-        guard generation == expected else { return false }
-        return !pending.contains { $0.hasPrefix("ouchi.local.") }
-            && !delivered.contains { $0.hasPrefix("ouchi.local.") }
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
+        let pendingPlan = ReminderCleanupPlan(identifiers: pending, account: account)
+        let deliveredPlan = ReminderCleanupPlan(identifiers: delivered, account: account)
+        center.removePendingNotificationRequests(withIdentifiers: pendingPlan.identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: deliveredPlan.identifiers)
+        activeIDs.removeAll { pendingPlan.identifiers.contains($0) }
+        let remainingPending = await pendingIDs()
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
+        let remainingDelivered = await deliveredIDs()
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
+        let pendingCheck = ReminderCleanupPlan(identifiers: remainingPending, account: account)
+        let deliveredCheck = ReminderCleanupPlan(identifiers: remainingDelivered, account: account)
+        guard pendingCheck.identifiers.isEmpty, deliveredCheck.identifiers.isEmpty,
+              !pendingCheck.ambiguousLegacy, !deliveredCheck.ambiguousLegacy else { return false }
+        if preferenceAccount == account { UserDefaults.standard.removeObject(forKey: preference) }
+        return true
     }
     func reset(clearPreference: Bool) async {
         generation += 1
@@ -90,7 +105,7 @@ import OuchiCore
         let current = generation
         center.removePendingNotificationRequests(withIdentifiers: activeIDs)
         activeIDs = []
-        let prefix = "ouchi.local." + UUID().uuidString + "."
+        let prefix = "ouchi.local." + account.uuidString.lowercased() + "." + UUID().uuidString + "."
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
         var added: [String] = []
         do {
