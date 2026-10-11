@@ -476,7 +476,7 @@ import OuchiCore
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
             if subscription {
-                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard expected == generation, rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
                 sandboxEntitlement = rights
                 guard !rights.premiumIsCurrent() else {
@@ -503,15 +503,15 @@ import OuchiCore
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
             try await purchases.restore(account: purchaseAccount)
             guard expected == generation else { return }
-            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard expected == generation else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             do {
-                let accepted = try await BillingAPI().requestRecovery(token: credentials.access_token)
+                let accepted = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).requestRecovery(token: credentials.access_token)
                 guard expected == generation else { return }
                 if accepted == .accepted {
-                    let progress = try await BillingAPI().recoveryStatus(token: credentials.access_token)
+                    let progress = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
                     guard expected == generation else { return }
                     billingRecoveryStatus = progress
                     message = "\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{3092}\u{53d7}\u{3051}\u{4ed8}\u{3051}\u{307e}\u{3057}\u{305f}\u{3002}"
@@ -534,10 +534,10 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
-            let progress = try await BillingAPI().recoveryStatus(token: credentials.access_token)
+            let progress = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
             guard expected == generation else { return }
             if progress.state == .complete {
-                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard expected == generation else { return }
                 guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
                 sandboxEntitlement = rights
@@ -560,7 +560,7 @@ import OuchiCore
         if sandboxBillingConfigured, billingAccount == credentials.user.id, let purchaseAccount {
             do {
                 let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
-                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                       snapshotAccount == credentials.user.id, billingAccount == credentials.user.id else { return false }
                 guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
@@ -592,7 +592,7 @@ import OuchiCore
                   signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id,
                   let purchaseAccount else { return }
             let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
-            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
@@ -651,7 +651,7 @@ import OuchiCore
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id, let purchaseAccount else { return }
-            let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
@@ -684,7 +684,7 @@ import OuchiCore
         purchases.stopObserving()
         let expected = generation
         billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil; purchases.persist = nil
-        let billing = BillingAPI()
+        let billing = BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled)
         let issued: SandboxEntitlement
         do {
             let credentials = try await session.credentials()

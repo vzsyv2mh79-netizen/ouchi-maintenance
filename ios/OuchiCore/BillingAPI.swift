@@ -44,9 +44,17 @@ public enum BillingRecoveryRequest: String, Decodable, Sendable { case accepted;
 /// Environment selection only scopes validation; it does not enable purchases or sales.
 public struct BillingAPI: Sendable {
     private let transport: HouseholdAPI.Transport
+    private let origin: String
     public let environment: BillingEnvironment
-    public init(environment: BillingEnvironment = .sandbox, transport: HouseholdAPI.Transport? = nil) {
+    public init(environment: BillingEnvironment = .sandbox, isolatedDevelopment: Bool = false,
+                loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
         self.environment = environment
+        #if DEBUG
+        origin = isolatedDevelopment && environment == .sandbox && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        #else
+        origin = "https://ouchi-maintenance.vercel.app"
+        #endif
         self.transport = transport ?? { request in
             // Reject redirects before transmitting a bearer or signed transaction
             // to any second endpoint; a response URL check alone is too late.
@@ -65,7 +73,7 @@ public struct BillingAPI: Sendable {
     }
     private func send(path: String, token: String, body: Data?, allowedStatuses: Set<Int> = [200]) async throws -> (data: Data, status: Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/" + path)!
+        let url = URL(string: origin + "/api/billing/" + path)!
         var request = URLRequest(url: url); request.httpMethod = body == nil ? "GET" : "POST"
         request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")

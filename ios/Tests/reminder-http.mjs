@@ -23,8 +23,11 @@ function module(name){
  const url='data:text/javascript;base64,'+Buffer.from(code).toString('base64');modules.set(name,url);return url;
 }
 const {handleReminderSettings,freeReminderSchedule,ReminderSettingsError}=await import(module('reminder-settings'));
+const {entitlementFromTransactions}=await import(module('billing'));
 const scope={userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',epochID:'33333333-3333-4333-8333-333333333333'};
-let revision=0,saved=null,premium=true,reads=0,writes=0,redirected=0;
+let revision=0,saved=null,premium=true,reads=0,writes=0,redirected=0,billingReads=0;
+const purchasedAt=Date.now()-60000;
+const transaction={transactionId:'synthetic-transaction',originalTransactionId:'synthetic-original',productId:'ouchi.premium.monthly',accountToken:scope.epochID,environment:'Sandbox',signedAt:purchasedAt,purchasedAt,expiresAt:purchasedAt+3600000};
 const receipt=()=>({environment:'Sandbox',revision,saved,premiumActive:premium,effective:premium?(saved??freeReminderSchedule):freeReminderSchedule});
 const deps={verify:async bearer=>bearer==='synthetic'?scope:null,read:async()=>receipt(),save:async(s,expected,chosen)=>{
  assert.deepEqual(s,scope);assert.ok(Object.isFrozen(s));writes++;
@@ -39,8 +42,15 @@ const core=join(root,'ios/OuchiCore');
 const server=createServer(async(req,res)=>{
  try{
   if(req.url==='/redirect-target'){redirected++;res.writeHead(500);res.end();return;}
-  assert.equal(req.url,'/api/development/reminder-settings');
   assert.equal(req.headers.authorization,'Bearer synthetic');
+  if(req.url==='/api/billing/entitlement'){
+   assert.equal(req.method,'GET');billingReads++;
+   const inactive=!premium?(billingReads===2?{expiresAt:Date.now()-1}:{revokedAt:Date.now()}):{};
+   const state=entitlementFromTransactions([{...transaction,...inactive}],Date.now(),'Sandbox');
+   res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+   res.end(JSON.stringify({...state,environment:'Sandbox',salesEnabled:false,purchaseAccountToken:scope.epochID}));return;
+  }
+  assert.equal(req.url,'/api/development/reminder-settings');
   if(req.method==='GET'){
    reads++;
    if(reads===2)premium=false;
@@ -65,7 +75,7 @@ try{
   child.stdout.on('data',data=>process.stdout.write(data));child.stderr.on('data',data=>{output+=data;});
   child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);code===0?resolve():reject(Error('Native HTTP failed: '+code+' '+output));});
  });
- assert.equal(revision,1);assert.equal(writes,4);assert.equal(reads,3);assert.equal(redirected,0);
+ assert.equal(revision,1);assert.equal(writes,4);assert.equal(reads,3);assert.equal(billingReads,3);assert.equal(redirected,0);
  console.log('Actual server handler received bounded authenticated HTTP; redirect destination received zero requests. No real Auth/Apple/records.');
 }finally{
  await new Promise(resolve=>server.close(resolve));rmSync(directory,{recursive:true,force:true});

@@ -2,6 +2,16 @@ import Foundation
 import OuchiCore
 @main struct BillingSmoke {
     static func main() async throws {
+        // This suite links Release core: development options cannot redirect
+        // any released billing request, including Sandbox, to loopback.
+        for environment in [BillingEnvironment.sandbox, .production] {
+            let release = BillingAPI(environment: environment, isolatedDevelopment: true, loopbackPort: 1) { request in
+                precondition(request.url?.absoluteString == "https://ouchi-maintenance.vercel.app/api/billing/entitlement")
+                let payload = "{\"plan\":\"free\",\"environment\":\"\(environment.rawValue)\",\"salesEnabled\":false}"
+                return (Data(payload.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            _ = try await release.entitlement(token: "synthetic")
+        }
         let api = BillingAPI { request in
             precondition(request.httpMethod == "POST" && request.url?.path == "/api/billing/transactions")
             precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
