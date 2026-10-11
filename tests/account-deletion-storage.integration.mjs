@@ -584,17 +584,17 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:originalSession})).data,null);
   assert.equal((await user.auth.getUser()).error,null,'shared Auth preserved after application identity erasure');
   console.log('Actual independent deletion receipt: captured original Auth session still reads pending after synthetic app identity erasure; unmapped session denied; strict initializer cannot recreate enrollment; shared Auth preserved. No completion or production erasure.');
-  const completion=storedDeletionCompletion(admin);
-  assert.equal(await completion(scope),false,'real DB requires retention evidence beyond identity absence');
+  const deletionCompletion=storedDeletionCompletion(admin);
+  assert.equal(await deletionCompletion(scope),false,'real DB requires retention evidence beyond identity absence');
   assert.equal(recoverySql(`select has_table_privilege('service_role','maintenance_private.deletion_retention_checks','INSERT');`).trim(),'f','runtime cannot manufacture retention approval');
   assert.ok((await user.rpc('complete_maintenance_account_deletion',identityArgs)).error);
   // Privileged disposable fixture only. This does not approve production
   // unassociated-event/log/backup retention or deploy a retention checker.
   recoverySql(`insert into maintenance_private.deletion_retention_checks values('${scope.requestID}','synthetic-disposable-policy',now(),now()+interval '5 minutes',600);`);
   assert.equal((await admin.rpc('complete_maintenance_account_deletion',{...identityArgs,target_lease:randomUUID()})).data,false);
-  assert.equal(await completion(scope),true);
+  assert.equal(await deletionCompletion(scope),true);
   const completedExpiry=recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim();
-  assert.equal(await completion(scope),true);assert.equal(recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),completedExpiry);
+  assert.equal(await deletionCompletion(scope),true);assert.equal(recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),completedExpiry);
   const afterCommit=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay');},finalizeIdentityAndRetention:async()=>{throw Error('must not replay');},markComplete:async()=>{throw Error('must not replay');}}));assert.deepEqual(afterCommit,{state:'complete'});
   assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data.state,'complete');
   assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',{...identityArgs,target_lease:randomUUID()})).data,false);
