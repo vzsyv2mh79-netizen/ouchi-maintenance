@@ -825,6 +825,14 @@ struct FormalChannelSelection {
         let key = subscription ? "OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED" : "OUCHI_RELEASE_TIPS_ENABLED"
         return Bundle.main.infoDictionary?[key] as? Bool == true
     }
+    func releasePurchaseSalesAvailable(subscription: Bool) -> Bool {
+        guard releaseNewPurchaseConfigured(subscription: subscription), signedIn,
+              let environment = releasePurchaseEnvironment, let rights = releaseEntitlement,
+              rights.environment == environment.rawValue,
+              rights.purchaseAccountToken == releasePurchaseEpoch,
+              releasePurchaseEpoch != nil, let account = releaseBillingAccount, account == snapshotAccount else { return false }
+        return environment == .sandbox || rights.salesEnabled
+    }
     func loadReleasePurchaseProducts() async {
         guard !busy, signedIn, releaseEntitlement != nil,
               releaseNewPurchaseConfigured(subscription: false) || releaseNewPurchaseConfigured(subscription: true) else { return }

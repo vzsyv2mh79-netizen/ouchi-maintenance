@@ -171,7 +171,9 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         defer { window.close() }
         let store = try await releaseStore(fixture, window: window, allowPurchases: true)
         defer { store.releasePurchases.stopObserving() }
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: false))
         await store.loadReleasePurchaseState()
+        XCTAssertTrue(store.releasePurchaseSalesAvailable(subscription: false))
         XCTAssertEqual(store.releaseEntitlement?.purchaseAccountToken, ReleaseBillingHTTPFixture.epoch)
         XCTAssertEqual(store.releaseEntitlement?.plan, .free)
         await store.loadReleasePurchaseProducts()
@@ -221,6 +223,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         let submissions = await fixture.submissions
         XCTAssertEqual(submissions, 0)
         XCTAssertNil(store.releaseEntitlement)
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: false))
         XCTAssertTrue(store.releasePurchases.needsRetry)
         XCTAssertFalse(store.busy)
     }
@@ -257,6 +260,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         await fixture.resumeRead(); await request.value
         XCTAssertTrue(session.allTransactions().isEmpty)
         XCTAssertNil(store.releaseEntitlement)
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: false))
         XCTAssertNil(store.releasePurchases.persist)
         XCTAssertFalse(store.busy)
     }
