@@ -119,6 +119,14 @@ struct FormalChannelSelection {
                     root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true),
                     keyProvider: { _, _ in throw CloudError.unavailable })
                 return await eraseAppAttestLocalRegistration(account: account, stillBound: stillBound,
+                    prepareClosure: {
+                        let now = Int64(Date().timeIntervalSince1970 * 1000)
+                        let retention: Int64 = 7_776_000_000
+                        guard now > 0, now <= 9_007_199_254_740_991 - retention else { throw CloudError.invalidInput }
+                        try AppAttestKeyReferenceStorage(namespace: bundle).beginClosure(
+                            AppAttestAccountClosure(accountID: account, requestID: UUID(),
+                                createdAtMilliseconds: now, retainUntilMilliseconds: now + retention))
+                    },
                     erasePendingProofs: { try await pending.eraseAccount(account) },
                     eraseEncryptionKeys: {
                         try AppAttestKeyReferenceStorage(namespace: bundle).erase(account: account)
@@ -162,6 +170,10 @@ struct FormalChannelSelection {
             if let coordinator = appAttestRegistrationCoordinator {
                 do { try await coordinator.completeLocalClosure(confirmation: confirmation, session: session) }
                 catch { registrationCleanupFailed = true }
+            } else {
+                // The fallback journal deliberately survives until a proof-bound
+                // recovery can finalize it. Do not report complete registration cleanup.
+                registrationCleanupFailed = true
             }
             // Once credentials are erased, finish the same binding even if the view was cancelled.
             guard matches() else { return false }
