@@ -118,8 +118,11 @@ public struct ReportAPI: Sendable {
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Envelope: Decodable { let environment: String; let salesEnabled: Bool; let report: MaintenanceReport }
         let result = try JSONDecoder().decode(Envelope.self, from: bytes)
-        let report = result.report
-        guard result.environment == "Sandbox", !result.salesEnabled, UUID(uuidString: report.homeId) == id,
+        guard result.environment == "Sandbox", !result.salesEnabled else { throw CloudError.malformedResponse }
+        return try Self.checkedReport(result.report, home: id)
+    }
+    static func checkedReport(_ report: MaintenanceReport, home id: UUID) throws -> MaintenanceReport {
+        guard UUID(uuidString: report.homeId) == id,
               !report.homeName.isEmpty, report.homeName.count <= 80, report.explanation.count <= 2000,
               report.months.count == 6, report.perProduct.count <= 10000,
               report.productCount == report.perProduct.count,

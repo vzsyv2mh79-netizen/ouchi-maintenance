@@ -171,6 +171,9 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.formalReportEnvironment != nil {
+                    Section("お手入れレポート") { NavigationLink("住まい全体のレポート") { FormalReportView() } }
+                }
                 if store.sandboxBillingConfigured { Section("開発用") {
                     NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) }
                     NavigationLink("有料プランのSandbox確認") { SandboxSubscriptionView(purchases: store.purchases) }
@@ -859,6 +862,35 @@ private struct SandboxReminderSettingsView: View {
             weekdays = Set(schedule.weekdays); leadDays = schedule.leadDays; includeOverdue = schedule.includeOverdue
         }
         .onDisappear { operation?.cancel(); operation = nil }
+    }
+}
+
+private struct FormalReportView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var report: MaintenanceReport?
+    @State private var operation: Task<Void, Never>?
+    private var binding: String { store.accountBindingRevision.uuidString + "/" + store.homeID }
+    var body: some View {
+        Form {
+            Section {
+                HomePicker()
+                Text("登録したお手入れと完了履歴から、住まい全体の状況を集計します。有料プランの利用権を確認して表示します。")
+                Button(store.busy ? "確認中…" : "レポートを更新") {
+                    let expected = binding
+                    report = nil; operation?.cancel()
+                    operation = Task { @MainActor in
+                        let value = await store.loadFormalReport()
+                        guard !Task.isCancelled, expected == binding else { return }
+                        report = value
+                    }
+                }.disabled(store.busy)
+            }
+            if let report { MaintenanceReportSections(report: report) }
+            if let message = store.message { Section { Text(message) } }
+        }
+        .navigationTitle("お手入れレポート")
+        .task(id: binding) { operation?.cancel(); operation = nil; report = nil }
+        .onDisappear { operation?.cancel(); operation = nil; report = nil }
     }
 }
 
