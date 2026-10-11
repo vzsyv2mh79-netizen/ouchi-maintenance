@@ -37,3 +37,16 @@ Late notifications for erased/unmapped enrollments must not recreate the old ide
 - [App transaction identifier](https://developer.apple.com/documentation/appstoreserverapi/apptransactionid): identifier used to associate App Store app/purchase information.
 
 These sources describe Apple behavior. They do not authorize our app's ownership transfer or establish an operator-specific retention period.
+
+
+## Restore assertion client data (prepared, no authorization route)
+
+The billing-restore-client-data helper creates a cryptographically random32-byte server nonce with a bounded five-minute validity window and produces deterministic UTF-8 clientData bytes. It binds the live user, Auth session, enrollment epoch, request, server-associated attested key identifier, App ID, App Attest environment, purchase environment and a domain-separated digest of the exact signed AppTransaction/purchase pair. The verified pairing helper now returns that digest while preserving the original transaction account token. App Attest environment and purchase environment remain separate; one does not imply the other.
+
+This helper validates structure, canonical encodings and time only. A client-supplied key identifier is NOT proof of a verified device. Generating a nonce is NOT single-use consumption. There is no challenge store, attestation registration/verifier, assertion endpoint, counter update, ownership transfer, Apple mutation or rights grant in this change. Before returning a challenge, a future route must verify live Auth/current enrollment, both Apple signatures/pairing, and the server-stored key association, then persist the exact challenge. At validation, reconstruct exact clientData from that stored scope, verify Apple's App Attest assertion and atomically consume nonce/counter. No client JSON fields alone can approve a transfer.
+
+Local tests cover random nonce generation, deterministic ordering, binding changes to every identity/environment/pair field, malformed encodings, expiry extension and bounded proof bytes. They do not prove Apple attestation or authorize transfer. The actual device/server protocol, replay/concurrency store, approved conflict policy, verified Set App Account Token/readback reconciliation and signed Apple Sandbox remain required.
+
+Official Apple DeviceCheck validation documentation was fetched on2026-10-11. It requires randomized one-time challenges, verified certificate/key association, assertion signature verification and increasing counters. Current documentation also requires checking validation category and bundle version in authenticator extensions. Do not silently omit these or trust client-supplied values in a future verifier. The Set App Account Token documentation confirms that updates apply to the current/subsequent renewal transactions rather than past renewals; verified fresh readback is mandatory before granting new enrollment rights.
+
+References: [App Attest server validation](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server), [Attestation validation guide](https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide), [Set App Account Token](https://developer.apple.com/documentation/appstoreserverapi/set-app-account-token).

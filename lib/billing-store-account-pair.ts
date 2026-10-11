@@ -1,4 +1,5 @@
 import {normalizeAppleTransaction,type BillingEnvironment} from './billing';
+import {restorePairDigest} from './billing-restore-client-data';
 
 type Scope={bundleId:string;environment:BillingEnvironment;appAppleId?:number};
 type Verifiers={verifyApp:(jws:string)=>Promise<Record<string,unknown>>;verifyTransaction:(jws:string)=>Promise<Record<string,unknown>>};
@@ -22,5 +23,5 @@ export async function verifyStoreAccountPair(signedApp:string,signedTransaction:
  for(const timestamp of [app.receiptCreationDate,payload.signedDate])if(!Number.isSafeInteger(timestamp)||(timestamp as number)<=0||(timestamp as number)>now+60000)throw Error('Invalid proof time');
  const transaction=normalizeAppleTransaction(payload,scope.bundleId,scope.environment);
  if(payload.inAppOwnershipType!=='PURCHASED'||!['ouchi.premium.monthly','ouchi.premium.annual'].includes(transaction.productId))throw Error('Unsupported restore ownership');
- return {appTransactionId:app.appTransactionId,transaction};
+ return {appTransactionId:app.appTransactionId,transaction,proofSHA256:restorePairDigest(signedApp,signedTransaction)};
 }

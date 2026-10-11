@@ -11,7 +11,7 @@ const transaction={bundleId:scope.bundleId,environment:'Sandbox',appTransactionI
 const deps=(a=app,t=transaction)=>({verifyApp:async jws=>{assert.equal(jws,'synthetic-app-jws');return a;},verifyTransaction:async jws=>{assert.equal(jws,'synthetic-transaction-jws');return t;}});
 const call=(a=app,t=transaction,s=scope,d=deps(a,t))=>pair('synthetic-app-jws','synthetic-transaction-jws',s,d,now);
 test('pair verified app and purchase scopes without authorizing transfer',async()=>{
- const value=await call();assert.equal(value.appTransactionId,app.appTransactionId);assert.equal(value.transaction.accountToken,transaction.appAccountToken);assert.ok(!Object.hasOwn(value,'authorized'));assert.ok(!Object.hasOwn(value,'newAccountToken'));
+ const value=await call();assert.equal(value.appTransactionId,app.appTransactionId);assert.equal(value.transaction.accountToken,transaction.appAccountToken);assert.equal(value.proofSHA256,'8b859b63290e3ebf9017c69ca2e05d940a75b755b2d676b493d26511a0bc304a');assert.ok(!Object.hasOwn(value,'authorized'));assert.ok(!Object.hasOwn(value,'newAccountToken'));
  const prod={bundleId:scope.bundleId,environment:'Production',appAppleId:123};
  assert.equal((await call({...app,receiptType:'Production',appAppleId:123},{...transaction,environment:'Production'},prod)).transaction.environment,'Production');
  for(const a of [{...app,appTransactionId:''},{...app,appTransactionId:'other'},{...app,bundleId:'foreign'},{...app,receiptType:'Production'},{...app,receiptCreationDate:now+60001}])await assert.rejects(call(a));
