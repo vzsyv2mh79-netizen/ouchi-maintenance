@@ -31,6 +31,7 @@ const {nativePushDeployment,nativePushRegistrationResponse}=await import(attachm
 const {notificationChannelDeployment,notificationChannelResponse}=await import(attachmentModule('notification-channel-service'));
 const {accountEnrollmentResponse}=await import(attachmentModule('account-enrollment-service'));
 const {createRestoreChallenge,restoreAssertionClientData}=await import(attachmentModule('billing-restore-client-data'));
+const {createRegistrationChallenge,registrationClientDataHash}=await import(attachmentModule('billing-app-attest-registration-challenge'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -593,6 +594,34 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('consume_maintenance_restore_challenge',restoreConsumeArgs)).data,false);
   assert.equal(recoverySql(`select assertion_counter from maintenance_private.restore_attested_keys where key_id='${restoreKey}';`).trim(),'1');
   console.log('Actual restore challenge CAS: real Auth/enrollment, two concurrent calls accept exactly once, replay/wrong session/browser denied. Synthetic key/signature digest; no Apple purchase transfer.');
+  // Real Auth/PostgreSQL registration atomicity ONLY. The point, receipt and
+  // attestation digest below are synthetic and do not claim Apple validation.
+  const registrationPoint=Buffer.concat([Buffer.from([4]),Buffer.alloc(64,9)]),registrationKey=createHash('sha256').update(registrationPoint).digest('base64');
+  const registrationScope={userID:newUserID,sessionID:restoreSession,epochID:consentReceipt.epochID,keyID:registrationKey,appID:'SYNTHETIC1.dev.synthetic.ouchi',attestEnvironment:'production'};
+  const registrationA=createRegistrationChallenge({...registrationScope,requestID:randomUUID()}),registrationB=createRegistrationChallenge({...registrationScope,requestID:randomUUID()});
+  const persistRegistration=c=>{
+   const hash=registrationClientDataHash(c).toString('hex');
+   recoverySql(`begin;set local role service_role;insert into maintenance_private.attest_registration_challenges(request_id,user_id,session_id,app_epoch_id,key_id,app_id,attest_environment,challenge,nonce,client_data_sha256,issued_at,expires_at) values('${c.requestID}','${c.userID}','${c.sessionID}','${c.epochID}','${c.keyID}','${c.appID}','${c.attestEnvironment}','${JSON.stringify(c)}','${c.nonce}','${hash}',to_timestamp(${c.issuedAt}/1000.0),to_timestamp(${c.expiresAt}/1000.0));commit;`);
+  };
+  persistRegistration(registrationA);persistRegistration(registrationB);
+  const registrationArgs=c=>({target_request:c.requestID,target_user:c.userID,verified_session:c.sessionID,target_epoch:c.epochID,target_key:c.keyID,verified_client_hash:registrationClientDataHash(c).toString('hex'),verified_attestation_hash:'d'.repeat(64),verified_public_key:'\\x'+registrationPoint.toString('hex'),verified_receipt:'\\x01'});
+  assert.equal((await admin.rpc('commit_maintenance_attested_registration',{...registrationArgs(registrationA),verified_session:randomUUID()})).data,false);
+  assert.ok((await newAccount.rpc('commit_maintenance_attested_registration',registrationArgs(registrationA))).error);
+  const registrationRace=await Promise.all([admin.rpc('commit_maintenance_attested_registration',registrationArgs(registrationA)),admin.rpc('commit_maintenance_attested_registration',registrationArgs(registrationB))]);
+  for(const r of registrationRace)assert.equal(r.error,null);assert.deepEqual(registrationRace.map(r=>r.data).sort(),[false,true]);
+  const registrationWinner=registrationRace[0].data?registrationA:registrationB;
+  assert.equal((await admin.rpc('commit_maintenance_attested_registration',registrationArgs(registrationWinner))).data,true,'exact lost acknowledgement readback');
+  assert.equal((await admin.rpc('commit_maintenance_attested_registration',{...registrationArgs(registrationWinner),verified_attestation_hash:'e'.repeat(64)})).data,false);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_attested_keys where key_id='${registrationKey}';`).trim(),'1');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.attest_registration_challenges where key_id='${registrationKey}' and consumed_at is not null;`).trim(),'1');
+  const temporaryRegistration=createClient(origin,'synthetic-public-key',options),temporaryRegistrationLogin=await temporaryRegistration.auth.signInWithPassword({email:newSignup.data.user.email,password:syntheticPassword});assert.equal(temporaryRegistrationLogin.error,null);
+  const temporaryRegistrationSession=JSON.parse(Buffer.from(temporaryRegistrationLogin.data.session.access_token.split('.')[1],'base64url')).session_id;
+  const temporaryRegistrationEnrollment=await accountEnrollmentResponse(enrollmentRequest(temporaryRegistrationLogin.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories);assert.equal(temporaryRegistrationEnrollment.status,200);assert.equal((await temporaryRegistrationEnrollment.json()).epochID,consentReceipt.epochID);
+  assert.equal((await admin.rpc('read_maintenance_explicit_enrollment',{target_user:newUserID,verified_session:temporaryRegistrationSession})).data,consentReceipt.epochID);
+  const revokedRegistration=createRegistrationChallenge({...registrationScope,sessionID:temporaryRegistrationSession,requestID:randomUUID()});persistRegistration(revokedRegistration);
+  assert.equal((await temporaryRegistration.auth.signOut({scope:'local'})).error,null);
+  assert.equal((await admin.rpc('commit_maintenance_attested_registration',registrationArgs(revokedRegistration))).data,false,'revoked real Auth session cannot recover even an existing key');
+  console.log('Actual registration atomicity: live real Auth/enrollment and canonical hash, concurrent requests insert one key and consume one nonce, exact acknowledgement retry preserves state, changed proof/revoked session/browser refused. Synthetic point/receipt only; no Apple verification or purchase grant.');
   const retry=await accountEnrollmentResponse(enrollmentRequest(newBearer,true),enrollmentConfig,enrollmentFactories);assert.equal(retry.status,503,'new proof cannot reuse consumed request');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${consentID}';`).trim(),'1');
   assert.equal((await accountEnrollmentResponse(enrollmentRequest(signup.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories)).status,503,'deletion still running cannot reopen');
