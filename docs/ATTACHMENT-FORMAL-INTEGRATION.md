@@ -69,3 +69,12 @@ The next disposable integration also seeds a synthetic transaction through the s
 At270300daf0c2ebdc0a6736bdb9cf3e9b637cdbae, actual disposable Auth/PostgREST/Storage migration run38104100192/job114365827403 succeeded with normal product deletion while a real family upload was held. Owner capture still found both files, late acknowledged Storage completion was erased and absence verified. This does not implement immediate file cleanup for ordinary product deletion or full identity deletion.
 
 The local PGlite scenario also verifies legacy existing reservation backfill, unknown legacy ownership remains null/nonquiet, and a foreign home/file remains after owner record erasure. The supplemental backfill assertions require their next commit CI. No production migration or owner data deletion is authorized by these tests.
+
+
+## Single-file removal preparation
+
+20261011021242 adds removal_pending. A live authenticated uploader or captured owner can durably fence a quiet file without an active paid plan. New reserve/start/finalize and stored reads reject the pending file; quota continues counting it until trusted server Storage API removal, actual NoSuchKey and exact path acknowledgement. Unknown or pending writes cannot be settled by deletion or elapsed time. Completion rechecks live binding, durable fence, quietness and Storage metadata absence; metadata absence alone is explicitly not physical evidence.
+
+Atccabc9d568c386b615524f815075805ca0bac690, actual disposable migration run38104567299/job114367201524 succeeded: formal DELETE after synthetic subscription revocation, actual private Storage NoSuchKey and usedFiles0. This is a file removal test, not complete account identity deletion.
+
+Native development confirmation and stable ID DELETE are prepared locally; package13 and smoke23 passed. iOS SDK compilation, rendered deletion screen and actual device operation require their next commit checks. The public feature and Production remain inactive.

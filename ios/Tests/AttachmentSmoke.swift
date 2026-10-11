@@ -54,6 +54,19 @@ import OuchiCore
    (Data("{\"account\":\"\(account.uuidString)\",\"epoch\":\"\(account.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
   }
   do { _=try await invalidBinding.binding(token:"synthetic");fatalError("Auth ID used as enrollment") } catch { precondition(error as? CloudError == .malformedResponse) }
+  let removalAPI=DevelopmentAttachmentAPI { request in
+   precondition(request.httpMethod=="DELETE" && request.httpBody==nil && request.url?.path=="/api/development/verified-product-attachments")
+   let query=URLComponents(url:request.url!,resolvingAgainstBaseURL:false)!.queryItems!
+   precondition(query.count==1 && query[0].name=="attachmentId" && query[0].value==attachment.uuidString.lowercased())
+   return (Data("{\"removed\":true,\"attachmentId\":\"\(attachment.uuidString)\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  try await removalAPI.remove(attachment:attachment,token:"synthetic",confirmed:true)
+  do { try await forbidden.remove(attachment:attachment,token:"synthetic",confirmed:false);fatalError("unconfirmed deletion sent") } catch { precondition(error as? CloudError == .invalidInput) }
+  let wrongRemoval=DevelopmentAttachmentAPI { request in
+   (Data("{\"removed\":true,\"attachmentId\":\"\(UUID())\"}".utf8),HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:nil)!)
+  }
+  do { try await wrongRemoval.remove(attachment:attachment,token:"synthetic",confirmed:true);fatalError("different file deletion accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
+  do { try await redirected.remove(attachment:attachment,token:"synthetic",confirmed:true);fatalError("deletion redirect accepted") } catch { precondition(error as? CloudError == .malformedResponse) }
   let pending=try PendingAttachment(account:account,epoch:epoch,product:product,id:attachment,bytes:bytes,mime:"image/png")
   let serialized=try pending.encode(),restored=try PendingAttachment.decode(serialized,account:account,epoch:epoch)
   precondition(restored.id==attachment && restored.product==product && restored.bytes==bytes)

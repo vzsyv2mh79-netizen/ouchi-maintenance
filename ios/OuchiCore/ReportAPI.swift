@@ -338,6 +338,23 @@ public struct DevelopmentAttachmentAPI: Sendable {
               response.value(forHTTPHeaderField: "Content-Disposition") == "attachment; filename=\"ouchi-attachment-\(identifier).\(fileExtension)\"" else { throw CloudError.malformedResponse }
         return DownloadedFile(bytes: body, mime: mime, fileExtension: fileExtension)
     }
+    /// Deletion remains available after paid access expires; server verifies scope.
+    public func remove(attachment: UUID, token: String, confirmed: Bool) async throws {
+        guard confirmed, attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
+        guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
+        components.queryItems = [URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
+        let url = components.url!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        let (body, response) = try await transport(request)
+        guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
+        struct Result: Decodable { let removed: Bool; let attachmentId: UUID }
+        let value = try JSONDecoder().decode(Result.self, from: body)
+        guard value.removed, value.attachmentId == attachment else { throw CloudError.malformedResponse }
+    }
     /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
     public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool) async throws {
         guard confirmed, !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024,

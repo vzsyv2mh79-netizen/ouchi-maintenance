@@ -239,6 +239,25 @@ import OuchiCore
             attachmentExportURL = url
         } catch { if expected == generation, exportGeneration == attachmentExportGeneration { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
     }
+    func removeDevelopmentAttachment(_ attachment: UUID, product: UUID, confirmed: Bool) async -> Bool {
+        guard developmentLifecycleConfigured, confirmed, !busy, let session,
+              household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
+        let expected = generation, home = homeID
+        busy = true; message = nil
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, home == homeID else { return false }
+            try await DevelopmentAttachmentAPI().remove(attachment: attachment, token: credentials.access_token, confirmed: true)
+            guard !Task.isCancelled, expected == generation, home == homeID else { return false }
+            clearDevelopmentAttachmentExport()
+            message = "テスト用ファイルの消去と容量の解放を確認しました。"
+            return true
+        } catch {
+            if expected == generation, home == homeID { message = "削除完了を確認できません。同じファイルで再確認してください。保存した人か住まいの所有者が操作できます。" }
+            return false
+        }
+    }
     func clearDevelopmentAttachmentExport() {
         attachmentExportGeneration += 1
         guard let url = attachmentExportURL else { return }
