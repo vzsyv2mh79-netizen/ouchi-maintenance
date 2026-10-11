@@ -46,4 +46,28 @@ public struct ManagedExportStorage {
             return ["json", "ics", "pdf", "jpg", "png"].contains(item.pathExtension)
         }.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
+
+    /// Removes only discoverable app-owned exports for one account. This is not
+    /// a complete device wipe and never removes directories or user-saved copies.
+    public func removeFiles(account: UUID) throws {
+        let owned = try files(account: account)
+        for file in owned {
+            // Revalidate directory ownership before each operation; do not rely
+            // on URL resource values cached by the initial enumeration.
+            let folder = try directory(account: account)
+            guard file.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL else {
+                throw CocoaError(.fileReadNoPermission)
+            }
+            do {
+                let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+                guard attributes[.type] as? FileAttributeType == .typeRegular else {
+                    throw CocoaError(.fileReadNoPermission)
+                }
+                try FileManager.default.removeItem(at: file)
+            } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+                // Already absent: a retry must remain safe after partial cleanup.
+            }
+        }
+        guard try files(account: account).isEmpty else { throw CocoaError(.fileWriteUnknown) }
+    }
 }

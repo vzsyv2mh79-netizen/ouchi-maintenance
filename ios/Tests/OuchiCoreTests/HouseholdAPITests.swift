@@ -4,6 +4,48 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    private func cleanupFixture(root: URL, account: UUID, suffix: String, contents: String) throws -> URL {
+        // Scope-only test fixture. Protected write() and locked-device behavior
+        // remain separate tests; do not change the production protection level.
+        let folder = root.appendingPathComponent(account.uuidString.lowercased())
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent(UUID().uuidString.lowercased()).appendingPathExtension(suffix)
+        try Data(contents.utf8).write(to: file, options: .atomic)
+        return file
+    }
+    func testManagedExportCleanupAfterRestartPreservesOtherAccountsAndUnownedFiles() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let account = UUID(), other = UUID()
+        let first = try cleanupFixture(root: root, account: account, suffix: "json", contents: "synthetic")
+        let second = try cleanupFixture(root: root, account: other, suffix: "ics", contents: "other")
+        let foreign = first.deletingLastPathComponent().appendingPathComponent("saved-copy.json")
+        try Data("user copy".utf8).write(to: foreign)
+        let link = first.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".pdf")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
+        let reopened = ManagedExportStorage(root: root)
+        try reopened.removeFiles(account: account)
+        XCTAssertTrue(try reopened.files(account: account).isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertEqual(try Data(contentsOf: second), Data("other".utf8))
+        XCTAssertEqual(try Data(contentsOf: foreign), Data("user copy".utf8))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), second.path)
+        try reopened.removeFiles(account: account)
+        try reopened.removeFiles(account: UUID())
+    }
+    func testManagedExportCleanupRefusesReplacedRoot() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let root = temporary.appendingPathComponent("exports"), account = UUID()
+        let storage = ManagedExportStorage(root: root)
+        let file = try cleanupFixture(root: root, account: account, suffix: "pdf", contents: "synthetic")
+        let moved = temporary.appendingPathComponent("moved")
+        try FileManager.default.moveItem(at: root, to: moved)
+        try FileManager.default.createSymbolicLink(at: root, withDestinationURL: moved)
+        XCTAssertThrowsError(try storage.removeFiles(account: account))
+        let preserved = moved.appendingPathComponent(account.uuidString.lowercased()).appendingPathComponent(file.lastPathComponent)
+        XCTAssertEqual(try Data(contentsOf: preserved), Data("synthetic".utf8))
+    }
     func testManagedExportsSurviveRestartAndRemainAccountScoped() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
