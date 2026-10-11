@@ -51,6 +51,22 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const completedAttachment=await admin.rpc('finalize_maintenance_attachment',completion);assert.equal(completedAttachment.error,null);assert.equal(completedAttachment.data,file);
   assert.equal((await admin.rpc('finalize_maintenance_attachment',completion)).data,file);assert.ok((await user.rpc('finalize_maintenance_attachment',completion)).error);
   assert.ok((await user.storage.from('ouchi-product-attachments').download(path)).error);
+  const otherClaims=JSON.parse(Buffer.from(otherSignup.data.session.access_token.split('.')[1],'base64url'));
+  const otherEpoch=await admin.rpc('current_maintenance_purchase_account',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id});assert.equal(otherEpoch.error,null);assert.ok(otherEpoch.data);
+  const readerArgs={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,attachment_id:file};
+  const sharedReaderArgs={...readerArgs,target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data};
+  const metadata=await admin.rpc('read_maintenance_attachment',readerArgs);assert.equal(metadata.error,null);assert.deepEqual(metadata.data,{id:file,user:userID,epoch:epoch.data,size:bytes.length,mime:'image/png',sha256:hash});
+  // Neither uploader nor reader has a paid transaction. Existing downloads remain authorized.
+  assert.deepEqual((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,metadata.data);
+  assert.ok((await other.rpc('read_maintenance_attachment',sharedReaderArgs)).error);
+  const pageArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,target_product:product};
+  const retainedPage=await admin.rpc('page_maintenance_attachments',pageArgs);assert.equal(retainedPage.error,null);assert.equal(retainedPage.data.items.length,1);assert.equal(retainedPage.data.next,null);assert.deepEqual(Object.keys(retainedPage.data.items[0]).sort(),['createdAt','id','mime','size']);
+  const usageArgs={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data};
+  const used=await admin.rpc('maintenance_attachment_usage',usageArgs);assert.equal(used.error,null);assert.equal(used.data.usedBytes,bytes.length);assert.equal(used.data.usedFiles,1);assert.equal(used.data.reservedFiles,0);
+  assert.equal((await user.from('home_members').delete().eq('homeId',home).eq('user_id',otherSignup.data.user.id)).error,null);
+  assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});
+  assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
+
   const pushID=randomUUID(),pushLease=randomUUID(),pushEndpoint='https://web.push.apple.com/synthetic-'+randomUUID();assert.equal((await admin.from('maintenance_push_subscriptions').insert({id:pushID,user_id:userID,endpoint:pushEndpoint,p256dh:'A'.repeat(87),auth:'A'.repeat(22),claim_token:pushLease,claimed_until:new Date(Date.now()+120000).toISOString()})).error,null);
   const testDispatchArgs={target_user:userID,target_endpoint:pushEndpoint};assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,true);
   const dispatchArgs={subscription_id:pushID,delivery_token:pushLease};assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,true);assert.ok((await user.rpc('can_dispatch_maintenance_push',dispatchArgs)).error);
@@ -65,7 +81,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
-  assert.ok((await admin.rpc('reserve_maintenance_attachment',{...reservation,attachment_id:randomUUID()})).error);assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);
+  assert.ok((await admin.rpc('reserve_maintenance_attachment',{...reservation,attachment_id:randomUUID()})).error);assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});assert.equal((await admin.rpc('maintenance_attachment_usage',usageArgs)).data,null);
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,1);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);
