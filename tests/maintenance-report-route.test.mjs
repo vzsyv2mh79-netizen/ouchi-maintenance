@@ -10,7 +10,7 @@ const stub=url(`export async function verifiedPurchaseAccount(){return globalThi
 export async function ledgerEntitlementAfterAuth(db,token,user,epoch,environment){globalThis.reportHarness.ledgerScope={token,user,epoch,environment};const h=globalThis.reportHarness;h.ledgerReads=(h.ledgerReads??0)+1;return {plan:h.loseRightsAfterLoad && h.ledgerReads>1 ? 'free' : h.ledgerPlan ?? 'free'};}
 export function billingConfiguration(){return globalThis.reportHarness.config;}
 export function billingDatabase(){return {auth:{getUser:async()=>({data:{user:{id:'${userId}'}},error:null})},from:()=>({select:()=>({eq:()=>({eq:async()=>({data:globalThis.reportHarness.rows,error:null})})})})};}
-export function createClient(url,key,options){globalThis.reportHarness.client={url,key,options};return {rpc:async()=>{globalThis.reportHarness.loads++;return {data:globalThis.reportHarness.household,error:null};}};}`);
+export function createClient(url,key,options){globalThis.reportHarness.client={url,key,options};return {rpc:async()=>{globalThis.reportHarness.loads++;if(globalThis.reportHarness.revokeLegacyAfterLoad){globalThis.reportHarness.rows=[];}return {data:globalThis.reportHarness.household,error:null};}};}`);
 const code=compile('app/api/development/maintenance-report/route.ts')
  .replaceAll("'@supabase/supabase-js'",JSON.stringify(stub)).replaceAll("'@/lib/billing-server'",JSON.stringify(stub))
  .replaceAll("'@/lib/billing-fetch'",JSON.stringify(url(compile('lib/billing-fetch.ts'))))
@@ -42,6 +42,9 @@ test('actual route refuses production, unverified/free/expired/refunded/tip acco
   const body=await response.json();assert.equal(body.environment,'Sandbox');assert.equal(body.salesEnabled,false);assert.equal(body.report.homeId,homeId);
   assert.equal(h.client.key,'sb_publishable_synthetic_only');assert.equal(h.client.options.global.headers.Authorization,'Bearer synthetic_user_jwt');
   assert.equal((await GET(new Request('https://preview.example/api/development/maintenance-report?homeId='+homeId))).status,401);
+  h.revokeLegacyAfterLoad=true;h.rows=[{payload}];
+  assert.equal((await GET(request(homeId))).status,403);
+  h.revokeLegacyAfterLoad=false;
   h.config.storage='verified-ledger';h.rows=[{payload}];h.ledgerPlan='free';
   assert.equal((await GET(request(homeId))).status,403);
   h.rows=[];h.ledgerPlan='premium';
