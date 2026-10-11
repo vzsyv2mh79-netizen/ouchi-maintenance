@@ -97,7 +97,7 @@ struct KeychainSessionStorage: SessionStorage {
 }
 
 /// One pending upload per isolated app environment. Not yet wired to production.
-struct PendingAttachmentStorage {
+@MainActor struct PendingAttachmentStorage {
     private let file: URL
     init(directory: URL? = nil) {
         let root = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -109,6 +109,12 @@ struct PendingAttachmentStorage {
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
         guard size <= 7 * 1024 * 1024 else { throw CloudError.invalidInput }
         return try PendingAttachment.decode(Data(contentsOf: file), account: account, epoch: epoch)
+    }
+    /// Prepared scoped cleanup; does not run automatically on owner data.
+    func remove(account: UUID, epoch: UUID) throws {
+        try removeOwnedPendingFile(file, account: account, epoch: epoch, limit: 7 * 1024 * 1024) { data in
+            _ = try PendingAttachment.decode(data, account: account, epoch: epoch)
+        }
     }
     func write(_ value: PendingAttachment?) throws {
         guard let value else {
@@ -128,7 +134,7 @@ struct PendingAttachmentStorage {
     }
 }
 
-struct PendingAttachmentRemovalStorage {
+@MainActor struct PendingAttachmentRemovalStorage {
     private let file: URL
     init(directory: URL? = nil) {
         let root = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -140,6 +146,11 @@ struct PendingAttachmentRemovalStorage {
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
         guard size <= 4096 else { throw CloudError.invalidInput }
         return try PendingAttachmentRemoval.decode(Data(contentsOf: file), account: account, epoch: epoch)
+    }
+    func remove(account: UUID, epoch: UUID) throws {
+        try removeOwnedPendingFile(file, account: account, epoch: epoch, limit: 4096) { data in
+            _ = try PendingAttachmentRemoval.decode(data, account: account, epoch: epoch)
+        }
     }
     func write(_ value: PendingAttachmentRemoval?) throws {
         guard let value else {
@@ -155,5 +166,31 @@ struct PendingAttachmentRemovalStorage {
         try value.encode().write(to: file, options: options)
         var location = file; var attributes = URLResourceValues(); attributes.isExcludedFromBackup = true
         try location.setResourceValues(attributes)
+    }
+}
+
+/// Serial with in-app writes; foreign/corrupt/linked files require recovery,
+/// never unconditional removal. Not an external-process filesystem lock.
+@MainActor private func removeOwnedPendingFile(_ file: URL, account: UUID, epoch: UUID, limit: Int,
+                                               validate: (Data) throws -> Void) throws {
+    let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    guard file.isFileURL, account != zero, epoch != zero else { throw CloudError.invalidInput }
+    let manager = FileManager.default
+    do {
+        let root = try manager.attributesOfItem(atPath: file.deletingLastPathComponent().path)
+        guard root[.type] as? FileAttributeType == .typeDirectory else { throw CloudError.invalidInput }
+        let attributes = try manager.attributesOfItem(atPath: file.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular,
+              let size = attributes[.size] as? NSNumber, size.intValue <= limit else { throw CloudError.invalidInput }
+        try validate(Data(contentsOf: file))
+        try manager.removeItem(at: file)
+    } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+        return
+    }
+    do {
+        _ = try manager.attributesOfItem(atPath: file.path)
+        throw CocoaError(.fileWriteUnknown)
+    } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+        return
     }
 }

@@ -65,7 +65,17 @@ import OuchiCore
         catch { precondition(error as? CloudError == .invalidInput) }
         try validBytes.write(to: pendingFile)
         let preserved = try pendingStorage.read(account: account, epoch: epoch); precondition(preserved?.id == identifier)
-        try pendingStorage.write(nil)
+        for scope in [(UUID(), epoch), (account, UUID())] {
+            do { try pendingStorage.remove(account: scope.0, epoch: scope.1); fatalError("foreign pending removed") }
+            catch { precondition(error as? CloudError == .authenticationRequired) }
+            precondition(FileManager.default.fileExists(atPath: pendingFile.path))
+        }
+        try Data("{invalid}".utf8).write(to: pendingFile)
+        do { try pendingStorage.remove(account: account, epoch: epoch); fatalError("corrupt pending removed") } catch {}
+        precondition(FileManager.default.fileExists(atPath: pendingFile.path))
+        try validBytes.write(to: pendingFile)
+        try pendingStorage.remove(account: account, epoch: epoch)
+        try pendingStorage.remove(account: account, epoch: epoch)
         let cleared = try pendingStorage.read(account: account, epoch: epoch); precondition(cleared == nil)
         try pendingStorage.write(nil)
         let removalDirectory = folder.appendingPathComponent("removal-test")
@@ -86,7 +96,21 @@ import OuchiCore
         try receipt.write(to: removalFile)
         let stillPending = try removalStorage.read(account: account, epoch: epoch)
         precondition(stillPending?.id == removal.id)
-        try removalStorage.write(nil)
+        for scope in [(UUID(), epoch), (account, UUID())] {
+            do { try removalStorage.remove(account: scope.0, epoch: scope.1); fatalError("foreign removal file erased") }
+            catch { precondition(error as? CloudError == .authenticationRequired) }
+        }
+        try Data("{invalid}".utf8).write(to: removalFile)
+        do { try removalStorage.remove(account: account, epoch: epoch); fatalError("corrupt removal erased") } catch {}
+        precondition(FileManager.default.fileExists(atPath: removalFile.path))
+        try receipt.write(to: removalFile)
+        let removalLink = folder.appendingPathComponent("removal-link")
+        try FileManager.default.createSymbolicLink(at: removalLink, withDestinationURL: removalDirectory)
+        do { try PendingAttachmentRemovalStorage(directory: removalLink).remove(account: account, epoch: epoch); fatalError("linked retry directory erased") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        precondition(FileManager.default.fileExists(atPath: removalFile.path))
+        try removalStorage.remove(account: account, epoch: epoch)
+        try removalStorage.remove(account: account, epoch: epoch)
         let noRemoval = try removalStorage.read(account: account, epoch: epoch)
         precondition(noRemoval == nil)
         try removalStorage.write(nil)
