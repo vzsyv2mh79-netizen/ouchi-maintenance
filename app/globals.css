@@ -108,3 +108,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid #246bfe; outline-offs
 .attachment-file { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
 .attachment-file p { font-size:13px; color:var(--muted); }
 .attachment-file button { flex-shrink:0; }
+
+.reminder-settings-controls fieldset { margin:16px 0; display:grid; gap:12px; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.reminder-settings-controls label { display:flex; align-items:center; gap:10px; min-height:36px; flex-wrap:wrap; }
+.reminder-settings-controls input[type="checkbox"] { width:20px; height:20px; accent-color:var(--accent); }
+.reminder-settings-controls :is(input[type="time"],select) { padding:8px; min-height:44px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:inherit; }
