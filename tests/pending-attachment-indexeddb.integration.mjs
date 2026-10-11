@@ -41,6 +41,17 @@ try{
  const acknowledge=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachments:store}=await import('/module.js');try{await store.complete(value.account,value.epoch,value.id);return true;}catch{return false;}},input);
  assert.equal(await acknowledge(second,{...base,id:competitor.id}),false);assert.equal((await read(first,base)).id,base.id);
  assert.equal(await acknowledge(first,base),true);assert.equal(await read(second,base),null);assert.equal((await read(first,otherAccount)).id,winner);
+ const lifecycle=(page,method,account)=>page.evaluate(async({method,account})=>{const {browserPendingAttachments:store}=await import('/module.js');await store[method](account);},{method,account});
+ await stage(first,{...base,epoch:competitor.id});
+ await lifecycle(second,'clearAccount',base.account);
+ assert.equal(await read(first,base),null);assert.equal(await read(first,{...base,epoch:competitor.id}),null);assert.equal((await read(first,otherAccount)).id,winner);
+ assert.equal((await stage(first,base)).ok,false);
+ // Hold hashing after the write permit is captured; cleanup in another tab must fence the late commit.
+ await lifecycle(second,'resumeAccount',base.account);
+ await first.evaluate(async value=>{const {browserPendingAttachments:store}=await import('/module.js');const blob=new Blob([new Uint8Array([137,80,78,71,13,10,26,10])],{type:'image/png'});const original=blob.arrayBuffer.bind(blob);let release;window.releasePendingDigest=()=>release();blob.arrayBuffer=async()=>{window.pendingDigestStarted=true;await new Promise(resolve=>release=resolve);return original();};window.latePendingResult=store.stage({...value,blob}).then(()=>true,()=>false);},base);
+ await first.waitForFunction(()=>window.pendingDigestStarted===true);
+ await lifecycle(second,'clearAccount',base.account);await first.evaluate(()=>window.releasePendingDigest());assert.equal(await first.evaluate(()=>window.latePendingResult),false);assert.equal(await read(first,base),null);
+ await lifecycle(second,'resumeAccount',base.account);assert.equal((await stage(first,base)).ok,true);
  assert.equal(apiRequests,0);
- console.log('PASS: real Chromium IndexedDB commit, browser restart and reload, cross-tab visibility and atomic competing writes, account/epoch isolation, exact-ID acknowledgement, stripped filename. Zero API requests; disposable profile and synthetic bytes only.');
+ console.log('PASS: real Chromium IndexedDB commit, browser restart and reload, cross-tab visibility and atomic competing writes, account/epoch isolation, exact-ID acknowledgement, stripped filename, account-wide cleanup and cross-tab late-write fencing, explicit login resumption. Zero API requests; disposable profile and synthetic bytes only.');
 }finally{await context?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(profile,{recursive:true,force:true});}
