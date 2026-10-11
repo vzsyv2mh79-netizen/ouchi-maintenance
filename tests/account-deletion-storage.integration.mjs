@@ -3,7 +3,6 @@ const code=ts.transpileModule(readFileSync('lib/account-deletion-objects.ts','ut
 const {eraseAccountDeletionObjects:erase}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const compiled=async file=>{const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
 const {handleAccountDeletionProgress}=await compiled('lib/account-deletion-progress.ts');
-const {deletionProgressDependencies}=await compiled('lib/account-deletion-progress-store.ts');
 const {runAccountDeletion}=await compiled('lib/account-deletion-worker.ts');
 const {dispatchRegisteredSandboxPush}=await compiled('lib/native-push-dispatch.ts');
 const {createAttachmentFetch}=await compiled('lib/attachment-fetch.ts');
@@ -22,6 +21,7 @@ function attachmentModule(name){
 }
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
+const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
 const {storedNativePushBatch}=await compiled('lib/native-push-batch-store.ts');
 const {uploadProductAttachment}=await import(attachmentModule('attachment-upload'));
@@ -269,6 +269,16 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const statusRequest=token=>new Request('https://example.invalid/deletion/'+requested.data,{headers:{authorization:'Bearer '+token}});
   const ownStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(ownStatus.status,200);assert.deepEqual(await ownStatus.json(),{requestID:requested.data,state:'running'});const recoveredStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),null,deletionProgressDependencies(admin));assert.equal(recoveredStatus.status,200);assert.deepEqual(await recoveredStatus.json(),{requestID:requested.data,state:'running'});
   const foreignStatus=await handleAccountDeletionProgress(statusRequest(otherSignup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(foreignStatus.status,404);
+  const secondStatus=await handleAccountDeletionProgress(statusRequest(secondSession.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(secondStatus.status,200);
+  assert.ok(secondClaims.exp>Math.floor(Date.now()/1000));
+  assert.equal((await secondLogin.auth.signOut({scope:'local'})).error,null);
+  assert.equal((await admin.rpc('maintenance_auth_session_is_current',{target_user:userID,verified_session:secondClaims.session_id})).data,false);
+  assert.equal((await handleAccountDeletionProgress(statusRequest(secondSession.data.session.access_token),requested.data,deletionProgressDependencies(admin))).status,401);
+  assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:secondClaims.session_id,target_request:requested.data})).data,null);
+  assert.ok((await user.rpc('maintenance_auth_session_is_current',{target_user:userID,verified_session:claims.session_id})).error);
+  assert.ok((await user.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:claims.session_id,target_request:requested.data})).error);
+  assert.equal((await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin))).status,200);
+  console.log('Deletion progress live-session check verified; revoked unexpired bearer rejected, original session preserved.');
   assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);

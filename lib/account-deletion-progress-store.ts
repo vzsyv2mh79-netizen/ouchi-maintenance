@@ -1,14 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeletionProgressDependencies } from './account-deletion-progress';
+import { sessionAfterAuthVerification } from './verified-app-session';
 /** Caller supplies a bounded server client and an already verified identity.
  * No production route or global client is initialized here.
  */
 export function deletionProgressReader(db: SupabaseClient) {
- return async (scope: Readonly<{requestID: string | null; userID: string}>): Promise<unknown> => {
+ return async (scope: Readonly<{requestID: string | null; userID: string}>, verifiedBearer: string): Promise<unknown> => {
   const fixed = Object.freeze({...scope});
-  const result = fixed.requestID === null
-   ? await db.rpc('read_maintenance_current_deletion_progress', {target_user: fixed.userID})
-   : await db.rpc('read_maintenance_deletion_progress', {target_request: fixed.requestID, target_user: fixed.userID});
+  // This exact bearer must already have passed verify() in the request handler.
+  const session = sessionAfterAuthVerification(verifiedBearer, fixed.userID);
+  if (!session) throw Error('Deletion progress session unavailable');
+  const result = await db.rpc('read_maintenance_session_deletion_progress', {
+   target_user: fixed.userID, verified_session: session.sessionID, target_request: fixed.requestID,
+  });
   if (result.error) throw new Error('Deletion progress unavailable');
   return result.data;
  };
@@ -17,7 +21,14 @@ export function deletionProgressDependencies(db: SupabaseClient): DeletionProgre
  return {
   verify: async bearer => {
    const result = await db.auth.getUser(bearer);
-   return result.error ? null : result.data.user?.id ?? null;
+   if (result.error || !result.data.user) return null;
+   const session = sessionAfterAuthVerification(bearer, result.data.user.id);
+   if (!session) return null;
+   const current = await db.rpc('maintenance_auth_session_is_current', {
+    target_user: session.userID, verified_session: session.sessionID,
+   });
+   if (current.error) throw Error('Deletion session check unavailable');
+   return current.data === true ? session.userID : null;
   },
   read: deletionProgressReader(db),
  };

@@ -2,7 +2,7 @@
 export type DeletionProgressDependencies = {
  verify: (bearer: string) => Promise<string | null>;
  /** Filter by BOTH request ID and verified user ID, using a bounded server client. */
- read: (scope: Readonly<{requestID: string | null; userID: string}>) => Promise<unknown>;
+ read: (scope: Readonly<{requestID: string | null; userID: string}>, verifiedBearer: string) => Promise<unknown>;
 };
 const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) && v !== '00000000-0000-0000-0000-000000000000';
 export async function handleAccountDeletionProgress(request: Request, requestID: string | null, deps: DeletionProgressDependencies) {
@@ -15,7 +15,7 @@ export async function handleAccountDeletionProgress(request: Request, requestID:
   const userID = await deps.verify(header.slice(7));
   if (!uuid(userID)) return reply({error: 'Authentication required'}, 401);
   if (request.signal.aborted) return reply({error: 'Request cancelled'}, 409);
-  const result = await deps.read(Object.freeze({requestID, userID}));
+  const result = await deps.read(Object.freeze({requestID, userID}), header.slice(7));
   if (result === null) return reply({error: 'Request not found'}, 404);
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw Error('Invalid progress');
   const row = result as Record<string, unknown>;
