@@ -409,6 +409,10 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const ownedNotice=randomUUID(),preservedNotice=randomUUID();
   const ownedPurchase={environment:'Sandbox',transactionId:'888',originalTransactionId:'887',accountToken:epoch.data,productId:'ouchi.tip.small',signedAt:100,purchasedAt:50};
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:ownedPurchase,proof_sha256:'1'.repeat(64)})).error,null);
+  const ownedSubscription={environment:'Sandbox',transactionId:'885',originalTransactionId:'886',accountToken:epoch.data,productId:'ouchi.premium.monthly',signedAt:200,purchasedAt:100,expiresAt:1000};
+  assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:ownedSubscription,proof_sha256:'3'.repeat(64)})).error,null);
+  const ownedRenewal={environment:'Sandbox',originalTransactionId:'886',accountToken:epoch.data,productId:'ouchi.premium.monthly',signedAt:300,renewalDate:1000,autoRenewStatus:0,isInBillingRetryPeriod:false};
+  assert.equal((await admin.rpc('apply_maintenance_verified_renewal',{payload:ownedRenewal,proof_sha256:'4'.repeat(64)})).error,null);
   for(const [noticeID,token,original] of [[ownedNotice,epoch.data,'887'],[preservedNotice,otherEpoch.data,'900']]){
    const payload={environment:'Sandbox',notificationId:noticeID,notificationType:'CONSUMPTION_REQUEST',signedAt:100,disposition:'needs_reconciliation',accountToken:token,originalTransactionId:original};
    const result=await admin.rpc('record_maintenance_verified_notification',{payload,proof_sha256:'2'.repeat(64)});assert.equal(result.error,null);assert.equal(result.data,'inserted');
@@ -501,6 +505,7 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   recoverySql(`insert into maintenance_private.enrollment_consents values('${deletionConsent}','${userID}','${randomUUID()}','${randomUUID()}','${epoch.data}',now()+interval '5 minutes'),('${foreignConsent}','${otherSignup.data.user.id}','${randomUUID()}','${randomUUID()}','${randomUUID()}',now()+interval '5 minutes');`);
   assert.ok((await user.rpc('erase_maintenance_deletion_enrollment_consents',args)).error);
   assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',{...args,target_lease:randomUUID()})).data,false);
+  assert.ok((await user.rpc('erase_maintenance_deletion_purchase_ledger',args)).error);assert.equal((await admin.rpc('erase_maintenance_deletion_purchase_ledger',{...args,target_lease:randomUUID()})).data,false);
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
@@ -508,6 +513,10 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${foreignConsent}';`).trim(),'1');
   assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',args)).data,true);
   console.log('Actual deletion consent erasure: target closed epoch removed after confirmed household/file erasure, foreign consent/shared Auth preserved, wrong lease/browser denied, final account status still pending.');
+  for(const table of ['transaction_ownership','verified_transactions','verified_renewals'])assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${userID}';`).trim(),'0');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.verified_transactions where environment='Sandbox' and transaction_id='901' and user_id='${otherSignup.data.user.id}';`).trim(),'1');
+  assert.equal((await admin.rpc('erase_maintenance_deletion_purchase_ledger',args)).data,true);
+  console.log('Actual Ouchi purchase ledger erasure: target transaction ownership, tip/subscription periods and renewal removed, another owner period preserved; repeat absence, wrong lease/browser denied. No Apple cancellation/transfer or final identity completion.');
   console.log('Actual deletion inventory minimization: confirmed object paths removed only after record erasure, pending final identity stage never claims complete.');
   // Separate synthetic user: prove the strict guard after its identity rows are
   // erased, without revoking or deleting shared Auth and without reenrollment.
