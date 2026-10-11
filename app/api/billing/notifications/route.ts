@@ -1,4 +1,4 @@
-import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal,persistBillingRenewal,verifyBillingRenewalOnly,pairBillingRenewalOnly} from '@/lib/billing-server';
+import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal,persistBillingRenewal,verifyBillingRenewalOnly,pairBillingRenewalOnly,renewalRetiredAfterVerification} from '@/lib/billing-server';
 import type {VerifiedTransaction} from '@/lib/billing';
 import type {VerifiedRenewal} from '@/lib/billing-renewal';
 import {normalizedVerifiedNotification,persistVerifiedNotification} from '@/lib/billing-notification-inbox';
@@ -31,14 +31,19 @@ export async function POST(request:Request){
  // Do not classify a database outage as an invalid signature or acknowledge it.
  try{
   const database=billingDatabase(config);
-  if(unpairedRenewal)renewal=await pairBillingRenewalOnly(database,config,unpairedRenewal);
+  if(unpairedRenewal){
+   if(await renewalRetiredAfterVerification(database,config,unpairedRenewal))return Response.json({received:true},{headers});
+   renewal=await pairBillingRenewalOnly(database,config,unpairedRenewal);
+  }
   if(transaction&&signedTransaction){
    const result=await persistBillingTransaction(database,config,signedTransaction,transaction,'notification');
    // Only an Apple-verified event plus the authoritative SQL retirement result
    // may be acknowledged without creating more account-associated records.
    if(result==='retired')return Response.json({received:true},{headers});
   }
-  if(renewal&&signedRenewal)await persistBillingRenewal(database,config,signedRenewal,renewal);
+  if(renewal&&signedRenewal){
+   if(await persistBillingRenewal(database,config,signedRenewal,renewal,'notification')==='retired')return Response.json({received:true},{headers});
+  }
   const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
   await persistVerifiedNotification(signedPayload,record,async(name,args)=>await database.rpc(name,args));
   return Response.json({received:true},{headers});

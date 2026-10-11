@@ -68,10 +68,12 @@ export async function persistBillingTransaction(db:ReturnType<typeof billingData
  }
 }
 /** renewal must come from verifyBillingRenewal for this exact signed input and paired transaction. */
-export async function persistBillingRenewal(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedRenewal:string,renewal:VerifiedRenewal){
+export async function persistBillingRenewal(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,signedRenewal:string,renewal:VerifiedRenewal,context:'purchase'|'notification'='purchase'){
  if(config.storage!=='verified-ledger'||!signedRenewal||Buffer.byteLength(signedRenewal)>131072||renewal.environment!==config.environment)throw new Error('Renewal storage unavailable');
  const result=await db.rpc('apply_maintenance_verified_renewal',{payload:renewal,proof_sha256:createHash('sha256').update(signedRenewal).digest('hex')});
+ if(!result.error&&result.data==='retired'&&context==='notification')return 'retired' as const;
  if(result.error||typeof result.data!=='string'||!['inserted','updated','ignored'].includes(result.data))throw new Error('Renewal persistence unavailable');
+ return 'persisted' as const;
 }
 /** Caller already verified this exact bearer with Auth.getUser. */
 export async function ledgerEntitlementAfterAuth(db:ReturnType<typeof billingDatabase>,token:string,user:string,epoch:string,environment:BillingEnvironment='Sandbox'){
@@ -108,7 +110,7 @@ export async function reconcileBillingSeed(db:ReturnType<typeof billingDatabase>
   verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
   verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
   saveTransaction:async(jws,transaction)=>{await persistBillingTransaction(db,config,jws,transaction);},
-  saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
+  saveRenewal:async(jws,renewal)=>{await persistBillingRenewal(db,config,jws,renewal);},
  },{revision,signal});
 }
 
@@ -143,7 +145,7 @@ export async function runBillingRecoveryJob(db:ReturnType<typeof billingDatabase
    verifyTransaction:async(jws)=>await verifyBillingTransaction(jws,config),
    verifyRenewal:async(jws,transaction)=>await verifyBillingRenewal(jws,transaction,config),
    saveTransaction:async(jws,transaction)=>{await persistBillingTransaction(db,config,jws,transaction);},
-   saveRenewal:async(jws,renewal)=>await persistBillingRenewal(db,config,jws,renewal),
+   saveRenewal:async(jws,renewal)=>{await persistBillingRenewal(db,config,jws,renewal);},
   },
  },signal);
 }
@@ -192,4 +194,13 @@ export async function pairBillingRenewalOnly(db:ReturnType<typeof billingDatabas
  if(typeof row.accountToken!=='string'||row.originalTransactionId!==locator.originalTransactionId)throw new Error('Renewal ownership unavailable');
  const transaction=normalizeOwnedLedgerSeed(row,config.environment,row.accountToken,config.bundleId);
  return normalizeVerifiedRenewal(value,transaction,config.environment);
+}
+
+/** Only after Apple renewal verification; missing ownership never proves retirement. */
+export async function renewalRetiredAfterVerification(db:ReturnType<typeof billingDatabase>,config:NonNullable<ReturnType<typeof billingConfiguration>>,value:Record<string,unknown>){
+ if(config.storage!=='verified-ledger')throw Error('Renewal retirement unavailable');
+ const locator=verifiedRenewalLocator(value,config.environment);
+ const result=await db.rpc('read_maintenance_renewal_retirement',{target_environment:config.environment,target_original:locator.originalTransactionId,target_epoch:typeof value.appAccountToken==='string'?value.appAccountToken.toLowerCase():null});
+ if(result.error||typeof result.data!=='boolean')throw Error('Renewal retirement unavailable');
+ return result.data;
 }
