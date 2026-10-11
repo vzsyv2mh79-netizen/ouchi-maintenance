@@ -23,7 +23,7 @@ export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDepend
   if(signal?.aborted)return {state:'pending' as const};
   try{
    if(await deps.leaseCurrent(fixed)!==true||signal?.aborted)return {state:'pending' as const};
-   if(await step(fixed)!==true)return {state:'pending' as const};
+   if(await step(fixed)!==true||signal?.aborted)return {state:'pending' as const};
   }catch{return {state:'pending' as const};}
  }
  return {state:'complete' as const};

@@ -14,3 +14,13 @@ test('lost lease or cancellation prevents subsequent deletion; only acknowledged
  const deps={leaseCurrent:async()=>true};names.forEach(n=>deps[n]=async()=>true);assert.deepEqual(await run(scope,deps),{state:'complete'});
  await assert.rejects(()=>run({...scope,userID:'invalid'},deps));
 });
+test('cancellation during every awaited stage, including final completion, requires status recovery',async()=>{
+ for(let stop=0;stop<names.length;stop++){
+  const controller=new AbortController(),calls=[],deps={leaseCurrent:async()=>true};
+  names.forEach((name,index)=>deps[name]=async()=>{calls.push(name);if(index===stop)controller.abort();return true;});
+  assert.deepEqual(await run(scope,deps,controller.signal),{state:'pending'});
+  assert.deepEqual(calls,names.slice(0,stop+1));
+ }
+ // A committed final stage may need a fresh status query after cancellation;
+ // cancellation is not evidence that durable server completion rolled back.
+});
