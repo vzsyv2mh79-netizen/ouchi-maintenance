@@ -82,6 +82,13 @@ test('record deletion waits for all objects, isolates ownership and never claims
  await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=true where user_id=$1',[user]);await db.exec('set role service_role');
  assert.equal(await eraseRecovery(first),false);
  await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);await db.exec('set role service_role');
+ // A renewed or missing closed enrollment is not authority to erase recovery jobs.
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,otherDevice]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),false);
+ assert.equal((await db.query('select count(*) as n from maintenance_private.reconciliation_jobs')).rows[0].n,2);
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,epoch]);await db.query('delete from maintenance_private.account_access where user_id=$1',[user]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),false);
+ await db.exec('reset role');await db.query('insert into maintenance_private.account_access(user_id,enabled) values($1,false)',[user]);await db.exec('set role service_role');
  assert.equal(await eraseRecovery(first),true);assert.equal(await eraseRecovery(first),true);
  assert.deepEqual((await db.query('select user_id from maintenance_private.reconciliation_jobs')).rows,[{user_id:other}]);
  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running');

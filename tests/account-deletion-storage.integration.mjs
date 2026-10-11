@@ -183,6 +183,9 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   // Other earlier integration fixtures share this disposable database. Keep their
   // pending jobs out of this test's queue window, without altering production data.
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:`update maintenance_private.account_deletion_requests set available_at=now()+interval '1 day' where user_id<>'${userID}' and state='pending';`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  // Only this disposable database: app recovery metadata for two synthetic users.
+  const recoverySql=sql=>execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:sql,timeout:10000,encoding:'utf8',stdio:['pipe','pipe','pipe']});
+  recoverySql(`insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values('${userID}','${epoch.data}','Sandbox','synthetic-deletion-recovery'),('${otherSignup.data.user.id}','${epoch.data}','Sandbox','synthetic-other-recovery');`);
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
@@ -200,6 +203,7 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const statusRequest=token=>new Request('https://example.invalid/deletion/'+requested.data,{headers:{authorization:'Bearer '+token}});
   const ownStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(ownStatus.status,200);assert.deepEqual(await ownStatus.json(),{requestID:requested.data,state:'running'});const recoveredStatus=await handleAccountDeletionProgress(statusRequest(signup.data.session.access_token),null,deletionProgressDependencies(admin));assert.equal(recoveredStatus.status,200);assert.deepEqual(await recoveredStatus.json(),{requestID:requested.data,state:'running'});
   const foreignStatus=await handleAccountDeletionProgress(statusRequest(otherSignup.data.session.access_token),requested.data,deletionProgressDependencies(admin));assert.equal(foreignStatus.status,404);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
@@ -217,6 +221,13 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
 const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
   assert.deepEqual(await erase(admin,scope),{completed:0,allObjectsConfirmed:true});assert.equal((await user.auth.getUser()).error,null);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);
+  assert.ok((await user.rpc('erase_maintenance_deletion_reconciliation',args)).error);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',{...args,target_lease:randomUUID()})).data,false);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,true);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,true);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.reconciliation_jobs where user_id='${userID}';`).trim(),'0');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.reconciliation_jobs where user_id='${otherSignup.data.user.id}' and transaction_id='synthetic-other-recovery';`).trim(),'1');
+  assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   const removedHomes=await admin.from('homes').select('id').eq('id',home);assert.equal(removedHomes.error,null);assert.deepEqual(removedHomes.data,[]);const removedProducts=await admin.from('products').select('id').eq('id',product);assert.equal(removedProducts.error,null);assert.deepEqual(removedProducts.data,[]);
   const preserved=await other.from('homes').select('id').eq('id',otherHome);assert.equal(preserved.error,null);assert.deepEqual(preserved.data,[{id:otherHome}]);assert.equal((await user.auth.getUser()).error,null);assert.equal((await admin.rpc('maintenance_deletion_lease_is_current',args)).data,true);
 
