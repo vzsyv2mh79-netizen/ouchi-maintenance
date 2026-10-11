@@ -371,6 +371,58 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         XCTAssertFalse(manager.needsRetry)
         withExtendedLifetime(session) {}
     }
+    @MainActor func testActualManagerAccountSwitchDuringPersistenceDoesNotFinishStalePurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        let account = UUID(uuidString: "4AAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA")!
+        let other = UUID(uuidString: "5BBBBBBB-BBBB-4BBB-8BBB-BBBBBBBBBBBB")!
+        var gates: [CheckedContinuation<Void, Never>] = []
+        var oldAcknowledgements = Set<String>()
+        manager.persist = { [self] jws in
+            await withCheckedContinuation { gates.append($0) }
+            oldAcknowledgements.insert(try localTransactionID(jws))
+        }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.tip.small" })
+        let first = Task { try await manager.purchase(product, account: account) }
+        defer { first.cancel(); for gate in gates { gate.resume() }; gates.removeAll() }
+        for _ in 0..<200 {
+            if !gates.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard !gates.isEmpty else { XCTFail("purchase did not reach persistence"); return }
+        let transaction = try await latest(product.id, phase: "account switch during persistence") { $0.appAccountToken == account }
+        manager.stopObserving()
+        var otherPersistenceCalls = 0
+        manager.persist = { _ in otherPersistenceCalls += 1 }
+        manager.startObserving(account: other)
+        try await manager.observeUnfinished(account: other)
+        XCTAssertEqual(otherPersistenceCalls, 0, "new account must not submit old purchase")
+        // Returning to A is a new binding, not permission for old callbacks.
+        manager.stopObserving()
+        var replayAcknowledgements = Set<String>()
+        manager.persist = { [self] jws in replayAcknowledgements.insert(try localTransactionID(jws)) }
+        manager.startObserving(account: account)
+        let waiting = gates; gates.removeAll()
+        for gate in waiting { gate.resume() }
+        do { _ = try await first.value; XCTFail("old binding reported purchase success") }
+        catch is CancellationError { }
+        XCTAssertEqual(oldAcknowledgements, [String(transaction.id)])
+        XCTAssertTrue(replayAcknowledgements.isEmpty)
+        let retained = try await unfinishedContains(transaction.id)
+        XCTAssertTrue(retained, "late acknowledgement must not finish an old binding's transaction")
+        try await manager.observeUnfinished(account: account)
+        XCTAssertEqual(replayAcknowledgements, [String(transaction.id)])
+        let remains = try await unfinishedContains(transaction.id)
+        XCTAssertFalse(remains, "current binding replay may finish after its own acknowledgement")
+        XCTAssertEqual(otherPersistenceCalls, 0)
+        withExtendedLifetime(session) {}
+        // Only synthetic accounts and mocked acknowledgement; no Auth session,
+        // server entitlement, owner credentials or real Apple purchase.
+    }
     @MainActor func testActualManagerRejectsOverlappingPurchase() async throws {
         let session = try await disposableSession(), window = fixtureWindow()
         defer { window.close() }
