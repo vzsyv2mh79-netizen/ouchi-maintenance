@@ -171,6 +171,9 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.explicitEnrollmentConfigured {
+                    Section("クラウド登録") { NavigationLink("おうちメンテへの登録") { ExplicitEnrollmentView() } }
+                }
                 if store.formalNativePushConfiguration != nil {
                     Section("この端末への通知") { NavigationLink("通知先を管理") { FormalNativePushView() } }
                 }
@@ -1457,6 +1460,51 @@ private struct FormalChannelView: View {
             let result = await store.changeFormalChannel(save ? requested : nil, prior: prior)
             guard !Task.isCancelled, expected == binding else { return }
             selection = result; chosen = result?.receipt.channel ?? .both; localMessage = store.message
+        }
+    }
+}
+
+private struct ExplicitEnrollmentView: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var state: EnrollmentState?
+    @State private var password = ""
+    @State private var consent = false
+    @State private var operation: Task<Void, Never>?
+    var body: some View {
+        Form {
+            Section {
+                Text("このログインをおうちメンテで使うことに同意して登録します。無料です。有料契約は行いません。")
+                Button("登録状態を確認") { run() }.disabled(store.busy)
+            }
+            if let state {
+                if state.enrolled {
+                    Section { Text("このログインの登録を確認しました。")
+                        Button("記録を読み込み直す") { Task { await store.reload() } }.disabled(store.busy)
+                    }
+                } else {
+                    Section("無料で登録する") {
+                        SecureField("本人確認のパスワード", text: $password).textContentType(.password)
+                        Toggle("このログインをおうちメンテで使うことに同意します", isOn: $consent)
+                        Text("以前に削除した記録や、別のアプリの購入権は引き継ぎません。")
+                        Button("無料で登録する") { run(register: true) }.disabled(store.busy || !consent || password.isEmpty || password.count > 1024)
+                    }.disabled(store.busy)
+                }
+            }
+        }.navigationTitle("おうちメンテへの登録")
+         .task(id: store.accountBindingRevision) { clear() }
+         .onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
+         .onDisappear { clear() }
+    }
+    private func clear() { operation?.cancel(); operation = nil; state = nil; password = ""; consent = false }
+    private func run(register: Bool = false) {
+        guard !store.busy, !register || consent else { return }
+        let proof = register ? password : nil, expected = store.accountBindingRevision
+        clear()
+        operation = Task { @MainActor in
+            let result = await store.confirmExplicitEnrollment(password: proof)
+            guard !Task.isCancelled, expected == store.accountBindingRevision else { return }
+            state = result
         }
     }
 }

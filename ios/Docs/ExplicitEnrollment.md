@@ -1,0 +1,11 @@
+# Free explicit enrollment release gate
+
+The iPhone Settings entry is held by OUCHI_EXPLICIT_ENROLLMENT_ENABLED, absent by default. It requires a configured household API and a signed-in user, but no household records or paid entitlement. Signed-in state survives household loading errors, so the entry does not depend on a successful old enrollment. No Info.plist activation or shared policy update is included.
+
+The API uses the fixed production HTTPS enrollment path. Debug-only loopback is injectable for isolated tests; Release ignores loopback. The original token payload is parsed only to compare receipt user/session scope. Actual Auth verification, fresh password authentication and grant checks remain on the server. Neither a client flag nor token payload can grant a purchase or enrollment.
+
+Registration requires a separate consent toggle and password. A fresh request UUID is sent once; an uncertain response leaves the result unconfirmed and asks the user to read status before trying again. Successful POST is followed by exact GET readback under the unchanged account, token, generation and binding. Status reads bypass purchase/ledger initialization. Wrong account/session/epoch, unexpected fields, invalid Boolean, foreign response URL, MIME/cache/size mismatch and cancellation refuse confirmation.
+
+The view clears password, consent and result on disappearance, backgrounding and account binding changes. It does not sign out or replace the original session. Temporary password authentication and scoped cleanup occur on the server. Record reload is an explicit action after confirmed enrollment. It does not restore deleted records or transfer another application's purchases.
+
+Required before activation: actual native UI to verified Auth/PostgreSQL flow, incorrect-password recovery, acknowledgement-loss readback, cancellation/temporary-session cleanup, first-use/legacy-user migration, Dynamic Type/VoiceOver and real-device screen proof. Compiled synthetic transports and unsigned SDK builds alone do not prove these. Complete final account erasure, finite receipt retention and safe purchased-subscription restoration remain separate release gates. Shared policy stays disabled until these paths are complete.

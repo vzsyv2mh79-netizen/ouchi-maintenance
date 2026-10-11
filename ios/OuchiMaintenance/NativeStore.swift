@@ -797,6 +797,36 @@ struct FormalChannelSelection {
         return BillingEnvironment(rawValue: value)
     }
     /// Preferences only; never registers or dispatches a notification.
+    var explicitEnrollmentConfigured: Bool {
+        api != nil && Bundle.main.infoDictionary?["OUCHI_EXPLICIT_ENROLLMENT_ENABLED"] as? Bool == true
+    }
+    func confirmExplicitEnrollment(password: String? = nil) async -> EnrollmentState? {
+        guard !busy, signedIn, explicitEnrollmentConfigured, let session else { return nil }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision
+        defer { if expected == generation { busy = false } }
+        let stillBound = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision }
+        do {
+            let credentials = try await session.credentials()
+            guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
+            let service = AccountEnrollmentAPI()
+            var granted: UUID?
+            if let password {
+                granted = try await service.register(account: credentials.user.id, token: credentials.access_token, password: password, requestID: UUID())
+            }
+            let afterWrite = try await session.credentials()
+            guard stillBound(), afterWrite.user.id == credentials.user.id, afterWrite.access_token == credentials.access_token else { return nil }
+            let state = try await service.load(account: credentials.user.id, token: credentials.access_token)
+            let current = try await session.credentials()
+            guard stillBound(), current.user.id == credentials.user.id, current.access_token == credentials.access_token,
+                  granted == nil || state.epochID == granted else { return nil }
+            return state
+        } catch {
+            if stillBound() { message = "登録結果を確認できません。パスワードと通信状態を確認し、まず登録状態を読み直してください。退会処理中は登録できません。" }
+            return nil
+        }
+    }
+
     var formalChannelEnvironment: BillingEnvironment? {
         guard api != nil, Bundle.main.infoDictionary?["OUCHI_NOTIFICATION_CHANNELS_ENABLED"] as? Bool == true,
               let value = Bundle.main.infoDictionary?["OUCHI_NOTIFICATION_CHANNEL_ENVIRONMENT"] as? String else { return nil }
