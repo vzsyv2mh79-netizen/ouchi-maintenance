@@ -1,6 +1,7 @@
 /** Deletion orchestration only. No production adapter or scheduler is enabled. */
 export type DeletionScope={requestID:string;userID:string;epochID:string;leaseToken:string};
 export type DeletionDependencies={
+ completionAlreadyConfirmed?:(scope:DeletionScope)=>Promise<boolean>;
  identityAlreadyErased?:(scope:DeletionScope)=>Promise<boolean>;
  leaseCurrent:(scope:DeletionScope)=>Promise<boolean>;
  revokeAndCaptureInventory:(scope:DeletionScope)=>Promise<boolean>;
@@ -23,6 +24,17 @@ export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDepend
  const required = ['leaseCurrent', 'revokeAndCaptureInventory', 'eraseDeviceRegistrations', 'eraseAttachments', 'eraseRecords', 'finalizeIdentityAndRetention', 'markComplete'] as const;
  if (!deps || required.some(name => typeof deps[name] !== 'function')) return {state:'pending' as const};
  const fixed=Object.freeze({...scope});
+ // Completion commits clear the execution lease. A lost acknowledgement must
+ // recover from the exact completed receipt, rather than require a live lease
+ // or infer completion from intermediate erasure flags.
+ if(deps.completionAlreadyConfirmed){
+  try{
+   if(signal?.aborted)return {state:'pending' as const};
+   const complete=await deps.completionAlreadyConfirmed(fixed);
+   if(signal?.aborted||typeof complete!=='boolean')return {state:'pending' as const};
+   if(complete)return {state:'complete' as const};
+  }catch{return {state:'pending' as const};}
+ }
  // A durable, scope-bound identity checkpoint allows restart after a committed
  // identity erasure whose acknowledgement was lost. It never proves retention
  // or completion: both mandatory tail stages still run under the current lease.

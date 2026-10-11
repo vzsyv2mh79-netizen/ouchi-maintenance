@@ -49,7 +49,7 @@ const {GET:formalReportGET}=await import('data:text/javascript;base64,'+Buffer.f
 
 
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
-const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(workerStoreCode).toString('base64'));
+const {storedDeletionDependencies,storedDeletionCompletion}=await import('data:text/javascript;base64,'+Buffer.from(workerStoreCode).toString('base64'));
 const {handleAccountDeletionRequest}=await compiled('lib/account-deletion-request.ts');
 const sessionCode=ts.transpileModule(readFileSync('lib/verified-app-session.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const requestStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-request-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./verified-app-session'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(sessionCode).toString('base64')));
@@ -510,15 +510,17 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   recoverySql(`insert into maintenance_private.enrollment_consents values('${priorConsent}','${userID}','${randomUUID()}','${randomUUID()}','${priorEpoch}',now()+interval '5 minutes');insert into maintenance_private.notification_channels values('${userID}','${priorEpoch}','Sandbox','web',1),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox','web',1);insert into maintenance_private.reminder_schedules values('${userID}','${priorEpoch}','Sandbox',600,array[1]::smallint[],0,true,1),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox',600,array[1]::smallint[],0,true,1);insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values('${userID}','${priorEpoch}','Sandbox','prior-deletion-user'),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox','prior-deletion-foreign');`);
   assert.ok((await user.rpc('erase_maintenance_deletion_prior_preferences',args)).error);
   assert.equal((await admin.rpc('erase_maintenance_deletion_prior_preferences',{...args,target_lease:randomUUID()})).data,false);
+  const preferenceTables=['enrollment_consents','notification_channels','reminder_schedules','reconciliation_jobs'];
+  const foreignPreferenceSnapshot=Object.fromEntries(preferenceTables.map(table=>[table,recoverySql(`select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),'[]'::jsonb) from maintenance_private.${table} t where user_id='${otherSignup.data.user.id}';`).trim()]));
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${deletionConsent}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${foreignConsent}';`).trim(),'1');
   assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',args)).data,true);
-  for(const table of ['enrollment_consents','notification_channels','reminder_schedules','reconciliation_jobs']){
+  for(const table of preferenceTables){
    assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${userID}';`).trim(),'0');
-   assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${otherSignup.data.user.id}';`).trim(),table==='reconciliation_jobs'?'2':'1');
+   assert.equal(recoverySql(`select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),'[]'::jsonb) from maintenance_private.${table} t where user_id='${otherSignup.data.user.id}';`).trim(),foreignPreferenceSnapshot[table],'all foreign preference contents preserved');
   }
   assert.equal((await admin.rpc('erase_maintenance_deletion_prior_preferences',args)).data,true);
   console.log('Actual prior enrollment cleanup: all target consent/recovery/channel/schedule generations removed; foreign generations preserved, repeated absence, wrong lease/browser denied. No completion.');
@@ -582,6 +584,26 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:originalSession})).data,null);
   assert.equal((await user.auth.getUser()).error,null,'shared Auth preserved after application identity erasure');
   console.log('Actual independent deletion receipt: captured original Auth session still reads pending after synthetic app identity erasure; unmapped session denied; strict initializer cannot recreate enrollment; shared Auth preserved. No completion or production erasure.');
+  const completion=storedDeletionCompletion(admin);
+  assert.equal(await completion(scope),false,'real DB requires retention evidence beyond identity absence');
+  assert.equal(recoverySql(`select has_table_privilege('service_role','maintenance_private.deletion_retention_checks','INSERT');`).trim(),'f','runtime cannot manufacture retention approval');
+  assert.ok((await user.rpc('complete_maintenance_account_deletion',identityArgs)).error);
+  // Privileged disposable fixture only. This does not approve production
+  // unassociated-event/log/backup retention or deploy a retention checker.
+  recoverySql(`insert into maintenance_private.deletion_retention_checks values('${scope.requestID}','synthetic-disposable-policy',now(),now()+interval '5 minutes',600);`);
+  assert.equal((await admin.rpc('complete_maintenance_account_deletion',{...identityArgs,target_lease:randomUUID()})).data,false);
+  assert.equal(await completion(scope),true);
+  const completedExpiry=recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim();
+  assert.equal(await completion(scope),true);assert.equal(recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),completedExpiry);
+  const afterCommit=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay');},finalizeIdentityAndRetention:async()=>{throw Error('must not replay');},markComplete:async()=>{throw Error('must not replay');}}));assert.deepEqual(afterCommit,{state:'complete'});
+  assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data.state,'complete');
+  assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',{...identityArgs,target_lease:randomUUID()})).data,false);
+  recoverySql(`update maintenance_private.account_deletion_requests set updated_at=now()-interval '2 minutes',receipt_expires_at=now()-interval '1 minute' where id='${scope.requestID}';`);
+  assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data,null);
+  assert.equal((await admin.rpc('prune_maintenance_completed_deletion_receipts',{batch_size:500})).data,1);
+  for(const table of ['account_deletion_requests','deletion_receipt_sessions','deletion_retention_checks'])assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where ${table==='account_deletion_requests'?'id':'request_id'}='${scope.requestID}';`).trim(),'0');
+  assert.equal((await user.auth.getUser()).error,null,'shared Auth survives completion fixture and finite receipt cleanup');
+  console.log('Actual completion boundary with synthetic privileged retention fixture: absent evidence refused, exact lease completes once, lost acknowledgement recovered without replay, expiry unchanged, expired receipt/check/request physically removed; shared Auth preserved. No real retention approval or production completion.');
   console.log('Actual explicit consent Auth/PostgreSQL/API: read-only absent state, verified fresh temporary login, exact enrollment receipt/readback, temporary session revoked, duplicate request refused without second grant, pending deletion cannot reopen; no premium or Apple transaction.');
 
 

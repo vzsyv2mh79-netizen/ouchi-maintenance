@@ -52,3 +52,13 @@ test('recovery lookup cannot bypass scope lease, cancellation or malformed ackno
   assert.deepEqual(await run(scope,deps,controller.signal),{state:'pending'});assert.equal(writes,0);
  }
 });
+test('lost final acknowledgement recovers exact durable completion after execution lease is cleared',async()=>{
+ let committed=false;const calls=[];
+ const deps={leaseCurrent:async()=>!committed,completionAlreadyConfirmed:async fixed=>{assert.deepEqual(fixed,scope);return committed;}};
+ names.forEach(name=>deps[name]=async()=>{calls.push(name);if(name==='markComplete'){committed=true;throw Error('final acknowledgement lost');}return true;});
+ assert.deepEqual(await run(scope,deps),{state:'pending'});assert.equal(committed,true);
+ calls.length=0;assert.deepEqual(await run(scope,deps),{state:'complete'});assert.deepEqual(calls,[]);
+ const controller=new AbortController();deps.completionAlreadyConfirmed=async()=>{controller.abort();return true;};assert.deepEqual(await run(scope,deps,controller.signal),{state:'pending'});
+ for(const value of [null,'true',1,{}]){deps.completionAlreadyConfirmed=async()=>value;assert.deepEqual(await run(scope,deps),{state:'pending'});}
+ deps.completionAlreadyConfirmed=async()=>{throw Error('unavailable');};assert.deepEqual(await run(scope,deps),{state:'pending'});
+});

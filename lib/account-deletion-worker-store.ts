@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeletionDependencies, DeletionScope } from './account-deletion-worker';
 import { eraseAccountDeletionObjects } from './account-deletion-objects';
+/** Dormant service-only completion adapter. SQL independently requires a sealed,
+ * fresh retention check and confirmed identity erasure. No approval is created.
+ */
+export function storedDeletionCompletion(db: SupabaseClient, signal?: AbortSignal) {
+ return async (scope: DeletionScope) => {
+  if (signal?.aborted) return false;
+  const result = await db.rpc('complete_maintenance_account_deletion', {
+   target_request: scope.requestID, target_user: scope.userID,
+   target_epoch: scope.epochID, target_lease: scope.leaseToken,
+  });
+  if (result.error || typeof result.data !== 'boolean') throw new Error('Deletion completion unavailable');
+  return result.data === true && !signal?.aborted;
+ };
+}
 /** These stages remain mandatory; Web push cleanup alone does not prove them. */
 export type DeletionFinalization = Pick<DeletionDependencies, 'finalizeIdentityAndRetention' | 'markComplete'> & {
  eraseNativeDevices: (scope: DeletionScope) => Promise<boolean>;
@@ -22,6 +36,7 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   return result.data === true && !signal?.aborted;
  };
  return {
+  completionAlreadyConfirmed: scope => rpc('maintenance_deletion_completion_is_confirmed', scope, true),
   identityAlreadyErased: scope => rpc('maintenance_deletion_identity_is_erased', scope, true),
   leaseCurrent: scope => rpc('maintenance_deletion_lease_is_current', scope),
   revokeAndCaptureInventory: scope => rpc('capture_maintenance_deletion_objects', scope),

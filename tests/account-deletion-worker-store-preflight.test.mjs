@@ -3,7 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 const source=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace(/import \{ eraseAccountDeletionObjects \} from [^;]+;/,"const eraseAccountDeletionObjects=()=>{throw Error('must not erase');};");
-const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {storedDeletionDependencies,storedDeletionCompletion}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+test('completion adapter requires strict server acknowledgement and cancellation-safe readback',async()=>{
+ const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
+ for(const data of [true,false,null,'true',1]){
+  const db={rpc:async(name,args)=>{assert.equal(name,'complete_maintenance_account_deletion');assert.deepEqual(args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});return {data};}};
+  if(typeof data==='boolean')assert.equal(await storedDeletionCompletion(db)(scope),data);else await assert.rejects(()=>storedDeletionCompletion(db)(scope),/completion unavailable/);
+ }
+ const controller=new AbortController();let calls=0;const db={rpc:async()=>{calls++;controller.abort();return {data:true};}};
+ assert.equal(await storedDeletionCompletion(db,controller.signal)(scope),false);assert.equal(calls,1);assert.equal(await storedDeletionCompletion(db,controller.signal)(scope),false);assert.equal(calls,1);
+});
 test('checkpoint reader accepts only exact durable boolean responses and preserves scope',async()=>{
  const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>false,markComplete:async()=>false};
