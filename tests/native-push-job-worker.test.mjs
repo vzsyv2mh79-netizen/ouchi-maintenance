@@ -4,7 +4,7 @@ const {runNativePushJob:run}=await import('data:text/javascript;base64,'+Buffer.
 const job='11111111-1111-4111-8111-111111111111',lease='22222222-2222-4222-8222-222222222222',registration='33333333-3333-4333-8333-333333333333';
 test('native worker persists known acceptance after cancellation and never retries a lost acknowledgement',async()=>{
  const controller=new AbortController(),order=[];
- const deps={claim:async()=>({lease,registration}),start:async()=>{order.push('start');return true;},dispatch:async(id,signal)=>{assert.equal(id,registration);assert.equal(signal,controller.signal);order.push('send');controller.abort();return 'accepted';},finish:async(id,key,result)=>{assert.equal(id,job);assert.equal(key,lease);assert.equal(result,'accepted');order.push('finish');return true;}};
+ const deps={claim:async()=>({lease,registration}),start:async()=>{order.push('start');return true;},dispatch:async(id,target,key,signal)=>{assert.equal(id,registration);assert.equal(target,job);assert.equal(key,lease);assert.equal(signal,controller.signal);order.push('send');controller.abort();return 'accepted';},finish:async(id,key,result)=>{assert.equal(id,job);assert.equal(key,lease);assert.equal(result,'accepted');order.push('finish');return true;}};
  assert.deepEqual(await run(job,deps,controller.signal),{status:'recorded',outcome:'accepted'});assert.deepEqual(order,['start','send','finish']);
  let sent=0;
  assert.deepEqual(await run(job,{...deps,dispatch:async()=>{sent++;return 'accepted';},finish:async()=>{throw Error('lost');}}),{status:'unconfirmed',outcome:'accepted'});assert.equal(sent,1);

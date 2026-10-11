@@ -65,7 +65,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const nativeJob=randomUUID(),racingJob=randomUUID();
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{
    input:`insert into maintenance_private.native_notification_jobs(id,device_id,due_at,state) values('${nativeJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending'),('${racingJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending');`,timeout:10000,stdio:['pipe','pipe','pipe']});
-  const jobDeps=storedNativePushJob(admin,(registration,signal)=>dispatchRegisteredSandboxPush(registration,1,Date.now()+1000,dispatchDeps,signal));
+  const jobDeps=storedNativePushJob(admin,(registration,_job,_lease,signal)=>dispatchRegisteredSandboxPush(registration,1,Date.now()+1000,dispatchDeps,signal));
   assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'recorded',outcome:'accepted'});
   assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'unclaimed'});assert.equal(syntheticSends,2);
   const competing=await Promise.all([admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob}),admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob})]);

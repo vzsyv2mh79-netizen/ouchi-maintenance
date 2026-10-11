@@ -3,7 +3,7 @@ type Outcome=APNsDisposition|'skipped';
 export type NativePushJobDependencies={
  claim:(job:string)=>Promise<{lease:string;registration:string}|null>;
  start:(job:string,lease:string)=>Promise<boolean>;
- dispatch:(registration:string,signal?:AbortSignal)=>Promise<Outcome>;
+ dispatch:(registration:string,job:string,lease:string,signal?:AbortSignal)=>Promise<Outcome>;
  finish:(job:string,lease:string,outcome:Outcome)=>Promise<boolean>;
 };
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,7 +28,7 @@ export async function runNativePushJob(job:string,deps:NativePushJobDependencies
   if(started){
    if(signal?.aborted)outcome='delivery-unknown';
    else{
-    try{outcome=await deps.dispatch(claim.registration,signal);}catch{outcome='delivery-unknown';}
+    try{outcome=await deps.dispatch(claim.registration,job,claim.lease,signal);}catch{outcome='delivery-unknown';}
    }
   }
  }
