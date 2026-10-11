@@ -3,6 +3,13 @@ import Combine
 import StoreKit
 import OuchiCore
 
+struct FormalNativePushSelection {
+    let receipt: NativePushRegistrationReceipt
+    let account: UUID
+}
+
+enum FormalNativePushChange { case registered(FormalNativePushSelection), disabled }
+
 struct FormalReminderSelection {
     let receipt: ReminderSettingsReceipt
     let epoch: UUID
@@ -133,6 +140,51 @@ struct FormalReminderSelection {
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
     private var developmentRemoteRegistration: (id: UUID, account: UUID)?
+
+    var formalNativePushConfiguration: (push: NativePushEnvironment, purchase: BillingEnvironment)? {
+        guard api != nil, Bundle.main.infoDictionary?["OUCHI_NATIVE_PUSH_ENABLED"] as? Bool == true,
+              let push = Bundle.main.infoDictionary?["OUCHI_APNS_ENVIRONMENT"] as? String,
+              let purchase = Bundle.main.infoDictionary?["OUCHI_NATIVE_PUSH_PURCHASE_ENVIRONMENT"] as? String,
+              let pushEnvironment = NativePushEnvironment(rawValue: push), let purchaseEnvironment = BillingEnvironment(rawValue: purchase) else { return nil }
+        return (pushEnvironment, purchaseEnvironment)
+    }
+    /// Free registration; scoped ledger enrollment is checked, never a local paid flag.
+    func changeFormalNativePush(prior: FormalNativePushSelection? = nil, requestToken: (@MainActor () async throws -> Data)? = nil) async -> FormalNativePushChange? {
+        guard !busy, signedIn, let config = formalNativePushConfiguration, let session else { return nil }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision, home = homeID
+        defer { if expected == generation { busy = false } }
+        let stillBound = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision && home == homeID }
+        do {
+            let credentials = try await session.credentials()
+            guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
+            let billing = BillingAPI(environment: config.purchase)
+            let rights = try await billing.entitlement(token: credentials.access_token)
+            guard stillBound(), rights.environment == config.purchase.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
+            let service = FormalNativePushAPI(notificationEnvironment: config.push, purchaseEnvironment: config.purchase)
+            var result = FormalNativePushChange.disabled
+            if let prior {
+                guard prior.account == credentials.user.id, prior.receipt.epoch == epoch,
+                      prior.receipt.notificationEnvironment == config.push, prior.receipt.purchaseEnvironment == config.purchase else { throw CloudError.invalidInput }
+                guard try await service.disable(prior.receipt, token: credentials.access_token) else { throw CloudError.unavailable }
+            } else {
+                guard let requestToken else { throw CloudError.invalidInput }
+                let token = try await requestToken()
+                guard stillBound() else { return nil }
+                let receipt = try await service.register(deviceToken: token, epoch: epoch, token: credentials.access_token)
+                guard stillBound() else { return nil }
+                result = .registered(FormalNativePushSelection(receipt: receipt, account: credentials.user.id))
+            }
+            guard stillBound() else { return nil }
+            let current = try await billing.entitlement(token: credentials.access_token)
+            guard stillBound(), current.environment == config.purchase.rawValue, current.purchaseAccountToken == epoch else { return nil }
+            message = prior == nil ? "この端末の通知先の登録を確認しました。配信は準備中です。" : "この端末の通知先の停止を確認しました。"
+            return result
+        } catch {
+            if stillBound() { message = "通知先の変更結果を確認できません。通知の許可と通信を確認し、再度お試しください。" }
+            return nil
+        }
+    }
 
     func registerDevelopmentRemoteNotifications(requestToken: @MainActor () async throws -> Data) async {
         guard developmentLifecycleConfigured, signedIn, !busy, let session else { return }

@@ -37,6 +37,8 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Native HTTP billing, settings, reports and deletion contracts
         run: node ios/Tests/reminder-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
+      - name: Formal native push registration HTTP transport with synthetic device token
+        run: node ios/Tests/formal-native-push-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Native attachment HTTP transport with synthetic files
         run: node ios/Tests/attachment-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Native formal report HTTP transport with synthetic records

@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>OUCHI_NATIVE_PUSH_ENABLED</key>
+	<false/>
+	<key>OUCHI_APNS_ENVIRONMENT</key>
+	<string>Sandbox</string>
+	<key>OUCHI_NATIVE_PUSH_PURCHASE_ENVIRONMENT</key>
+	<string>Sandbox</string>
 	<key>OUCHI_REMINDER_SETTINGS_ENABLED</key>
 	<false/>
 	<key>OUCHI_REMINDER_SETTINGS_ENVIRONMENT</key>
