@@ -13,7 +13,7 @@ export function maintenanceAPNsRequest(input:{deviceToken:string;bundleId:string
   body:JSON.stringify({aps:{alert:{title:'おうちメンテ',body:`期限が来たお手入れが${dueCount}件あります。アプリで確認してください。`},sound:'default'}}),
  };
 }
-export type APNsDisposition='accepted'|'retry'|'credentials'|'disable-device'|'stale-unregistration'|'inspect';
+export type APNsDisposition='accepted'|'retry'|'delivery-unknown'|'credentials'|'disable-device'|'stale-unregistration'|'inspect';
 /** A malformed or oversized provider response must never disable a device. */
 export function maintenanceAPNsResponse(status:number,body:string,registeredAt:number):APNsDisposition{
  if(typeof body!=='string'||body.length>4096)return 'inspect';

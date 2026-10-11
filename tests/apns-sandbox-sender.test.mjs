@@ -34,7 +34,7 @@ test('sandbox sender uses fixed HTTP/2 destination, count-only body and closes r
 test('network failures, oversized replies and provider rejections do not report success', async () => {
   for (const signal of ['error', 'aborted', 'close']) {
     const { sender, seen } = fixture(stream => stream.emit(signal, new Error('synthetic')));
-    assert.equal(await sender(input), 'retry'); assert.ok(seen.sessionClosed);
+    assert.equal(await sender(input), 'delivery-unknown'); assert.ok(seen.sessionClosed);
   }
   const oversized = fixture(stream => { stream.emit('response', { ':status': 410 }); stream.emit('data', Buffer.alloc(4097)); stream.emit('end'); });
   assert.equal(await oversized.sender(input), 'inspect');
@@ -52,7 +52,7 @@ test('an unresponsive provider is bounded by ten seconds and releases resources'
   const pending = sender(input);
   await Promise.resolve();
   t.mock.timers.tick(10000);
-  assert.equal(await pending, 'retry');
+  assert.equal(await pending, 'delivery-unknown');
   assert.ok(seen.sessionClosed && seen.streamClosed);
 });
 test('caller cancellation skips unopened transport and closes an active request', async () => {
@@ -62,7 +62,7 @@ test('caller cancellation skips unopened transport and closes an active request'
   assert.equal(untouched.seen.origin, undefined);
   const during = new AbortController();
   const active = fixture(stream => { during.abort(); stream.emit('response', { ':status': 200 }); stream.emit('end'); });
-  assert.equal(await active.sender(input, during.signal), 'skipped');
+  assert.equal(await active.sender(input, during.signal), 'delivery-unknown');
   assert.ok(active.seen.streamClosed && active.seen.sessionClosed);
 });
 test('cancellation while opening transport releases the just-created session', async () => {
@@ -108,7 +108,7 @@ test('real loopback HTTP/2 transport accepts a response and cancels an unfinishe
       } });
     assert.equal(await sender(input), 'accepted');
     cancel = new AbortController();
-    assert.equal(await sender(input, cancel.signal), 'skipped');
+    assert.equal(await sender(input, cancel.signal), 'delivery-unknown');
   } finally {
     for (const session of sessions) session.destroy();
     await new Promise(resolve => server.close(resolve));

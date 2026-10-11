@@ -28,6 +28,7 @@ export function createSandboxAPNsSender(options: {
       let session: ClientHttp2Session | undefined;
       let stream: ClientHttp2Stream | undefined;
       let done = false;
+      let submitted = false;
       let status = 0;
       let size = 0;
       const chunks: Buffer[] = [];
@@ -40,21 +41,24 @@ export function createSandboxAPNsSender(options: {
         session?.destroy();
         resolve(result);
       };
-      const abort = () => finish('skipped');
-      const timer = setTimeout(() => finish('retry'), 10000);
+      const transportFailed = () => finish(submitted ? 'delivery-unknown' : 'retry');
+      const abort = () => finish(submitted ? 'delivery-unknown' : 'skipped');
+      const timer = setTimeout(transportFailed, 10000);
       signal?.addEventListener('abort', abort, { once: true });
       if (signal?.aborted) { abort(); return; }
       try {
         session = open(request.origin, { minVersion: 'TLSv1.2' });
-        session.on('error', () => finish('retry'));
-        session.on('close', () => finish('retry'));
+        session.on('error', transportFailed);
+        session.on('close', transportFailed);
         if (done) { session.destroy(); return; }
+        // request() may transmit headers even when it subsequently throws.
+        submitted = true;
         stream = session.request({ ':method': 'POST', ':path': request.path,
           ...request.headers, authorization: `bearer ${token}` });
-        stream.on('error', () => finish('retry'));
+        stream.on('error', transportFailed);
         if (done) { stream.destroy(); session.destroy(); return; }
-        stream.on('aborted', () => finish('retry'));
-        stream.on('close', () => finish('retry'));
+        stream.on('aborted', transportFailed);
+        stream.on('close', transportFailed);
         stream.on('response', headers => {
           const value = headers[':status'];
           status = typeof value === 'number' ? value : 0;
@@ -67,7 +71,7 @@ export function createSandboxAPNsSender(options: {
         });
         stream.on('end', () => finish(maintenanceAPNsResponse(status, Buffer.concat(chunks).toString('utf8'), input.registeredAt)));
         stream.end(request.body);
-      } catch { finish('retry'); }
+      } catch { transportFailed(); }
     });
   };
 }
