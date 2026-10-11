@@ -170,6 +170,7 @@ private struct NativeSettings: View {
                     NavigationLink("応援チップのSandbox確認") { SandboxTipView(purchases: store.purchases) }
                     NavigationLink("有料プランのSandbox確認") { SandboxSubscriptionView(purchases: store.purchases) }
                     NavigationLink("レポートのSandbox確認") { SandboxReportView() }
+                    NavigationLink("細かな通知設定のSandbox確認") { SandboxReminderSettingsView() }
                 } }
                 if store.developmentLifecycleConfigured {
                     Section("開発用") {
@@ -783,6 +784,70 @@ private struct SandboxSubscriptionView: View {
             Button("キャンセル", role: .cancel) { selected = nil }
         } message: { Text("Sandbox専用です。テスト契約は自動更新されます。") }
         .onDisappear { selected = nil }
+    }
+}
+
+private struct SandboxReminderSettingsView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var hour = 9
+    @State private var minute = 0
+    @State private var weekdays = Set(1...7)
+    @State private var leadDays = 0
+    @State private var includeOverdue = true
+    @State private var operation: Task<Void, Never>?
+    private let labels = ["日", "月", "火", "水", "木", "金", "土"]
+    private var canEdit: Bool { store.reminderSettings?.premiumActive == true && !store.busy }
+    var body: some View {
+        Form {
+            Section {
+                Text("テスト用の確認画面です。販売と端末への通知適用は準備中です。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button(store.busy ? "確認中…" : "最新の設定を読み込む") {
+                    operation = Task { await store.loadSandboxReminderSettings() }
+                }.disabled(store.busy)
+                if let receipt = store.reminderSettings {
+                    Text(receipt.premiumActive ? "テスト用の有料利用権を確認済み" : "無料の設定を使用：毎日9時、期限が来たお手入れ")
+                    if !receipt.premiumActive, receipt.saved != nil {
+                        Text("以前の設定は保存されています。利用権がない間は無料の設定を使用します。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Section("通知時刻（日本時間）") {
+                Picker("時", selection: $hour) { ForEach(0..<24, id: \.self) { Text("\($0)時").tag($0) } }
+                Picker("分", selection: $minute) { ForEach(0..<60, id: \.self) { Text("\($0)分").tag($0) } }
+            }.disabled(!canEdit)
+            Section("通知する曜日") {
+                ForEach(1...7, id: \.self) { day in
+                    Toggle(labels[day - 1] + "曜日", isOn: Binding(
+                        get: { weekdays.contains(day) },
+                        set: { if $0 { weekdays.insert(day) } else { weekdays.remove(day) } }
+                    ))
+                }
+            }.disabled(!canEdit)
+            Section("お知らせするお手入れ") {
+                Picker("何日前から", selection: $leadDays) {
+                    Text("当日から").tag(0); Text("1日前から").tag(1)
+                    Text("3日前から").tag(3); Text("7日前から").tag(7)
+                }
+                Toggle("期限を過ぎたものも含める", isOn: $includeOverdue)
+            }.disabled(!canEdit)
+            Section {
+                Button("テスト用の設定を保存") {
+                    guard let schedule = try? ReminderSchedule(minuteOfDay: hour * 60 + minute,
+                        weekdays: Array(weekdays), leadDays: leadDays, includeOverdue: includeOverdue) else { return }
+                    operation = Task { await store.saveSandboxReminderSettings(schedule) }
+                }.disabled(!canEdit || weekdays.isEmpty)
+                if let message = store.message { Text(message).font(.caption) }
+            }
+        }
+        .navigationTitle("通知の細かな設定")
+        .onChange(of: store.reminderSettings) { _, receipt in
+            let schedule = receipt?.saved ?? receipt?.effective ?? .free
+            hour = schedule.minuteOfDay / 60; minute = schedule.minuteOfDay % 60
+            weekdays = Set(schedule.weekdays); leadDays = schedule.leadDays; includeOverdue = schedule.includeOverdue
+        }
+        .onDisappear { operation?.cancel(); operation = nil }
     }
 }
 

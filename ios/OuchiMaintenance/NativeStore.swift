@@ -27,7 +27,8 @@ import OuchiCore
         if oldValue != signedIn { accountBindingRevision = UUID() }
         if !signedIn { accountEmail = nil }
     } }
-    @Published private(set) var accountBindingRevision = UUID()
+    @Published private(set) var accountBindingRevision = UUID() { didSet { reminderSettings = nil } }
+    @Published private(set) var reminderSettings: ReminderSettingsReceipt?
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
@@ -544,6 +545,42 @@ import OuchiCore
             billingRecoveryStatus = progress
         } catch {
             if expected == generation { billingRecoveryStatus = nil; message = "\u{5fa9}\u{5143}\u{306e}\u{72b6}\u{6cc1}\u{3092}\u{78ba}\u{8a8d}\u{3067}\u{304d}\u{307e}\u{305b}\u{3093}\u{3067}\u{3057}\u{305f}\u{3002}" }
+        }
+    }
+    func loadSandboxReminderSettings() async {
+        await changeSandboxReminderSettings(schedule: nil)
+    }
+    func saveSandboxReminderSettings(_ schedule: ReminderSchedule) async {
+        await changeSandboxReminderSettings(schedule: schedule)
+    }
+    private func changeSandboxReminderSettings(schedule: ReminderSchedule?) async {
+        guard !busy, sandboxBillingConfigured, let session else { return }
+        let receipt = reminderSettings
+        if schedule != nil, receipt?.premiumActive != true { return }
+        let expected = generation, binding = accountBindingRevision
+        busy = true; message = nil
+        defer { if expected == generation, binding == accountBindingRevision { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+                  signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
+            let service = ReminderSettingsAPI()
+            let result: ReminderSettingsReceipt
+            if let schedule, let receipt {
+                result = try await service.save(schedule, revision: receipt.revision, token: credentials.access_token)
+            } else {
+                result = try await service.load(token: credentials.access_token)
+            }
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+                  billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
+            reminderSettings = result
+            message = schedule == nil ? nil : "テスト用の設定をサーバーで確認しました。端末への通知適用は準備中です。"
+        } catch {
+            guard !Task.isCancelled, expected == generation, binding == accountBindingRevision else { return }
+            // A lost acknowledgement can follow a successful write. Require a
+            // fresh read before another edit; never infer a committed revision.
+            reminderSettings = nil
+            message = "通知設定は準備中、または結果を確認できません。最新の設定を読み込んでください。"
         }
     }
     func loadSandboxReport() async {
