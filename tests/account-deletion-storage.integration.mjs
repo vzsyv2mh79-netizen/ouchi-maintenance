@@ -43,12 +43,18 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const reservation={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,target_product:product,attachment_id:file,byte_count:bytes.length,media_type:'image/png',measured_sha256:hash};
   const reserved=await admin.rpc('reserve_maintenance_attachment',reservation);assert.equal(reserved.error,null);assert.equal(reserved.data,file);
   assert.equal((await admin.rpc('reserve_maintenance_attachment',reservation)).data,file);assert.ok((await user.rpc('reserve_maintenance_attachment',reservation)).error);
+  const writeAttempt=randomUUID(),writeArgs={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,target_attachment:file,target_attempt:writeAttempt};
+  const startedWrite=await admin.rpc('begin_maintenance_attachment_write',writeArgs);assert.equal(startedWrite.error,null);assert.deepEqual(startedWrite.data,{attemptID:writeAttempt,started:true,settled:false});
+  assert.deepEqual((await admin.rpc('begin_maintenance_attachment_write',writeArgs)).data,{attemptID:writeAttempt,started:false,settled:false});assert.ok((await user.rpc('begin_maintenance_attachment_write',writeArgs)).error);
   assert.equal((await admin.storage.createBucket('ouchi-product-attachments',{public:false})).error,null);const path=`${userID}/${epoch.data}/${file}.png`;
   assert.equal((await admin.storage.from('ouchi-product-attachments').upload(path,bytes,{contentType:'image/png',upsert:false})).error,null);
   const downloaded=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(downloaded.error,null);assert.ok(downloaded.data);
   const measured=Buffer.from(await downloaded.data.arrayBuffer());assert.deepEqual(measured,bytes);
   const completion={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,attachment_id:file,actual_bytes:measured.length,verified_sha256:createHash('sha256').update(measured).digest('hex')};
   assert.ok((await admin.rpc('finalize_maintenance_attachment',{...completion,actual_bytes:measured.length+1})).error);
+  assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);
+  const settledWrite=await admin.rpc('settle_maintenance_attachment_write',{target_attachment:file,target_attempt:writeAttempt});assert.equal(settledWrite.error,null);assert.equal(settledWrite.data,true);
+  assert.ok((await user.rpc('settle_maintenance_attachment_write',{target_attachment:file,target_attempt:writeAttempt})).error);
   const completedAttachment=await admin.rpc('finalize_maintenance_attachment',completion);assert.equal(completedAttachment.error,null);assert.equal(completedAttachment.data,file);
   assert.equal((await admin.rpc('finalize_maintenance_attachment',completion)).data,file);assert.ok((await user.rpc('finalize_maintenance_attachment',completion)).error);
   assert.ok((await user.storage.from('ouchi-product-attachments').download(path)).error);
