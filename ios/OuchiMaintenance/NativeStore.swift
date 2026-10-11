@@ -80,6 +80,7 @@ struct FormalChannelSelection {
     private let isolatedDevelopmentEnabled: Bool
     private(set) var isUIReviewSample = false
     #if DEBUG
+    private(set) var isPurchaseRecoveryUIReviewSample = false
     private var isClosureUIReviewSample = false
     private var reviewClosureRecords: [AppAttestAccountClosure] = []
     private var reviewClosureFailure = true
@@ -433,6 +434,7 @@ struct FormalChannelSelection {
             let client=HouseholdAPI(config:config,transport:{ try await fixture.reply($0) })
             api=client;session=SessionController(api:client,storage:NativeReviewSessionStorage(bytes))
             isolatedDevelopmentEnabled=false;isUIReviewSample=true
+            isPurchaseRecoveryUIReviewSample = info["OUCHI_REVIEW_PURCHASE_RECOVERY_UI"] as? String == "YES"
             return
         }
         let isolatedDevelopment = ProcessInfo.processInfo.environment["OUCHI_ISOLATED_DEVELOPMENT"] == "true"

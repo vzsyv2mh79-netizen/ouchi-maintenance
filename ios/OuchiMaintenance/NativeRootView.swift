@@ -246,6 +246,14 @@ private struct NativeSettings: View {
                         NavigationLink("購入と契約の確認") { ReleasePurchaseRecoveryView() }
                     }
                 }
+                #if DEBUG
+                if store.isPurchaseRecoveryUIReviewSample {
+                    Section("購入画面の表示確認") {
+                        Text("サンプル表示です。契約照会・購入・復元は実行しません。")
+                        NavigationLink("購入と契約の確認") { ReleasePurchaseRecoveryView() }
+                    }
+                }
+                #endif
                 if store.explicitEnrollmentConfigured {
                     Section("クラウド登録") { NavigationLink("おうちメンテへの登録") { ExplicitEnrollmentView() } }
                 }
@@ -961,9 +969,11 @@ private struct SandboxReminderSettingsView: View {
 
 private struct ReleasePurchaseRecoveryView: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Form {
+                Section { Button("設定に戻る") { dismiss() }.disabled(store.busy) }
                 Section("無料で使える機能") {
                     Text("家電の登録、お手入れの記録、基本の共有、記録の書き出しは無料で使えます。契約が終了しても記録は削除しません。")
                 }
