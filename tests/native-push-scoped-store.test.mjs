@@ -1,0 +1,21 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import ts from 'typescript';
+const cache=new Map();function compile(name){if(cache.has(name))return cache.get(name);let code=ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;code=code.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(compile(name))}`);const url='data:text/javascript;base64,'+Buffer.from(code).toString('base64');cache.set(name,url);return url;}
+const {storedScopedNativePushBatch}=await import(compile('native-push-scoped-store'));
+const registration='11111111-1111-4111-8111-111111111111',job='22222222-2222-4222-8222-222222222222',lease='33333333-3333-4333-8333-333333333333';
+function fixture({wrong=false,changed=false,unknown=false,finish=false,claimChanged=false,countChanged=false}={}){const calls=[];let reads=0,sends=0,claims=0,counts=0;const scope={push:'Production',purchase:'Sandbox'};
+ const db={rpc:async(name,args)=>{calls.push({name,args});assert.equal(args.target_push_environment,'Production');assert.equal(args.target_purchase_environment,'Sandbox');if(name==='page_maintenance_native_scoped_devices')return {data:[registration]};if(name==='enqueue_maintenance_native_scoped_daily_job')return {data:job};if(name==='claim_maintenance_native_scoped_push_job')return {data:lease};if(name==='read_maintenance_native_scoped_job_claim'){claims++;return {data:claimChanged&&claims>2?null:registration};}if(name==='start_maintenance_native_scoped_push_job')return {data:true};if(name==='count_maintenance_native_scoped_job_due'){counts++;return {data:countChanged&&counts>1?1:2};}if(name==='read_maintenance_native_scoped_destination'){reads++;return {data:{id:registration,environment:'Production',purchaseEnvironment:wrong?'Production':'Sandbox',deviceToken:changed&&reads>1?'cd'.repeat(32):'ab'.repeat(32),topic:'jp.ouchi.maintenance',registeredAt:1000}};}if(name==='finish_maintenance_native_scoped_push_job')return {data:!finish};throw Error(name);}};
+ const adapter=storedScopedNativePushBatch(db,scope,async input=>{sends++;assert.equal(input.deviceToken,'ab'.repeat(32));assert.equal(input.bundleId,'jp.ouchi.maintenance');assert.equal(input.dueCount,2);return unknown?'delivery-unknown':'accepted';},()=>2000);
+ return {adapter,calls,scope,sends:()=>sends};}
+test('Production native composition carries independent immutable scopes through page/enqueue/claim/count/send/receipt',async()=>{
+ const f=fixture();f.scope.push='Sandbox';f.scope.purchase='Production';assert.deepEqual(await f.adapter.page(null,25),[registration]);assert.equal(await f.adapter.enqueue(registration),job);assert.deepEqual(await f.adapter.run(job),{status:'recorded',outcome:'accepted'});assert.equal(f.sends(),1);assert.equal(f.calls.at(-1).args.outcome,'accepted');assert.equal(f.calls.filter(x=>x.name==='read_maintenance_native_scoped_destination').length,2);
+});
+test('foreign purchase scope and changing destination refuse sends; uncertain receipt is never relabelled accepted',async()=>{
+ for(const options of [{wrong:true},{changed:true}]){const f=fixture(options);const result=await f.adapter.run(job);assert.equal(result.status,'recorded');assert.notEqual(result.outcome,'accepted');assert.equal(f.sends(),0);}
+ const f=fixture({unknown:true});assert.deepEqual(await f.adapter.run(job),{status:'recorded',outcome:'delivery-unknown'});assert.equal(f.calls.at(-1).args.outcome,'delivery-unknown');
+ const failed=fixture({finish:true});assert.deepEqual(await failed.adapter.run(job),{status:'unconfirmed',outcome:'accepted'});assert.equal(failed.sends(),1);
+ const cancelled=fixture(),controller=new AbortController();controller.abort();assert.deepEqual(await cancelled.adapter.run(job,controller.signal),{status:'unclaimed'});assert.equal(cancelled.calls.length,0);
+});
+
+test('changed lease or due count at final permission check prevents submission',async()=>{
+ for(const options of [{claimChanged:true},{countChanged:true}]){const f=fixture(options);const result=await f.adapter.run(job);assert.equal(f.sends(),0);assert.equal(result.status,'recorded');assert.notEqual(result.outcome,'accepted');}
+});

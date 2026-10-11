@@ -32,6 +32,7 @@ const {countedNativePushDispatch}=await import(attachmentModule('native-push-job
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
 const {storedNativePushBatch}=await compiled('lib/native-push-batch-store.ts');
+const {storedScopedNativePushBatch}=await import(attachmentModule('native-push-scoped-store'));
 const {uploadProductAttachment}=await import(attachmentModule('attachment-upload'));
 const formalRouteCode=ts.transpileModule(readFileSync('app/api/development/verified-product-attachments/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
  .replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(attachmentModule(name))}`)
@@ -238,6 +239,18 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('enqueue_maintenance_native_daily_job',{registration_id:scheduledRegistration.data})).data,queued.data);
   const queuedLease=await admin.rpc('claim_maintenance_native_push_job',{target_job:queued.data});assert.equal(queuedLease.error,null);assert.ok(queuedLease.data);
   const countedArgs={target_job:queued.data,target_lease:queuedLease.data};assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,1);
+  // Formal Production APNs job pipeline, but synthetic sender only.
+  const distributionArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,push_environment:'Production',purchase_environment:'Sandbox'};
+  const distributionRegistration=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9b'.repeat(32)});assert.equal(distributionRegistration.error,null);
+  let distributionSends=0;const scopedPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{distributionSends++;assert.equal(input.deviceToken,'9b'.repeat(32));assert.equal(input.dueCount,1);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';});
+  const scopedPage=await scopedPipeline.page(null,25);assert.deepEqual(scopedPage,[distributionRegistration.data]);
+  const distributionRun=await runNativePushBatch(scopedPipeline);assert.equal(distributionRun.status,'complete');assert.equal(distributionRun.accepted,1);assert.equal(distributionRun.unconfirmed,0);assert.equal(distributionSends,1);
+  const distributionRepeat=await runNativePushBatch(scopedPipeline);assert.equal(distributionRepeat.accepted,0);assert.equal(distributionSends,1);
+  assert.deepEqual(await storedScopedNativePushBatch(admin,{push:'Production',purchase:'Production'},async()=>{throw Error('Wrong scope send');}).page(null,25),[]);
+  const uncertainRegistration=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9c'.repeat(32)});assert.equal(uncertainRegistration.error,null);
+  let uncertainSends=0;const uncertainPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{assert.equal(input.deviceToken,'9c'.repeat(32));uncertainSends++;return 'delivery-unknown';});
+  assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1);assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1,'uncertain delivery is never resent');
+  console.log('Scoped native Production job actual Auth/PostgreSQL: independent Sandbox purchase scope, page/enqueue/lease/count/start/receipt, accepted/unknown no repeat sends and wrong-purchase empty page. Synthetic sender only; no Apple push or signature.');
   assert.equal((await settingsRequest(paidToken,{revision:2,schedule:selectedSchedule})).status,200);
   assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,null);
   assert.equal((await admin.rpc('start_maintenance_native_push_job',countedArgs)).data,false);
