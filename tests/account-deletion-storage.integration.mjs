@@ -24,6 +24,7 @@ const reminderRouteCode=ts.transpileModule(readFileSync('app/api/development/rem
  .replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(import.meta.resolve(name))}`);
 const {GET:reminderGET,PUT:reminderPUT}=await import('data:text/javascript;base64,'+Buffer.from(reminderRouteCode).toString('base64'));
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
+const {attachmentDeployment,attachmentServiceResponse}=await import(attachmentModule('attachment-service-handler'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -232,6 +233,26 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const paidRetry=await uploadProductAttachment(paidRequest(),paidProduct,paidFile,storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(paidRetry.status,200);
   const paidReadArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,attachment_id:paidFile};
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
+  // Exercise the formal shared service handler against real disposable Auth,
+  // ledger, PostgREST and Storage. The injected factory uses localhost only;
+  // this is not a production deployment or an Apple-signed purchase proof.
+  const expiryFile=randomUUID();
+  const expiryConfig=attachmentDeployment({url:'https://disposable.supabase.co/',key:service,environment:'Sandbox',storage:'verified-ledger'},'true');assert.ok(expiryConfig);
+  const formalClient=(config,signal)=>{assert.equal(config.url,'https://disposable.supabase.co/');return createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}});};
+  const expiryRequest=(method,id,token=otherSignup.data.session.access_token,capturedEpoch=otherEpoch.data)=>new Request(origin+'/api/product-attachments?attachmentId='+id+(method==='POST'?'&productId='+paidProduct:''),{method,headers:{authorization:'Bearer '+token,...(method==='GET'?{}:{'X-Ouchi-App-Epoch':capturedEpoch}),...(method==='POST'?{'content-type':'image/png'}:{})},body:method==='POST'?adapterBytes:undefined});
+  const expiryUpload=await attachmentServiceResponse(expiryRequest('POST',expiryFile),expiryConfig,formalClient);assert.equal(expiryUpload.status,200);assert.deepEqual(await expiryUpload.json(),{saved:true,attachmentId:expiryFile});
+  // Expiration has no refund/revocation field and does not close the account.
+  const expiredSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,expiresAt:now-1},proof_sha256:'f'.repeat(64)});assert.equal(expiredSeed.error,null);assert.equal(expiredSeed.data,'updated');
+  const expiredRights=await admin.rpc('read_maintenance_verified_entitlement',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,target_epoch:otherEpoch.data,target_environment:'Sandbox'});assert.equal(expiredRights.error,null);assert.equal(expiredRights.data.plan,'free');
+  const expiredNewID=randomUUID();assert.equal((await attachmentServiceResponse(expiryRequest('POST',expiredNewID),expiryConfig,formalClient)).status,403);
+  const expiredRead=await attachmentServiceResponse(expiryRequest('GET',expiryFile),expiryConfig,formalClient);assert.equal(expiredRead.status,200);assert.deepEqual(new Uint8Array(await expiredRead.arrayBuffer()),adapterBytes);
+  const foreignRemoval=await attachmentServiceResponse(expiryRequest('DELETE',expiryFile,signup.data.session.access_token,epoch.data),expiryConfig,formalClient);assert.equal(foreignRemoval.status,404);
+  const wrongEpochRemoval=await attachmentServiceResponse(expiryRequest('DELETE',expiryFile,otherSignup.data.session.access_token,randomUUID()),expiryConfig,formalClient);assert.equal(wrongEpochRemoval.status,404);
+  assert.equal((await admin.storage.from('ouchi-product-attachments').download(`${otherSignup.data.user.id}/${otherEpoch.data}/${expiryFile}.png`)).error,null);
+  const expiredRemove=await attachmentServiceResponse(expiryRequest('DELETE',expiryFile),expiryConfig,formalClient);assert.equal(expiredRemove.status,200);assert.deepEqual(await expiredRemove.json(),{removed:true,attachmentId:expiryFile});
+  const expiredGone=await admin.storage.from('ouchi-product-attachments').download(`${otherSignup.data.user.id}/${otherEpoch.data}/${expiryFile}.png`);assert.equal(expiredGone.data,null);assert.equal(expiredGone.error.code,'NoSuchKey');
+  const expiredUsage=await admin.rpc('maintenance_attachment_usage',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data});assert.equal(expiredUsage.error,null);assert.equal(expiredUsage.data.usedFiles,1);assert.equal(expiredUsage.data.reservedFiles,0);
+  console.log('Formal shared attachment handler actual Auth/ledger/Storage path: expired subscription denies new save, permits exact download and owner removal, denies foreign and stale-epoch removal, confirms physical absence and releases only removed-file quota. Synthetic transaction, no real Apple or production deployment.');
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
   assert.equal((await reportRequest(otherHome)).status,403);
   const endedSettings=await settingsRequest(paidToken);assert.equal(endedSettings.status,200);const endedValue=await endedSettings.json();assert.equal(endedValue.premiumActive,false);assert.deepEqual(endedValue.effective,defaultSchedule);assert.deepEqual(endedValue.saved,selectedSchedule);

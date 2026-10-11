@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {StorageApiError} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 const cache=new Map();
@@ -16,17 +17,19 @@ const user='11111111-1111-4111-8111-111111111111',epoch='22222222-2222-4222-8222
 const config={url:'https://synthetic.supabase.co',key:'synthetic',storage:'verified-ledger',environment:'Production'};
 const token='e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.sig';
 const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
-function fixture({loseMembership=false,free=true}={}){
+function fixture({loseMembership=false,free=true,removal=false}={}){
  const calls=[];let metadataReads=0;
  const metadata={id,user,epoch,size:bytes.length,mime:'image/png',sha256:createHash('sha256').update(bytes).digest('hex')};
  const db={auth:{getUser:async value=>{assert.equal(value,token);calls.push('auth');return {data:{user:{id:user}},error:null};}},rpc:async(name,args)=>{
   calls.push(name);assert.equal(args.target_user,user);assert.equal(args.verified_session,session);
   if(name==='current_maintenance_purchase_account')return {data:epoch,error:null};
   assert.equal(args.expected_epoch??args.target_epoch,epoch);
+  if(name==='begin_maintenance_attachment_removal'){assert.ok(removal);assert.equal(args.target_attachment,id);return {data:{id,user,epoch,path:`${user}/${epoch}/${id}.png`,mime:'image/png'},error:null};}
+  if(name==='complete_maintenance_attachment_removal'){assert.ok(removal);assert.equal(args.target_attachment,id);assert.equal(args.confirmed_path,`${user}/${epoch}/${id}.png`);return {data:true,error:null};}
   if(name==='read_maintenance_attachment')return {data:loseMembership&&++metadataReads>1?null:metadata,error:null};
   if(name==='read_maintenance_verified_entitlement'){assert.equal(args.target_environment,'Production');return {data:free?{plan:'free',environment:'Production'}:{plan:'premium',environment:'Production',productId:'ouchi.premium.monthly',expiresAt:Date.now()+60000},error:null};}
   throw Error(`Unexpected RPC ${name}`);
- },storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {download:async path=>{calls.push('download');assert.equal(path,`${user}/${epoch}/${id}.png`);return {data:new Blob([bytes],{type:'image/png'}),error:null};}};}}};
+ },storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {remove:async paths=>{assert.ok(removal);assert.deepEqual(paths,[`${user}/${epoch}/${id}.png`]);calls.push('remove');return {error:null};},download:async path=>{calls.push('download');assert.equal(path,`${user}/${epoch}/${id}.png`);return removal?{data:null,error:new StorageApiError('Object not found',404,'404','storage','NoSuchKey')}:{data:new Blob([bytes],{type:'image/png'}),error:null};}};}}};
  return {db,calls};
 }
 test('disabled or invalid deployment never constructs a database or attempts a network call',async()=>{
@@ -69,4 +72,12 @@ test('same Auth user with a different enrollment cannot upload or erase old pend
   const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?attachmentId=${id}${method==='POST'?`&productId=${id}`:''}`,{method,headers,body:method==='POST'?bytes:undefined}),config,()=>f.db);
   assert.notEqual(response.status,200);assert.deepEqual(f.calls,['auth','current_maintenance_purchase_account']);
  }
+});
+
+test('formal removal preserves live binding and absence checks without requiring a paid ledger',async()=>{
+ const f=fixture({free:true,removal:true});
+ const response=await attachmentServiceResponse(new Request(`https://example.invalid/api/product-attachments?attachmentId=${id}`,{method:'DELETE',headers:{authorization:`Bearer ${token}`,'X-Ouchi-App-Epoch':epoch}}),config,()=>f.db);
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{removed:true,attachmentId:id});
+ assert.ok(!f.calls.includes('read_maintenance_verified_entitlement'));assert.equal(f.calls.filter(name=>name==='begin_maintenance_attachment_removal').length,4);
+ assert.ok(f.calls.indexOf('remove')<f.calls.indexOf('download'));assert.ok(f.calls.indexOf('download')<f.calls.indexOf('complete_maintenance_attachment_removal'));
 });

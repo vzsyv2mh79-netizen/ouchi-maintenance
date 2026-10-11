@@ -76,7 +76,7 @@ export function AttachmentControls({product,account}:{product:string;account:str
    setPending(null);setItems([]);setNext(null);setMessage('保存を確認しました。');
   });
  }
- return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
+ return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。保存した本人または住まいの所有者は、契約終了後も削除できます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
   <label>写真・保証書を選ぶ<input type="file" accept="image/jpeg,image/png,application/pdf" disabled={busy||pending!==null} onChange={event=>{const chosen=event.target.files?.[0]??null;event.target.value='';if(chosen&&(chosen.size<1||chosen.size>5242880||!['image/jpeg','image/png','application/pdf'].includes(chosen.type))){setFile(null);setMessage('JPEG・PNG・PDFの約5MB以下のファイルを選択してください。');return;}setFile(chosen);setMessage('');}} /></label>
   {file?<p>{file.name} <button className="text-button" disabled={busy} onClick={()=>setFile(null)}>選択を取り消す</button></p>:null}
   <div className="attachment-actions"><button className="primary-button" disabled={busy||!file||pending!==null} onClick={save}>保存する</button>
