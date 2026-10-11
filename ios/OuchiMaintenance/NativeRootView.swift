@@ -22,6 +22,15 @@ struct NativeRootView: View {
         .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
         .safeAreaInset(edge: .top) {
             HStack {
+                #if DEBUG
+                if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
+                   let stamp=Bundle.main.infoDictionary?["OUCHI_REVIEW_BUILD_ID"] as? String,
+                   stamp.range(of:"^[a-f0-9]{40}$",options:.regularExpression) != nil {
+                    Text("確認用 \(stamp.prefix(7))")
+                        .font(.caption).accessibilityIdentifier("ouchi.reviewBuild")
+                        .accessibilityLabel("確認用ビルド \(stamp)")
+                }
+                #endif
                 if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
                 Spacer()
                 Button {
