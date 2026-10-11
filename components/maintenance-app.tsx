@@ -1,5 +1,6 @@
 "use client";
 import { ThemeControls, ThemeToggle } from "./theme-provider";
+import { AttachmentControls } from "./attachment-controls";
 import { BillingControls } from "./billing-controls";
 import { PushControls } from "./push-controls";
 
@@ -186,7 +187,7 @@ export function MaintenanceApp() {
     void commitChange({ ...data, homes: data.homes.filter(h => h.id !== currentHome.id), products: data.products.filter(p => !ids.has(p.id)), tasks: data.tasks.filter(t => !ids.has(t.productId)), history: data.history.filter(h => !ids.has(h.productId)) }, () => removeHome(currentHome.id), "住まいを削除しました");
   };
   const page = selectedProduct && tab === "products" && view.products.some(product => product.id === selectedProduct)
-    ? <ProductDetail onEditProduct={setEditProduct} onEditTask={setEditTask} onDeleteProduct={removeProduct} onDeleteTask={removeTask} productId={selectedProduct} data={view} onBack={() => setSelectedProduct(null)} onComplete={completeTask} onAddTask={() => setModal("task")} />
+    ? <ProductDetail account={cloudUser} onEditProduct={setEditProduct} onEditTask={setEditTask} onDeleteProduct={removeProduct} onDeleteTask={removeTask} productId={selectedProduct} data={view} onBack={() => setSelectedProduct(null)} onComplete={completeTask} onAddTask={() => setModal("task")} />
     : tab === "home" ? <HomePage data={view} onComplete={completeTask} onOpenProduct={openProduct} onAll={() => setTab("tasks")} />
     : tab === "tasks" ? <TasksPage data={view} onComplete={completeTask} onOpenProduct={openProduct} />
     : tab === "products" ? <ProductsPage data={view} onAdd={() => setModal("product")} onOpenProduct={openProduct} />
@@ -272,11 +273,12 @@ function ProductsPage({ data, onAdd, onOpenProduct }: { data: AppData; onAdd: ()
   </div>;
 }
 
-function ProductDetail({ productId, data, onBack, onComplete, onAddTask, onEditProduct, onEditTask, onDeleteProduct, onDeleteTask }: { onEditProduct: (p: Product) => void; onEditTask: (t: MaintenanceTask) => void; onDeleteProduct: (p: Product) => void; onDeleteTask: (t: MaintenanceTask) => void; productId: string; data: AppData; onBack: () => void; onComplete: (id: string) => void; onAddTask: () => void }) {
+function ProductDetail({ account, productId, data, onBack, onComplete, onAddTask, onEditProduct, onEditTask, onDeleteProduct, onDeleteTask }: { account: string | null; onEditProduct: (p: Product) => void; onEditTask: (t: MaintenanceTask) => void; onDeleteProduct: (p: Product) => void; onDeleteTask: (t: MaintenanceTask) => void; productId: string; data: AppData; onBack: () => void; onComplete: (id: string) => void; onAddTask: () => void }) {
   const product = data.products.find((p) => p.id === productId)!; const tasks = data.tasks.filter((t) => t.productId === productId);
   return <div className="page"><button className="back-button" onClick={onBack}><ArrowLeft size={18} />製品一覧</button>
     <section className="product-hero"><div className="product-hero-icon">{categoryEmoji(product.categoryId)}</div><div><span>{product.maker}</span><h1>{product.name}</h1><p>{product.modelNumber}</p></div></section>
     <div className="modal-actions"><button className="secondary-button" onClick={() => onEditProduct(product)}>製品を編集</button><button className="text-button" onClick={() => onDeleteProduct(product)}>製品を削除</button></div><div className="detail-meta"><div><span>カテゴリ</span><strong>{categories.find((c) => c.id === product.categoryId)?.name}</strong></div><div><span>設置日</span><strong>{product.installedDate ? formatLong(product.installedDate) : "未設定"}</strong></div><div><span>登録場所</span><strong>{data.homes[0].name}</strong></div></div>
+    {account && process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true" && <AttachmentControls key={`${account}:${data.homes[0].id}:${productId}`} account={account} product={productId} />}
     <div className="section-title detail-title"><div><h2>この製品のお手入れ</h2><p>{tasks.length}件の項目を登録中</p></div><button className="secondary-button" onClick={onAddTask}><Plus size={17} />項目を追加</button></div>
     <div className="maintenance-cards">{tasks.map((task) => <article className="maintenance-card" key={task.id}><div className="maintenance-head"><div className="kind-icon"><Wrench size={19} /></div><div><span className="kind-label">{task.kind}</span><h3>{task.name}</h3></div><button className="complete-button" onClick={() => onComplete(task.id)}><Check size={17} />完了</button></div><div className="maintenance-details"><div><span>設定した周期</span><strong>{intervalLabel(task.intervalDays)}</strong></div><div><span>最終実施日</span><strong>{task.lastCompletedAt ? formatLong(task.lastCompletedAt) : "未実施"}</strong></div><div><span>次回予定日</span><strong className={daysUntil(task.nextDueAt) <= 0 ? "attention" : ""}>{formatLong(task.nextDueAt)}<small>{dueLabel(task.nextDueAt)}</small></strong></div></div><div className="modal-actions"><button className="secondary-button" onClick={() => onEditTask(task)}>項目を編集</button><button className="text-button" onClick={() => onDeleteTask(task)}>項目を削除</button></div>{task.sourceFrequency && <p className="field-hint">{task.sourceFrequency}</p>}{task.sourceNote && <p className="field-hint">{task.sourceNote}</p>}<div className="source-row"><Info size={14} /><span>情報源：</span><strong>{task.sourceKind}</strong>{task.sourceUrl?.startsWith("https://") && <a href={task.sourceUrl} target="_blank" rel="noreferrer">根拠を開く</a>}{task.id.startsWith("t-") && <em>デモデータ</em>}</div></article>)}</div>
     {tasks.length === 0 && <EmptyState icon={<Wrench />} title="お手入れ項目がありません" text="掃除や交換の周期を登録すると、予定日を一覧で確認できます。" action="項目を追加" onAction={onAddTask} />}
