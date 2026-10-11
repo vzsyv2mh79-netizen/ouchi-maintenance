@@ -113,9 +113,10 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
   const deniedAfterRevocation=await uploadProductAttachment(paidRequest(),paidProduct,randomUUID(),storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(deniedAfterRevocation.status,403);
   assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
-  let retainedDownload;
-  try{process.env.NODE_ENV='development';process.env.OUCHI_ATTACHMENT_TEST_MODE='true';process.env.OUCHI_ATTACHMENT_TEST_URL=origin;process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY=service;retainedDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));}
+  let retainedDownload,foreignDownload;
+  try{process.env.NODE_ENV='development';process.env.OUCHI_ATTACHMENT_TEST_MODE='true';process.env.OUCHI_ATTACHMENT_TEST_URL=origin;process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY=service;retainedDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+otherSignup.data.session.access_token}}));foreignDownload=await formalAttachmentGET(new Request(origin+'/api/development/verified-product-attachments?attachmentId='+paidFile,{headers:{authorization:'Bearer '+signup.data.session.access_token}}));}
   finally{for(const key of routeEnvKeys){if(routeEnvBefore[key]===undefined)delete process.env[key];else process.env[key]=routeEnvBefore[key];}}
+  assert.equal(foreignDownload.status,404);assert.equal(foreignDownload.headers.get('cache-control'),'no-store');assert.ok(!(await foreignDownload.text()).includes(paidFile));
   assert.equal(retainedDownload.status,200);assert.equal(retainedDownload.headers.get('cache-control'),'no-store');assert.deepEqual(new Uint8Array(await retainedDownload.arrayBuffer()),adapterBytes);
   assert.equal((await user.from('home_members').delete().eq('homeId',home).eq('user_id',otherSignup.data.user.id)).error,null);
   assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});
