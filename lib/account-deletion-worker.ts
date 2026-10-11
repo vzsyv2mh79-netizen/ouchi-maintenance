@@ -1,6 +1,7 @@
 /** Deletion orchestration only. No production adapter or scheduler is enabled. */
 export type DeletionScope={requestID:string;userID:string;epochID:string;leaseToken:string};
 export type DeletionDependencies={
+ identityAlreadyErased?:(scope:DeletionScope)=>Promise<boolean>;
  leaseCurrent:(scope:DeletionScope)=>Promise<boolean>;
  revokeAndCaptureInventory:(scope:DeletionScope)=>Promise<boolean>;
  eraseRecords:(scope:DeletionScope)=>Promise<boolean>;
@@ -22,7 +23,19 @@ export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDepend
  const required = ['leaseCurrent', 'revokeAndCaptureInventory', 'eraseDeviceRegistrations', 'eraseAttachments', 'eraseRecords', 'finalizeIdentityAndRetention', 'markComplete'] as const;
  if (!deps || required.some(name => typeof deps[name] !== 'function')) return {state:'pending' as const};
  const fixed=Object.freeze({...scope});
- const steps=[deps.revokeAndCaptureInventory,deps.eraseDeviceRegistrations,deps.eraseAttachments,deps.eraseRecords,deps.finalizeIdentityAndRetention,deps.markComplete];
+ // A durable, scope-bound identity checkpoint allows restart after a committed
+ // identity erasure whose acknowledgement was lost. It never proves retention
+ // or completion: both mandatory tail stages still run under the current lease.
+ let resumed=false;
+ if(deps.identityAlreadyErased){
+  try{
+   if(signal?.aborted||await deps.leaseCurrent(fixed)!==true||signal?.aborted)return {state:'pending' as const};
+   const erased=await deps.identityAlreadyErased(fixed);
+   if(signal?.aborted||typeof erased!=='boolean')return {state:'pending' as const};
+   resumed=erased;
+  }catch{return {state:'pending' as const};}
+ }
+ const steps=resumed?[deps.finalizeIdentityAndRetention,deps.markComplete]:[deps.revokeAndCaptureInventory,deps.eraseDeviceRegistrations,deps.eraseAttachments,deps.eraseRecords,deps.finalizeIdentityAndRetention,deps.markComplete];
  for(const step of steps){
   if(signal?.aborted)return {state:'pending' as const};
   try{

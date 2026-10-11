@@ -34,3 +34,21 @@ test('incomplete adapter does not begin any durable deletion stage',async()=>{
  }
  assert.deepEqual(await run(scope,null),{state:'pending'});
 });
+
+test('committed identity erasure resumes mandatory retention and completion after lost acknowledgement',async()=>{
+ let erased=false;const calls=[];const deps={leaseCurrent:async()=>true,identityAlreadyErased:async()=>erased};
+ names.forEach(name=>deps[name]=async()=>{calls.push(name);if(name==='finalizeIdentityAndRetention'&&!erased){erased=true;throw Error('committed but acknowledgement lost');}return true;});
+ assert.deepEqual(await run(scope,deps),{state:'pending'});assert.equal(erased,true);
+ calls.length=0;assert.deepEqual(await run(scope,deps),{state:'complete'});
+ assert.deepEqual(calls,['finalizeIdentityAndRetention','markComplete']);
+ // Durable identity absence does not acknowledge unfinished retention.
+ calls.length=0;deps.finalizeIdentityAndRetention=async()=>{calls.push('retention');return false;};
+ assert.deepEqual(await run(scope,deps),{state:'pending'});assert.deepEqual(calls,['retention']);
+});
+test('recovery lookup cannot bypass scope lease, cancellation or malformed acknowledgement',async()=>{
+ for(const mode of ['lease','cancel','throw','malformed']){
+  const controller=new AbortController();let writes=0;const deps={leaseCurrent:async()=>mode!=='lease',identityAlreadyErased:async fixed=>{assert.deepEqual(fixed,scope);if(mode==='cancel')controller.abort();if(mode==='throw')throw Error('unavailable');return mode==='malformed'?'true':true;}};
+  names.forEach(name=>deps[name]=async()=>{writes++;return true;});
+  assert.deepEqual(await run(scope,deps,controller.signal),{state:'pending'});assert.equal(writes,0);
+ }
+});

@@ -4,6 +4,15 @@ import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 const source=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace(/import \{ eraseAccountDeletionObjects \} from [^;]+;/,"const eraseAccountDeletionObjects=()=>{throw Error('must not erase');};");
 const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+test('checkpoint reader accepts only exact durable boolean responses and preserves scope',async()=>{
+ const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
+ const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>false,markComplete:async()=>false};
+ for(const data of [true,false,null,'true',{},1]){
+  const db={rpc:async(name,args)=>{assert.equal(name,'maintenance_deletion_identity_is_erased');assert.deepEqual(args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});return {data,error:null};}};
+  const read=storedDeletionDependencies(db,tail).identityAlreadyErased;
+  if(typeof data==='boolean')assert.equal(await read(scope),data);else await assert.rejects(()=>read(scope),/checkpoint unavailable/);
+ }
+});
 test('stored adapter rejects missing finalization before database access',()=>{
  let calls=0;const db={rpc:()=>{calls++;throw Error('must not query');}};
  for(const missing of ['eraseNativeDevices','finalizeIdentityAndRetention','markComplete']){

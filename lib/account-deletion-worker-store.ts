@@ -14,13 +14,15 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
    typeof tail[name as keyof DeletionFinalization] !== 'function')) {
   throw new Error('Deletion finalization is not configured');
  }
- const rpc = async (name: string, scope: DeletionScope) => {
+ const rpc = async (name: string, scope: DeletionScope, requireBoolean = false) => {
   if (signal?.aborted) return false;
   const result = await db.rpc(name, {target_request: scope.requestID, target_user: scope.userID, target_epoch: scope.epochID, target_lease: scope.leaseToken});
   if (result.error) throw new Error('Deletion stage unavailable');
+  if (requireBoolean && typeof result.data !== 'boolean') throw new Error('Deletion checkpoint unavailable');
   return result.data === true && !signal?.aborted;
  };
  return {
+  identityAlreadyErased: scope => rpc('maintenance_deletion_identity_is_erased', scope, true),
   leaseCurrent: scope => rpc('maintenance_deletion_lease_is_current', scope),
   revokeAndCaptureInventory: scope => rpc('capture_maintenance_deletion_objects', scope),
   eraseDeviceRegistrations: async scope => {

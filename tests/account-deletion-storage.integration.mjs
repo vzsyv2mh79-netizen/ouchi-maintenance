@@ -557,11 +557,20 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await accountEnrollmentResponse(enrollmentRequest(signup.data.session.access_token,true,randomUUID()),enrollmentConfig,enrollmentFactories)).status,503,'deletion still running cannot reopen');
   const originalSession=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url')).session_id;
   assert.equal(recoverySql(`select receipt_sessions_captured from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),'t');
-  recoverySql(`delete from maintenance_private.app_session_epochs where user_id='${userID}';delete from maintenance_private.app_epochs where user_id='${userID}';delete from maintenance_private.account_access where user_id='${userID}';`);
+  const identityArgs={target_request:scope.requestID,target_user:scope.userID,target_epoch:scope.epochID,target_lease:scope.leaseToken};
+  assert.equal((await admin.rpc('erase_maintenance_deletion_identity',{...identityArgs,target_lease:randomUUID()})).data,false);
+  assert.ok((await user.rpc('erase_maintenance_deletion_identity',identityArgs)).error);
+  const identityErased=await admin.rpc('erase_maintenance_deletion_identity',identityArgs);assert.equal(identityErased.error,null);assert.equal(identityErased.data,true);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_identity',identityArgs)).data,true);
+  assert.equal((await admin.rpc('maintenance_deletion_identity_is_erased',identityArgs)).data,true);
+  let recoveryTail=0,recoveryComplete=0;
+  const resumed=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>{recoveryTail++;return false;},markComplete:async()=>{recoveryComplete++;return true;}}));
+  assert.deepEqual(resumed,{state:'pending'});assert.equal(recoveryTail,1);assert.equal(recoveryComplete,0);
+  console.log('Actual atomic identity erasure: exact live lease and strict policy, absence preflight, identity/session links removed, durable checkpoint resumes mandatory retention without replay, wrong lease/browser denied; no completion.');
   const independentProgress=await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID});assert.equal(independentProgress.error,null);assert.equal(independentProgress.data.state,'running');assert.equal(independentProgress.data.epochID,epoch.data);
   assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:randomUUID(),target_request:scope.requestID})).data,null);
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:originalSession})).data,null);
-  assert.equal((await user.auth.getUser()).error,null,'shared Auth preserved after simulated application identity erasure');
+  assert.equal((await user.auth.getUser()).error,null,'shared Auth preserved after application identity erasure');
   console.log('Actual independent deletion receipt: captured original Auth session still reads pending after synthetic app identity erasure; unmapped session denied; strict initializer cannot recreate enrollment; shared Auth preserved. No completion or production erasure.');
   console.log('Actual explicit consent Auth/PostgreSQL/API: read-only absent state, verified fresh temporary login, exact enrollment receipt/readback, temporary session revoked, duplicate request refused without second grant, pending deletion cannot reopen; no premium or Apple transaction.');
 
