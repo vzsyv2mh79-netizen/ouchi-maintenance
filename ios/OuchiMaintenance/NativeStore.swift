@@ -171,9 +171,16 @@ struct FormalChannelSelection {
                 do { try await coordinator.completeLocalClosure(confirmation: confirmation, session: session) }
                 catch { registrationCleanupFailed = true }
             } else {
-                // The fallback journal deliberately survives until a proof-bound
-                // recovery can finalize it. Do not report complete registration cleanup.
-                registrationCleanupFailed = true
+                do {
+                    guard let bundle = Bundle.main.bundleIdentifier,
+                          let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { throw CloudError.unavailable }
+                    let pending = AppAttestPendingRegistrationStorage(
+                        root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true),
+                        keyProvider: { _, _ in throw CloudError.unavailable })
+                    try await AppAttestKeyReferenceStorage(namespace: bundle).completeLocalClosure(
+                        confirmation: confirmation, session: session, pending: pending,
+                        encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle))
+                } catch { registrationCleanupFailed = true }
             }
             // Once credentials are erased, finish the same binding even if the view was cancelled.
             guard matches() else { return false }

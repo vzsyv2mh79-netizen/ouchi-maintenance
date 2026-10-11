@@ -142,16 +142,10 @@ public actor AppAttestRegistrationCoordinator {
     }
     public func completeLocalClosure(confirmation: LocalSessionErasureConfirmation, session: SessionController) async throws {
         let account=confirmation.accountID
-        guard activeAccount != account,
-              let record=try references.pendingClosure(account:account) else { throw CloudError.authenticationRequired }
-        try await session.withConfirmedErasure(confirmation) {}
+        guard activeAccount != account else { throw CloudError.authenticationRequired }
         closingAccounts.insert(account)
-        try await pending.eraseAccount(account)
-        try Task.checkCancellation()
-        try references.erase(account:account)
-        try encryptionKeys.erase(account:account)
-        let references=self.references
-        try await session.withConfirmedErasure(confirmation) { try references.removeClosure(record) }
+        try await references.completeLocalClosure(confirmation: confirmation, session: session,
+                                                   pending: pending, encryptionKeys: encryptionKeys)
         // This instance remains closed. A subsequent verified login gets a new coordinator.
     }
 }

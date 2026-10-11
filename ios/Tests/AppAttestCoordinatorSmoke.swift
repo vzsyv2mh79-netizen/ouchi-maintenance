@@ -223,6 +223,30 @@ actor CoordinatorSyntheticHTTP {
         try await restarted.completeLocalClosure(confirmation:confirmation,session:localSession)
         let removed=try references.pendingClosure(account:closingContext.userID);precondition(removed==nil)
         await refused { _ = try await restarted.register(captured:closingContext) }
+        // The coordinator-free path uses the same session-bound finalizer.
+        let fallbackClosure = try references.beginClosure(AppAttestAccountClosure(
+            accountID: closingContext.userID, requestID: UUID(), createdAtMilliseconds: now,
+            retainUntilMilliseconds: now + 3600000))
+        await refused { try await references.completeLocalClosure(confirmation: confirmation,
+            session: foreignController, pending: pending, encryptionKeys: keys) }
+        let fallbackPreserved = try references.pendingClosure(account: closingContext.userID)
+        precondition(fallbackPreserved == fallbackClosure)
+        keychain.failClosureErase(true)
+        await refused { try await references.completeLocalClosure(confirmation: confirmation,
+            session: localSession, pending: pending, encryptionKeys: keys) }
+        let retryPreserved = try references.pendingClosure(account: closingContext.userID)
+        precondition(retryPreserved == fallbackClosure)
+        keychain.failClosureErase(false)
+        try await references.completeLocalClosure(confirmation: confirmation,
+            session: localSession, pending: pending, encryptionKeys: keys)
+        let fallbackRemoved = try references.pendingClosure(account: closingContext.userID)
+        precondition(fallbackRemoved == nil)
+        let staleClosure = try references.beginClosure(fallbackClosure)
+        try await localSession.signOut()
+        await refused { try await references.completeLocalClosure(confirmation: confirmation,
+            session: localSession, pending: pending, encryptionKeys: keys) }
+        let stalePreserved = try references.pendingClosure(account: closingContext.userID)
+        precondition(stalePreserved == staleClosure)
         print("PASS: synthetic initial registration persists intent/key/reference/proof in order, exact uncertain commit retry avoids new device calls, confirmed metadata stays local-only, unknown generation blocks restart retries, cancellation retains proof, and shared-actor closing blocks commit and erases after callback. No Apple service, owner Keychain or purchase.")
     }
 }

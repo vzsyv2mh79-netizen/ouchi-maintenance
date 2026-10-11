@@ -235,6 +235,27 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
         // A concurrent winner is returned without replacing its request/deadline.
         return stored
     }
+    /// Finalize local registration cleanup only inside the exact controller's
+    /// confirmed-erasure generation. This does not authorize server deletion.
+    public func completeLocalClosure(confirmation: LocalSessionErasureConfirmation,
+                                     session: SessionController,
+                                     pending: AppAttestPendingRegistrationStorage,
+                                     encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+        let account = confirmation.accountID
+        guard let record = try pendingClosure(account: account) else { throw CloudError.authenticationRequired }
+        try await session.withConfirmedErasure(confirmation) {}
+        try Task.checkCancellation()
+        try await pending.eraseAccount(account)
+        try Task.checkCancellation()
+        // No suspension between credential readback, final key erasure and
+        // removal of the matching immutable closure record.
+        try await session.withConfirmedErasure(confirmation) { [self] in
+            try erase(account: account)
+            try encryptionKeys.erase(account: account)
+            try removeClosure(record)
+        }
+    }
+
     func removeClosure(_ expected: AppAttestAccountClosure) throws {
         lock.lock();defer { lock.unlock() }
         guard try closureUnlocked(account:expected.accountID)==expected else { throw CloudError.authenticationRequired }
