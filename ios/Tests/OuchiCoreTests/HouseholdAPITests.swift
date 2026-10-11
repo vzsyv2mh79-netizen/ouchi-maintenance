@@ -4,6 +4,21 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    func testManagedExportsSurviveRestartAndRemainAccountScoped() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let account = UUID(), other = UUID()
+        let first = try ManagedExportStorage(root: root).write(Data("synthetic".utf8), account: account, extension: "json")
+        let second = try ManagedExportStorage(root: root).write(Data("other".utf8), account: other, extension: "ics")
+        let reopened = ManagedExportStorage(root: root)
+        XCTAssertEqual(try reopened.files(account: account).map { $0.resolvingSymlinksInPath() }, [first.resolvingSymlinksInPath()])
+        XCTAssertEqual(try reopened.files(account: other).map { $0.resolvingSymlinksInPath() }, [second.resolvingSymlinksInPath()])
+        XCTAssertEqual(try Data(contentsOf: first), Data("synthetic".utf8))
+        XCTAssertThrowsError(try reopened.write(Data(), account: account, extension: "../json"))
+        let link = root.appendingPathComponent(UUID().uuidString.lowercased())
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first.deletingLastPathComponent())
+        XCTAssertThrowsError(try reopened.files(account: UUID(uuidString: link.lastPathComponent)!))
+    }
     func testPendingRemovalRefusesForeignScopeInvalidIdentifiersAndOversizedData() throws {
         let account = UUID(), epoch = UUID(), product = UUID(), id = UUID()
         let value = try PendingAttachmentRemoval(account: account, epoch: epoch, product: product, id: id)

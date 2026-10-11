@@ -15,6 +15,12 @@ import OuchiCore
     private var snapshotStorage: HouseholdSnapshotStorage?
     private var pendingAttachmentStorage: PendingAttachmentStorage?
     private var pendingRemovalStorage: PendingAttachmentRemovalStorage?
+    private func managedExport(_ bytes: Data, account: UUID, suffix: String) throws -> URL {
+        let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true)
+        return try ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true))
+            .write(bytes, account: account, extension: suffix)
+    }
     @Published private(set) var signedIn = false { didSet { if !signedIn { accountEmail = nil } } }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
@@ -236,8 +242,7 @@ import OuchiCore
                 if FileManager.default.fileExists(atPath: old.path) { try FileManager.default.removeItem(at: old) }
                 attachmentExportURL = nil
             }
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-attachment-\(UUID().uuidString).\(file.fileExtension)")
-            try file.bytes.write(to: url, options: [.atomic, .completeFileProtection])
+            let url = try managedExport(file.bytes, account: credentials.user.id, suffix: file.fileExtension)
             attachmentExportURL = url
         } catch { if expected == generation, exportGeneration == attachmentExportGeneration { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
     }
@@ -412,10 +417,9 @@ import OuchiCore
         return pendingRemoved && backupRemoved && calendarRemoved && attachmentRemoved
     }
     func prepareExport() {
-        guard !busy, let household else { return }
+        guard !busy, let household, let account = snapshotAccount else { return }
         do {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-maintenance-\(UUID().uuidString).json")
-            try Backup.encode(household).write(to: url, options: [.atomic, .completeFileProtection])
+            let url = try managedExport(Backup.encode(household), account: account, suffix: "json")
             if let old = exportURL { try? FileManager.default.removeItem(at: old) }
             exportURL = url
         } catch { message = "書き出しできませんでした。" }
@@ -607,10 +611,9 @@ import OuchiCore
         if expected == generation { busy = false }
     }
     func prepareCalendar() {
-        guard !busy, let household else { return }
+        guard !busy, let household, let account = snapshotAccount else { return }
         do {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-maintenance-\(UUID().uuidString).ics")
-            try CalendarExport.encode(household).write(to: url, options: [.atomic, .completeFileProtection])
+            let url = try managedExport(CalendarExport.encode(household), account: account, suffix: "ics")
             if let old = calendarURL { try? FileManager.default.removeItem(at: old) }
             calendarURL = url
         } catch { message = "予定を書き出せませんでした。記録と日付を確認してください。" }
