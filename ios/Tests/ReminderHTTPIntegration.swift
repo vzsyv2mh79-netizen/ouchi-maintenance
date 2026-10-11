@@ -16,6 +16,15 @@ import OuchiCore
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         _ = try await production.entitlement(token: "synthetic")
+        let reports = ReportAPI(isolatedDevelopment: true, loopbackPort: port)
+        let home = "44444444-4444-4444-8444-444444444444"
+        let report = try await reports.load(home: home, token: "synthetic")
+        precondition(report.homeId == home && report.productCount == 1 && report.taskCount == 2)
+        precondition(report.overdue == 1 && report.dueToday == 1 && report.months.last?.completed == 1)
+        do {
+            _ = try await reports.load(home: "99999999-9999-4999-8999-999999999999", token: "synthetic")
+            fatalError("foreign home report accepted")
+        } catch { precondition(error as? CloudError == .rejected(403)) }
         let first = try await api.load(token: "synthetic")
         precondition(first.premiumActive && first.revision == 0 && first.saved == nil)
         let chosen = try ReminderSchedule(minuteOfDay: 1230, weekdays: [7], leadDays: 1, includeOverdue: false)
@@ -33,6 +42,12 @@ import OuchiCore
         precondition(!expiredRights.premiumIsCurrent() && expiredRights.purchaseAccountToken == account)
         let revokedRights = try await billing.entitlement(token: "synthetic")
         precondition(!revokedRights.premiumIsCurrent() && revokedRights.purchaseAccountToken == account)
+        do { _ = try await reports.load(home: home, token: "synthetic"); fatalError("inactive report accepted") }
+        catch { precondition(error as? CloudError == .rejected(403)) }
+        do { _ = try await reports.load(home: home, token: "synthetic"); fatalError("report redirect followed") }
+        catch { precondition(error as? CloudError == .rejected(302)) }
+        do { _ = try await reports.load(home: home, token: "synthetic"); fatalError("oversized streamed report accepted") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
         do {
             _ = try await api.save(chosen, revision: 1, token: "synthetic")
             fatalError("expired write accepted")

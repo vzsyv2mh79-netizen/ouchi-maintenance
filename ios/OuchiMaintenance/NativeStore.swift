@@ -656,7 +656,7 @@ import OuchiCore
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             guard rights.premiumIsCurrent() else { message = "テスト用の有料利用権を確認できません。"; return }
-            let value = try await ReportAPI(sandboxPreview: true).load(home: home, token: credentials.access_token)
+            let value = try await ReportAPI(sandboxPreview: true, isolatedDevelopment: isolatedDevelopmentEnabled).load(home: home, token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration, home == homeID else { return }
             report = value
         } catch {

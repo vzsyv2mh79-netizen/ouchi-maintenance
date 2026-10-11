@@ -3,10 +3,10 @@ name: Native iPhone checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['ios/**', 'lib/product-lookup.ts', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'lib/billing.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/native.yml']
+    paths: ['ios/**', 'lib/product-lookup.ts', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'lib/billing.ts', 'lib/maintenance-report.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/native.yml']
   push:
     branches: [main]
-    paths: ['ios/**', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'lib/billing.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/native.yml']
+    paths: ['ios/**', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'lib/billing.ts', 'lib/maintenance-report.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/native.yml']
   workflow_dispatch:
 
 permissions:

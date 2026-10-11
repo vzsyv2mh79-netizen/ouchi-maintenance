@@ -77,13 +77,27 @@ private final class ReportRedirectBlocker: NSObject, URLSessionTaskDelegate, @un
 public struct ReportAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let origin: String
-    public init(sandboxPreview: Bool = false, transport: HouseholdAPI.Transport? = nil) {
+    public init(sandboxPreview: Bool = false, isolatedDevelopment: Bool = false,
+                loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+        #if DEBUG
+        if isolatedDevelopment, loopbackPort > 0 { origin = "http://127.0.0.1:\(loopbackPort)" }
+        else {
         origin = sandboxPreview ? "https://ouchi-maintenance-n2u08a2mo-gfgz4m9pkm-8942.vercel.app" : "https://ouchi-maintenance.vercel.app"
+        }
+        #else
+        origin = "https://ouchi-maintenance.vercel.app"
+        #endif
         self.transport = transport ?? { request in
         let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
-        defer { session.finishTasksAndInvalidate() }
-        let (data, response) = try await session.data(for: request)
+        defer { session.invalidateAndCancel() }
+        let (stream, response) = try await session.bytes(for: request)
         guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+        var data = Data()
+        for try await byte in stream {
+            try Task.checkCancellation()
+            guard data.count < 2_000_000 else { throw CloudError.malformedResponse }
+            data.append(byte)
+        }
         return (data, response)
         }
     }

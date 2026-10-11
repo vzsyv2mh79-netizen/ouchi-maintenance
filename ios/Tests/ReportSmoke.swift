@@ -36,11 +36,17 @@ import OuchiCore
             do { _ = try await invalid.load(home: home, token: "synthetic"); fatalError("malformed report accepted") }
             catch { precondition(error as? CloudError == .malformedResponse) }
         }
-        let preview = ReportAPI(sandboxPreview: true) { request in
-            precondition(request.url?.host == "ouchi-maintenance-n2u08a2mo-gfgz4m9pkm-8942.vercel.app")
+        // Release must ignore preview and loopback selection.
+        let preview = ReportAPI(sandboxPreview: true, isolatedDevelopment: true, loopbackPort: 1) { request in
+            precondition(request.url?.host == "ouchi-maintenance.vercel.app")
             return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         _ = try await preview.load(home: home, token: "synthetic")
+        let oversized = ReportAPI { request in
+            (Data(count: 2_000_001), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        do { _ = try await oversized.load(home: home, token: "synthetic"); fatalError("oversized report accepted") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
         let redirected = ReportAPI { _ in (bytes, HTTPURLResponse(url: URL(string: "https://untrusted.example/")!, statusCode: 200, httpVersion: nil, headerFields: nil)!) }
         do { _ = try await redirected.load(home: home, token: "synthetic"); fatalError("foreign response accepted") }
         catch { precondition(error as? CloudError == .malformedResponse) }
