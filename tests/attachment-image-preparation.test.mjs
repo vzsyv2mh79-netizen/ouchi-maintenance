@@ -16,3 +16,34 @@ test('PDF is unchanged; cancelled preparation and missing decoder never return o
  const stopped=new AbortController();stopped.abort();await assert.rejects(()=>prepareAttachmentImage(pdf,stopped.signal));
  await assert.rejects(()=>prepareAttachmentImage(new File([png(16,12)],'photo.png',{type:'image/png'}),signal));
 });
+
+async function mockedBrowser(decoder,document,run){
+ const bitmapBefore=Object.getOwnPropertyDescriptor(globalThis,'createImageBitmap'),documentBefore=Object.getOwnPropertyDescriptor(globalThis,'document');
+ Object.defineProperty(globalThis,'createImageBitmap',{value:decoder,configurable:true});Object.defineProperty(globalThis,'document',{value:document,configurable:true});
+ try{await run();}finally{for(const [key,descriptor] of [['createImageBitmap',bitmapBefore],['document',documentBefore]]){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
+}
+const photo=()=>new File([png(16,12)],'synthetic.png',{type:'image/png'});
+test('cancelled browser decoder releases wait and disposes a late bitmap without staging a file',async()=>{
+ let resolveImage,started,closed=0;const entered=new Promise(resolve=>{started=resolve;});
+ await mockedBrowser(()=>{started();return new Promise(resolve=>{resolveImage=resolve;});},{createElement(){assert.fail('cancelled decode created canvas');}},async()=>{
+  const controller=new AbortController(),result=prepareAttachmentImage(photo(),controller.signal);await entered;
+  controller.abort();await assert.rejects(result,error=>error.name==='AbortError');
+  resolveImage({width:16,height:12,close(){closed++;}});await new Promise(resolve=>setImmediate(resolve));assert.equal(closed,1);
+ });
+});
+test('stalled browser decoder has a finite deadline and late result is disposed',async()=>{
+ let resolveImage,closed=0;
+ await mockedBrowser(()=>new Promise(resolve=>{resolveImage=resolve;}),{},async()=>{
+  await assert.rejects(()=>prepareAttachmentImage(photo(),new AbortController().signal,15),error=>error.name==='TimeoutError');
+  resolveImage({width:16,height:12,close(){closed++;}});await new Promise(resolve=>setImmediate(resolve));assert.equal(closed,1);
+ });
+});
+test('cancelled canvas encoding cleans bitmap/canvas and ignores a late encoded blob',async()=>{
+ let completeEncoding,started,closed=0;const entered=new Promise(resolve=>{started=resolve;});
+ const canvas={width:0,height:0,getContext(){return {drawImage(){}};},toBlob(callback){completeEncoding=callback;started();}};
+ await mockedBrowser(async()=>({width:16,height:12,close(){closed++;}}),{createElement(){return canvas;}},async()=>{
+  const controller=new AbortController(),result=prepareAttachmentImage(photo(),controller.signal);await entered;
+  controller.abort();await assert.rejects(result,error=>error.name==='AbortError');assert.equal(closed,1);assert.equal(canvas.width,0);assert.equal(canvas.height,0);
+  completeEncoding(new Blob([png(16,12)],{type:'image/png'}));await new Promise(resolve=>setImmediate(resolve));assert.equal(closed,1);
+ });
+});

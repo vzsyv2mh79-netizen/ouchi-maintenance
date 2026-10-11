@@ -41,25 +41,52 @@ export function attachmentImageDimensions(bytes: Uint8Array, mime: string) {
  return {width,height};
 }
 
+/** Cancels the wait even when browser decoding/encoding cannot be cancelled.
+ * A bitmap completed after cancellation is disposed instead of being leaked. */
+function preparationWait<T>(work: Promise<T>, signal: AbortSignal, dispose?: (value:T)=>void): Promise<T> {
+ return new Promise<T>((resolve,reject)=>{
+  let settled=false;
+  const aborted=()=>{if(settled)return;settled=true;signal.removeEventListener('abort',aborted);reject(signal.reason);};
+  signal.addEventListener('abort',aborted,{once:true});
+  if(signal.aborted)aborted();
+  work.then(value=>{
+   if(settled){dispose?.(value);return;}
+   settled=true;signal.removeEventListener('abort',aborted);resolve(value);
+  },error=>{
+   if(settled)return;
+   settled=true;signal.removeEventListener('abort',aborted);reject(error);
+  });
+ });
+}
+
 /** New selections only: retries must keep their original immutable bytes/ID. */
-export async function prepareAttachmentImage(file: File, signal: AbortSignal): Promise<File> {
+export async function prepareAttachmentImage(file: File, signal: AbortSignal, timeoutMs=30000): Promise<File> {
  signal.throwIfAborted();
+ if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw invalid();
  if(file.size<1||file.size>maximumBytes)throw invalid();
  if(file.type==='application/pdf')return file; // Never rewrite document content.
- const bytes=new Uint8Array(await file.arrayBuffer());signal.throwIfAborted();
- const original=attachmentImageDimensions(bytes,file.type);
- if(typeof createImageBitmap!=='function')throw invalid(); // No raw-file fallback.
- const image=await createImageBitmap(file,{imageOrientation:'from-image'});
- let canvas:HTMLCanvasElement|undefined;
+ const lifecycle=new AbortController();
+ const cancel=()=>lifecycle.abort(signal.reason);
+ signal.addEventListener('abort',cancel,{once:true});
+ const timer=setTimeout(()=>lifecycle.abort(new DOMException('写真の変換に時間がかかっています。もう一度お試しください。','TimeoutError')),timeoutMs);
+ let image:ImageBitmap|undefined,canvas:HTMLCanvasElement|undefined;
  try{
-  signal.throwIfAborted();
+  const active=lifecycle.signal;
+  const bytes=new Uint8Array(await preparationWait(file.arrayBuffer(),active));active.throwIfAborted();
+  const original=attachmentImageDimensions(bytes,file.type);
+  if(typeof createImageBitmap!=='function')throw invalid(); // No raw-file fallback.
+  image=await preparationWait(createImageBitmap(file,{imageOrientation:'from-image'}),active,value=>value.close());
+  active.throwIfAborted();
   if(!((image.width===original.width&&image.height===original.height)||(image.width===original.height&&image.height===original.width)))throw invalid();
   canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
   const context=canvas.getContext('2d');if(!context)throw invalid();
   context.drawImage(image,0,0);
-  const blob=await new Promise<Blob|null>(resolve=>canvas!.toBlob(resolve,file.type,file.type==='image/jpeg'?0.95:undefined));
-  signal.throwIfAborted();
+  const encoding=new Promise<Blob|null>(resolve=>canvas!.toBlob(resolve,file.type,file.type==='image/jpeg'?0.95:undefined));
+  const blob=await preparationWait(encoding,active);active.throwIfAborted();
   if(!blob||blob.type!==file.type||blob.size<1||blob.size>maximumBytes)throw invalid();
   return new File([blob],file.name,{type:file.type,lastModified:file.lastModified});
- }finally{image.close();if(canvas){canvas.width=0;canvas.height=0;}}
+ }finally{
+  clearTimeout(timer);signal.removeEventListener('abort',cancel);
+  image?.close();if(canvas){canvas.width=0;canvas.height=0;}
+ }
 }
