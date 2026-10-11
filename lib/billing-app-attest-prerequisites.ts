@@ -1,6 +1,7 @@
 import {decodeAttestCBOR} from './billing-app-attest-cbor';
 import {verifyAppAttestCertificateProof} from './billing-app-attest-certificate';
 import {verifyAppAttestAuthenticator} from './billing-app-attest-authenticator';
+import {verifyInitialAppAttestReceipt} from './billing-app-attest-receipt';
 import type {AttestBuildPolicy} from './billing-app-attest-assertion';
 type Scope={appID:string;keyID:string;attestEnvironment:'development'|'production'};
 /** Compose both prerequisites with the SAME authenticated bytes/key. Still
@@ -19,4 +20,13 @@ export function verifyAppAttestPrerequisites(attestation:Buffer,storedScope:Scop
  if(!storedScope||certificate.keyID!==storedScope.keyID)throw Error('App Attest registered key mismatch');
  const authenticator=verifyAppAttestAuthenticator(data,{...storedScope,publicKeyX962:certificate.publicKeyX962},policy);
  return Object.freeze({certificate,authenticator,receiptToVerify:Buffer.from(receipt)});
+}
+/** Bind the independently verified receipt to these SAME certificate/challenge
+ * prerequisites. Full certificate purpose policy and live/atomic registration
+ * gates remain mandatory; this function does not persist or authorize a key.
+ */
+export function verifyAppAttestRegistrationProofs(attestation:Buffer,storedScope:Scope,storedClientDataHash:Buffer,policy:AttestBuildPolicy,privateRootPEM:string,publicRootDER:Buffer,now=Date.now()){
+ const prerequisites=verifyAppAttestPrerequisites(attestation,storedScope,storedClientDataHash,policy,privateRootPEM,now);
+ const receipt=verifyInitialAppAttestReceipt(prerequisites.receiptToVerify,{appID:storedScope.appID,attestedCertificateSHA256:prerequisites.certificate.attestationCertificateSHA256,publicKeyX962:prerequisites.certificate.publicKeyX962,clientDataHash:storedClientDataHash},publicRootDER,now);
+ return Object.freeze({prerequisites,receipt});
 }
