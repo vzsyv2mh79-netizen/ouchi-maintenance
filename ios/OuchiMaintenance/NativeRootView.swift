@@ -128,6 +128,11 @@ private struct ApplianceList: View {
                         NavigationLink { ProductEditor(home: product.homeId, initial: product) } label: { Text(product.name).font(.headline) }
                         Text("\(product.maker) \(product.modelNumber)").foregroundStyle(.secondary)
                         if let memo = product.memo, !memo.isEmpty { Text(memo).font(.caption) }
+                        if store.developmentLifecycleConfigured {
+                            NavigationLink("写真・保証書の保存を確認") {
+                                DevelopmentAttachmentView(productID: product.id)
+                            }
+                        }
                     }
                 }
             }.navigationTitle("製品").refreshable { await store.reload() }
@@ -964,8 +969,25 @@ private struct DevelopmentLifecycleView: View {
 
 private struct DevelopmentAttachmentView: View {
     @EnvironmentObject private var store: NativeStore
+    private let fixedProductID: String?
     @State private var productID = ""
+    init(productID: String? = nil) {
+        fixedProductID = productID
+        _productID = State(initialValue: productID ?? "")
+    }
+    private struct SelectionBinding: Hashable {
+        let product: String
+        let home: String
+        let revision: UUID
+    }
+    private var selectionBinding: SelectionBinding {
+        SelectionBinding(product: productID, home: store.homeID, revision: store.accountBindingRevision)
+    }
+    private var hasSelectedProduct: Bool {
+        store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == productID.lowercased() }) == true
+    }
     @State private var choosingFile = false
+    @State private var fileSelectionBinding: SelectionBinding?
     @State private var bytes: Data?
     @State private var mime = ""
     @State private var filename = ""
@@ -981,11 +1003,11 @@ private struct DevelopmentAttachmentView: View {
     @State private var listingGeneration = 0
     private func loadAttachmentPage(reset: Bool) async {
         guard !listingLoading, let product = UUID(uuidString: productID) else { return }
-        let selected = productID, home = store.homeID, expected = listingGeneration
+        let selected = productID, home = store.homeID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
         let cursor = reset ? nil : nextAttachment
         listingLoading = true
         let page = await store.pageDevelopmentAttachments(product: product, after: cursor)
-        guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration else { return }
+        guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
         listingLoading = false
         guard let page else { return }
         let existing = reset ? [] : savedAttachments
@@ -1016,12 +1038,19 @@ private struct DevelopmentAttachmentView: View {
                 }
             }
             Section("添付先") {
-                Picker("製品", selection: $productID) {
+                if fixedProductID != nil {
+                    if let selected = store.household?.products(in: store.homeID).first(where: { $0.id.lowercased() == productID.lowercased() }) {
+                        Text(selected.name)
+                        Text("\(selected.maker) \(selected.modelNumber)").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("この製品を現在の住まいで確認できません。製品画面から開き直してください。")
+                    }
+                } else { Picker("製品", selection: $productID) {
                     Text("選択してください").tag("")
                     ForEach(store.household?.products(in: store.homeID) ?? []) { product in
                         Text(product.name).tag(product.id)
                     }
-                }.disabled(bytes != nil || store.busy)
+                }.disabled(bytes != nil || store.busy) }
             }
             if !savedAttachments.isEmpty {
                 Section("保存済みのファイル") {
@@ -1046,17 +1075,22 @@ private struct DevelopmentAttachmentView: View {
                 }
             }
             Section("ファイル") {
-                Button("テスト用ファイルを選択") { choosingFile = true }.disabled(bytes != nil || store.busy || UUID(uuidString: productID) == nil)
+                Button("テスト用ファイルを選択") {
+                    fileSelectionBinding = selectionBinding
+                    choosingFile = true
+                }.disabled(bytes != nil || store.busy || UUID(uuidString: productID) == nil || !hasSelectedProduct)
                 if let bytes {
                     Text(filename)
                     Text("\(bytes.count)バイト / 添付ID: \(attachmentID.uuidString)").font(.caption)
                     Text("送信を確認したファイルは、保存完了の確認まで端末内に保持します。ログアウトすると端末の再送用ファイルを消去します。")
-                    Button("保存・同じIDで再確認") { confirmUpload = true }.disabled(store.busy)
+                    Button("保存・同じIDで再確認") { confirmUpload = true }.disabled(store.busy || !hasSelectedProduct)
                 }
                 if let status { Text(status) }
             }
         }.navigationTitle("添付のテスト")
         .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.jpeg, .png, .pdf]) { result in
+            guard fileSelectionBinding == selectionBinding else { return }
+            fileSelectionBinding = nil
             do {
                 let file = try result.get()
                 let access = file.startAccessingSecurityScopedResource()
@@ -1075,15 +1109,15 @@ private struct DevelopmentAttachmentView: View {
             Button("テスト用ファイルを送信") {
                 guard let bytes, let product = UUID(uuidString: productID) else { return }
                 let id = attachmentID, media = mime
-                let home = store.homeID, selected = productID, expected = listingGeneration
+                let home = store.homeID, selected = productID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
                 Task {
                     if await store.uploadDevelopmentAttachment(product: product, attachment: id, bytes: bytes, mime: media, confirmed: true) {
-                        guard !Task.isCancelled, home == store.homeID, selected == productID, expected == listingGeneration, id == attachmentID else { return }
+                        guard !Task.isCancelled, home == store.homeID, selected == productID, expected == listingGeneration, bindingRevision == store.accountBindingRevision, id == attachmentID else { return }
                         self.bytes = nil; filename = ""; mime = ""
                         await loadAttachmentPage(reset: true)
-                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         let usage = await store.developmentAttachmentUsage()
-                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         attachmentUsage = usage
                     }
                 }
@@ -1093,15 +1127,15 @@ private struct DevelopmentAttachmentView: View {
         .confirmationDialog("確認待ちのファイル削除を再確認しますか？", isPresented: $confirmRetryRemoval, titleVisibility: .visible) {
             Button("同じファイルの削除を再確認", role: .destructive) {
                 guard let pending = pendingRemoval else { return }
-                let home = store.homeID, expected = listingGeneration
+                let home = store.homeID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
                 Task {
                     guard await store.removeDevelopmentAttachment(pending.id, product: pending.product, confirmed: true),
                           !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
                     pendingRemoval = nil
                     await loadAttachmentPage(reset: true)
-                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         let usage = await store.developmentAttachmentUsage()
-                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         attachmentUsage = usage
                 }
             }
@@ -1110,34 +1144,38 @@ private struct DevelopmentAttachmentView: View {
         .confirmationDialog("テスト用ファイルを削除しますか？", isPresented: $confirmRemoval, titleVisibility: .visible) {
             Button("ファイルを削除", role: .destructive) {
                 guard let id = removalID, let product = UUID(uuidString: productID) else { return }
-                let selected = productID, home = store.homeID, expected = listingGeneration
+                let selected = productID, home = store.homeID, expected = listingGeneration, bindingRevision = store.accountBindingRevision
                 removalID = nil
                 Task {
                     let removed = await store.removeDevelopmentAttachment(id, product: product, confirmed: true)
-                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration else { return }
+                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                     pendingRemoval = await store.resumeDevelopmentAttachmentRemoval()
-                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, removed else { return }
+                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision, removed else { return }
                     await loadAttachmentPage(reset: true)
-                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                    guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         let usage = await store.developmentAttachmentUsage()
-                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                        guard !Task.isCancelled, home == store.homeID, expected == listingGeneration, bindingRevision == store.accountBindingRevision else { return }
                         attachmentUsage = usage
                 }
             }
             Button("キャンセル", role: .cancel) { removalID = nil }
         } message: { Text("元に戻せません。保存した人か住まいの所有者が削除できます。購入が終了していても削除できます。") }
-        .task(id: productID) {
+        .task(id: selectionBinding) {
             confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil
             listingGeneration += 1
-            let expected = listingGeneration, selected = productID, home = store.homeID
+            let expected = listingGeneration, selected = productID, home = store.homeID, bindingRevision = store.accountBindingRevision
             let recoveredRemoval = await store.resumeDevelopmentAttachmentRemoval()
-            guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
+            guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
             pendingRemoval = recoveredRemoval
             listingLoading = false; nextAttachment = nil
             savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
-                guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
+                guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
                 let pendingProduct = pending.product.uuidString.lowercased()
+                if let fixedProductID, fixedProductID.lowercased() != pendingProduct {
+                    status = "別の製品への保存が確認待ちです。設定の写真・保証書の保存画面から、先にそのファイルの結果を確認してください。"
+                    return
+                }
                 guard store.household?.products(in: store.homeID).contains(where: { $0.id.lowercased() == pendingProduct }) == true else {
                     status = "確認待ちのファイルは別の住まいの製品に保存予定です。添付先の住まいに切り替えてから、この画面を開き直してください。製品が削除された場合は、サーバーの予約状態を確認する必要があります。"
                     return
@@ -1146,18 +1184,29 @@ private struct DevelopmentAttachmentView: View {
                 if productID.lowercased() != pendingProduct { productID = pendingProduct; return }
             }
             let usage = await store.developmentAttachmentUsage()
-            guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
+            guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
             attachmentUsage = usage
             await loadAttachmentPage(reset: true)
         }
         .onChange(of: store.homeID) { _, _ in
+            choosingFile = false; fileSelectionBinding = nil
             listingGeneration += 1; listingLoading = false; nextAttachment = nil; savedAttachments = []
-            if bytes == nil { productID = "" }
+            if bytes == nil, fixedProductID == nil { productID = "" }
             confirmUpload = false; confirmRemoval = false; removalID = nil
             confirmRetryRemoval = false; pendingRemoval = nil; attachmentUsage = nil
             store.clearDevelopmentAttachmentExport()
             status = "住まいを変更しました。添付先の製品を確認してください。"
         }
-        .onDisappear { listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+        .onChange(of: store.accountBindingRevision) { _, _ in
+            choosingFile = false; fileSelectionBinding = nil
+            listingGeneration += 1; listingLoading = false; nextAttachment = nil
+            bytes = nil; filename = ""; mime = ""; attachmentID = UUID()
+            savedAttachments = []; attachmentUsage = nil
+            confirmUpload = false; confirmRemoval = false; removalID = nil
+            confirmRetryRemoval = false; pendingRemoval = nil
+            store.clearDevelopmentAttachmentExport()
+            status = "アカウントの状態が変わりました。保存先とファイルをもう一度確認してください。"
+        }
+        .onDisappear { choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }

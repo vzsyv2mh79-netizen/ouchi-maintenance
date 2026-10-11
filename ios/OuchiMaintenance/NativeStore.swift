@@ -182,13 +182,13 @@ import OuchiCore
         guard developmentLifecycleConfigured, !busy, let session, confirmed,
               household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
         busy = true; message = nil
-        let expected = generation
+        let expected = generation, home = homeID
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard !Task.isCancelled, expected == generation else { return false }
+            guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
-            guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id, let storage = pendingAttachmentStorage else { return false }
+            guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id, let storage = pendingAttachmentStorage else { return false }
             let pending = try PendingAttachment(account: binding.account, epoch: binding.epoch, product: product, id: attachment, bytes: bytes, mime: mime)
             if let existing = try storage.read(account: binding.account, epoch: binding.epoch) {
                 guard existing.id == attachment, existing.product == product, existing.bytes == bytes, existing.mime == mime else { throw CloudError.invalidInput }
@@ -196,12 +196,12 @@ import OuchiCore
             try Task.checkCancellation()
             try storage.write(pending)
             try await DevelopmentAttachmentAPI().upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed)
-            guard !Task.isCancelled, expected == generation else { return false }
+            guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingAttachmentStorage?.write(nil)
             message = "テスト用ファイルの保存をサーバーで確認しました。"
             return true
         } catch {
-            if !Task.isCancelled, expected == generation { message = "保存完了を確認できません。ファイルを選び直さず、同じ添付IDで再確認してください。" }
+            if !Task.isCancelled, expected == generation, home == homeID { message = "保存完了を確認できません。ファイルを選び直さず、同じ添付IDで再確認してください。" }
             return false
         }
     }
