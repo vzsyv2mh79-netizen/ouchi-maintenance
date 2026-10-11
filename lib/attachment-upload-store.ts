@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import type {SupabaseClient} from '@supabase/supabase-js';
+import {StorageApiError,type SupabaseClient} from '@supabase/supabase-js';
 import type {BillingEnvironment} from './billing';
 import {sessionAfterAuthVerification} from './verified-app-session';
 import {purchaseAccountAfterAuthVerification} from './billing-account';
@@ -74,6 +74,7 @@ export function storedAttachmentUploadServices(db:SupabaseClient,environment:Bil
   inspect:async r=>{
    const item=guard(r);inspected=false;
    const result=await bucket.download(item.path);guard(r);
+   if(!result.data && result.error instanceof StorageApiError && result.error.code==='NoSuchKey') return null;
    if(result.error||!result.data||result.data.size!==item.file.size||result.data.size>attachmentLimits.fileBytes)throw Error('Attachment object unavailable');
    const actual=await readProductAttachment(new Request('http://127.0.0.1/verified-attachment',{method:'POST',headers:{'content-type':result.data.type,'content-length':String(result.data.size)},body:await result.data.arrayBuffer(),signal:signal??requestSignal}));
    guard(r);if(actual.size!==item.file.size||actual.mime!==item.file.mime||actual.sha256!==item.file.sha256)throw Error('Stored attachment mismatch');

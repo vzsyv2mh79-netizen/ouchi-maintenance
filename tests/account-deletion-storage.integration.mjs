@@ -121,6 +121,19 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await reportRequest(randomUUID())).status,404);
   const adapterBytes=new Uint8Array([137,80,78,71,13,10,26,10]);
   const paidRequest=()=>new Request(origin+'/api/development/verified-product-attachments?productId='+paidProduct+'&attachmentId='+paidFile,{method:'POST',headers:{authorization:'Bearer '+otherSignup.data.session.access_token,'content-type':'image/png'},body:adapterBytes});
+  // Real Auth, ledger and reservation RPCs, with a failed Storage read.
+  // Unknown read outcome must not send a physical write; retry reuses this ID.
+  let unknownReadCount=0,unexpectedStorageWrites=0;
+  const uncertainStorageClient=createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(input,init)=>{
+   const outgoing=new Request(input,init);
+   if(new URL(outgoing.url).pathname.startsWith('/storage/v1/object/')){
+    if(outgoing.method==='GET'){unknownReadCount++;return Response.json({message:'Synthetic temporary outage',error:'InternalError',statusCode:503},{status:503});}
+    unexpectedStorageWrites++;
+   }
+   return fetch(outgoing);
+  }}});
+  const unknownReadResult=await uploadProductAttachment(paidRequest(),paidProduct,paidFile,storedAttachmentUploadServices(uncertainStorageClient,'Sandbox'));
+  assert.equal(unknownReadResult.status,503);assert.ok(unknownReadCount>0);assert.equal(unexpectedStorageWrites,0);
   const routeEnvKeys=['NODE_ENV','OUCHI_ATTACHMENT_TEST_MODE','OUCHI_ATTACHMENT_TEST_URL','OUCHI_ATTACHMENT_TEST_SERVICE_KEY'],routeEnvBefore=Object.fromEntries(routeEnvKeys.map(key=>[key,process.env[key]]));
   let paidResult;
   try{process.env.NODE_ENV='development';process.env.OUCHI_ATTACHMENT_TEST_MODE='true';process.env.OUCHI_ATTACHMENT_TEST_URL=origin;process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY=service;paidResult=await formalAttachmentPOST(paidRequest());}

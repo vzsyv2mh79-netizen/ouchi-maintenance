@@ -1,6 +1,7 @@
+import {StorageApiError} from '@supabase/supabase-js';
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const url=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
-const cache=new Map();function module(path){if(cache.has(path))return cache.get(path);let code=ts.transpileModule(readFileSync(`lib/${path}.ts`,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;code=code.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(module(name))}`);const result=url(code);cache.set(path,result);return result;}
+const cache=new Map();function module(path){if(cache.has(path))return cache.get(path);let code=ts.transpileModule(readFileSync(`lib/${path}.ts`,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;code=code.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(module(name))}`);code=code.replaceAll("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));const result=url(code);cache.set(path,result);return result;}
 const {storedAttachmentUploadServices}=await import(module('attachment-upload-store'));
 const {uploadProductAttachment}=await import(module('attachment-upload'));
 const user='11111111-1111-4111-8111-111111111111',epoch='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333',product='44444444-4444-4444-8444-444444444444',id='55555555-5555-4555-8555-555555555555';
@@ -8,7 +9,7 @@ const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
 const token='e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,exp:Math.floor(Date.now()/1000)+3600,user_metadata:{premium:true}})).toString('base64url')+'.sig';
 function fixture(options={}){
  const calls=[];let object=options.existing?new Blob([bytes],{type:'image/png'}):null,attempt=null,settled=!!options.existing,reads=0;
- const db={auth:{getUser:async()=>({error:options.authFail?Error('invalid'):null,data:{user:{id:user}}})},storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {upload:async(path,body,settings)=>{calls.push('upload');assert.equal(path,`${user}/${epoch}/${id}.png`);assert.equal(settings.upsert,false);object=new Blob([body],{type:'image/png'});return options.writeTimeout?{error:Error('timeout'),data:null}:{error:null,data:{path}};},download:async()=>{calls.push('download');return {error:object?null:Error('absent'),data:options.mismatch&&object?new Blob([new Uint8Array(8)],{type:'image/png'}):object};}};}},rpc:async(name,args)=>{
+ const db={auth:{getUser:async()=>({error:options.authFail?Error('invalid'):null,data:{user:{id:user}}})},storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {upload:async(path,body,settings)=>{calls.push('upload');assert.equal(path,`${user}/${epoch}/${id}.png`);assert.equal(settings.upsert,false);object=new Blob([body],{type:'image/png'});return options.writeTimeout?{error:Error('timeout'),data:null}:{error:null,data:{path}};},download:async()=>{calls.push('download');return {error:object?null:options.unknownRead?new StorageApiError('unavailable',503,'503','storage','InternalError'):options.generic404?{code:'NoSuchKey',status:404}:new StorageApiError('absent',404,'404','storage','NoSuchKey'),data:options.mismatch&&object?new Blob([new Uint8Array(8)],{type:'image/png'}):object};}};}},rpc:async(name,args)=>{
   calls.push(name);let data;
   if(name==='current_maintenance_purchase_account')data=epoch;
   else if(name==='read_maintenance_verified_entitlement'){assert.equal(args.target_user,user);assert.equal(args.verified_session,session);assert.equal(args.target_epoch,epoch);assert.equal(args.target_environment,'Sandbox');reads++;data=options.free||options.expireAtRead===reads?{plan:'free',environment:'Sandbox'}:{plan:'premium',environment:options.wrongEnvironment?'Production':'Sandbox',productId:'ouchi.premium.monthly',expiresAt:Date.now()+60000};}
@@ -50,4 +51,13 @@ test('aborted callers cannot authenticate or start a remote write',async()=>{
 });
 test('formal adapter rejects a caller-selected unsupported billing environment',()=>{
  assert.throws(()=>storedAttachmentUploadServices({},'Unverified'),/Invalid attachment environment/);
+});
+
+test('uncertain Storage inspection and non-SDK 404 cannot begin or send a write',async()=>{
+ for(const options of [{unknownRead:true},{generic404:true}]){
+  const h=fixture(options);assert.equal((await h.run()).status,503);
+  assert.equal(h.calls.includes('begin_maintenance_attachment_write'),false);
+  assert.equal(h.calls.includes('upload'),false);
+  assert.equal(h.calls.includes('finalize_maintenance_attachment'),false);
+ }
 });

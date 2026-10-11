@@ -7,10 +7,27 @@ const user='11111111-1111-4111-8111-111111111111',epoch='22222222-2222-4222-8222
 const request=()=>new Request('https://example.invalid/attachments',{method:'POST',headers:{'content-type':'image/png'},body:new Uint8Array([137,80,78,71,13,10,26,10])});
 test('upload completes only after readback and active reservation finalization, including ambiguous create retries',async()=>{
  let identity={user,epoch,session,premium:true},actualMismatch=false,createFails=false,finalizeFails=false,exists=true;const calls=[];
- const services={authorize:async()=>identity,reserve:async r=>{calls.push('reserve');assert.equal(r.path,`${user}/${epoch}/${id}.png`);},create:async()=>{calls.push('create');exists=true;if(createFails)throw Error('timeout');},inspect:async r=>{calls.push('inspect');if(!exists)throw Error('not found');return {size:r.file.size,sha256:actualMismatch?'b'.repeat(64):r.file.sha256,mime:r.file.mime};},finalize:async()=>{calls.push('finalize');if(finalizeFails)throw Error('closed enrollment');}};
+ const services={authorize:async()=>identity,reserve:async r=>{calls.push('reserve');assert.equal(r.path,`${user}/${epoch}/${id}.png`);},create:async()=>{calls.push('create');exists=true;if(createFails)throw Error('timeout');},inspect:async r=>{calls.push('inspect');if(!exists)return null;return {size:r.file.size,sha256:actualMismatch?'b'.repeat(64):r.file.sha256,mime:r.file.mime};},finalize:async()=>{calls.push('finalize');if(finalizeFails)throw Error('closed enrollment');}};
  identity=null;assert.equal((await uploadProductAttachment(request(),product,id,services)).status,401);assert.deepEqual(calls,[]);
  identity={user,epoch,session,premium:false};assert.equal((await uploadProductAttachment(request(),product,id,services)).status,403);assert.deepEqual(calls,[]);
  identity={user,epoch,session,premium:true};actualMismatch=true;assert.equal((await uploadProductAttachment(request(),product,id,services)).status,503);assert.deepEqual(calls,['reserve','inspect']);calls.length=0;
  actualMismatch=false;finalizeFails=true;assert.equal((await uploadProductAttachment(request(),product,id,services)).status,503);calls.length=0;
  finalizeFails=false;createFails=true;exists=false;const result=await uploadProductAttachment(request(),product,id,services);assert.equal(result.status,200);assert.equal(result.headers.get('cache-control'),'no-store');assert.deepEqual(await result.json(),{saved:true,attachmentId:id});assert.deepEqual(calls,['reserve','inspect','create','inspect','finalize']);calls.length=0;assert.equal((await uploadProductAttachment(request(),product,id,services)).status,200);assert.deepEqual(calls,['reserve','inspect','finalize']);
+});
+
+test('cancellation never advances to another upload stage or acknowledges unknown completion',async()=>{
+ const names=['authorize','reserve','inspect','create','inspect','finalize'];
+ for(let stop=0;stop<names.length;stop++){
+  const controller=new AbortController(),calls=[];let inspectCount=0;
+  const stage=name=>{calls.push(name);if(calls.length-1===stop)controller.abort();};
+  const services={authorize:async()=>{stage('authorize');return {user,epoch,session,premium:true};},reserve:async()=>stage('reserve'),create:async()=>stage('create'),inspect:async r=>{stage('inspect');if(++inspectCount===1)return null;return {size:r.file.size,sha256:r.file.sha256,mime:r.file.mime};},finalize:async()=>stage('finalize')};
+  const req=new Request(request(),{signal:controller.signal});
+  assert.equal((await uploadProductAttachment(req,product,id,services)).status,503);
+  assert.deepEqual(calls,names.slice(0,stop+1));
+ }
+});
+
+test('unknown inspection cannot start another remote write',async()=>{
+ const calls=[];const services={authorize:async()=>({user,epoch,session,premium:true}),reserve:async()=>calls.push('reserve'),inspect:async()=>{calls.push('inspect');throw Error('network timeout');},create:async()=>calls.push('create'),finalize:async()=>calls.push('finalize')};
+ assert.equal((await uploadProductAttachment(request(),product,id,services)).status,503);assert.deepEqual(calls,['reserve','inspect']);
 });
