@@ -309,6 +309,14 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
 
   // Registry erasure is tested with a synthetic native token; actual APNs delivery
   // and device-side removal are NOT proven. Identity finalization remains pending.
+  // Disposable preference row: prove real deletion lease closes only this epoch.
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-v','ON_ERROR_STOP=1','-U','postgres','-d','auth_test'],{
+   input:`insert into maintenance_private.reminder_schedules values('${userID}','${epoch.data}','Sandbox',1230,array[7]::smallint[],1,false,1);`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  assert.ok((await user.rpc('erase_maintenance_deletion_reminder_schedule',args)).error);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',{...args,target_lease:randomUUID()})).data,false);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',args)).data,true);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',args)).data,true);
+  console.log('Reminder settings actual deletion lease cleanup verified; repeat confirmed absence.');
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
  }finally{releaseWrite();gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });

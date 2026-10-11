@@ -31,7 +31,8 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   eraseAttachments: async scope => (await eraseAccountDeletionObjects(db, scope, signal)).allObjectsConfirmed === true && !signal?.aborted,
   eraseRecords: async scope => {
    if (!await rpc('erase_maintenance_deletion_records', scope)) return false;
-   return rpc('erase_maintenance_deletion_reconciliation', scope);
+   if (!await rpc('erase_maintenance_deletion_reconciliation', scope)) return false;
+   return rpc('erase_maintenance_deletion_reminder_schedule', scope);
   },
   finalizeIdentityAndRetention: tail.finalizeIdentityAndRetention,
   markComplete: tail.markComplete,

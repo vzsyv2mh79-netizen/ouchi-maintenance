@@ -11,6 +11,26 @@ import OuchiCore
         let passed = try ReminderPlan.make(data, now: date.date(from: "2026-10-17T00:00:00Z")!)
         precondition(passed.count == 29 && passed.first?.date == date.date(from: "2026-10-18T00:00:00Z"))
         precondition(passed.allSatisfy { $0.date > date.date(from: "2026-10-17T00:00:00Z")! })
-        print("ReminderSmoke PASS: 30-day bound, Tokyo9am, overdue count, no past notification. No OS notification scheduled.")
+        let custom = try ReminderSchedule(minuteOfDay: 20 * 60 + 30, weekdays: [7], leadDays: 1, includeOverdue: false)
+        let saturday = try ReminderPlan.make(data, now: date.date(from: "2026-10-10T23:59:00Z")!, schedule: custom)
+        precondition(saturday.count == 1)
+        precondition(saturday.first?.date == date.date(from: "2026-10-17T11:30:00Z"))
+        let advance = try ReminderSchedule(minuteOfDay: 6 * 60, weekdays: Array(1...7), leadDays: 3, includeOverdue: false)
+        let early = try ReminderPlan.make(data, now: date.date(from: "2026-10-10T23:59:00Z")!, schedule: advance)
+        precondition(early.count == 4 && early.first?.date == date.date(from: "2026-10-13T21:00:00Z"))
+        let encoded = try JSONEncoder().encode(custom)
+        let decoded = try JSONDecoder().decode(ReminderSchedule.self, from: encoded)
+        precondition(decoded == custom)
+        for invalid in [
+            #"{"minuteOfDay":1440,"weekdays":[1],"leadDays":0,"includeOverdue":true}"#,
+            #"{"minuteOfDay":540,"weekdays":[],"leadDays":0,"includeOverdue":true}"#,
+            #"{"minuteOfDay":540,"weekdays":[1,1],"leadDays":0,"includeOverdue":true}"#,
+            #"{"minuteOfDay":540,"weekdays":[8],"leadDays":0,"includeOverdue":true}"#,
+            #"{"minuteOfDay":540,"weekdays":[1],"leadDays":2,"includeOverdue":true}"#
+        ] {
+            do { _ = try JSONDecoder().decode(ReminderSchedule.self, from: Data(invalid.utf8)); fatalError("invalid reminder schedule accepted") }
+            catch { precondition(error as? CloudError == .invalidInput) }
+        }
+        print("ReminderSmoke PASS: 30-day bound, Tokyo9am defaults, custom time/weekday/advance/overdue exclusion, validated persistence, no past notification. No OS notification scheduled.")
     }
 }
