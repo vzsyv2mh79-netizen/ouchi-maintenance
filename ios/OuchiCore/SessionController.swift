@@ -9,6 +9,12 @@ public enum SessionErasureError: Error, Sendable {
     case storageStillContainsSession
 }
 
+public struct LocalSessionErasureConfirmation: Sendable {
+    public let accountID: UUID
+    fileprivate let controllerID: UUID
+    fileprivate let generation: Int
+}
+
 /// Issued only by the controller for its exact current login generation.
 public struct CompletedDeletionSessionPermit: Sendable {
     fileprivate let account: UUID
@@ -21,6 +27,7 @@ public actor SessionController {
     private var session: Session?
     private var generation = 0
     private var refreshTask: Task<Session, Error>?
+    private let controllerID=UUID()
     public init(api: HouseholdAPI, storage: any SessionStorage) {
         self.api = api; self.storage = storage
     }
@@ -53,6 +60,19 @@ public actor SessionController {
     public func signOut() throws {
         try eraseLocalSession()
     }
+    public func signOutConfirmed(expectedAccount: UUID) throws -> LocalSessionErasureConfirmation {
+        guard session?.user.id==expectedAccount else { throw CloudError.authenticationRequired }
+        try eraseLocalSession()
+        return .init(accountID:expectedAccount,controllerID:controllerID,generation:generation)
+    }
+    /// Check proof and run synchronous local finalization in the same actor turn.
+    /// A replacement login cannot interleave between this check and finalization.
+    public func withConfirmedErasure(_ confirmation: LocalSessionErasureConfirmation,
+                                     finalize: @Sendable () throws -> Void) throws {
+        guard confirmation.controllerID==controllerID,confirmation.generation==generation,
+              session==nil,try storage.read()==nil else { throw CloudError.authenticationRequired }
+        try finalize()
+    }
     private func eraseLocalSession() throws {
         // Invalidate suspended refreshes even when durable erasure is uncertain.
         generation += 1
@@ -74,10 +94,11 @@ public actor SessionController {
     }
     /// No suspension between comparison, Keychain deletion and memory invalidation.
     /// A storage failure leaves the login available for explicit same-binding retry.
-    public func eraseCompletedDeletionSession(_ permit: CompletedDeletionSessionPermit) throws {
+    @discardableResult public func eraseCompletedDeletionSession(_ permit: CompletedDeletionSessionPermit) throws -> LocalSessionErasureConfirmation {
         try Task.checkCancellation()
         guard permit.generation == generation, session?.user.id == permit.account else { throw CloudError.authenticationRequired }
         try eraseLocalSession()
+        return .init(accountID:permit.account,controllerID:controllerID,generation:generation)
     }
     /// Remote-only preflight. Local session/storage are cleared separately after
     /// acknowledgement; a delayed response must not act on a replacement login.

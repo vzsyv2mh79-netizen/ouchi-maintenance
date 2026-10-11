@@ -53,12 +53,30 @@ public struct AppAttestGenerationIntent: Codable, Equatable, Sendable {
     }
 }
 
+/// Local cleanup intent only; never authorizes server deletion or paid access.
+public struct AppAttestAccountClosure: Codable, Equatable, Sendable {
+    public let accountID: UUID, requestID: UUID
+    public let createdAtMilliseconds: Int64, retainUntilMilliseconds: Int64
+    public init(accountID: UUID, requestID: UUID, createdAtMilliseconds: Int64, retainUntilMilliseconds: Int64) throws {
+        self.accountID=accountID;self.requestID=requestID
+        self.createdAtMilliseconds=createdAtMilliseconds;self.retainUntilMilliseconds=retainUntilMilliseconds
+        try validate()
+    }
+    fileprivate func validate() throws {
+        let zero=UUID(uuidString:"00000000-0000-0000-0000-000000000000")!
+        guard accountID != zero,requestID != zero,createdAtMilliseconds>0,
+              retainUntilMilliseconds>createdAtMilliseconds,retainUntilMilliseconds<=9_007_199_254_740_991,
+              retainUntilMilliseconds-createdAtMilliseconds<=7_776_000_000 else { throw CloudError.invalidInput }
+    }
+}
+
 /// Immutable generated/confirmed records. Device-only Keychain protects values;
 /// no credential/private key or purchase entitlement is stored in this schema.
 /// Not instantiated by the release app. Operations are injectable for tests.
 public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     private struct Envelope: Codable { let version: Int; let reference: AppAttestKeyReference }
     private struct IntentEnvelope: Codable { let version: Int; let intent: AppAttestGenerationIntent }
+    private struct ClosureEnvelope: Codable { let version: Int; let closure: AppAttestAccountClosure }
     private let namespace: String
     private let operations: AppAttestEncryptionKeyStorage.Operations
     private let lock=NSLock()
@@ -180,5 +198,48 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
         guard status==errSecSuccess || status==errSecItemNotFound else { throw CloudError.unavailable }
         var confirmation=q;confirmation[kSecMatchLimit as String]=kSecMatchLimitOne
         guard operations.copy(confirmation).0==errSecItemNotFound else { throw CloudError.unavailable }
+    }
+    private func closureQuery(account: UUID) throws -> [String:Any] {
+        var q=try query(account:account)
+        // Separate service survives erasure of generated/confirmed references.
+        q[kSecAttrService as String]=namespace+".closing."+account.uuidString.lowercased()
+        q[kSecAttrAccount as String]="closing"
+        return q
+    }
+    private func closureBytes(_ closure: AppAttestAccountClosure) throws -> Data {
+        let encoder=JSONEncoder();encoder.outputFormatting=[.sortedKeys]
+        return try encoder.encode(ClosureEnvelope(version:1,closure:closure))
+    }
+    private func closureUnlocked(account: UUID) throws -> AppAttestAccountClosure? {
+        guard let bytes=try bytesUnlocked(closureQuery(account:account)) else { return nil }
+        let envelope=try JSONDecoder().decode(ClosureEnvelope.self,from:bytes)
+        try envelope.closure.validate()
+        guard envelope.version==1,envelope.closure.accountID==account,
+              try closureBytes(envelope.closure)==bytes else { throw CloudError.malformedResponse }
+        return envelope.closure
+    }
+    /// Expired cleanup intent remains closed until explicit confirmed cleanup;
+    /// expiration never grants permission to recreate registration information.
+    public func pendingClosure(account: UUID) throws -> AppAttestAccountClosure? {
+        lock.lock();defer { lock.unlock() };return try closureUnlocked(account:account)
+    }
+    @discardableResult public func beginClosure(_ proposed: AppAttestAccountClosure) throws -> AppAttestAccountClosure {
+        lock.lock();defer { lock.unlock() };try proposed.validate()
+        if let existing=try closureUnlocked(account:proposed.accountID) { return existing }
+        var q=try closureQuery(account:proposed.accountID)
+        q[kSecValueData as String]=try closureBytes(proposed)
+        q[kSecAttrAccessible as String]=kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let status=operations.add(q)
+        guard status==errSecSuccess || status==errSecDuplicateItem,
+              let stored=try closureUnlocked(account:proposed.accountID) else { throw CloudError.unavailable }
+        // A concurrent winner is returned without replacing its request/deadline.
+        return stored
+    }
+    func removeClosure(_ expected: AppAttestAccountClosure) throws {
+        lock.lock();defer { lock.unlock() }
+        guard try closureUnlocked(account:expected.accountID)==expected else { throw CloudError.authenticationRequired }
+        let q=try closureQuery(account:expected.accountID),status=operations.delete(q)
+        guard status==errSecSuccess || status==errSecItemNotFound,
+              try closureUnlocked(account:expected.accountID)==nil else { throw CloudError.unavailable }
     }
 }

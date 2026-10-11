@@ -156,7 +156,12 @@ struct FormalChannelSelection {
         do {
             let permit = try await session.prepareCompletedDeletionErasure(receipt: receipt, account: account, epoch: epoch)
             guard matches(), !Task.isCancelled else { return false }
-            try await session.eraseCompletedDeletionSession(permit)
+            let confirmation = try await session.eraseCompletedDeletionSession(permit)
+            var registrationCleanupFailed = false
+            if let coordinator = appAttestRegistrationCoordinator {
+                do { try await coordinator.completeLocalClosure(confirmation: confirmation, session: session) }
+                catch { registrationCleanupFailed = true }
+            }
             // Once credentials are erased, finish the same binding even if the view was cancelled.
             guard matches() else { return false }
             generation += 1
@@ -165,7 +170,9 @@ struct FormalChannelSelection {
             snapshotAccount = nil; signedIn = false
             billingAccount = nil; purchaseAccount = nil
             developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
-            message = "サーバー側の削除と、この端末のデータ・ログイン情報の消去を確認しました。"
+            message = registrationCleanupFailed
+                ? "ログイン情報は消去しました。端末登録の終了記録が残っているため、再登録前に終了処理の再確認が必要です。"
+                : "サーバー側の削除と、この端末のデータ・ログイン情報の消去を確認しました。"
             return true
         } catch {
             if matches() { message = "この端末のログイン情報を消去できませんでした。状況を確認して再度お試しください。" }
@@ -572,7 +579,16 @@ struct FormalChannelSelection {
                 return
             }
         }
-        do { try await session?.signOut() }
+        var registrationCleanupFailed = false
+        do {
+            if let session, let account = await session.localAccount() {
+                let confirmation = try await session.signOutConfirmed(expectedAccount: account)
+                if let coordinator = appAttestRegistrationCoordinator {
+                    do { try await coordinator.completeLocalClosure(confirmation: confirmation, session: session) }
+                    catch { registrationCleanupFailed = true }
+                }
+            } else { try await session?.signOut() }
+        }
         catch {
             message = "この端末のログイン情報を削除できませんでした。端末のロックを確認して、再度ログアウトしてください。"
             return
@@ -581,7 +597,7 @@ struct FormalChannelSelection {
         appAttestRegistrationCoordinator = nil
         appAttestCoordinatorConfiguration = nil
         developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
-        var localCleanupFailed = false
+        var localCleanupFailed = registrationCleanupFailed
         do { try snapshotStorage?.write(nil) }
         catch { localCleanupFailed = true }
         snapshotAccount = nil; showingOfflineSnapshot = false

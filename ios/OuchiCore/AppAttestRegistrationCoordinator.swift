@@ -45,6 +45,8 @@ public actor AppAttestRegistrationCoordinator {
     }
     private func session(keyID: String) async -> AppAttestRegistrationSession? {
         guard let context=await currentContext(), !closingAccounts.contains(context.userID) else { return nil }
+        do { guard try references.pendingClosure(account:context.userID)==nil else { return nil } }
+        catch { return nil }
         return context.session(keyID:keyID)
     }
     private func api(keyID: String) -> AppAttestRegistrationAPI {
@@ -57,6 +59,7 @@ public actor AppAttestRegistrationCoordinator {
     }
     public func register(captured: AppAttestRegistrationContext) async throws -> AppAttestRegistrationPreparation {
         guard activeAccount==nil,!closingAccounts.contains(captured.userID) else { throw CloudError.unavailable }
+        guard try references.pendingClosure(account:captured.userID)==nil else { throw CloudError.unavailable }
         activeAccount=captured.userID;defer { finishRegistration(account:captured.userID) }
         // Validate identity/JWT binding before a device operation. This dummy key
         // is used only by the local validator, never sent to Apple or the server.
@@ -110,6 +113,9 @@ public actor AppAttestRegistrationCoordinator {
     /// instance. Failed/cancelled cleanup stays closed and can be retried.
     public func closeAccount(account: UUID) async throws {
         try Task.checkCancellation();try stopAcceptingRegistration(account:account)
+        let created=now()
+        guard created>0,created<=9_007_199_254_740_991-retentionMilliseconds else { throw CloudError.invalidInput }
+        try references.beginClosure(AppAttestAccountClosure(accountID:account,requestID:UUID(),createdAtMilliseconds:created,retainUntilMilliseconds:created+retentionMilliseconds))
         if activeAccount==account {
             await withCheckedContinuation { completionWaiters[account,default:[]].append($0) }
         }
@@ -118,5 +124,19 @@ public actor AppAttestRegistrationCoordinator {
         try Task.checkCancellation()
         try references.erase(account:account)
         try encryptionKeys.erase(account:account)
+    }
+    public func completeLocalClosure(confirmation: LocalSessionErasureConfirmation, session: SessionController) async throws {
+        let account=confirmation.accountID
+        guard activeAccount != account,
+              let record=try references.pendingClosure(account:account) else { throw CloudError.authenticationRequired }
+        try await session.withConfirmedErasure(confirmation) {}
+        closingAccounts.insert(account)
+        try await pending.eraseAccount(account)
+        try Task.checkCancellation()
+        try references.erase(account:account)
+        try encryptionKeys.erase(account:account)
+        let references=self.references
+        try await session.withConfirmedErasure(confirmation) { try references.removeClosure(record) }
+        // This instance remains closed. A subsequent verified login gets a new coordinator.
     }
 }

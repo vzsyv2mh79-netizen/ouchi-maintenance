@@ -98,6 +98,18 @@ final class SyntheticReferenceKeychain: @unchecked Sendable {
         try store.erase(account:scope.userID);try store.erase(account:scope.userID)
         let survived=try store.generated(account:foreign.userID,epoch:foreign.epochID,nowMilliseconds:now);precondition(survived==foreign)
         await refused { _ = try AppAttestKeyReference(scope:scope,requestID:request,createdAtMilliseconds:now,retainUntilMilliseconds:now+7_776_000_001) }
+        let closure=try AppAttestAccountClosure(accountID:scope.userID,requestID:UUID(),createdAtMilliseconds:now,retainUntilMilliseconds:now+3600000)
+        let started=try store.beginClosure(closure);precondition(started==closure)
+        let closureSnapshot=fixture.snapshot()
+        let replacement=try AppAttestAccountClosure(accountID:scope.userID,requestID:UUID(),createdAtMilliseconds:now+1,retainUntilMilliseconds:now+7200000)
+        let retried=try restarted.beginClosure(replacement);precondition(retried==closure && fixture.snapshot()==closureSnapshot)
+        try store.erase(account:scope.userID)
+        let retained=try restarted.pendingClosure(account:scope.userID);precondition(retained==closure)
+        fixture.unavailable=true;await refused { _ = try restarted.pendingClosure(account:scope.userID) };fixture.unavailable=false
+        fixture.corrupt=true;await refused { _ = try restarted.beginClosure(replacement) };fixture.corrupt=false
+        fixture.weak=true;await refused { _ = try restarted.pendingClosure(account:scope.userID) };fixture.weak=false
+        precondition(fixture.snapshot()==closureSnapshot)
+        await refused { _ = try AppAttestAccountClosure(accountID:scope.userID,requestID:UUID(),createdAtMilliseconds:now,retainUntilMilliseconds:now+7_776_000_001) }
         print("PASS: injected device-only key-reference storage survives restart, refuses conflicting/extended/expired/corrupt/locked records, requires matching receipt, persists real structured confirmation before encrypted proof removal and confirms account-only erasure. Mock HTTP and synthetic Keychain only; no Apple trust or purchase.")
     }
 }

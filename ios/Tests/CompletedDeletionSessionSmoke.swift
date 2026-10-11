@@ -86,13 +86,19 @@ actor DeletionRefreshGate {
         let afterReadFailure = await controller.localAccount(); precondition(afterReadFailure == account)
         vault.failRead(false)
         let retry = try await controller.prepareCompletedDeletionErasure(receipt: receipt("complete"), account: account, epoch: epoch)
-        try await controller.eraseCompletedDeletionSession(retry)
+        let confirmation=try await controller.eraseCompletedDeletionSession(retry)
+        try await controller.withConfirmedErasure(confirmation) {}
         let absentData = try vault.read(); precondition(absentData == nil)
         let erasedAccount = await controller.localAccount(); precondition(erasedAccount == nil)
         do { _ = try await controller.credentials(); fatalError("Erased credentials available") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
         do { try await controller.eraseCompletedDeletionSession(current); fatalError("Permit reused") }
         catch { precondition(error as? CloudError == .authenticationRequired) }
+        try vault.write(data)
+        _ = try await controller.restore()
+        do { try await controller.withConfirmedErasure(confirmation) { fatalError("Stale confirmation finalized replacement login") }; fatalError("Stale confirmation accepted") }
+        catch { precondition(error as? CloudError == .authenticationRequired) }
+        try await controller.signOut()
         // A refresh already in flight cannot repopulate an erased session,
         // even when its transport continues after cancellation.
         let gate = DeletionRefreshGate()

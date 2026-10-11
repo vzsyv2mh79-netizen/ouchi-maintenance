@@ -3,8 +3,17 @@ import Security
 import LocalAuthentication
 import OuchiCore
 
+final class ClosureSyntheticSessionStorage: SessionStorage, @unchecked Sendable {
+    private let lock=NSLock();private var data:Data?
+    init(_ data:Data?) { self.data=data }
+    func read()->Data? { lock.withLock { data } }
+    func write(_ data:Data?) { lock.withLock { self.data=data } }
+}
+
 final class CoordinatorSyntheticKeychain: @unchecked Sendable {
     private let lock=NSLock();private var items:[String:[String:Any]]=[:]
+    private var failClosureDeletion=false
+    func failClosureErase(_ value:Bool) { lock.withLock { failClosureDeletion=value } }
     private func identity(_ q:[String:Any])->String { (q[kSecAttrService as String] as! String)+"|"+(q[kSecAttrAccount as String] as! String) }
     private func check(_ q:[String:Any]) {
         precondition(q[kSecClass as String] as? String == kSecClassGenericPassword as String)
@@ -24,10 +33,15 @@ final class CoordinatorSyntheticKeychain: @unchecked Sendable {
         },delete:{ [self] q in
             lock.lock();defer { lock.unlock() };check(q)
             let service=q[kSecAttrService as String] as! String
+            if failClosureDeletion && service.contains(".closing.") { return errSecSuccess }
             items=items.filter { $0.value[kSecAttrService as String] as? String != service };return errSecSuccess
         },random:{ Data(repeating:7,count:32) })
     }
     func count()->Int { lock.lock();defer { lock.unlock() };return items.count }
+    func registrationCount()->Int {
+        lock.lock();defer { lock.unlock() }
+        return items.values.filter { !($0[kSecAttrService as String] as! String).contains(".closing.") }.count
+    }
 }
 final class CoordinatorSyntheticDevice: @unchecked Sendable {
     private let lock=NSLock();private var generated=0,attested=0
@@ -127,7 +141,7 @@ actor CoordinatorSyntheticHTTP {
         let existing=try await coordinator.register(captured:captured);precondition(existing == .recordedReference(reference))
         let counts=await http.counts();precondition(counts==(1,2))
         try await coordinator.closeAccount(account:captured.userID)
-        precondition(keychain.count()==0)
+        precondition(keychain.registrationCount()==0)
         await refused { _ = try await coordinator.register(captured:captured) };precondition(device.counts()==(1,1))
 
         // A known generation failure still has a durable intent. Restart-style
@@ -153,7 +167,8 @@ actor CoordinatorSyntheticHTTP {
         let cancellationReference=try references.generated(account:cancelledContext.userID,epoch:cancelledContext.epochID,nowMilliseconds:now)!
         let cancelledProof=try await pending.read(scope:cancellationReference.scope,nowMilliseconds:now);precondition(cancelledProof?.attestation==CoordinatorSyntheticDevice.proof)
         let cancelledCounts=await cancelledHTTP.counts();precondition(cancelledCounts==(1,0))
-        try await cancellable.closeAccount(account:cancelledContext.userID);precondition(keychain.count()==0)
+        try await cancellable.closeAccount(account:cancelledContext.userID);precondition(keychain.registrationCount()==0)
+        let cancelledClosure=try references.pendingClosure(account:cancelledContext.userID);precondition(cancelledClosure != nil)
 
         // Closing while Apple is still completing blocks HTTP and waits for
         // the active flow to finish before erasing its newly staged record.
@@ -167,9 +182,30 @@ actor CoordinatorSyntheticHTTP {
         let cleanup=Task { try await closing.closeAccount(account:closingContext.userID) }
         closingDevice.finishAttestation()
         await refused { _ = try await running.value };try await cleanup.value
-        precondition(keychain.count()==0)
+        precondition(keychain.registrationCount()==0)
+        let closure=try references.pendingClosure(account:closingContext.userID);precondition(closure != nil)
+        let restarted=try AppAttestRegistrationCoordinator(currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("closed account reached HTTP after restart") },now:{ now+3600001 })
+        await refused { _ = try await restarted.register(captured:closingContext) }
+        try await restarted.closeAccount(account:closingContext.userID)
+        let original=try references.pendingClosure(account:closingContext.userID);precondition(original==closure,"retry must not extend closure deadline")
         let remaining=try await pending.hasPendingRecord(account:closingContext.userID,epoch:closingContext.epochID);precondition(!remaining)
         let closingCounts=await closingHTTP.counts();precondition(closingCounts==(1,0))
+        let sessionData=try JSONSerialization.data(withJSONObject:["access_token":"synthetic","refresh_token":"synthetic","expires_at":2000000000,"user":["id":closingContext.userID.uuidString]])
+        let config=try CloudConfiguration(url:URL(string:"https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,publishableKey:"sb_publishable_synthetic_test_only")
+        let sessionAPI=HouseholdAPI(config:config) { _ in fatalError("local closure test reached Auth") }
+        let localSession=SessionController(api:sessionAPI,storage:ClosureSyntheticSessionStorage(sessionData))
+        _ = try await localSession.restore()
+        let confirmation=try await localSession.signOutConfirmed(expectedAccount:closingContext.userID)
+        let foreignController=SessionController(api:sessionAPI,storage:ClosureSyntheticSessionStorage(nil))
+        await refused { try await restarted.completeLocalClosure(confirmation:confirmation,session:foreignController) }
+        let preserved=try references.pendingClosure(account:closingContext.userID);precondition(preserved==closure)
+        keychain.failClosureErase(true)
+        await refused { try await restarted.completeLocalClosure(confirmation:confirmation,session:localSession) }
+        let afterFalseErase=try references.pendingClosure(account:closingContext.userID);precondition(afterFalseErase==closure)
+        keychain.failClosureErase(false)
+        try await restarted.completeLocalClosure(confirmation:confirmation,session:localSession)
+        let removed=try references.pendingClosure(account:closingContext.userID);precondition(removed==nil)
+        await refused { _ = try await restarted.register(captured:closingContext) }
         print("PASS: synthetic initial registration persists intent/key/reference/proof in order, exact uncertain commit retry avoids new device calls, confirmed metadata stays local-only, unknown generation blocks restart retries, cancellation retains proof, and shared-actor closing blocks commit and erases after callback. No Apple service, owner Keychain or purchase.")
     }
 }
