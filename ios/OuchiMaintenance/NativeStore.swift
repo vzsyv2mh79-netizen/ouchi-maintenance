@@ -527,17 +527,17 @@ import OuchiCore
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            guard expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id, let purchaseAccount else { return }
+            guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id, let purchaseAccount else { return }
             let rights = try await BillingAPI().entitlement(token: credentials.access_token)
-            guard expected == generation, expectedReport == reportGeneration else { return }
+            guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             guard rights.premiumIsCurrent() else { message = "テスト用の有料利用権を確認できません。"; return }
             let value = try await ReportAPI(sandboxPreview: true).load(home: home, token: credentials.access_token)
-            guard expected == generation, expectedReport == reportGeneration, home == homeID else { return }
+            guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration, home == homeID else { return }
             report = value
         } catch {
-            if expected == generation, expectedReport == reportGeneration {
+            if !Task.isCancelled, expected == generation, expectedReport == reportGeneration {
                 message = "レポートを取得できません。テスト用サービスの準備と通信を確認してください。"
             }
         }

@@ -89,6 +89,7 @@ public struct ReportAPI: Sendable {
     }
 
     public func load(home: String, token: String) async throws -> MaintenanceReport {
+        try Task.checkCancellation()
         guard let id = UUID(uuidString: home) else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: origin + "/api/development/maintenance-report")!
@@ -98,6 +99,7 @@ public struct ReportAPI: Sendable {
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         let (bytes, response) = try await transport(request)
+        try Task.checkCancellation()
         guard response.url == url, bytes.count <= 2_000_000 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
         struct Envelope: Decodable { let environment: String; let salesEnabled: Bool; let report: MaintenanceReport }
