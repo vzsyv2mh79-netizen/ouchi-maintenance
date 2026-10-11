@@ -7,7 +7,7 @@ test('native job leases fence stale workers and never automatically resend uncer
  try {
   await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz);');
   await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,"homeId" uuid);create table public.maintenance_tasks(id uuid primary key,"productId" uuid,"nextDueAt" date);create table public.home_members("homeId" uuid,user_id uuid);grant select on public.homes,public.products,public.maintenance_tasks,public.home_members to service_role;');
-  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql','20261011042826_ouchi_native_push_delivery_day_gate.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
+  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql','20261011042826_ouchi_native_push_delivery_day_gate.sql','20261011043237_ouchi_native_push_device_paging.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
   const user='11111111-1111-4111-8111-111111111111', session='22222222-2222-4222-8222-222222222222', wrong='33333333-3333-4333-8333-333333333333';
   await db.query('insert into auth.users values($1)',[user]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
   const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2) as e',[user,session])).rows[0].e;
@@ -29,6 +29,7 @@ test('native job leases fence stale workers and never automatically resend uncer
   const daily=await enqueue();
   if(afterNine){assert.ok(daily);assert.equal(await enqueue(),daily);await db.query("update maintenance_private.native_notification_jobs set state='sent' where id=$1",[daily]);assert.equal(await enqueue(),daily);}
   else assert.equal(daily,null);
+  const page=async(after=null)=>(await db.query('select public.page_maintenance_native_sandbox_devices($1,25) as ids',[after])).rows[0].ids;assert.deepEqual(await page(),[device]);assert.deepEqual(await page(device),[]);await assert.rejects(()=>db.query('select public.page_maintenance_native_sandbox_devices(null,26)'));
   const job=async(state='pending')=>(await db.query("insert into maintenance_private.native_notification_jobs(device_id,due_at,state) values($1,clock_timestamp()-interval '1 second',$2) returning id",[device,state])).rows[0].id;
   const claim=async id=>(await db.query('select public.claim_maintenance_native_push_job($1) as v',[id])).rows[0].v;
   const start=async(id,lease)=>(await db.query('select public.start_maintenance_native_push_job($1,$2) as v',[id,lease])).rows[0].v;
@@ -58,7 +59,7 @@ test('native job leases fence stale workers and never automatically resend uncer
   assert.equal(await claim(retrying),null);
   const revoked=await job(),revokedLease=await claim(revoked);
   await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);
-  assert.equal(await start(revoked,revokedLease),false);assert.equal(await claim(await job()),null);
-  await db.exec('reset role;set role authenticated');await assert.rejects(()=>claim(id));await assert.rejects(()=>start(id,lease));await assert.rejects(()=>finish(id,lease,'accepted'));
+  assert.deepEqual(await page(),[]);assert.equal(await start(revoked,revokedLease),false);assert.equal(await claim(await job()),null);
+  await db.exec('reset role;set role authenticated');await assert.rejects(()=>page());await assert.rejects(()=>claim(id));await assert.rejects(()=>start(id,lease));await assert.rejects(()=>finish(id,lease,'accepted'));
  } finally {await db.close();}
 });
