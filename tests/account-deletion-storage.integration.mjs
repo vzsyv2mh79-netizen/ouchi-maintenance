@@ -500,6 +500,29 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   console.log('Actual deletion inventory minimization: confirmed object paths removed only after record erasure, pending final identity stage never claims complete.');
+  // Separate synthetic user: prove the strict guard after its identity rows are
+  // erased, without revoking or deleting shared Auth and without reenrollment.
+  const guard=createClient(origin,'synthetic-public-key',options);
+  const guardSignup=await guard.auth.signUp({email:`enrollment-${randomUUID()}@example.invalid`,password:syntheticPassword});assert.equal(guardSignup.error,null);assert.ok(guardSignup.data.session);
+  const guardID=guardSignup.data.user.id,guardToken=guardSignup.data.session.access_token,guardSession=JSON.parse(Buffer.from(guardToken.split('.')[1],'base64url')).session_id;
+  const guardArgs={target_user:guardID,verified_session:guardSession};const guardEpoch=await admin.rpc('current_maintenance_purchase_account',guardArgs);assert.equal(guardEpoch.error,null);assert.ok(guardEpoch.data);
+  const guardHome=randomUUID();assert.equal((await guard.from('homes').insert({id:guardHome,name:'Synthetic enrollment guard'})).error,null);
+  const freshGuard=createClient(origin,'synthetic-public-key',options);const freshLogin=await freshGuard.auth.signInWithPassword({email:guardSignup.data.user.email,password:syntheticPassword});assert.equal(freshLogin.error,null);const freshSession=JSON.parse(Buffer.from(freshLogin.data.session.access_token.split('.')[1],'base64url')).session_id;assert.notEqual(freshSession,guardSession);
+  recoverySql('update maintenance_private.enrollment_policy set require_explicit=true where id=1;');
+  assert.equal((await admin.rpc('maintenance_explicit_enrollment_is_required')).data,true);
+  assert.equal((await admin.rpc('current_maintenance_purchase_account',guardArgs)).data,guardEpoch.data);
+  assert.equal((await guard.from('homes').select('id').eq('id',guardHome)).data.length,1);
+  assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:freshSession})).data,null);
+  assert.deepEqual((await freshGuard.from('homes').select('id').eq('id',guardHome)).data,[]);
+  assert.ok((await freshGuard.from('homes').insert({name:'Must refuse implicit enrollment'})).error);
+  recoverySql(`begin;delete from maintenance_private.app_session_epochs where user_id='${guardID}';delete from maintenance_private.app_epochs where user_id='${guardID}';delete from maintenance_private.account_access where user_id='${guardID}';commit;`);
+  for(const sessionID of [guardSession,freshSession])assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:sessionID})).data,null);
+  assert.deepEqual((await guard.from('homes').select('id').eq('id',guardHome)).data,[]);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.app_epochs where user_id='${guardID}';`).trim(),'0');
+  assert.equal((await guard.auth.getUser()).error,null,'shared Auth original session remains valid');assert.equal((await freshGuard.auth.getUser()).error,null,'other shared Auth login remains valid');
+  assert.deepEqual((await other.from('homes').select('id').eq('id',otherHome)).data,[{id:otherHome}]);
+  console.log('Actual explicit enrollment guard: mapped live session works, unmapped login denied, erased identity not automatically recreated, shared Auth and other owner preserved. Strict policy enabled only inside disposable test; no new enrollment granted.');
+
 
  }finally{releaseWrite();gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
