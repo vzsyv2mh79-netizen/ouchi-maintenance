@@ -1,4 +1,5 @@
 import {createHash,timingSafeEqual,X509Certificate} from 'node:crypto';
+import {assertAppAttestCertificatePolicy} from './billing-app-attest-certificate-policy';
 
 // Apple Private PKI: Apple_App_Attestation_Root_CA.pem, checked 2026-10-11.
 // Never accept a root supplied by the device, a system trust-store fallback or
@@ -51,6 +52,7 @@ export function verifyAppAttestCertificateProof(x5c:readonly Buffer[],authData:B
  if(root.fingerprint256!==rootFingerprint||!root.ca||!root.checkIssued(root)||!root.verify(root.publicKey))throw Error('Untrusted App Attest root');
  for(const cert of [leaf,intermediate,root]){const start=Date.parse(cert.validFrom),end=Date.parse(cert.validTo);if(!Number.isFinite(start)||!Number.isFinite(end)||now<start||now>end)throw Error('Expired App Attest certificate');}
  if(leaf.ca||!intermediate.ca||!intermediate.checkIssued(root)||!intermediate.verify(root.publicKey)||!leaf.checkIssued(intermediate)||!leaf.verify(intermediate.publicKey))throw Error('Invalid App Attest certificate chain');
+ assertAppAttestCertificatePolicy(root,'root');assertAppAttestCertificatePolicy(intermediate,'attestationIssuer');assertAppAttestCertificatePolicy(leaf,'credential');
  if(leaf.publicKey.asymmetricKeyType!=='ec'||leaf.publicKey.asymmetricKeyDetails?.namedCurve!=='prime256v1')throw Error('Invalid App Attest credential curve');
  const nonce=createHash('sha256').update(authData).update(clientDataHash).digest();
  if(!timingSafeEqual(appAttestCertificateNonce(leaf.raw),nonce))throw Error('App Attest certificate nonce mismatch');

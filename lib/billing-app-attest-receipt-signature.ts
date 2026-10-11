@@ -1,5 +1,6 @@
 import {verify,X509Certificate,createHash} from 'node:crypto';
 import {decodeReceiptBER,type ReceiptASN} from './billing-app-attest-ber';
+import {assertAppAttestCertificatePolicy} from './billing-app-attest-certificate-policy';
 const rootFingerprint='63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79';
 const oid=(node:ReceiptASN|undefined,hex:string)=>node?.tag===6&&node.value.toString('hex')===hex;
 const children=(node:ReceiptASN|undefined,tag:number)=>{if(!node||node.tag!==tag||!node.children)throw Error('Invalid receipt CMS structure');return node.children;};
@@ -49,6 +50,7 @@ export function verifyAppAttestReceiptSignature(receipt:Buffer,rootDER:Buffer,no
  const intermediateCandidates=certs.filter(cert=>cert!==leaf&&cert.fingerprint256!==rootFingerprint&&cert.ca&&leaf.checkIssued(cert)&&leaf.verify(cert.publicKey));
  if(intermediateCandidates.length!==1)throw Error('Invalid receipt issuer');const intermediate=intermediateCandidates[0];
  if(!intermediate.checkIssued(root)||!intermediate.verify(root.publicKey)||certs.some(cert=>cert!==leaf&&cert!==intermediate&&!cert.raw.equals(root.raw)))throw Error('Invalid receipt certificate chain');
+ assertAppAttestCertificatePolicy(root,'root');assertAppAttestCertificatePolicy(intermediate,'receiptIssuer');assertAppAttestCertificatePolicy(leaf,'receiptSigner');
  for(const cert of [leaf,intermediate,root]){const start=Date.parse(cert.validFrom),end=Date.parse(cert.validTo);if(!Number.isFinite(start)||!Number.isFinite(end)||now<start||now>end)throw Error('Expired receipt certificate');}
  if(leaf.publicKey.asymmetricKeyType!=='ec'||leaf.publicKey.asymmetricKeyDetails?.namedCurve!=='prime256v1'||!verify('sha256',payload,leaf.publicKey,signer[4].value))throw Error('Invalid receipt CMS signature');
  return Object.freeze({authenticatedPayload:payload,signerCertificate:Buffer.from(leaf.raw),receiptSHA256:createHash('sha256').update(receipt).digest('hex')});
