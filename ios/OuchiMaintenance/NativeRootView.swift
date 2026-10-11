@@ -794,6 +794,17 @@ private struct SandboxReportView: View {
                     .disabled(store.busy)
             }
             if let report = store.report {
+                MaintenanceReportSections(report: report)
+            } else {
+                Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
+            }
+        }.navigationTitle("お手入れレポート")
+    }
+}
+
+private struct MaintenanceReportSections: View {
+    let report: MaintenanceReport
+    var body: some View { Group {
                 Section("今のお手入れ") {
                     LabeledContent("住まい", value: report.homeName)
                     LabeledContent("集計日", value: report.today)
@@ -811,12 +822,22 @@ private struct SandboxReportView: View {
                     }
                 }
                 Section { Text(report.explanation).font(.caption).foregroundStyle(.secondary) }
-            } else {
-                Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
-            }
-        }.navigationTitle("お手入れレポート")
+    } }
+}
+
+#if DEBUG
+struct ReportPreviewView: View {
+    private let report: MaintenanceReport? = try? JSONDecoder().decode(MaintenanceReport.self, from: Data(#"{"homeId":"11111111-1111-4111-8111-111111111111","homeName":"わが家（サンプル）","generatedAt":"2026-10-11T00:00:00.000Z","today":"2026-10-11","productCount":1,"taskCount":2,"overdue":1,"dueToday":1,"months":[{"month":"2026-05","completed":1},{"month":"2026-06","completed":2},{"month":"2026-07","completed":3},{"month":"2026-08","completed":4},{"month":"2026-09","completed":5},{"month":"2026-10","completed":6}],"perProduct":[{"productId":"22222222-2222-4222-8222-222222222222","name":"空気清浄機（サンプル）","completedThisMonth":6,"overdue":1,"dueToday":1}],"explanation":"登録したお手入れと完了履歴の集計です。故障予測ではありません。"}"#.utf8))
+    var body: some View {
+        NavigationStack {
+            List {
+                Section { Text("画面確認用のサンプルです。実際の記録ではありません。") }
+                if let report { MaintenanceReportSections(report: report) }
+            }.navigationTitle("お手入れレポート")
+        }
     }
 }
+#endif
 
 private struct DevelopmentRemoteNotificationView: View {
     @EnvironmentObject private var store: NativeStore

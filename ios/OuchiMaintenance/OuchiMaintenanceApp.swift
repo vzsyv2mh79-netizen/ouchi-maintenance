@@ -53,6 +53,13 @@ import OuchiCore
     @StateObject private var store = NativeStore()
     @UIApplicationDelegateAdaptor(RemoteNotificationDelegate.self) private var remoteNotifications
     var body: some Scene {
-        WindowGroup { NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() } }
+        WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ouchi-report-preview") { ReportPreviewView() }
+            else { NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() } }
+            #else
+            NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() }
+            #endif
+        }
     }
 }
