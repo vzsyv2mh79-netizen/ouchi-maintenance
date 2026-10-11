@@ -7,9 +7,12 @@ import OuchiCore
             try AccountDeletionStatus.currentProgress(Data("{\"requestID\":\"\(request)\",\"epochID\":\"\(scope)\",\"state\":\"running\"}".utf8), httpStatus: 200)
         }
         var calls: [String] = [], bound = true, fail = false, changeDuringNotifications = false
+        var registrationResult = AccountDeletionLocalCleanupResult.complete
+        var changeDuringRegistration = false
         func perform(_ value: AccountDeletionStatus) async -> AccountDeletionLocalCleanupResult {
             await cleanAccountDeletionLocalData(receipt: value, account: account, epoch: epoch, revision: revision,
                 stillBound: { bound }, stopNotifications: { calls.append("notifications"); if changeDuringNotifications { bound = false }; return true },
+                erasePendingRegistration: { calls.append("registration"); if changeDuringRegistration { bound = false }; return registrationResult },
                 eraseSnapshot: { calls.append("snapshot"); if fail { throw CloudError.unavailable } },
                 erasePendingUpload: { calls.append("upload") }, erasePendingRemoval: { calls.append("removal") },
                 eraseManagedExports: { calls.append("exports") }, clearVisibleData: { calls.append("visible") })
@@ -17,9 +20,16 @@ import OuchiCore
         let current = try receipt(epoch)
         let wrong = try receipt(UUID()); let wrongResult = await perform(wrong); precondition(wrongResult == .staleBinding && calls.isEmpty)
         let successful = await perform(current); precondition(successful == .complete)
-        precondition(calls == ["notifications", "snapshot", "upload", "removal", "exports", "visible"])
+        precondition(calls == ["notifications", "registration", "snapshot", "upload", "removal", "exports", "visible"])
         calls = []; fail = true; let partial = await perform(current); precondition(partial == .pending && calls.last == "visible")
         calls = []; fail = false; let retry = await perform(current); precondition(retry == .complete)
+        calls = []; registrationResult = .pending
+        let pendingKeys = await perform(current); precondition(pendingKeys == .pending && calls.last == "visible")
+        calls = []; registrationResult = .staleBinding
+        let staleKeys = await perform(current); precondition(staleKeys == .staleBinding && calls == ["notifications","registration"])
+        calls = []; registrationResult = .complete; changeDuringRegistration = true
+        let changedKeys = await perform(current); precondition(changedKeys == .staleBinding && calls == ["notifications","registration"])
+        bound = true; changeDuringRegistration = false
         calls = []; changeDuringNotifications = true; let stale = await perform(current); precondition(stale == .staleBinding && calls == ["notifications"])
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-deletion-local-fixture-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -41,6 +51,7 @@ import OuchiCore
         func cleanupFiles() async -> AccountDeletionLocalCleanupResult {
             await cleanAccountDeletionLocalData(receipt: current, account: account, epoch: epoch, revision: revision,
                 stillBound: { true }, stopNotifications: { notificationSuccess },
+                erasePendingRegistration: { .complete },
                 eraseSnapshot: { try snapshot.remove(account: account) },
                 erasePendingUpload: { try pending.remove(account: account, epoch: epoch) },
                 erasePendingRemoval: { try removal.remove(account: account, epoch: epoch) },

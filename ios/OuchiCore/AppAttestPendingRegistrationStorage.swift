@@ -127,5 +127,7 @@ public actor AppAttestPendingRegistrationStorage {
             guard try FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType == .typeRegular else { throw CloudError.invalidInput }
             try FileManager.default.removeItem(at: url)
         }
+        _ = try directory(account: account)
+        guard try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil).allSatisfy({ $0.pathExtension != "attest-pending" }) else { throw CloudError.unavailable }
     }
 }

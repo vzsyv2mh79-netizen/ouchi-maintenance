@@ -101,6 +101,16 @@ struct FormalChannelSelection {
             receipt: receipt, account: account, epoch: epoch, revision: revision,
             stillBound: stillBound,
             stopNotifications: { [self] in await stopLocalNotificationsForDeletion(account: account, epoch: epoch, revision: revision) },
+            erasePendingRegistration: {
+                guard let bundle = Bundle.main.bundleIdentifier,
+                      let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return .pending }
+                let pending = AppAttestPendingRegistrationStorage(
+                    root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true),
+                    keyProvider: { _, _ in throw CloudError.unavailable })
+                return await eraseAppAttestLocalRegistration(account: account, stillBound: stillBound,
+                    erasePendingProofs: { try await pending.eraseAccount(account) },
+                    eraseEncryptionKeys: { try AppAttestEncryptionKeyStorage(namespace: bundle).erase(account: account) })
+            },
             eraseSnapshot: { [self] in
                 guard let snapshotStorage else { throw CloudError.unavailable }
                 try snapshotStorage.remove(account: account)

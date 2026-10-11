@@ -6,6 +6,7 @@ public enum AccountDeletionLocalCleanupResult: Equatable, Sendable { case comple
     receipt: AccountDeletionStatus, account: UUID, epoch: UUID, revision: UUID,
     stillBound: () -> Bool,
     stopNotifications: () async -> Bool,
+    erasePendingRegistration: () async -> AccountDeletionLocalCleanupResult,
     eraseSnapshot: @escaping () throws -> Void,
     erasePendingUpload: @escaping () throws -> Void,
     erasePendingRemoval: @escaping () throws -> Void,
@@ -17,6 +18,9 @@ public enum AccountDeletionLocalCleanupResult: Equatable, Sendable { case comple
           receipt.requestID != zero, receipt.epochID == epoch, stillBound(), !Task.isCancelled else { return .staleBinding }
     var confirmed = await stopNotifications()
     guard stillBound(), !Task.isCancelled else { return .staleBinding }
+    let registration = await erasePendingRegistration()
+    guard stillBound(), !Task.isCancelled, registration != .staleBinding else { return .staleBinding }
+    if registration != .complete { confirmed = false }
     // Each synchronous eraser is scoped by its adapter. Attempt independent cleanup
     // after a partial failure, but retain a pending result until every stage succeeds.
     for erase in [eraseSnapshot, erasePendingUpload, erasePendingRemoval, eraseManagedExports] {
