@@ -1029,6 +1029,15 @@ private struct ReleasePurchaseRecoveryView: View {
                 Section("新しい有料プラン") {
                     Text("新しい有料プランは、まだ受け付けていません。提供する機能と購入画面の確認後に開始します。")
                 }
+                Section("規約と問い合わせ") {
+                    if let links = store.releasePurchaseDisclosureLinks {
+                        Link("利用規約", destination: links.terms)
+                        Link("プライバシーポリシー", destination: links.privacy)
+                        Link("問い合わせ", destination: links.support)
+                    } else {
+                        Text("正式な規約・プライバシーポリシー・問い合わせ先を準備しています。公開前の確認が済むまで、新しい購入は受け付けません。")
+                    }
+                }
                 if store.busy { ProgressView("確認しています") }
             }
         }

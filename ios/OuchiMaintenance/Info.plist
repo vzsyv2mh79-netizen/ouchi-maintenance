@@ -32,6 +32,14 @@
 	<false/>
 	<key>OUCHI_RELEASE_TIPS_ENABLED</key>
 	<false/>
+	<key>OUCHI_PURCHASE_DISCLOSURES_REVIEWED</key>
+	<false/>
+	<key>OUCHI_TERMS_URL</key>
+	<string></string>
+	<key>OUCHI_PRIVACY_URL</key>
+	<string></string>
+	<key>OUCHI_SUPPORT_URL</key>
+	<string></string>
 	<key>OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED</key>
 	<false/>
 	<key>OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED</key>

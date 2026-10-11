@@ -22,6 +22,17 @@ import OuchiCore
         let rejected=try StoreProductCatalogPolicy.eligibleProductIDs([unknown,disguisedTip]);precondition(rejected.isEmpty)
         do { _ = try StoreProductCatalogPolicy.eligibleProductIDs([monthly,monthly,annual]);fatalError("Duplicate catalog identifier accepted") }
         catch { precondition(error as? CloudError == .malformedResponse) }
+        let terms = "https://ouchi.invalid/terms", privacy = "https://ouchi.invalid/privacy", support = "https://ouchi.invalid/support"
+        let links = PurchaseDisclosureLinks(reviewed: true, terms: terms, privacy: privacy, support: support)
+        precondition(links?.terms.absoluteString == terms && links?.privacy.absoluteString == privacy && links?.support.absoluteString == support)
+        precondition(PurchaseDisclosureLinks(reviewed: false, terms: terms, privacy: privacy, support: support) == nil,
+                     "Valid-looking destinations do not substitute for release review")
+        for invalid in ["", "/privacy", "http://ouchi.invalid/privacy", "file:///tmp/privacy", "javascript:alert(1)", "https:///privacy", "https://user:secret@ouchi.invalid/privacy", " https://ouchi.invalid/privacy "] {
+            precondition(PurchaseDisclosureLinks(reviewed: true, terms: invalid, privacy: privacy, support: support) == nil)
+            precondition(PurchaseDisclosureLinks(reviewed: true, terms: terms, privacy: invalid, support: support) == nil)
+            precondition(PurchaseDisclosureLinks(reviewed: true, terms: terms, privacy: privacy, support: invalid) == nil)
+        }
+        print("PASS: new purchase disclosure configuration requires reviewed destinations; missing, relative, insecure, credential-bearing and malformed destinations are refused. Synthetic URLs are not published or fetched; policy contents and availability remain unverified.")
         print("PASS: synthetic store metadata offers same-group one-month/one-year plans; refuses missing/mismatched group, duration/type errors, unknown IDs and duplicate catalogs; optional consumable tips remain independent. No StoreKit price lookup, purchase, entitlement or actual App Store Connect configuration verified.")
     }
 }

@@ -1,5 +1,30 @@
 import Foundation
 
+/// Published, reviewed destinations are a prerequisite for new purchases.
+/// This validates configuration only; it does not prove that a policy is complete
+/// or that a destination is reachable. Those remain release review requirements.
+public struct PurchaseDisclosureLinks: Equatable, Sendable {
+    public let terms: URL
+    public let privacy: URL
+    public let support: URL
+
+    public init?(reviewed: Bool, terms: String, privacy: String, support: String) {
+        func destination(_ raw: String) -> URL? {
+            guard raw == raw.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let components = URLComponents(string: raw),
+                  components.scheme?.lowercased() == "https",
+                  let host = components.host, !host.isEmpty,
+                  components.user == nil, components.password == nil,
+                  let url = components.url else { return nil }
+            return url
+        }
+        guard reviewed, let termsURL = destination(terms),
+              let privacyURL = destination(privacy),
+              let supportURL = destination(support) else { return nil }
+        self.terms = termsURL; self.privacy = privacyURL; self.support = supportURL
+    }
+}
+
 /// Public store metadata only. This policy never verifies a transaction or grants access.
 public struct StoreProductDescriptor: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case consumable, autoRenewable, other }

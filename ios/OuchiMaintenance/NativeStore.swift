@@ -817,11 +817,19 @@ struct FormalChannelSelection {
         return BillingEnvironment(rawValue: value)
     }
     // Explicit rollout gates, separate from read/restore and verified paid rights.
+    var releasePurchaseDisclosureLinks: PurchaseDisclosureLinks? {
+        let info = Bundle.main.infoDictionary ?? [:]
+        return PurchaseDisclosureLinks(
+            reviewed: info["OUCHI_PURCHASE_DISCLOSURES_REVIEWED"] as? Bool == true,
+            terms: info["OUCHI_TERMS_URL"] as? String ?? "",
+            privacy: info["OUCHI_PRIVACY_URL"] as? String ?? "",
+            support: info["OUCHI_SUPPORT_URL"] as? String ?? "")
+    }
     func releaseNewPurchaseConfigured(subscription: Bool) -> Bool {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
         if releaseFixtureBilling != nil { return releaseFixturePurchasesEnabled }
         #endif
-        guard releasePurchaseEnvironment != nil else { return false }
+        guard releasePurchaseEnvironment != nil, releasePurchaseDisclosureLinks != nil else { return false }
         let key = subscription ? "OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED" : "OUCHI_RELEASE_TIPS_ENABLED"
         return Bundle.main.infoDictionary?[key] as? Bool == true
     }
