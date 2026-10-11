@@ -11,7 +11,9 @@ import OuchiCore
         }
     } }
     @Published private(set) var showingOfflineSnapshot = false
-    private var snapshotAccount: UUID?
+    private var snapshotAccount: UUID? { didSet {
+        if oldValue != snapshotAccount { accountBindingRevision = UUID() }
+    } }
     private var snapshotStorage: HouseholdSnapshotStorage?
     private var pendingAttachmentStorage: PendingAttachmentStorage?
     private var pendingRemovalStorage: PendingAttachmentRemovalStorage?
@@ -21,7 +23,12 @@ import OuchiCore
         return try ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true))
             .write(bytes, account: account, extension: suffix)
     }
-    @Published private(set) var signedIn = false { didSet { if !signedIn { accountEmail = nil } } }
+    @Published private(set) var signedIn = false { didSet {
+        if oldValue != signedIn { accountBindingRevision = UUID() }
+        if !signedIn { accountEmail = nil }
+    } }
+    @Published private(set) var accountBindingRevision = UUID()
+    var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
     @Published var message: String?
@@ -35,7 +42,7 @@ import OuchiCore
     private let api: HouseholdAPI?
     private let session: SessionController?
     private let isolatedDevelopmentEnabled: Bool
-    private var generation = 0
+    private var generation = 0 { didSet { accountBindingRevision = UUID() } }
     private var familyGeneration = 0
     private var reportGeneration = 0
     private var attachmentExportGeneration = 0
@@ -46,6 +53,18 @@ import OuchiCore
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
     @Published private(set) var billingRecoveryStatus: BillingRecoveryStatus?
     private let reminders = LocalReminders()
+    /// Prepared adapter only. Caller must first obtain a durable deletion receipt.
+    /// The release deletion screen is not enabled by this local operation.
+    func stopLocalNotificationsForDeletion(account: UUID, revision: UUID) async -> Bool {
+        func stillBound() -> Bool {
+            signedIn && !busy && snapshotAccount == account && accountBindingRevision == revision
+        }
+        guard stillBound(), !Task.isCancelled else { return false }
+        let stopped = await reminders.eraseForAccountDeletion(account: account, stillBound: stillBound)
+        guard stillBound(), !Task.isCancelled else { return false }
+        if stopped { remindersEnabled = false }
+        return stopped
+    }
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
     private var developmentRemoteRegistration: (id: UUID, account: UUID)?
@@ -295,6 +314,7 @@ import OuchiCore
         catch { message = "端末内の添付ファイルを消去できませんでした。ログアウトから再確認してください。" }
     }
     func restore() async {
+        accountBindingRevision = UUID()
         let expected = generation
         await reminders.reset(clearPreference: false)
         guard expected == generation else { return }
@@ -319,6 +339,7 @@ import OuchiCore
     }
     func signIn(email: String, password: String) async {
         guard !busy, let session else { message = "クラウド接続の設定が必要です。"; return }
+        accountBindingRevision = UUID()
         busy = true; message = nil
         let expected = generation
         do {
@@ -339,6 +360,7 @@ import OuchiCore
     func signUp(email: String, password: String) async {
         guard !busy else { return }
         guard let session else { message = "クラウド接続の設定が必要です。"; return }
+        accountBindingRevision = UUID()
         busy = true; message = nil
         let expected = generation
         do {
