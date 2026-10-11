@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { browserAttachmentAuth } from "@/lib/attachment-auth-lifecycle";
+import { EnrollmentControls } from './enrollment-controls';
 
 export function CloudAccount({ disabled }: { disabled: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userID, setUserID] = useState<string | null>(null);
   const [reset, setReset] = useState(false);
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -18,6 +20,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
     if (!client) return;
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user.email ?? null);
+      setUserID(session?.user.id ?? null);
     });
     return () => subscription.unsubscribe();
   }, [client]);
@@ -68,7 +71,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
     }
     finally { setBusy(false); }
   };
-  return <section className="settings-group"><h2>クラウド保存</h2>{userEmail ? <><p>{userEmail}</p>{process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true" && <p>ログアウトすると、このブラウザの確認待ちの写真・保証書を消去します。保存済みのクラウドファイルは残ります。</p>}<button className="secondary-button" disabled={busy || disabled} onClick={logout}>ログアウト</button><button className="text-button" disabled={busy || disabled} onClick={() => setEraseOpen(!eraseOpen)}>このアプリのクラウド記録を削除</button>{eraseOpen && <div><p>所有するすべての住まい・製品・お手入れ・履歴を削除し、参加中の家族共有から退出します。あなたが所有する住まいの記録は、参加家族も使えなくなります。元に戻せません。必要な記録は先にバックアップしてください。</p><p>他のアプリでも使う可能性があるログインアカウントと、端末内の記録は残ります。</p><label><span>確認のため「削除」と入力</span><input value={eraseText} onChange={event => setEraseText(event.target.value)} autoComplete="off" /></label><button className="secondary-button" disabled={busy || disabled || eraseText !== "削除"} onClick={async () => {
+  return <section className="settings-group"><h2>クラウド保存</h2>{userEmail ? <><p>{userEmail}</p>{userID && <EnrollmentControls key={userID} account={userID} disabled={busy || disabled} />}{process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true" && <p>ログアウトすると、このブラウザの確認待ちの写真・保証書を消去します。保存済みのクラウドファイルは残ります。</p>}<button className="secondary-button" disabled={busy || disabled} onClick={logout}>ログアウト</button><button className="text-button" disabled={busy || disabled} onClick={() => setEraseOpen(!eraseOpen)}>このアプリのクラウド記録を削除</button>{eraseOpen && <div><p>所有するすべての住まい・製品・お手入れ・履歴を削除し、参加中の家族共有から退出します。あなたが所有する住まいの記録は、参加家族も使えなくなります。元に戻せません。必要な記録は先にバックアップしてください。</p><p>他のアプリでも使う可能性があるログインアカウントと、端末内の記録は残ります。</p><label><span>確認のため「削除」と入力</span><input value={eraseText} onChange={event => setEraseText(event.target.value)} autoComplete="off" /></label><button className="secondary-button" disabled={busy || disabled || eraseText !== "削除"} onClick={async () => {
           if (!window.confirm("おうちメンテのクラウド記録をすべて削除しますか？元に戻せません。")) return;
           setBusy(true); setMessage("");
           try {
