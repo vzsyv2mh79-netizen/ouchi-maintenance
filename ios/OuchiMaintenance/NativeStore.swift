@@ -45,6 +45,7 @@ struct FormalChannelSelection {
     /// Prepared shared lifecycle coordinator. Remains nil until verified
     /// enrollment/device configuration is wired; no release registration starts.
     private var appAttestRegistrationCoordinator: AppAttestRegistrationCoordinator?
+    private var appAttestCoordinatorConfiguration: AppAttestRegistrationConfiguration?
     private func managedExport(_ bytes: Data, account: UUID, suffix: String) throws -> URL {
         let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask,
             appropriateFor: nil, create: true)
@@ -160,6 +161,7 @@ struct FormalChannelSelection {
             guard matches() else { return false }
             generation += 1
             appAttestRegistrationCoordinator = nil
+            appAttestCoordinatorConfiguration = nil
             snapshotAccount = nil; signedIn = false
             billingAccount = nil; purchaseAccount = nil
             developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
@@ -572,6 +574,7 @@ struct FormalChannelSelection {
         }
         generation += 1
         appAttestRegistrationCoordinator = nil
+        appAttestCoordinatorConfiguration = nil
         developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
         var localCleanupFailed = false
         do { try snapshotStorage?.write(nil) }
@@ -830,6 +833,55 @@ struct FormalChannelSelection {
     /// Preferences only; never registers or dispatches a notification.
     var explicitEnrollmentConfigured: Bool {
         api != nil && Bundle.main.infoDictionary?["OUCHI_EXPLICIT_ENROLLMENT_ENABLED"] as? Bool == true
+    }
+    /// Prepared entry only; the shipped plist has registration disabled.
+    /// This result never turns on a subscription or substitutes for rights API.
+    var appAttestRegistrationConfigured: Bool {
+        api != nil && (try? AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier)) != nil
+    }
+    func prepareAppAttestRegistration() async -> AppAttestRegistrationPreparation? {
+        guard !busy, signedIn, api != nil, let session, let account = snapshotAccount else { return nil }
+        let expected = generation, revision = accountBindingRevision
+        do {
+            guard let configuration = try AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier),
+                  let bundle = Bundle.main.bundleIdentifier else { return nil }
+            busy = true
+            defer { if expected == generation { busy = false } }
+            let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+            let current: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
+                guard let self, await self.signedIn, await self.snapshotAccount == account else { return nil }
+                guard let context = try? await provider.load(expectedAccount: account),
+                      await self.signedIn, await self.snapshotAccount == account else { return nil }
+                return context
+            }
+            let captured = try await provider.load(expectedAccount: account)
+            guard expected == generation, revision == accountBindingRevision, signedIn, snapshotAccount == account else { return nil }
+            if let existing = appAttestRegistrationCoordinator {
+                guard appAttestCoordinatorConfiguration == configuration else { throw CloudError.unavailable }
+                let result = try await existing.register(captured: captured)
+                guard expected == generation, revision == accountBindingRevision, signedIn else { return nil }
+                return result
+            }
+            let keys = try AppAttestEncryptionKeyStorage(namespace: bundle)
+            let references = try AppAttestKeyReferenceStorage(namespace: bundle)
+            let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { account, epoch in
+                guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }
+                return key
+            })
+            let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
+                references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds)
+            appAttestRegistrationCoordinator = coordinator; appAttestCoordinatorConfiguration = configuration
+            let result = try await coordinator.register(captured: captured)
+            guard expected == generation, revision == accountBindingRevision, signedIn else { return nil }
+            return result
+        } catch is CancellationError { return nil }
+        catch {
+            if expected == generation, revision == accountBindingRevision, signedIn {
+                message = "端末の確認を完了できませんでした。通信状態を確認してください。改善しない場合はサポートへお問い合わせください。"
+            }
+            return nil
+        }
     }
     func confirmExplicitEnrollment(password: String? = nil) async -> EnrollmentState? {
         guard !busy, signedIn, explicitEnrollmentConfigured, let session else { return nil }

@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>OUCHI_APP_ATTEST_REGISTRATION_ENABLED</key>
+	<false/>
+	<key>OUCHI_APP_ATTEST_APP_ID</key>
+	<string></string>
+	<key>OUCHI_APP_ATTEST_ENVIRONMENT</key>
+	<string></string>
+	<key>OUCHI_APP_ATTEST_REFERENCE_RETENTION_SECONDS</key>
+	<integer>0</integer>
 	<key>OUCHI_NATIVE_PUSH_ENABLED</key>
 	<false/>
 	<key>OUCHI_APNS_ENVIRONMENT</key>
