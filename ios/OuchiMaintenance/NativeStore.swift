@@ -14,6 +14,7 @@ import OuchiCore
     private var snapshotAccount: UUID?
     private var snapshotStorage: HouseholdSnapshotStorage?
     private var pendingAttachmentStorage: PendingAttachmentStorage?
+    private var pendingRemovalStorage: PendingAttachmentRemovalStorage?
     @Published private(set) var signedIn = false { didSet { if !signedIn { accountEmail = nil } } }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
@@ -96,7 +97,7 @@ import OuchiCore
         if let address, let url = URL(string: address), let key,
            let config = try? CloudConfiguration(url: url, publishableKey: key, isolatedDevelopment: isolatedDevelopment) {
             isolatedDevelopmentEnabled = isolatedDevelopment
-            if isolatedDevelopment { pendingAttachmentStorage = PendingAttachmentStorage() }
+            if isolatedDevelopment { pendingAttachmentStorage = PendingAttachmentStorage(); pendingRemovalStorage = PendingAttachmentRemovalStorage() }
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
@@ -239,17 +240,40 @@ import OuchiCore
             attachmentExportURL = url
         } catch { if expected == generation, exportGeneration == attachmentExportGeneration { message = "添付を取得できませんでした。登録状態と住まいへのアクセスを確認してください。" } }
     }
+    func resumeDevelopmentAttachmentRemoval() async -> PendingAttachmentRemoval? {
+        guard developmentLifecycleConfigured, let session, let storage = pendingRemovalStorage else { return nil }
+        let expected = generation
+        do {
+            let credentials = try await session.credentials()
+            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id else { return nil }
+            return try storage.read(account: binding.account, epoch: binding.epoch)
+        } catch {
+            if expected == generation { message = "確認待ちの削除を読み込めませんでした。アカウントと通信状態を確認してください。" }
+            return nil
+        }
+    }
     func removeDevelopmentAttachment(_ attachment: UUID, product: UUID, confirmed: Bool) async -> Bool {
-        guard developmentLifecycleConfigured, confirmed, !busy, let session,
-              household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
+        guard developmentLifecycleConfigured, confirmed, !busy, let session else { return false }
         let expected = generation, home = homeID
         busy = true; message = nil
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
+            let binding = try await DevelopmentAttachmentAPI().binding(token: credentials.access_token)
+            guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id,
+                  let storage = pendingRemovalStorage else { return false }
+            let pending = try PendingAttachmentRemoval(account: binding.account, epoch: binding.epoch, product: product, id: attachment)
+            if let existing = try storage.read(account: binding.account, epoch: binding.epoch) {
+                guard existing.id == attachment, existing.product == product else { throw CloudError.invalidInput }
+            } else {
+                guard household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { throw CloudError.invalidInput }
+            }
+            try storage.write(pending)
             try await DevelopmentAttachmentAPI().remove(attachment: attachment, token: credentials.access_token, confirmed: true)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
+            try pendingRemovalStorage?.write(nil)
             clearDevelopmentAttachmentExport()
             message = "テスト用ファイルの消去と容量の解放を確認しました。"
             return true
@@ -376,7 +400,7 @@ import OuchiCore
             } catch { return false }
         }
         var pendingRemoved = true
-        do { try pendingAttachmentStorage?.write(nil) } catch { pendingRemoved = false }
+        do { try pendingAttachmentStorage?.write(nil); try pendingRemovalStorage?.write(nil) } catch { pendingRemoved = false }
         let backupRemoved = remove(exportURL)
         let calendarRemoved = remove(calendarURL)
         let attachmentRemoved = remove(attachmentExportURL)

@@ -102,3 +102,33 @@ struct PendingAttachmentStorage {
         try location.setResourceValues(attributes)
     }
 }
+
+struct PendingAttachmentRemovalStorage {
+    private let file: URL
+    init(directory: URL? = nil) {
+        let root = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ouchi-isolated-attachment-retry", isDirectory: true)
+        file = root.appendingPathComponent("pending-removal.json")
+    }
+    func read(account: UUID, epoch: UUID) throws -> PendingAttachmentRemoval? {
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+        guard size <= 4096 else { throw CloudError.invalidInput }
+        return try PendingAttachmentRemoval.decode(Data(contentsOf: file), account: account, epoch: epoch)
+    }
+    func write(_ value: PendingAttachmentRemoval?) throws {
+        guard let value else {
+            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+            return
+        }
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        #if os(iOS)
+        let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        let options: Data.WritingOptions = [.atomic]
+        #endif
+        try value.encode().write(to: file, options: options)
+        var location = file; var attributes = URLResourceValues(); attributes.isExcludedFromBackup = true
+        try location.setResourceValues(attributes)
+    }
+}

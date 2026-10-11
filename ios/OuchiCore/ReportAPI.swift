@@ -420,3 +420,23 @@ public struct PendingAttachment: Codable, Sendable {
         return value
     }
 }
+
+/// Identifier-only recovery receipt; contains no credentials or file contents.
+public struct PendingAttachmentRemoval: Codable, Sendable {
+    public let account: UUID
+    public let epoch: UUID
+    public let product: UUID
+    public let id: UUID
+    public init(account: UUID, epoch: UUID, product: UUID, id: UUID) throws {
+        let nilID = "00000000-0000-0000-0000-000000000000"
+        guard account != epoch, [account, epoch, product, id].allSatisfy({ $0.uuidString != nilID }) else { throw CloudError.invalidInput }
+        self.account = account; self.epoch = epoch; self.product = product; self.id = id
+    }
+    public func encode() throws -> Data { try JSONEncoder().encode(self) }
+    public static func decode(_ bytes: Data, account: UUID, epoch: UUID) throws -> Self {
+        guard bytes.count <= 4096 else { throw CloudError.invalidInput }
+        let value = try JSONDecoder().decode(Self.self, from: bytes)
+        guard value.account == account, value.epoch == epoch else { throw CloudError.authenticationRequired }
+        return try Self(account: value.account, epoch: value.epoch, product: value.product, id: value.id)
+    }
+}

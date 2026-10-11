@@ -41,6 +41,28 @@ import OuchiCore
         try pendingStorage.write(nil)
         let cleared = try pendingStorage.read(account: account, epoch: epoch); precondition(cleared == nil)
         try pendingStorage.write(nil)
+        let removalDirectory = folder.appendingPathComponent("removal-test")
+        let removalStorage = PendingAttachmentRemovalStorage(directory: removalDirectory)
+        let removal = try PendingAttachmentRemoval(account: account, epoch: epoch, product: UUID(), id: UUID())
+        try removalStorage.write(removal)
+        let recoveredRemoval = try removalStorage.read(account: account, epoch: epoch)
+        precondition(recoveredRemoval?.id == removal.id && recoveredRemoval?.product == removal.product)
+        for scope in [(UUID(), epoch), (account, UUID())] {
+            do { _ = try removalStorage.read(account: scope.0, epoch: scope.1); fatalError("foreign removal recovered") }
+            catch { precondition(error as? CloudError == .authenticationRequired) }
+        }
+        let removalFile = removalDirectory.appendingPathComponent("pending-removal.json")
+        let receipt = try Data(contentsOf: removalFile)
+        try Data(count: 4097).write(to: removalFile)
+        do { _ = try removalStorage.read(account: account, epoch: epoch); fatalError("oversized removal recovered") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        try receipt.write(to: removalFile)
+        let stillPending = try removalStorage.read(account: account, epoch: epoch)
+        precondition(stillPending?.id == removal.id)
+        try removalStorage.write(nil)
+        let noRemoval = try removalStorage.read(account: account, epoch: epoch)
+        precondition(noRemoval == nil)
+        try removalStorage.write(nil)
         print("SnapshotStorageSmoke PASS: actual temporary file roundtrip, other-account refusal, deletion and repeat deletion. No real records. iOS file protection/backup exclusion requires device verification.")
     }
 }

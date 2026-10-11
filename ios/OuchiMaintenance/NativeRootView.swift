@@ -879,6 +879,8 @@ private struct DevelopmentAttachmentView: View {
     @State private var confirmUpload = false
     @State private var confirmRemoval = false
     @State private var removalID: UUID?
+    @State private var pendingRemoval: PendingAttachmentRemoval?
+    @State private var confirmRetryRemoval = false
     @State private var savedAttachments: [DevelopmentAttachmentAPI.StoredAttachment] = []
     @State private var nextAttachment: UUID?
     @State private var listingLoading = false
@@ -901,6 +903,13 @@ private struct DevelopmentAttachmentView: View {
     @State private var status: String?
     var body: some View {
         Form {
+            if pendingRemoval != nil {
+                Section("確認待ちの削除") {
+                    Text("前回の削除結果を受け取れていません。同じファイルの削除を再確認できます。製品が削除されていても再確認できます。")
+                    Button("削除結果を再確認", role: .destructive) { confirmRetryRemoval = true }
+                        .disabled(store.busy)
+                }
+            }
             Section("独立したテスト環境専用") {
                 Text("実際の写真や個人情報を含む保証書を使わず、テスト用ファイルで確認してください。公開版の保管機能はまだ有効にしていません。")
                 Text("1ファイル5MiB、合計100MiB・100ファイルまで。JPEG・PNG・PDFに対応します。")
@@ -982,14 +991,30 @@ private struct DevelopmentAttachmentView: View {
             }
             Button("キャンセル", role: .cancel) {}
         }
+        .confirmationDialog("確認待ちのファイル削除を再確認しますか？", isPresented: $confirmRetryRemoval, titleVisibility: .visible) {
+            Button("同じファイルの削除を再確認", role: .destructive) {
+                guard let pending = pendingRemoval else { return }
+                let home = store.homeID, expected = listingGeneration
+                Task {
+                    guard await store.removeDevelopmentAttachment(pending.id, product: pending.product, confirmed: true),
+                          !Task.isCancelled, home == store.homeID, expected == listingGeneration else { return }
+                    pendingRemoval = nil
+                    await loadAttachmentPage(reset: true)
+                    attachmentUsage = await store.developmentAttachmentUsage()
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: { Text("未完了なら削除を再実行します。削除済みなら結果を確認します。元に戻せません。") }
         .confirmationDialog("テスト用ファイルを削除しますか？", isPresented: $confirmRemoval, titleVisibility: .visible) {
             Button("ファイルを削除", role: .destructive) {
                 guard let id = removalID, let product = UUID(uuidString: productID) else { return }
                 let selected = productID, home = store.homeID, expected = listingGeneration
                 removalID = nil
                 Task {
-                    guard await store.removeDevelopmentAttachment(id, product: product, confirmed: true),
-                          !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration else { return }
+                    let removed = await store.removeDevelopmentAttachment(id, product: product, confirmed: true)
+                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration else { return }
+                    pendingRemoval = await store.resumeDevelopmentAttachmentRemoval()
+                    guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, removed else { return }
                     await loadAttachmentPage(reset: true)
                     attachmentUsage = await store.developmentAttachmentUsage()
                 }
@@ -997,8 +1022,13 @@ private struct DevelopmentAttachmentView: View {
             Button("キャンセル", role: .cancel) { removalID = nil }
         } message: { Text("元に戻せません。保存した人か住まいの所有者が削除できます。購入が終了していても削除できます。") }
         .task(id: productID) {
-            confirmRemoval = false; removalID = nil
-            listingGeneration += 1; listingLoading = false; nextAttachment = nil
+            confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil
+            listingGeneration += 1
+            let expected = listingGeneration, selected = productID, home = store.homeID
+            let recoveredRemoval = await store.resumeDevelopmentAttachmentRemoval()
+            guard !Task.isCancelled, expected == listingGeneration, selected == productID, home == store.homeID else { return }
+            pendingRemoval = recoveredRemoval
+            listingLoading = false; nextAttachment = nil
             savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
                 guard !Task.isCancelled else { return }
@@ -1021,6 +1051,6 @@ private struct DevelopmentAttachmentView: View {
             confirmRemoval = false; removalID = nil
             status = "住まいを変更しました。添付先の製品を確認してください。"
         }
-        .onDisappear { listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+        .onDisappear { listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }

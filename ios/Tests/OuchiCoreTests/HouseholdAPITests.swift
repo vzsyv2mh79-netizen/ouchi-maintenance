@@ -4,6 +4,18 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    func testPendingRemovalRefusesForeignScopeInvalidIdentifiersAndOversizedData() throws {
+        let account = UUID(), epoch = UUID(), product = UUID(), id = UUID()
+        let value = try PendingAttachmentRemoval(account: account, epoch: epoch, product: product, id: id)
+        let bytes = try value.encode()
+        XCTAssertEqual(try PendingAttachmentRemoval.decode(bytes, account: account, epoch: epoch).id, id)
+        XCTAssertThrowsError(try PendingAttachmentRemoval.decode(bytes, account: UUID(), epoch: epoch))
+        XCTAssertThrowsError(try PendingAttachmentRemoval.decode(bytes, account: account, epoch: UUID()))
+        XCTAssertThrowsError(try PendingAttachmentRemoval.decode(Data(count: 4097), account: account, epoch: epoch))
+        XCTAssertThrowsError(try PendingAttachmentRemoval.decode(Data("{}".utf8), account: account, epoch: epoch))
+        XCTAssertThrowsError(try PendingAttachmentRemoval(account: account, epoch: account, product: product, id: id))
+        XCTAssertThrowsError(try PendingAttachmentRemoval(account: account, epoch: epoch, product: product, id: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!))
+    }
     private func config() throws -> CloudConfiguration {
         try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!, publishableKey: "sb_publishable_synthetic_test_only")
     }
