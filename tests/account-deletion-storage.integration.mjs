@@ -497,9 +497,17 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',args)).data,true);
   assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',args)).data,true);
   console.log('Reminder settings actual deletion lease cleanup verified; repeat confirmed absence.');
+  const deletionConsent=randomUUID(),foreignConsent=randomUUID();
+  recoverySql(`insert into maintenance_private.enrollment_consents values('${deletionConsent}','${userID}','${randomUUID()}','${randomUUID()}','${epoch.data}',now()+interval '5 minutes'),('${foreignConsent}','${otherSignup.data.user.id}','${randomUUID()}','${randomUUID()}','${randomUUID()}',now()+interval '5 minutes');`);
+  assert.ok((await user.rpc('erase_maintenance_deletion_enrollment_consents',args)).error);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',{...args,target_lease:randomUUID()})).data,false);
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${deletionConsent}';`).trim(),'0');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${foreignConsent}';`).trim(),'1');
+  assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',args)).data,true);
+  console.log('Actual deletion consent erasure: target closed epoch removed after confirmed household/file erasure, foreign consent/shared Auth preserved, wrong lease/browser denied, final account status still pending.');
   console.log('Actual deletion inventory minimization: confirmed object paths removed only after record erasure, pending final identity stage never claims complete.');
   // Separate synthetic user: prove the strict guard after its identity rows are
   // erased, without revoking or deleting shared Auth and without reenrollment.
