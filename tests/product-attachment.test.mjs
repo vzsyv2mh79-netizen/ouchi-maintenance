@@ -16,3 +16,16 @@ test('attachment reader measures bytes and refuses spoofed type, length and stre
  assert.equal(cancelled,true);
  const boundary=new Uint8Array(attachmentLimits.fileBytes);boundary.set(png);assert.equal((await readProductAttachment(request(boundary,'image/png'))).size,attachmentLimits.fileBytes);
 });
+
+test('incoming attachment reader cancels a stalled stream and a cancelled request before accepting bytes',async()=>{
+ const png=new Uint8Array([137,80,78,71,13,10,26,10]);
+ let deadlineCancelled=false;
+ const stalled=new ReadableStream({start(c){c.enqueue(png);},cancel(){deadlineCancelled=true;}});
+ const keepAlive=setTimeout(()=>{},200);
+ try{await assert.rejects(()=>readProductAttachment(new Request('https://example.invalid/attachments',{method:'POST',headers:{'content-type':'image/png'},body:stalled,duplex:'half'}),30),e=>e.name==='TimeoutError');assert.equal(deadlineCancelled,true);}finally{clearTimeout(keepAlive);}
+ let callerCancelled=false;const controller=new AbortController();
+ const stream=new ReadableStream({start(c){c.enqueue(png);},cancel(){callerCancelled=true;}});
+ const pending=readProductAttachment(new Request('https://example.invalid/attachments',{method:'POST',headers:{'content-type':'image/png'},body:stream,duplex:'half',signal:controller.signal}));controller.abort();
+ await assert.rejects(()=>pending,e=>e.name==='AbortError');assert.equal(callerCancelled,true);
+ await assert.rejects(()=>readProductAttachment(request(png,'image/png'),0),/Invalid/);
+});

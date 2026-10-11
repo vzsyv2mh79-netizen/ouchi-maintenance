@@ -21,3 +21,9 @@ Local database tests cover complete two-page traversal, reserved/unverified file
 ## Response-time read check
 
 The isolated development download route snapshots validated metadata, reads/verifies the bytes, then repeats the server-only metadata lookup immediately before returning. Missing authorization returns404; changed user/epoch/size/MIME/hash, RPC failure or request cancellation returns503 without a file response. Route tests inject membership removal, enrollment change, in-place metadata mutation, authorization outage and cancellation while Storage is awaited. Typecheck and targeted lint pass. This guards the response boundary; it cannot recall bytes already delivered and does not prove Production streaming, upload/deletion atomicity, bounded SDK download transport or actual native UI.
+
+## Bounded isolated transport
+
+The development route injects server-only transport into Auth, RPC and Storage calls: each call has a10-second deadline, response bytes are buffered and capped at5 MiB before SDK consumption, redirects are refused, and request cancellation plus a30-second common network deadline are forwarded. Incoming file reading has a15-second deadline and cancels its stream on deadline/caller abort. Received byte counting also covers unknown/chunked length; wire encoding and size are replaced for the decoded response.
+
+Actual local HTTP tests exercise exact byte boundary, stalled headers/body, declared and streamed overflow, redirect refusal and cancellation; the real Supabase Storage SDK reports failure without a Blob. Local stream tests exercise stalled incoming body and caller cancellation. Timeout on a write is ambiguous and retains its reservation; it is never proof of rollback or permission to release quota. These checks still do not prove the remote Storage write/deletion race, native paid feature UI or Production deployment.

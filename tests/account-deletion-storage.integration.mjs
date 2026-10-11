@@ -6,6 +6,7 @@ const {handleAccountDeletionProgress}=await compiled('lib/account-deletion-progr
 const {deletionProgressDependencies}=await compiled('lib/account-deletion-progress-store.ts');
 const {runAccountDeletion}=await compiled('lib/account-deletion-worker.ts');
 const {dispatchRegisteredSandboxPush}=await compiled('lib/native-push-dispatch.ts');
+const {createAttachmentFetch}=await compiled('lib/attachment-fetch.ts');
 const {storedNativePushDispatch}=await compiled('lib/native-push-dispatch-store.ts');
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
 const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(workerStoreCode).toString('base64'));
@@ -19,7 +20,7 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const upstream=proxyRequest((auth?'http://127.0.0.1:9999':rest?'http://127.0.0.1:3002':'http://127.0.0.1:5002')+req.url.slice(storage?11:8),{method:req.method,headers:req.headers},r=>{res.writeHead(r.statusCode??502,r.headers);r.pipe(res);});upstream.on('error',()=>res.writeHead(502).end());req.pipe(upstream);
  });await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
  try{
-  const options={auth:{persistSession:false,autoRefreshToken:false}},origin='http://127.0.0.1:54321';
+  const options={auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch()}},origin='http://127.0.0.1:54321';
   const syntheticPassword='Synthetic-'+randomUUID();
   const user=createClient(origin,'synthetic-public-key',options),signup=await user.auth.signUp({email:'deletion-'+randomUUID()+'@example.invalid',password:syntheticPassword});assert.equal(signup.error,null);assert.ok(signup.data.session);
   const userID=signup.data.user.id,claims=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url'));

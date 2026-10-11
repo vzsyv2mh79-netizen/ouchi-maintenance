@@ -1,4 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
+import {createAttachmentFetch} from '@/lib/attachment-fetch';
 import {uploadProductAttachment,type AttachmentReservation} from '@/lib/attachment-upload';
 import {readProductAttachment,attachmentLimits} from '@/lib/product-attachment';
 import {sessionAfterAuthVerification} from '@/lib/verified-app-session';
@@ -10,7 +11,7 @@ export async function POST(request:Request){
  const url=process.env.OUCHI_ATTACHMENT_TEST_URL,key=process.env.OUCHI_ATTACHMENT_TEST_SERVICE_KEY;
  // Dedicated disposable loopback services only, never a shared project/Preview.
  if(process.env.NODE_ENV!=='development'||process.env.OUCHI_ATTACHMENT_TEST_MODE!=='true'||url!=='http://127.0.0.1:54321'||!key)return Response.json({error:'Local isolated test only'},{status:503,headers});
- const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(AbortSignal.any([request.signal,AbortSignal.timeout(30000)]))}});
  const bucket=db.storage.from('ouchi-product-attachments-test');
  const args=new URL(request.url).searchParams;
  const values=(r:AttachmentReservation)=>({target_user:r.identity.user,verified_session:r.identity.session,expected_epoch:r.identity.epoch,attachment_id:r.id});
@@ -63,7 +64,7 @@ export async function GET(request:Request){
  if((!attachment&&!product&&!usage&&!binding)||(binding&&(attachment||product||usage))||(usage&&(attachment||product))||(attachment&&product)||(attachment&&!uuid.test(attachment))||(product&&!uuid.test(product)))return Response.json({error:'添付を確認してください。'},{status:400,headers});
  try{
   const header=request.headers.get('authorization');if(!header?.startsWith('Bearer ')||header.length>16384||/\s/.test(header.slice(7)))return Response.json({error:'ログインしてください。'},{status:401,headers});
-  const token=header.slice(7),db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  const token=header.slice(7),db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(AbortSignal.any([request.signal,AbortSignal.timeout(30000)]))}});
   const verified=await db.auth.getUser(token);if(verified.error||!verified.data.user)return Response.json({error:'ログインを確認できません。'},{status:401,headers});
   const user=verified.data.user.id,identity=sessionAfterAuthVerification(token,user);if(!identity)return Response.json({error:'登録を確認できません。'},{status:401,headers});
   const epoch=await purchaseAccountAfterAuthVerification(token,user,async(target,session)=>{const result=await db.rpc('current_maintenance_purchase_account',{target_user:target,verified_session:session});if(result.error)throw new Error('Binding unavailable');return result.data;});
