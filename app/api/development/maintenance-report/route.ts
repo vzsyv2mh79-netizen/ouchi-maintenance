@@ -1,3 +1,4 @@
+import { createBillingFetch } from '@/lib/billing-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { billingConfiguration, billingDatabase, verifiedPurchaseAccount, ledgerEntitlementAfterAuth } from '@/lib/billing-server';
 import { entitlementFromTransactions, type VerifiedTransaction } from '@/lib/billing';
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const headers = { 'Cache-Control': 'no-store' };
   const config = billingConfiguration();
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (process.env.VERCEL_ENV === 'production' || !config || process.env.OUCHI_REPORT_TEST_MODE !== 'true' || !publishableKey?.startsWith('sb_publishable_')) {
+  if (process.env.VERCEL_ENV === 'production' || !config || config.environment !== 'Sandbox' || process.env.OUCHI_REPORT_TEST_MODE !== 'true' || !publishableKey?.startsWith('sb_publishable_')) {
     return Response.json({ error: 'レポートは準備中です。' }, { status: 503, headers });
   }
   const token = request.headers.get('authorization');
@@ -17,7 +18,8 @@ export async function GET(request: Request) {
   const homeId = new URL(request.url).searchParams.get('homeId');
   if (!homeId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(homeId)) return Response.json({ error: '住まいを選択してください。' }, { status: 400, headers });
   try {
-    const db = billingDatabase(config);
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(30000)]);
+    const db = billingDatabase(config, signal);
     const { data: { user }, error } = await db.auth.getUser(token.slice(7));
     if (error || !user) return Response.json({ error: 'ログインを確認できません。' }, { status: 401, headers });
     const purchaseAccount = await verifiedPurchaseAccount(db, token.slice(7), user.id);
@@ -34,13 +36,13 @@ export async function GET(request: Request) {
     }
     if (!premium) return Response.json({ error: 'テスト用の有料利用権が必要です。' }, { status: 403, headers });
     // Household reads use the caller JWT and existing RLS, never service privileges.
-    const scoped = createClient(config.url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: token } } });
+    const scoped = createClient(config.url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: token }, fetch: createBillingFetch(10000, signal) } });
     const loaded = await scoped.rpc('load_household');
     if (loaded.error) throw new Error('Household unavailable');
     const data = validateData(loaded.data);
     if (!data.homes.some(home => home.id.toLowerCase() === homeId.toLowerCase())) return Response.json({ error: '住まいを確認できません。' }, { status: 404, headers });
     const current = await db.auth.getUser(token.slice(7));
-    if (request.signal.aborted || current.error || current.data.user?.id !== user.id ||
+    if (signal.aborted || current.error || current.data.user?.id !== user.id ||
         await verifiedPurchaseAccount(db, token.slice(7), user.id) !== purchaseAccount) {
       return Response.json({ error: 'ログイン状態が変わりました。' }, { status: 403, headers });
     }
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
       const currentRights = await ledgerEntitlementAfterAuth(db, token.slice(7), user.id, purchaseAccount, 'Sandbox');
       if (currentRights.plan !== 'premium') return Response.json({ error: 'テスト用利用権が終了しました。' }, { status: 403, headers });
     }
-    if (request.signal.aborted) throw new Error('Request cancelled');
+    if (signal.aborted) throw new Error('Request cancelled');
     return Response.json({ environment: 'Sandbox', salesEnabled: false, report: maintenanceReport(data, data.homes.find(home => home.id.toLowerCase() === homeId.toLowerCase())!.id, Date.now()) }, { headers });
   } catch {
     return Response.json({ error: 'レポートを作成できません。時間をおいてお試しください。' }, { status: 503, headers });

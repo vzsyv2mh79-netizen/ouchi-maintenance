@@ -10,6 +10,12 @@ test('actual local HTTP preserves requests and aborts stalled headers/body or ca
   const response=await create(100)(origin+'/body');await assert.rejects(()=>response.text(),error=>error.name==='AbortError'||error.name==='TimeoutError');
   const c=new AbortController();const pending=create(1000)(origin+'/hang',{signal:c.signal});c.abort();await assert.rejects(()=>pending,error=>error.name==='AbortError');
   const cancelled=new AbortController();cancelled.abort();await assert.rejects(()=>create(1000)(new Request(origin+'/ok',{signal:cancelled.signal})),error=>error.name==='AbortError');
+  const routeCancel=new AbortController();
+  const routePending=create(1000,routeCancel.signal)(origin+'/hang');routeCancel.abort();
+  await assert.rejects(()=>routePending,error=>error.name==='AbortError');
+  const bodyCancel=new AbortController();
+  const bodyResponse=await create(1000,bodyCancel.signal)(origin+'/body');bodyCancel.abort();
+  await assert.rejects(()=>bodyResponse.text(),error=>error.name==='AbortError');
   assert.throws(()=>create(0),/Invalid/);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

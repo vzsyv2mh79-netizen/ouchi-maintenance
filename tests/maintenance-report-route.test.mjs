@@ -13,19 +13,23 @@ export function billingDatabase(){return {auth:{getUser:async()=>({data:{user:{i
 export function createClient(url,key,options){globalThis.reportHarness.client={url,key,options};return {rpc:async()=>{globalThis.reportHarness.loads++;return {data:globalThis.reportHarness.household,error:null};}};}`);
 const code=compile('app/api/development/maintenance-report/route.ts')
  .replaceAll("'@supabase/supabase-js'",JSON.stringify(stub)).replaceAll("'@/lib/billing-server'",JSON.stringify(stub))
+ .replaceAll("'@/lib/billing-fetch'",JSON.stringify(url(compile('lib/billing-fetch.ts'))))
  .replaceAll("'@/lib/billing'",JSON.stringify(url(compile('lib/billing.ts'))))
  .replaceAll("'@/lib/backup'",JSON.stringify(url(compile('lib/backup.ts'))))
  .replaceAll("'@/lib/maintenance-report'",JSON.stringify(url(compile('lib/maintenance-report.ts'))));
 const {GET}=await import(url(code));
 test('actual route refuses production, unverified/free/expired/refunded/tip accounts and scopes household reads to caller JWT',async()=>{
  const saved={VERCEL_ENV:process.env.VERCEL_ENV,OUCHI_REPORT_TEST_MODE:process.env.OUCHI_REPORT_TEST_MODE,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY};
- globalThis.reportHarness={account:purchaseAccount,config:{url:'https://example.supabase.co',key:'synthetic_service'},rows:[],loads:0,household:{homes:[{id:homeId,name:'自宅',kind:'home'}],products:[],tasks:[],history:[]}};
+ globalThis.reportHarness={account:purchaseAccount,config:{url:'https://example.supabase.co',key:'synthetic_service',environment:'Sandbox'},rows:[],loads:0,household:{homes:[{id:homeId,name:'自宅',kind:'home'}],products:[],tasks:[],history:[]}};
  const h=globalThis.reportHarness;
  const request=id=>new Request('https://preview.example/api/development/maintenance-report?homeId='+id,{headers:{authorization:'Bearer synthetic_user_jwt'}});
  try {
   process.env.OUCHI_REPORT_TEST_MODE='true';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='sb_publishable_synthetic_only';process.env.VERCEL_ENV='production';
   assert.equal((await GET(request(homeId))).status,503);assert.equal(h.loads,0);
   process.env.VERCEL_ENV='preview';
+  h.config.environment='Production';assert.equal((await GET(request(homeId))).status,503);assert.equal(h.loads,0);
+  h.config.environment='Sandbox';
+
   assert.equal((await GET(request(homeId))).status,403);assert.equal(h.loads,0);
   const now=Date.now(),payload={transactionId:'1',originalTransactionId:'1',productId:'ouchi.premium.monthly',accountToken:purchaseAccount,environment:'Sandbox',signedAt:now,purchasedAt:now-1000,expiresAt:now+60000};
   for(const patch of [{expiresAt:now-1},{revokedAt:now-1},{productId:'ouchi.tip.small'},{accountToken:homeId},{accountToken:userId},{environment:'Production'}]) {
