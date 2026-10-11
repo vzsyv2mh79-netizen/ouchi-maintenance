@@ -8,6 +8,8 @@ const {runAccountDeletion}=await compiled('lib/account-deletion-worker.ts');
 const {dispatchRegisteredSandboxPush}=await compiled('lib/native-push-dispatch.ts');
 const {createAttachmentFetch}=await compiled('lib/attachment-fetch.ts');
 const {storedNativePushDispatch}=await compiled('lib/native-push-dispatch-store.ts');
+const {runNativePushJob}=await compiled('lib/native-push-job-worker.ts');
+const {storedNativePushJob}=await compiled('lib/native-push-job-store.ts');
 const attachmentModules=new Map();
 function attachmentModule(name){
  if(attachmentModules.has(name))return attachmentModules.get(name);
@@ -60,6 +62,25 @@ test('actual private Storage removal verifies absence and persists exact leased 
   let syntheticSends=0;const dispatchDeps=storedNativePushDispatch(admin,async input=>{syntheticSends++;assert.equal(input.deviceToken,nativeArgs.token);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';});
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'accepted');assert.equal(syntheticSends,1);
   assert.ok((await user.rpc('read_maintenance_native_sandbox_destination',{registration_id:nativeRegistered.data})).error);
+  const nativeJob=randomUUID(),racingJob=randomUUID();
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{
+   input:`insert into maintenance_private.native_notification_jobs(id,device_id,due_at,state) values('${nativeJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending'),('${racingJob}','${nativeRegistered.data}',clock_timestamp()-interval '1 second','pending');`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  const jobDeps=storedNativePushJob(admin,(registration,signal)=>dispatchRegisteredSandboxPush(registration,1,Date.now()+1000,dispatchDeps,signal));
+  assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'recorded',outcome:'accepted'});
+  assert.deepEqual(await runNativePushJob(nativeJob,jobDeps),{status:'unclaimed'});assert.equal(syntheticSends,2);
+  const competing=await Promise.all([admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob}),admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob})]);
+  assert.ok(competing.every(result=>result.error===null));const leases=competing.map(result=>result.data).filter(Boolean);assert.equal(leases.length,1);
+  const racingLease=leases[0];
+  assert.equal((await admin.rpc('read_maintenance_native_push_job_claim',{target_job:racingJob,target_lease:racingLease})).data,nativeRegistered.data);
+  assert.equal((await admin.rpc('start_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease})).data,true);
+  assert.equal((await admin.rpc('finish_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease,outcome:'delivery-unknown'})).data,true);
+  assert.equal((await admin.rpc('claim_maintenance_native_push_job',{target_job:racingJob})).data,null);
+  for(const [name,args] of [
+   ['claim_maintenance_native_push_job',{target_job:racingJob}],
+   ['read_maintenance_native_push_job_claim',{target_job:racingJob,target_lease:racingLease}],
+   ['start_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease}],
+   ['finish_maintenance_native_push_job',{target_job:racingJob,target_lease:racingLease,outcome:'accepted'}],
+  ])assert.ok((await user.rpc(name,args)).error);
   const home=randomUUID(),product=randomUUID(),file=randomUUID();assert.equal((await user.from('homes').insert({id:home,owner_id:userID,name:'Synthetic deletion home',kind:'home'})).error,null);assert.equal((await user.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic deletion product'})).error,null);
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
@@ -194,7 +215,7 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const lateAbsenceArgs={...args,target_attachment:lateFile};assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);
   assert.ok((await admin.rpc('begin_maintenance_attachment_write',lateWriteArgs)).error);
   assert.ok((await admin.rpc('reserve_maintenance_attachment',{...reservation,attachment_id:randomUUID()})).error);assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});assert.equal((await admin.rpc('maintenance_attachment_usage',usageArgs)).data,null);
-  assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,1);
+  assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,2);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);const gonePush=await admin.from('maintenance_push_subscriptions').select('id').eq('id',pushID);assert.equal(gonePush.error,null);assert.deepEqual(gonePush.data,[]);
