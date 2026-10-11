@@ -66,6 +66,36 @@ import OuchiCore
         if stopped { remindersEnabled = false }
         return stopped
     }
+    /// Prepared receipt-bound cleanup; not enabled by the release UI.
+    /// Keeps the session and deletion binding so the authenticated receipt can be recovered.
+    func cleanupLocalDataForDeletion(receipt: AccountDeletionStatus, account: UUID, epoch: UUID, revision: UUID) async -> Bool {
+        let stillBound = { [self] in
+            signedIn && !busy && snapshotAccount == account && purchaseAccount == epoch && accountBindingRevision == revision
+        }
+        let result = await cleanAccountDeletionLocalData(
+            receipt: receipt, account: account, epoch: epoch, revision: revision,
+            stillBound: stillBound,
+            stopNotifications: { [self] in await stopLocalNotificationsForDeletion(account: account, epoch: epoch, revision: revision) },
+            eraseSnapshot: { [self] in
+                guard let snapshotStorage else { throw CloudError.unavailable }
+                try snapshotStorage.remove(account: account)
+            },
+            erasePendingUpload: { try PendingAttachmentStorage().remove(account: account, epoch: epoch) },
+            erasePendingRemoval: { try PendingAttachmentRemovalStorage().remove(account: account, epoch: epoch) },
+            eraseManagedExports: {
+                let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                try ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true)).removeFiles(account: account)
+            },
+            clearVisibleData: { [self] in
+                attachmentExportGeneration += 1; reportGeneration += 1
+                household = nil; showingOfflineSnapshot = false; homeID = ""; report = nil
+                exportURL = nil; calendarURL = nil; attachmentExportURL = nil; clearFamily()
+                sandboxEntitlement = nil; billingRecoveryStatus = nil; reminderSettings = nil
+                purchases.stopObserving(); purchases.persist = nil
+            }
+        )
+        return result == .complete
+    }
     @Published private(set) var remindersEnabled = false
     @Published private(set) var developmentRemoteNotificationsRegistered = false
     private var developmentRemoteRegistration: (id: UUID, account: UUID)?

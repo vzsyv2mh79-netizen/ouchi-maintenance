@@ -14,7 +14,7 @@ import OuchiCore
     let export: () -> Void
     // The adapter must check this immutable binding before every side effect.
     // A view's post-await check cannot undo cleanup applied to a new account.
-    let cleanupLocalNotifications: (_ expectedAccount: UUID, _ expectedEpoch: UUID, _ expectedRevision: UUID) async -> Bool
+    let cleanupLocalData: (_ expectedAccount: UUID, _ expectedEpoch: UUID, _ expectedRevision: UUID, _ receipt: AccountDeletionStatus) async -> Bool
     let flow: AccountDeletionFlow
     @State private var operation: Task<Void, Never>?
     private struct Binding: Hashable {
@@ -50,10 +50,10 @@ import OuchiCore
             if let receipt {
                 Section("申請状況") {
                     Text(statusText(receipt.state))
-                    if cleanupPending { Text("この端末の通知を停止できたか確認が必要です。") }
+                    if cleanupPending { Text("この端末の保存記録・一時ファイル・通知の消去を再確認してください。") }
                     Button("状況を確認") { startOperation { await recover() } }.disabled(busy || !ready)
                     if cleanupPending {
-                        Button("この端末の通知停止を再確認") { startOperation { await cleanNotifications() } }.disabled(busy)
+                        Button("端末のデータ消去を再確認") { startOperation { await cleanLocalData() } }.disabled(busy)
                     }
                 }
             } else {
@@ -112,9 +112,9 @@ import OuchiCore
             let recovered = try await flow.recover(token: bearer)
             guard expected == activeBinding, !Task.isCancelled else { return }
             receipt = recovered; message = nil
-            if recovered != nil {
+            if let recovered {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+                let cleaned = await cleanupLocalData(expected.account, expected.epoch, expected.revision, recovered)
                 guard expected == activeBinding, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
@@ -131,9 +131,9 @@ import OuchiCore
             guard expected == activeBinding, !Task.isCancelled else { return }
             receipt = accepted
             message = nil
-            if receipt != nil {
+            if let receipt {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+                let cleaned = await cleanupLocalData(expected.account, expected.epoch, expected.revision, receipt)
                 guard expected == activeBinding, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
@@ -149,11 +149,11 @@ import OuchiCore
             } catch {}
         }
     }
-    private func cleanNotifications() async {
-        guard !busy, receipt != nil, activeBinding == binding else { return }
+    private func cleanLocalData() async {
+        guard !busy, let receipt, activeBinding == binding else { return }
         let expected = binding
         busy = true; defer { if expected == activeBinding { busy = false } }
-        let cleaned = await cleanupLocalNotifications(expected.account, expected.epoch, expected.revision)
+        let cleaned = await cleanupLocalData(expected.account, expected.epoch, expected.revision, receipt)
         guard expected == activeBinding, !Task.isCancelled else { return }
         cleanupPending = !cleaned
     }

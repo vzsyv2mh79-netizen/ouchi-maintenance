@@ -186,7 +186,7 @@ private struct NativeSettings: View {
                                 epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!,
                                 bindingRevision: deletionPreviewRevision, available: false, deletionExplanation: "",
                                 token: { nil }, exportAvailable: false, export: {},
-                                cleanupLocalNotifications: { _, _, _ in false }, flow: deletionPreviewFlow)
+                                cleanupLocalData: { _, _, _, _ in false }, flow: deletionPreviewFlow)
                         }
 #endif
                         NavigationLink("iPhone通知の登録テスト") { DevelopmentRemoteNotificationView() }

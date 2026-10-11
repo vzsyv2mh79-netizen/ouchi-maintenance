@@ -190,6 +190,32 @@ local Supabase auth integration, rate limits, OAuth/MFA reauthentication,
 identity-erasure semantics and native deletion UI remain unfinished. This endpoint
 is a development cleanup experiment, NOT App Store-compliant account deletion.
 
-Xcode 27.0 build 27A266a and active developer directory were observed on this Mac.
-The Xcode initial Components screen has iOS 27.0 selected and Download & Install
-still available; iOS runtime download completion is not yet established.
+## Updated verification scope (2026-10-10)
+
+Xcode 27.0 (27A266a), iOS 27 simulator runtime and the native initial login UI
+were observed. Unsigned Release compilation passed; signing, TestFlight and
+App Store publication are not established. Previous Components-screen observations
+above must not be used as current installation status.
+
+Disposable GitHub CI GoTrue/PostgreSQL run 38043585350 passed real bearer
+verification, forged-signature and wrong-password rejection, same-user password
+reauthentication, temporary refresh-token revocation after local sign-out, and
+preservation/refresh of the original session. No shared project or real email
+was used. This supersedes the earlier statement that no real Auth call was made,
+but does not prove the production route or native deletion flow.
+
+A further integration connects real verified Auth identities/session IDs to
+isolated PGlite household/epoch fixtures. This is an experiment, not a deployable
+migration or a completed account-erasure feature. Production still requires
+independent app identity/PII erasure, consistent session enrollment at login and
+refresh, OAuth/MFA reauthentication, rate limiting, billing/storage/notification
+cleanup and retention rules, native/Web UI and end-to-end tests. Apple compliance
+remains unproven; do not label data cleanup as full account deletion.
+
+## Receipt-bound local cleanup preparation (2026-10-11)
+
+AccountDeletionLocalCleanup validates the receipt epoch and immutable account/epoch/revision binding before notification work, after awaiting notification cleanup, and before each file operation. Independent failures remain pending while other safe scoped stages can finish; a retry verifies absence. NativeStore prepares account-scoped snapshot removal, epoch-scoped pending upload/removal erasure, and discoverable account-owned managed export erasure. It clears visible household/report/family/file references and stops purchase observation. The Auth credential and app binding remain solely to recover progress; final Keychain erasure after server completion is still required. User-owned exported copies remain outside the app cleanup.
+
+The prepared deletion view accepts the immutable receipt in its local cleanup callback and describes all local cleanup, rather than notification stopping alone. The only current RootView caller is an unavailable DEBUG preview with a no-op cleanup callback. No release screen, real local erasure, production worker or scheduler is enabled. The NativeStore adapter is prepared but not called by that preview.
+
+Fresh smoke tests use actual scoped snapshot/pending/export storage adapters in a synthetic temporary directory: wrong receipt epoch and changed binding are refused, partial cleanup stays pending, notification failure is retryable, and another account export is retained. NativeStore is typechecked; this is not a test of actual owner data, device file protection, Keychain erasure, real notifications or full account deletion. Identity/transaction retention finalization and the completion worker remain mandatory.

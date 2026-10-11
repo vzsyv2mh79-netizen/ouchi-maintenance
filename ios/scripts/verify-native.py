@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     for test in tests:
         executable = build / test.stem
         sources = [test]
-        if test.stem == 'SnapshotStorageSmoke': sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
+        if test.stem in ('SnapshotStorageSmoke', 'AccountDeletionLocalCleanupSmoke'): sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
         run(common + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
         run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
