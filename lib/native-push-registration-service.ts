@@ -13,12 +13,12 @@ export function nativePushDeployment(config:Omit<Deployment,'pushEnvironment'>|n
 }
 /** Held service; both environments come only from server deployment configuration.
  * Registration never grants paid rights and never triggers a notification. */
-export async function nativePushRegistrationResponse(request:Request,config:Deployment|null,factory:(config:Deployment,signal:AbortSignal)=>SupabaseClient){
+export async function nativePushRegistrationResponse(request:Request,config:Deployment|null,factory:(config:Deployment,signal:AbortSignal)=>SupabaseClient,lookup=false){
  const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
  const fail=(status:number)=>Response.json({error:status===503?'iPhone通知は準備中、または確認できない状態です。':'通知の登録状態を確認し直してください。'},{status,headers});
  if(!config)return fail(503);
  config=Object.freeze({...config});
- if(!['POST','DELETE'].includes(request.method))return fail(405);
+ if(lookup?request.method!=='POST':!['POST','DELETE'].includes(request.method))return fail(405);
  if(new URL(request.url).search)return fail(400);
  const expected=request.headers.get('X-Ouchi-App-Epoch');if(!validAttachmentEpoch(expected))return fail(400);
  const authorization=request.headers.get('authorization');
@@ -38,10 +38,16 @@ export async function nativePushRegistrationResponse(request:Request,config:Depl
   const disabling=request.method==='DELETE',field=disabling?'registrationId':'deviceToken',value=body[field];
   if(Object.keys(body).length!==1||!Object.hasOwn(body,field)||(disabling?typeof value!=='string'||!validAttachmentEpoch(value):typeof value!=='string'||!/^([0-9a-f]{2}){16,512}$/i.test(value)))return fail(400);
   const args={target_user:identity.userID,verified_session:identity.sessionID,expected_epoch:expected,push_environment:config.pushEnvironment,purchase_environment:config.environment};
-  const result=await db.rpc(disabling?'disable_maintenance_native_scoped_push':'register_maintenance_native_scoped_push',{...args,...(disabling?{registration_id:(value as string).toLowerCase()}:{token:(value as string).toLowerCase()})});
+  const result=await db.rpc(lookup?'read_maintenance_native_scoped_registration':disabling?'disable_maintenance_native_scoped_push':'register_maintenance_native_scoped_push',{...args,...(disabling?{registration_id:(value as string).toLowerCase()}:{token:(value as string).toLowerCase()})});
   if(result.error)throw Error('Registration unavailable');signal.throwIfAborted();
-  if(disabling?typeof result.data!=='boolean':!validAttachmentEpoch(result.data))throw Error('Invalid registration acknowledgement');
+  let status:{registrationId:string|null;enabled:boolean}|undefined;
+  if(lookup){
+   const value=result.data;
+   if(value===null)status={registrationId:null,enabled:false};
+   else if(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===2&&Object.hasOwn(value,'registrationId')&&Object.hasOwn(value,'enabled')&&validAttachmentEpoch(value.registrationId)&&typeof value.enabled==='boolean')status={registrationId:value.registrationId.toLowerCase(),enabled:value.enabled};
+   else throw Error('Invalid registration status');
+  }else if(disabling?typeof result.data!=='boolean':!validAttachmentEpoch(result.data))throw Error('Invalid registration acknowledgement');
   const after=await verify();if(!after||after.userID!==identity.userID||after.sessionID!==identity.sessionID)return fail(403);
-  return Response.json({notificationEnvironment:config.pushEnvironment,purchaseEnvironment:config.environment,purchaseAccountToken:expected,...(disabling?{disabled:result.data}:{registrationId:result.data.toLowerCase()})},{headers});
+  return Response.json({notificationEnvironment:config.pushEnvironment,purchaseEnvironment:config.environment,purchaseAccountToken:expected,...(lookup?status:disabling?{disabled:result.data}:{registrationId:result.data.toLowerCase()})},{headers});
  }catch{return fail(503);}
 }

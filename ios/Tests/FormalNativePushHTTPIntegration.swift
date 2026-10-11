@@ -8,6 +8,9 @@ import OuchiCore
         let token = Data(repeating:0xab,count:32)
         let receipt = try await api.register(deviceToken:token,epoch:epoch,token:"fixture")
         precondition(receipt.registrationID == registration)
+        let active = try await api.lookup(deviceToken:token,epoch:epoch,token:"lookup-active");precondition(active.enabled && active.receipt?.registrationID == registration)
+        let stopped = try await api.lookup(deviceToken:token,epoch:epoch,token:"lookup-stopped");precondition(!stopped.enabled && stopped.receipt?.registrationID == registration)
+        let absent = try await api.lookup(deviceToken:token,epoch:epoch,token:"lookup-absent");precondition(!absent.enabled && absent.receipt == nil)
         let disabled = try await api.disable(receipt,token:"fixture");precondition(disabled)
         let unchanged = try await api.disable(receipt,token:"not-disabled");precondition(!unchanged)
         for value in ["wrong-push","wrong-purchase","wrong-epoch","oversized-header","oversized-stream","cached","wrong-mime"] {

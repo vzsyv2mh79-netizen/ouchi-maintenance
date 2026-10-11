@@ -9,9 +9,9 @@ import OuchiCore
         if disable { value["disabled"] = true } else { value["registrationId"] = registration.uuidString.lowercased() }
         return try JSONSerialization.data(withJSONObject:value)
     }
-    static func api(_ data:Data, headers:[String:String] = ["Content-Type":"application/json","Cache-Control":"no-store"], foreign:Bool=false) -> FormalNativePushAPI {
+    static func api(_ data:Data, headers:[String:String] = ["Content-Type":"application/json","Cache-Control":"no-store"], foreign:Bool=false, lookup:Bool=false) -> FormalNativePushAPI {
         FormalNativePushAPI(notificationEnvironment:.production,purchaseEnvironment:.sandbox,isolatedDevelopment:true,loopbackPort:1) { request in
-            precondition(request.url!.absoluteString == "https://ouchi-maintenance.vercel.app/api/native-push-registration")
+            precondition(request.url!.absoluteString == "https://ouchi-maintenance.vercel.app/api/native-push-registration" + (lookup ? "/lookup" : ""))
             precondition(request.value(forHTTPHeaderField:"X-Ouchi-App-Epoch") == epoch.uuidString.lowercased())
             precondition(request.value(forHTTPHeaderField:"Authorization") == "Bearer synthetic")
             let body = try JSONSerialization.jsonObject(with:request.httpBody!) as! [String:Any]
@@ -27,6 +27,15 @@ import OuchiCore
         let stopped = try await api(payload(disable:true)).disable(receipt,token:"synthetic");precondition(stopped)
         var negative = try JSONSerialization.jsonObject(with:payload(disable:true)) as! [String:Any];negative["disabled"] = false
         let disabled = try await api(JSONSerialization.data(withJSONObject:negative)).disable(receipt,token:"synthetic");precondition(!disabled)
+        var status = try JSONSerialization.jsonObject(with:payload()) as! [String:Any];status["enabled"] = true
+        let active = try await api(JSONSerialization.data(withJSONObject:status),lookup:true).lookup(deviceToken:token,epoch:epoch,token:"synthetic");precondition(active.enabled && active.receipt?.registrationID == registration)
+        status["enabled"] = false
+        let stoppedStatus = try await api(JSONSerialization.data(withJSONObject:status),lookup:true).lookup(deviceToken:token,epoch:epoch,token:"synthetic");precondition(!stoppedStatus.enabled && stoppedStatus.receipt?.registrationID == registration)
+        status["registrationId"] = NSNull()
+        let absent = try await api(JSONSerialization.data(withJSONObject:status),lookup:true).lookup(deviceToken:token,epoch:epoch,token:"synthetic");precondition(!absent.enabled && absent.receipt == nil)
+        status["enabled"] = true
+        do { _ = try await api(JSONSerialization.data(withJSONObject:status),lookup:true).lookup(deviceToken:token,epoch:epoch,token:"synthetic");fatalError("Enabled without registration accepted") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
         for field in ["notificationEnvironment","purchaseEnvironment","purchaseAccountToken","registrationId"] {
             var object = try JSONSerialization.jsonObject(with:payload()) as! [String:Any]
             if field == "notificationEnvironment" { object[field] = "Sandbox" }

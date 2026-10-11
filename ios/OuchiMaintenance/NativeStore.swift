@@ -8,7 +8,7 @@ struct FormalNativePushSelection {
     let account: UUID
 }
 
-enum FormalNativePushChange { case registered(FormalNativePushSelection), disabled }
+enum FormalNativePushChange { case registered(FormalNativePushSelection), disabled, absent }
 
 struct FormalReminderSelection {
     let receipt: ReminderSettingsReceipt
@@ -149,8 +149,8 @@ struct FormalReminderSelection {
         return (pushEnvironment, purchaseEnvironment)
     }
     /// Free registration; scoped ledger enrollment is checked, never a local paid flag.
-    func changeFormalNativePush(prior: FormalNativePushSelection? = nil, requestToken: (@MainActor () async throws -> Data)? = nil) async -> FormalNativePushChange? {
-        guard !busy, signedIn, let config = formalNativePushConfiguration, let session else { return nil }
+    func changeFormalNativePush(prior: FormalNativePushSelection? = nil, lookup: Bool = false, requestToken: (@MainActor () async throws -> Data)? = nil) async -> FormalNativePushChange? {
+        guard !busy, signedIn, !(lookup && prior != nil), let config = formalNativePushConfiguration, let session else { return nil }
         busy = true; message = nil
         let expected = generation, revision = accountBindingRevision, home = homeID
         defer { if expected == generation { busy = false } }
@@ -171,14 +171,25 @@ struct FormalReminderSelection {
                 guard let requestToken else { throw CloudError.invalidInput }
                 let token = try await requestToken()
                 guard stillBound() else { return nil }
-                let receipt = try await service.register(deviceToken: token, epoch: epoch, token: credentials.access_token)
-                guard stillBound() else { return nil }
-                result = .registered(FormalNativePushSelection(receipt: receipt, account: credentials.user.id))
+                if lookup {
+                    let status = try await service.lookup(deviceToken: token, epoch: epoch, token: credentials.access_token)
+                    guard stillBound() else { return nil }
+                    if status.enabled, let receipt = status.receipt { result = .registered(FormalNativePushSelection(receipt: receipt, account: credentials.user.id)) }
+                    else { result = status.receipt == nil ? .absent : .disabled }
+                } else {
+                    let receipt = try await service.register(deviceToken: token, epoch: epoch, token: credentials.access_token)
+                    guard stillBound() else { return nil }
+                    result = .registered(FormalNativePushSelection(receipt: receipt, account: credentials.user.id))
+                }
             }
             guard stillBound() else { return nil }
             let current = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), current.environment == config.purchase.rawValue, current.purchaseAccountToken == epoch else { return nil }
-            message = prior == nil ? "この端末の通知先の登録を確認しました。配信は準備中です。" : "この端末の通知先の停止を確認しました。"
+            switch result {
+            case .registered: message = "この端末の通知先の登録を確認しました。配信は準備中です。"
+            case .disabled: message = "この端末の通知先の停止を確認しました。"
+            case .absent: message = "現在のログインで登録された通知先は見つかりませんでした。"
+            }
             return result
         } catch {
             if stillBound() { message = "通知先の変更結果を確認できません。通知の許可と通信を確認し、再度お試しください。" }

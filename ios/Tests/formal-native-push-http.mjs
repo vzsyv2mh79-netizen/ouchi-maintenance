@@ -16,15 +16,16 @@ const server=createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://127.0.0.1');
   if(url.pathname==='/sink'){redirects++;res.end();return;}
-  requests++;assert.ok(['POST','DELETE'].includes(req.method));assert.equal(url.pathname,'/api/native-push-registration');assert.equal(url.search,'');assert.equal(req.headers['x-ouchi-app-epoch'],epoch);
+  requests++;assert.ok(['POST','DELETE'].includes(req.method));assert.ok(['/api/native-push-registration','/api/native-push-registration/lookup'].includes(url.pathname));assert.equal(url.search,'');assert.equal(req.headers['x-ouchi-app-epoch'],epoch);
   let bytes='';for await(const chunk of req)bytes+=chunk;const body=JSON.parse(bytes);assert.deepEqual(body,req.method==='POST'?{deviceToken:'ab'.repeat(32)}:{registrationId:registration});
   const token=req.headers.authorization?.replace('Bearer ','');tokens.push(token);
-  assert.ok(['fixture','not-disabled','wrong-push','wrong-purchase','wrong-epoch','redirect','oversized-header','oversized-stream','wrong-mime','cached','unauthorized'].includes(token));
+  assert.ok(['fixture','lookup-active','lookup-stopped','lookup-absent','not-disabled','wrong-push','wrong-purchase','wrong-epoch','redirect','oversized-header','oversized-stream','wrong-mime','cached','unauthorized'].includes(token));
   if(token==='redirect'){res.writeHead(302,{location:`http://127.0.0.1:${server.address().port}/sink`});res.end();return;}
   if(token==='unauthorized'){res.writeHead(403);res.end();return;}
   res.setHeader('content-type',token==='wrong-mime'?'text/html':'application/json');res.setHeader('cache-control',token==='cached'?'public':'no-store');
   if(token==='oversized-header'){res.setHeader('content-length','4097');res.end(Buffer.alloc(4097,32));return;}
   if(token==='oversized-stream'){res.write(Buffer.alloc(2048,32));res.end(Buffer.alloc(2049,32));return;}
+  if(url.pathname.endsWith('/lookup')){assert.ok(token.startsWith('lookup-'));res.end(JSON.stringify({notificationEnvironment:'Sandbox',purchaseEnvironment:'Sandbox',purchaseAccountToken:epoch,registrationId:token==='lookup-absent'?null:registration,enabled:token==='lookup-active'}));return;}
   res.end(JSON.stringify({notificationEnvironment:token==='wrong-push'?'Production':'Sandbox',purchaseEnvironment:token==='wrong-purchase'?'Production':'Sandbox',purchaseAccountToken:token==='wrong-epoch'?registration:epoch,...(req.method==='POST'?{registrationId:registration}:{disabled:token!=='not-disabled'})}));
  }catch(error){res.writeHead(500);res.end('Fixture failed');console.error(error);}
 });
@@ -43,8 +44,8 @@ try{
   child.stdout.on('data',chunk=>{output+=chunk;process.stdout.write(chunk);});child.stderr.on('data',chunk=>{output+=chunk;process.stderr.write(chunk);});
   child.once('error',error=>{clearTimeout(timer);reject(error);});child.once('exit',code=>{clearTimeout(timer);if(code===0)resolve();else reject(Error(`Formal native push HTTP failed: ${code} ${output}`));});
  });
- assert.equal(redirects,0);assert.equal(requests,12);assert.equal(new Set(tokens).size,11);
- console.log('Fixture counters: twelve formal requests (eleven distinct cases), zero redirected or cancelled requests. No real Auth, ledger, Apple or owner data.');
+ assert.equal(redirects,0);assert.equal(requests,15);assert.equal(new Set(tokens).size,14);
+ console.log('Fixture counters: fifteen formal requests (fourteen distinct cases), zero redirected or cancelled requests. No real Auth, ledger, Apple or owner data.');
 }finally{
  server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(directory,{recursive:true,force:true});
 }

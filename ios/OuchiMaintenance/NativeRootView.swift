@@ -1056,26 +1056,34 @@ private struct FormalNativePushView: View {
     @EnvironmentObject private var notifications: RemoteNotificationDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: FormalNativePushSelection?
+    @State private var status = "この画面では登録状態をまだ確認していません。"
     @State private var operation: Task<Void, Never>?
     private var binding: String { store.accountBindingRevision.uuidString + "/" + store.homeID }
-    private func clear() { operation?.cancel(); operation = nil; selection = nil }
-    private func change(disable: Bool) {
+    private func clear() { operation?.cancel(); operation = nil; selection = nil; status = "この画面では登録状態をまだ確認していません。" }
+    private func change(disable: Bool, lookup: Bool = false) {
         let prior = disable ? selection : nil
         operation?.cancel()
+        if !disable { selection = nil }
+        status = "登録状態を確認しています。"
         operation = Task {
             let result: FormalNativePushChange?
             if disable { result = await store.changeFormalNativePush(prior: prior) }
-            else { result = await store.changeFormalNativePush { try await notifications.requestToken() } }
+            else { result = await store.changeFormalNativePush(lookup: lookup) { try await notifications.requestToken() } }
             guard !Task.isCancelled else { return }
             if let result {
-                switch result { case .registered(let value): selection = value; case .disabled: selection = nil }
-            }
+                switch result {
+                case .registered(let value): selection = value; status = "この端末の通知先の登録を確認済みです。"
+                case .disabled: selection = nil; status = "この端末の通知先は停止しています。"
+                case .absent: selection = nil; status = "現在のログインで登録された通知先は見つかりませんでした。"
+                }
+            } else { status = "登録状態を確認できませんでした。再度お試しください。" }
         }
     }
     var body: some View {
         Form {
             Section("この端末の通知先") {
-                Text(selection == nil ? "この画面では登録状態をまだ確認していません。" : "この端末の通知先の登録を確認済みです。")
+                Text(status)
+                Button("現在の登録状態を確認") { change(disable: false, lookup: true) }.disabled(store.busy || !store.signedIn)
                 Button("通知を許可して登録を確認") { change(disable: false) }.disabled(store.busy || !store.signedIn)
                 Button("この端末の通知先を停止", role: .destructive) { change(disable: true) }.disabled(store.busy || selection == nil)
                 Text("登録の確認は無料です。通知の配信は準備中です。").font(.caption)
