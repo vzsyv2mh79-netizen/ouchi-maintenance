@@ -27,6 +27,7 @@ const {storedAttachmentUploadServices}=await import(attachmentModule('attachment
 const {attachmentDeployment,attachmentServiceResponse}=await import(attachmentModule('attachment-service-handler'));
 const {reportDeployment,reportServiceResponse}=await import(attachmentModule('report-service-handler'));
 const {reminderDeployment,reminderServiceResponse}=await import(attachmentModule('reminder-service-handler'));
+const {nativePushDeployment,nativePushRegistrationResponse}=await import(attachmentModule('native-push-registration-service'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -209,6 +210,18 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await reminderServiceResponse(formalReminderRequest(undefined,paidToken,randomUUID()),formalReminderConfig,formalReminderFactory)).status,403);
   assert.equal((await reminderServiceResponse(formalReminderRequest({revision:0,schedule:selectedSchedule},signup.data.session.access_token,epoch.data),formalReminderConfig,formalReminderFactory)).status,403);
 
+
+  // Formal registration independently binds distribution APNs to Sandbox purchases.
+  const formalPushConfig=nativePushDeployment({url:'https://disposable.supabase.co/',key:service,storage:'verified-ledger',environment:'Sandbox'},'true','Production');assert.ok(formalPushConfig);
+  const formalPushFactory=(config,signal)=>{assert.equal(config.pushEnvironment,'Production');assert.equal(config.environment,'Sandbox');return createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}});};
+  const formalPushRequest=(method,body,capturedEpoch=otherEpoch.data)=>new Request(origin+'/api/native-push-registration',{method,headers:{authorization:'Bearer '+paidToken,'X-Ouchi-App-Epoch':capturedEpoch,'content-type':'application/json'},body:JSON.stringify(body)});
+  const formalPushResponse=await nativePushRegistrationResponse(formalPushRequest('POST',{deviceToken:'56'.repeat(32)}),formalPushConfig,formalPushFactory);assert.equal(formalPushResponse.status,200);const formalPushBody=await formalPushResponse.json();assert.equal(formalPushBody.notificationEnvironment,'Production');assert.equal(formalPushBody.purchaseEnvironment,'Sandbox');assert.equal(formalPushBody.purchaseAccountToken,otherEpoch.data);assert.match(formalPushBody.registrationId,/^[0-9a-f-]{36}$/i);
+  const repeatedFormalPush=await nativePushRegistrationResponse(formalPushRequest('POST',{deviceToken:'56'.repeat(32)}),formalPushConfig,formalPushFactory);assert.equal(repeatedFormalPush.status,200);assert.equal((await repeatedFormalPush.json()).registrationId,formalPushBody.registrationId);
+  assert.equal((await nativePushRegistrationResponse(formalPushRequest('POST',{deviceToken:'56'.repeat(32)},randomUUID()),formalPushConfig,formalPushFactory)).status,403);
+  const wrongPurchasePushConfig=nativePushDeployment({url:'https://disposable.supabase.co/',key:service,storage:'verified-ledger',environment:'Production'},'true','Production');
+  const wrongScopedDisable=await nativePushRegistrationResponse(formalPushRequest('DELETE',{registrationId:formalPushBody.registrationId}),wrongPurchasePushConfig,(_config,signal)=>createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}}));assert.equal(wrongScopedDisable.status,200);assert.equal((await wrongScopedDisable.json()).disabled,false);
+  const formalPushDisabled=await nativePushRegistrationResponse(formalPushRequest('DELETE',{registrationId:formalPushBody.registrationId}),formalPushConfig,formalPushFactory);assert.equal(formalPushDisabled.status,200);assert.equal((await formalPushDisabled.json()).disabled,true);
+  console.log('Formal native registration actual Auth/PostgreSQL: distribution APNs independently scoped to Sandbox purchase enrollment, exact retry, wrong epoch refusal and scoped disable. No APNs send or Apple signature.');
 
   // Real disposable PostgreSQL/Auth RPC job path; APNs is never contacted.
   const scheduledRegistration=await admin.rpc('register_maintenance_native_push',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,token:'34'.repeat(32),push_environment:'Sandbox'});assert.equal(scheduledRegistration.error,null);
