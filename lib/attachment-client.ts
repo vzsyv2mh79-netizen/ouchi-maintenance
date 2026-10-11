@@ -9,7 +9,7 @@ async function read(query:URLSearchParams,token:string,signal:AbortSignal,limit:
  if(write&&!validID(write.epoch))throw Error('登録状態を確認してください。');
  const headers:Record<string,string>={Authorization:'Bearer '+token};if(write){headers['X-Ouchi-App-Epoch']=write.epoch.toLowerCase();if(write.mime)headers['Content-Type']=write.mime;}
  const response=await fetch('/api/product-attachments?'+query,{method:write?.method??'GET',body:write?.body,headers,cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.any([signal,AbortSignal.timeout(30000)])});
- if(!response.ok)throw Error(response.status===401?'ログインを確認してください。':response.status===404?'このファイルへのアクセスを確認できません。':'保存サービスを確認できませんでした。');
+ if(!response.ok)throw Error(response.status===401?'ログインを確認してください。':response.status===404?'このファイルへのアクセスを確認できません。':write?.method==='DELETE'?'削除完了を確認できませんでした。同じファイルで再確認してください。':'保存サービスを確認できませんでした。');
  const declared=response.headers.get('content-length');
  if(declared!==null&&(!/^\d+$/.test(declared)||!Number.isSafeInteger(Number(declared))||Number(declared)>limit)){await response.body?.cancel();throw Error('ファイルのサイズを確認できません。');}
  if(!response.body)throw Error('応答を確認できません。');

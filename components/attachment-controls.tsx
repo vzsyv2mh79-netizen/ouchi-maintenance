@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {browserAttachmentAuth} from '@/lib/attachment-auth-lifecycle';
 import {getSupabase} from '@/lib/supabase';
-import {attachmentBinding,attachmentPage,downloadAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
+import {attachmentBinding,attachmentPage,downloadAttachment,removeAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
 import {browserPendingAttachments,type PendingWebAttachment} from '@/lib/pending-attachment-store';
 import {sendPendingAttachment,AttachmentScopeChanged} from '@/lib/attachment-upload-flow';
 
@@ -41,6 +41,15 @@ export function AttachmentControls({product,account}:{product:string;account:str
   if(current.account!==account.toLowerCase()||current.epoch!==binding.current)throw new AttachmentScopeChanged();
   const url=URL.createObjectURL(file.blob);try{const link=document.createElement('a');link.href=url;link.download=file.filename;link.click();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}
  });}
+ function remove(id:string){
+  if(!items.some(item=>item.id===id)||!window.confirm('この写真・保証書をクラウドから削除しますか？家族も取り出せなくなります。必要なファイルは先に保存してください。'))return;
+  void run(async(token,signal,current)=>{
+   await removeAttachment(id,current.epoch,true,token,signal);signal.throwIfAborted();
+   const latest=await attachmentBinding(token,signal);signal.throwIfAborted();
+   if(latest.account!==current.account||latest.epoch!==current.epoch)throw new AttachmentScopeChanged();
+   setItems(previous=>previous.filter(item=>item.id!==id));setMessage('ファイルの削除を確認しました。');
+  });
+ }
  function checkPending(){void run(async(token,signal,current)=>{
   const value=await browserPendingAttachments.read(current.account,current.epoch),latest=await attachmentBinding(token,signal);signal.throwIfAborted();
   if(latest.account!==current.account||latest.epoch!==current.epoch)throw new AttachmentScopeChanged();
@@ -73,5 +82,5 @@ export function AttachmentControls({product,account}:{product:string;account:str
   <div className="attachment-actions"><button className="primary-button" disabled={busy||!file||pending!==null} onClick={save}>保存する</button>
   <button className="secondary-button" disabled={busy} onClick={checkPending}>確認待ちのファイルを確認</button></div>
   {pending?<div><p>{pending.product===product.toLowerCase()?'確認待ちのファイルがあります。':'別の製品への保存が確認待ちです。'}</p><button className="secondary-button" disabled={busy||pending.product!==product.toLowerCase()} onClick={retry}>同じファイルで保存結果を再確認</button></div>:null}
-  <button className="secondary-button" disabled={busy} onClick={()=>load(null)}>{busy?'確認中…':'保存済みファイルを確認'}</button>{items.map(item=><div className="attachment-file" key={item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · {new Date(item.createdAt).toLocaleDateString('ja-JP')}</p><button className="text-button" disabled={busy} onClick={()=>download(item.id)}>ファイルを保存</button></div>)}{next?<button className="secondary-button" disabled={busy} onClick={()=>load(next)}>続きを表示</button>:null}{message?<p role="status">{message}</p>:null}</section>;
+  <button className="secondary-button" disabled={busy} onClick={()=>load(null)}>{busy?'確認中…':'保存済みファイルを確認'}</button>{items.map(item=><div className="attachment-file" key={item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · {new Date(item.createdAt).toLocaleDateString('ja-JP')}</p><div className="attachment-actions"><button className="text-button" disabled={busy} onClick={()=>download(item.id)}>ファイルを保存</button><button className="text-button" disabled={busy} onClick={()=>remove(item.id)}>ファイルを削除</button></div></div>)}{next?<button className="secondary-button" disabled={busy} onClick={()=>load(next)}>続きを表示</button>:null}{message?<p role="status">{message}</p>:null}</section>;
 }
