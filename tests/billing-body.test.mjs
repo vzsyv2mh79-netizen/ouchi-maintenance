@@ -2,6 +2,14 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 const source=ts.transpileModule(readFileSync('lib/billing-body.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {readBillingBody}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const request=(body,headers={})=>new Request('http://localhost/billing',{method:'POST',body,headers});
+test('registration can opt into a finite larger body bound without expanding default purchase payloads',async()=>{
+ const body=JSON.stringify({attestationBase64:'a'.repeat(174764)});
+ await assert.rejects(()=>readBillingBody(request(body)));
+ assert.equal((await readBillingBody(request(body),262144)).attestationBase64.length,174764);
+ for(const limit of [0,-1,NaN,Infinity,1.5,262145])await assert.rejects(()=>readBillingBody(request('{}'),limit),/bound/);
+ await assert.rejects(()=>readBillingBody(request('{}'.padEnd(4097,' ')),4096));
+ await assert.rejects(()=>readBillingBody(request('{}',{'content-length':'262145'}),262144));
+});
 test('billing JSON is bounded by actual streamed bytes and requires an object',async()=>{
  assert.deepEqual(await readBillingBody(request('{"signedPayload":"synthetic"}')),{signedPayload:'synthetic'});
  const boundary='{"value":"'+'a'.repeat(65524)+'"}';assert.equal(Buffer.byteLength(boundary),65536);assert.equal((await readBillingBody(request(boundary))).value.length,65524);

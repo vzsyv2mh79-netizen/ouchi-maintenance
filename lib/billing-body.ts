@@ -1,6 +1,7 @@
 /** Bound streamed purchase/notification JSON before parsing or verification. */
-export async function readBillingBody(request:Request):Promise<Record<string,unknown>>{
- const limit=65536,declared=request.headers.get('content-length');
+export async function readBillingBody(request:Request,limit=65536):Promise<Record<string,unknown>>{
+ if(!Number.isSafeInteger(limit)||limit<1||limit>262144)throw new Error('Invalid billing payload bound');
+ const declared=request.headers.get('content-length');
  if(declared!==null&&(!/^\d+$/.test(declared)||!Number.isSafeInteger(Number(declared))||Number(declared)>limit))throw new Error('Invalid billing payload length');
  if(!request.body)throw new Error('Empty billing payload');
  const reader=request.body.getReader(),chunks:Uint8Array[]=[];let size=0,stopped=false;

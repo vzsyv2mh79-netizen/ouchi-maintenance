@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
+import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash,X509Certificate} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-objects.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
 const {eraseAccountDeletionObjects:erase}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const compiled=async file=>{const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));};
@@ -32,6 +32,7 @@ const {notificationChannelDeployment,notificationChannelResponse}=await import(a
 const {accountEnrollmentResponse}=await import(attachmentModule('account-enrollment-service'));
 const {createRestoreChallenge,restoreAssertionClientData}=await import(attachmentModule('billing-restore-client-data'));
 const {createRegistrationChallenge,registrationClientDataHash}=await import(attachmentModule('billing-app-attest-registration-challenge'));
+const {attestRegistrationConfiguration,appAttestRegistrationResponse}=await import(attachmentModule('billing-app-attest-registration-service'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -598,12 +599,20 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   // attestation digest below are synthetic and do not claim Apple validation.
   const registrationPoint=Buffer.concat([Buffer.from([4]),Buffer.alloc(64,9)]),registrationKey=createHash('sha256').update(registrationPoint).digest('base64');
   const registrationScope={userID:newUserID,sessionID:restoreSession,epochID:consentReceipt.epochID,keyID:registrationKey,appID:'SYNTHETIC1.dev.synthetic.ouchi',attestEnvironment:'production'};
-  const registrationA=createRegistrationChallenge({...registrationScope,requestID:randomUUID()}),registrationB=createRegistrationChallenge({...registrationScope,requestID:randomUUID()});
+  const publicAppleFixture=JSON.parse(readFileSync('tests/fixtures/app-attest/apple-public-example.json','utf8'));
+  const registrationConfig=attestRegistrationConfiguration({url:'https://synthetic.supabase.co/',key:'synthetic-server',appID:registrationScope.appID,attestEnvironment:'production',policy:{validationCategories:[4],bundleVersions:['1']},privateRootPEM:publicAppleFixture.rootPEM,publicRootDER:new X509Certificate(readFileSync('tests/fixtures/app-attest/apple-root-g3.pem')).raw},'true');assert.ok(registrationConfig);
+  const registrationRequest=(body)=>new Request('https://example.invalid/api/app-attest/registration',{method:'POST',headers:{authorization:'Bearer '+newBearer,'X-Ouchi-App-Epoch':consentReceipt.epochID,'content-type':'application/json'},body:JSON.stringify(body)});
+  const issueRegistration=async requestID=>{
+   const response=await appAttestRegistrationResponse(registrationRequest({requestID,keyID:registrationKey}),'challenge',registrationConfig,()=>admin);assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');const value=await response.json();assert.deepEqual(Object.keys(value),['clientDataBase64']);const stored=JSON.parse(Buffer.from(value.clientDataBase64,'base64').toString('utf8'));assert.equal(stored.requestID,requestID);assert.equal(stored.userID,newUserID);assert.equal(stored.sessionID,restoreSession);return stored;
+  };
+  const registrationA=await issueRegistration(randomUUID()),registrationB=await issueRegistration(randomUUID());assert.deepEqual(await issueRegistration(registrationA.requestID),registrationA,'lost issuance acknowledgement keeps original nonce/expiry');
   const persistRegistration=c=>{
    const hash=registrationClientDataHash(c).toString('hex');
    recoverySql(`begin;set local role service_role;insert into maintenance_private.attest_registration_challenges(request_id,user_id,session_id,app_epoch_id,key_id,app_id,attest_environment,challenge,nonce,client_data_sha256,issued_at,expires_at) values('${c.requestID}','${c.userID}','${c.sessionID}','${c.epochID}','${c.keyID}','${c.appID}','${c.attestEnvironment}','${JSON.stringify(c)}','${c.nonce}','${hash}',to_timestamp(${c.issuedAt}/1000.0),to_timestamp(${c.expiresAt}/1000.0));commit;`);
   };
-  persistRegistration(registrationA);persistRegistration(registrationB);
+  const refusedProof=await appAttestRegistrationResponse(registrationRequest({requestID:registrationA.requestID,keyID:registrationKey,attestationBase64:'AQID'}),'commit',registrationConfig,()=>admin);assert.equal(refusedProof.status,422);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.restore_attested_keys where key_id='${registrationKey}';`).trim(),'0','hardwired verifier failure cannot commit');
+  console.log('Actual registration service: real Auth and stored challenge RPC issuance/read, canonical bytes, original nonce on retry, malformed Apple proof refused before key write. No valid Apple registration or endpoint activation.');
   const registrationArgs=c=>({target_request:c.requestID,target_user:c.userID,verified_session:c.sessionID,target_epoch:c.epochID,target_key:c.keyID,verified_client_hash:registrationClientDataHash(c).toString('hex'),verified_attestation_hash:'d'.repeat(64),verified_public_key:'\\x'+registrationPoint.toString('hex'),verified_receipt:'\\x01'});
   assert.equal((await admin.rpc('commit_maintenance_attested_registration',{...registrationArgs(registrationA),verified_session:randomUUID()})).data,false);
   assert.ok((await newAccount.rpc('commit_maintenance_attested_registration',registrationArgs(registrationA))).error);
