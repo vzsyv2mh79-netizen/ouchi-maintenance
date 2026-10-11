@@ -539,6 +539,9 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   const guardHome=randomUUID();assert.equal((await guard.from('homes').insert({id:guardHome,owner_id:guardID,name:'Synthetic enrollment guard'})).error,null);
   const freshGuard=createClient(origin,'synthetic-public-key',options);const freshLogin=await freshGuard.auth.signInWithPassword({email:guardSignup.data.user.email,password:syntheticPassword});assert.equal(freshLogin.error,null);const freshSession=JSON.parse(Buffer.from(freshLogin.data.session.access_token.split('.')[1],'base64url')).session_id;assert.notEqual(freshSession,guardSession);
   recoverySql('update maintenance_private.enrollment_policy set require_explicit=true where id=1;');
+  for(const command of ['update maintenance_private.enrollment_policy set require_explicit=false where id=1;','delete from maintenance_private.enrollment_policy;','truncate maintenance_private.enrollment_policy;'])assert.throws(()=>recoverySql(command),/Enrollment policy|Explicit enrollment policy/);
+  assert.equal(recoverySql('select require_explicit from maintenance_private.enrollment_policy where id=1;').trim(),'t');
+  console.log('Actual explicit enrollment latch: ordinary update reversal, delete and truncate refused; strict policy remains enabled. Synthetic disposable DB only.');
   assert.equal((await admin.rpc('maintenance_explicit_enrollment_is_required')).data,true);
   assert.equal((await admin.rpc('current_maintenance_purchase_account',guardArgs)).data,guardEpoch.data);
   assert.equal((await guard.from('homes').select('id').eq('id',guardHome)).data.length,1);
@@ -596,6 +599,14 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   const completedExpiry=recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim();
   assert.equal(await deletionCompletion(scope),true);assert.equal(recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),completedExpiry);
   const afterCommit=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay');},finalizeIdentityAndRetention:async()=>{throw Error('must not replay');},markComplete:async()=>{throw Error('must not replay');}}));assert.deepEqual(afterCommit,{state:'complete'});
+  recoverySql(`update maintenance_private.account_deletion_requests set receipt_expires_at=receipt_expires_at+interval '1 minute' where id='${scope.requestID}';`);
+  assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',identityArgs)).data,false,'expiry flag must match sealed evidence');
+  assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data,null,'unproved completion never shown');
+  assert.equal(await deletionCompletion(scope),false,'retry cannot bless changed expiry');
+  recoverySql(`update maintenance_private.account_deletion_requests set receipt_expires_at=receipt_expires_at-interval '1 minute' where id='${scope.requestID}';`);
+  assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',identityArgs)).data,true);
+  console.log('Actual completion evidence binding: altered expiry refuses worker acknowledgement and user completion display; exact sealed lifetime restored; no new approval.');
+
   assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data.state,'complete');
   assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',{...identityArgs,target_lease:randomUUID()})).data,false);
   recoverySql(`update maintenance_private.account_deletion_requests set updated_at=now()-interval '2 minutes',receipt_expires_at=now()-interval '1 minute' where id='${scope.requestID}';`);
