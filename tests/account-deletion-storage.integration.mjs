@@ -99,6 +99,33 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const firstBatch=await runNativePushBatch(batch);assert.equal(firstBatch.status,'complete');assert.equal(firstBatch.visited,2);assert.equal(firstBatch.unconfirmed,0);assert.equal(firstBatch.accepted,afterNine?1:0);
   const repeatBatch=await runNativePushBatch(batch);assert.equal(repeatBatch.status,'complete');assert.equal(repeatBatch.accepted,0);assert.equal(batchSends,afterNine?1:0);
   console.log(afterNine?'Native daily batch actual RPC path verified after Tokyo 09:00; repeat did not resend.':'Native daily batch morning gate verified; positive send path not exercised before Tokyo 09:00.');
+  const invalidationArgs={...nativeArgs,token:'12'.repeat(32)};
+  const invalidationRegistered=await admin.rpc('register_maintenance_native_push',invalidationArgs);assert.equal(invalidationRegistered.error,null);assert.match(invalidationRegistered.data,/^[0-9a-f-]{36}$/i);
+  const invalidationJob=randomUUID();
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{
+   input:`insert into maintenance_private.native_notification_jobs(id,device_id,due_at,state) values('${invalidationJob}','${invalidationRegistered.data}',clock_timestamp()-interval '1 second','pending');`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  let invalidationSends=0;
+  const invalidationDestination=storedNativePushDispatch(admin,async input=>{assert.equal(input.deviceToken,invalidationArgs.token);invalidationSends++;return 'disable-device';});
+  const invalidationDeps=storedNativePushJob(admin,countedNativePushDispatch(admin,invalidationDestination));
+  assert.deepEqual(await runNativePushJob(invalidationJob,invalidationDeps),{status:'recorded',outcome:'disable-device'});assert.equal(invalidationSends,1);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:invalidationRegistered.data})).data,false);
+  assert.deepEqual(await runNativePushJob(invalidationJob,invalidationDeps),{status:'unclaimed'});assert.equal(invalidationSends,1);
+  const renewedRegistered=await admin.rpc('register_maintenance_native_push',invalidationArgs);assert.equal(renewedRegistered.error,null);assert.notEqual(renewedRegistered.data,invalidationRegistered.data);assert.match(renewedRegistered.data,/^[0-9a-f-]{36}$/i);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:renewedRegistered.data})).data,true);
+  const delayedInvalidationJob=randomUUID();
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{
+   input:`insert into maintenance_private.native_notification_jobs(id,device_id,due_at,state) values('${delayedInvalidationJob}','${renewedRegistered.data}',clock_timestamp()-interval '1 second','pending');`,timeout:10000,stdio:['pipe','pipe','pipe']});
+  const delayedClaim=await admin.rpc('claim_maintenance_native_push_job',{target_job:delayedInvalidationJob});assert.equal(delayedClaim.error,null);assert.ok(delayedClaim.data);
+  assert.equal((await admin.rpc('start_maintenance_native_push_job',{target_job:delayedInvalidationJob,target_lease:delayedClaim.data})).data,true);
+  const secondLogin=createClient(origin,'synthetic-public-key',options);
+  const secondSession=await secondLogin.auth.signInWithPassword({email:signup.data.user.email,password:syntheticPassword});assert.equal(secondSession.error,null);assert.ok(secondSession.data.session);
+  const secondClaims=JSON.parse(Buffer.from(secondSession.data.session.access_token.split('.')[1],'base64url'));
+  assert.notEqual(secondClaims.session_id,claims.session_id);
+  const secondEpoch=await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:secondClaims.session_id});assert.equal(secondEpoch.error,null);assert.equal(secondEpoch.data,epoch.data);
+  const secondRegistration=await admin.rpc('register_maintenance_native_push',{...invalidationArgs,verified_session:secondClaims.session_id});assert.equal(secondRegistration.error,null);assert.notEqual(secondRegistration.data,renewedRegistered.data);
+  const lateInvalidation=await admin.rpc('finish_maintenance_native_push_job',{target_job:delayedInvalidationJob,target_lease:delayedClaim.data,outcome:'disable-device'});assert.equal(lateInvalidation.error,null);assert.equal(lateInvalidation.data,false);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:secondRegistration.data})).data,true);
+  console.log('Native invalidation actual RPC path verified; replacement registration remains enabled.');
   const other=createClient(origin,'synthetic-public-key',options),otherSignup=await other.auth.signUp({email:'preserved-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});assert.equal(otherSignup.error,null);const otherHome=randomUUID();assert.equal((await other.from('homes').insert({id:otherHome,owner_id:otherSignup.data.user.id,name:'Preserved synthetic home',kind:'home'})).error,null);
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
   const sharedBefore=await other.from('products').select('id').eq('id',product);assert.equal(sharedBefore.error,null);assert.deepEqual(sharedBefore.data,[{id:product}]);

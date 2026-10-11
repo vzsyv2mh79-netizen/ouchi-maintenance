@@ -7,7 +7,7 @@ test('native job leases fence stale workers and never automatically resend uncer
  try {
   await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz);');
   await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,"homeId" uuid);create table public.maintenance_tasks(id uuid primary key,"productId" uuid,"nextDueAt" date);create table public.home_members("homeId" uuid,user_id uuid);grant select on public.homes,public.products,public.maintenance_tasks,public.home_members to service_role;');
-  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql','20261011042826_ouchi_native_push_delivery_day_gate.sql','20261011043237_ouchi_native_push_device_paging.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
+  for(const name of ['20261010141353_ouchi_billing_identity.sql','20261011004515_ouchi_native_notification_registry.sql','20261011004715_ouchi_native_notification_registration.sql','20261011041519_ouchi_native_push_job_leases.sql','20261011041841_ouchi_native_push_claim_lookup.sql','20261011042308_ouchi_native_push_daily_jobs.sql','20261011042826_ouchi_native_push_delivery_day_gate.sql','20261011043237_ouchi_native_push_device_paging.sql','20261011044638_ouchi_native_push_invalidation.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
   const user='11111111-1111-4111-8111-111111111111', session='22222222-2222-4222-8222-222222222222', wrong='33333333-3333-4333-8333-333333333333';
   await db.query('insert into auth.users values($1)',[user]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
   const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2) as e',[user,session])).rows[0].e;
@@ -57,6 +57,31 @@ test('native job leases fence stale workers and never automatically resend uncer
    assert.equal(await finish(retrying,retryLease,'accepted'),false);
   }
   assert.equal(await claim(retrying),null);
+  const invalidDevice=(await db.query('select public.register_maintenance_native_push($1,$2,$3,$4,$5) as id',[user,session,epoch,'cd'.repeat(32),'Sandbox'])).rows[0].id;
+  const invalidJob=async()=>(await db.query("insert into maintenance_private.native_notification_jobs(device_id,due_at,state) values($1,clock_timestamp()-interval '1 second','pending') returning id",[invalidDevice])).rows[0].id;
+  const allowed=async registration=>(await db.query('select public.maintenance_native_push_allowed($1) as v',[registration])).rows[0].v;
+  for(const outcome of ['credentials','stale-unregistration','inspect','delivery-unknown']){
+   const guardedJob=await invalidJob(),guardedLease=await claim(guardedJob);
+   assert.equal(await start(guardedJob,guardedLease),true);
+   assert.equal(await finish(guardedJob,guardedLease,outcome),true);assert.equal(await allowed(invalidDevice),true);
+  }
+  const rejected=await invalidJob(),rejectedLease=await claim(rejected);
+  assert.equal(await finish(rejected,wrong,'disable-device'),false);assert.equal(await allowed(invalidDevice),true);
+  assert.equal(await finish(rejected,rejectedLease,'disable-device'),false);assert.equal(await allowed(invalidDevice),true);
+  assert.equal(await start(rejected,rejectedLease),true);
+  assert.equal(await finish(rejected,rejectedLease,'disable-device'),true);assert.equal(await allowed(invalidDevice),false);
+  assert.ok(!(await page()).includes(invalidDevice));assert.equal(await claim(await invalidJob()),null);
+  const renewed=(await db.query('select public.register_maintenance_native_push($1,$2,$3,$4,$5) as id',[user,session,epoch,'cd'.repeat(32),'Sandbox'])).rows[0].id;
+  assert.notEqual(renewed,invalidDevice);assert.equal(await allowed(renewed),true);
+  assert.equal(await finish(rejected,rejectedLease,'disable-device'),false);assert.equal(await allowed(renewed),true);
+  const delayed=(await db.query("insert into maintenance_private.native_notification_jobs(device_id,due_at,state) values($1,clock_timestamp()-interval '1 second','pending') returning id",[renewed])).rows[0].id;
+  const delayedLease=await claim(delayed);assert.equal(await start(delayed,delayedLease),true);
+  const newSession='88888888-8888-4888-8888-888888888888';
+  await db.exec('reset role');await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[newSession,user]);await db.exec('set role service_role');
+  assert.equal((await db.query('select public.current_maintenance_purchase_account($1,$2) as e',[user,newSession])).rows[0].e,epoch);
+  const newRegistration=(await db.query('select public.register_maintenance_native_push($1,$2,$3,$4,$5) as id',[user,newSession,epoch,'cd'.repeat(32),'Sandbox'])).rows[0].id;
+  assert.notEqual(newRegistration,renewed);assert.equal(await allowed(newRegistration),true);
+  assert.equal(await finish(delayed,delayedLease,'disable-device'),false);assert.equal(await allowed(newRegistration),true);
   const revoked=await job(),revokedLease=await claim(revoked);
   await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);
   assert.deepEqual(await page(),[]);assert.equal(await start(revoked,revokedLease),false);assert.equal(await claim(await job()),null);
