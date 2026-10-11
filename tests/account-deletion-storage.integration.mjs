@@ -250,6 +250,11 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const uncertainRegistration=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9c'.repeat(32)});assert.equal(uncertainRegistration.error,null);
   let uncertainSends=0;const uncertainPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{assert.equal(input.deviceToken,'9c'.repeat(32));uncertainSends++;return 'delivery-unknown';});
   assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1);assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1,'uncertain delivery is never resent');
+  assert.equal((await admin.rpc('disable_maintenance_native_scoped_push',{...distributionArgs,registration_id:distributionRegistration.data})).data,true);
+  const replacedDistribution=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9b'.repeat(32)});assert.equal(replacedDistribution.error,null);assert.notEqual(replacedDistribution.data,distributionRegistration.data);
+  let replacementSends=0;const replacementPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async()=>{replacementSends++;return 'accepted';});assert.equal((await runNativePushBatch(replacementPipeline)).accepted,0);assert.equal(replacementSends,0,'accepted guard survives stop deleting the old job and re-registration');
+  assert.equal((await admin.rpc('prune_maintenance_native_delivery_identities',{batch_size:500})).data,0,'current daily identities remain');
+  console.log('Native daily identity actual Auth/PostgreSQL: accepted guard survives explicit stop/job deletion and same-token re-registration, uncertain attempts stay fenced; synthetic sender only.');
   console.log('Scoped native Production job actual Auth/PostgreSQL: independent Sandbox purchase scope, page/enqueue/lease/count/start/receipt, accepted/unknown no repeat sends and wrong-purchase empty page. Synthetic sender only; no Apple push or signature.');
   assert.equal((await settingsRequest(paidToken,{revision:2,schedule:selectedSchedule})).status,200);
   assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,null);
@@ -411,7 +416,7 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
-  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_native_delivery_identities',args)).data,true);
   // Removing currently absent files cannot acknowledge a still-running upload.
   await assert.rejects(()=>erase(admin,scope),/Object (acknowledgement unavailable|removal not confirmed)/);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);

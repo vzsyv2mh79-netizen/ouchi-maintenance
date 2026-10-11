@@ -33,3 +33,12 @@ test('cancellation after record acknowledgement prevents recovery cleanup',async
  assert.equal(await storedDeletionDependencies(db,tail,controller.signal).eraseRecords({requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'}),false);
  assert.deepEqual(calls,['erase_maintenance_deletion_records']);
 });
+
+test('device erasure requires daily identity acknowledgement before native finalization',async()=>{
+ const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
+ for(const failed of [null,'erase_maintenance_deletion_native_delivery_identities']){
+  const calls=[];let native=0;const db={rpc:async(name,args)=>{calls.push(name);assert.equal(args.target_epoch,'epoch');return {data:name!==failed};}};
+  const tail={eraseNativeDevices:async()=>{native++;return true;},finalizeIdentityAndRetention:async()=>true,markComplete:async()=>true};
+  assert.equal(await storedDeletionDependencies(db,tail).eraseDeviceRegistrations(scope),failed===null);assert.equal(native,failed===null?1:0);assert.deepEqual(calls,['erase_maintenance_deletion_web_push','erase_maintenance_deletion_native_push','erase_maintenance_deletion_native_delivery_identities']);
+ }
+});
