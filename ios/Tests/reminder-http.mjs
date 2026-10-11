@@ -25,6 +25,8 @@ function module(name){
 const {handleReminderSettings,freeReminderSchedule,ReminderSettingsError}=await import(module('reminder-settings'));
 const {entitlementFromTransactions}=await import(module('billing'));
 const {maintenanceReport}=await import(module('maintenance-report'));
+const {handleAccountDeletionRequest}=await import(module('account-deletion-request'));
+const {handleAccountDeletionProgress}=await import(module('account-deletion-progress'));
 const scope={userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',epochID:'33333333-3333-4333-8333-333333333333'};
 let revision=0,saved=null,premium=true,reads=0,writes=0,redirected=0,billingReads=0,reportReads=0;
 const home='44444444-4444-4444-8444-444444444444',product='55555555-5555-4555-8555-555555555555';
@@ -38,6 +40,17 @@ const deps={verify:async bearer=>bearer==='synthetic'?scope:null,read:async()=>r
  if(expected!==revision){if(expected+1===revision&&JSON.stringify(chosen)===JSON.stringify(saved))return receipt();throw new ReminderSettingsError('conflict');}
  saved=chosen;revision++;return receipt();
 }};
+const deletionID='66666666-6666-4666-8666-666666666666';
+let deletionRow=null,deletionReads=0,deletionPosts=0,deletionEnqueues=0,deletionReauths=0;
+const deletionDependencies={
+ verify:async bearer=>bearer==='synthetic'?{...scope,email:'synthetic@example.invalid'}:null,
+ reauthenticate:async(email,password)=>{assert.equal(email,'synthetic@example.invalid');deletionReauths++;return password==='synthetic-password'?scope.userID:null;},
+ enqueue:async identity=>{assert.deepEqual(identity,{...scope,email:'synthetic@example.invalid'});assert.ok(Object.isFrozen(identity));deletionEnqueues++;deletionRow={requestID:deletionID,userID:scope.userID,state:'pending'};return deletionID;},
+};
+const deletionProgressDependencies={
+ verify:async bearer=>bearer==='synthetic'?scope.userID:null,
+ read:async(s,bearer)=>{assert.ok(Object.isFrozen(s));assert.equal(bearer,'synthetic');assert.equal(s.userID,scope.userID);return deletionRow&&(s.requestID===null||s.requestID===deletionID)?deletionRow:null;},
+};
 const directory=mkdtempSync(join(tmpdir(),'ouchi-reminder-http-'));
 function compile(args){const result=spawnSync('swiftc',args,{encoding:'utf8',timeout:120000});assert.equal(result.status,0,result.stderr);}
 const common=['-sdk',sdk,'-swift-version','6','-D','DEBUG','-module-cache-path',join(directory,'cache')];
@@ -46,6 +59,21 @@ const server=createServer(async(req,res)=>{
  try{
   if(req.url==='/redirect-target'){redirected++;res.writeHead(500);res.end();return;}
   assert.equal(req.headers.authorization,'Bearer synthetic');
+  if(req.url?.startsWith('/api/account/deletion')){
+   if(req.method==='GET'){
+    deletionReads++;
+    if(deletionReads===7){res.writeHead(302,{Location:'/redirect-target'});res.end();return;}
+    if(deletionReads===8){res.writeHead(200,{'Content-Type':'application/json'});res.end(Buffer.alloc(4097,32));return;}
+   }else deletionPosts++;
+   let body=Buffer.alloc(0);
+   for await(const chunk of req){body=Buffer.concat([body,chunk]);assert.ok(body.length<=4096);}
+   const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,body:body.length?body:undefined});
+   const id=req.url==='/api/account/deletion'?null:req.url.slice('/api/account/deletion/'.length);
+   const response=req.method==='GET'?await handleAccountDeletionProgress(request,id,deletionProgressDependencies):await handleAccountDeletionRequest(request,deletionDependencies);
+   // Simulate a lost acknowledgement AFTER the real handler has enqueued.
+   if(req.method==='POST'&&response.status===202){res.writeHead(503);res.end('{}');return;}
+   res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
+  }
   if(req.url?.startsWith('/api/development/maintenance-report?')){
    reportReads++;assert.equal(req.method,'GET');
    if(reportReads===4){res.writeHead(302,{Location:'/redirect-target'});res.end();return;}
@@ -90,6 +118,7 @@ try{
  });
  assert.equal(revision,1);assert.equal(writes,4);assert.equal(reads,3);assert.equal(billingReads,3);assert.equal(redirected,0);
  assert.equal(reportReads,5);
+ assert.equal(deletionReads,8);assert.equal(deletionPosts,2);assert.equal(deletionReauths,2);assert.equal(deletionEnqueues,1);assert.equal(deletionRow.state,'pending');
  console.log('Actual server handler received bounded authenticated HTTP; redirect destination received zero requests. No real Auth/Apple/records.');
 }finally{
  await new Promise(resolve=>server.close(resolve));rmSync(directory,{recursive:true,force:true});

@@ -2,7 +2,7 @@ import Foundation
 import OuchiCore
 
 @main struct ReminderHTTPIntegration {
-    static func main() async throws {
+    @MainActor static func main() async throws {
         guard CommandLine.arguments.count == 2, let port = UInt16(CommandLine.arguments[1]) else { fatalError("fixture port required") }
         let api = ReminderSettingsAPI(isolatedDevelopment: true, loopbackPort: port)
         let billing = BillingAPI(isolatedDevelopment: true, loopbackPort: port)
@@ -56,6 +56,32 @@ import OuchiCore
             _ = try await api.load(token: "synthetic")
             fatalError("redirect followed")
         } catch { precondition(error as? CloudError == .rejected(302)) }
+        let deletionAPI = AccountDeletionAPI(isolatedDevelopment: true, loopbackPort: port)
+        let deletionFlow = AccountDeletionFlow(api: deletionAPI)
+        deletionFlow.bind(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, revision: UUID())
+        let absent = try await deletionFlow.recover(token: "synthetic")
+        precondition(absent == nil)
+        do { _ = try await deletionAPI.request(password: "wrong", token: "synthetic"); fatalError("wrong password accepted") }
+        catch { precondition(error as? CloudError == .rejected(403)) }
+        do { _ = try await deletionFlow.submit(password: "synthetic-password", token: "synthetic"); fatalError("lost ack claimed accepted") }
+        catch { precondition(error as? CloudError == .rejected(503)) }
+        precondition(deletionFlow.receipt == nil)
+        let recoveredDeletion = try await deletionFlow.recover(token: "synthetic")
+        precondition(recoveredDeletion?.state == .pending)
+        // Existing durable status prevents a second POST, even when the caller
+        // tries submitting again with a password that cannot reauthenticate.
+        let duplicate = try await deletionFlow.submit(password: "wrong", token: "synthetic")
+        precondition(duplicate?.requestID == recoveredDeletion?.requestID && duplicate?.state == .pending)
+        let deletionID = UUID(uuidString: "66666666-6666-4666-8666-666666666666")!
+        let progress = try await deletionAPI.progress(requestID: deletionID, token: "synthetic")
+        precondition(progress.state == .pending)
+        do { _ = try await deletionAPI.progress(requestID: UUID(uuidString: "99999999-9999-4999-8999-999999999999")!, token: "synthetic"); fatalError("foreign request found") }
+        catch { precondition(error as? CloudError == .rejected(404)) }
+        do { _ = try await deletionAPI.currentProgress(token: "synthetic"); fatalError("deletion redirect followed") }
+        catch { precondition(error as? CloudError == .rejected(302)) }
+        do { _ = try await deletionAPI.currentProgress(token: "synthetic"); fatalError("oversized deletion status accepted") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
+        print("Native HTTP deletion: reauthentication refusal, lost ack recovery, no duplicate POST, exact request scope, pending-not-complete and redirect/stream bounds passed. Synthetic identity and queue only; no data erased.")
         print("Native HTTP billing/settings: shared purchase account, save, retry, conflict, expiry/revocation and redirect refusal passed. Synthetic transactions only.")
     }
 }

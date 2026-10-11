@@ -10,7 +10,15 @@ private final class DeletionRedirectBlocker: NSObject, URLSessionTaskDelegate, @
 /// Prepared client only. No deletion screen or production server route is enabled.
 public struct AccountDeletionAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    public init(transport: HouseholdAPI.Transport? = nil) {
+    private let origin: String
+    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
+        #if DEBUG
+        origin = isolatedDevelopment && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        #else
+        origin = "https://ouchi-maintenance.vercel.app"
+        #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: DeletionRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
@@ -18,6 +26,7 @@ public struct AccountDeletionAPI: Sendable {
             guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
             var data = Data()
             for try await byte in bytes {
+                try Task.checkCancellation()
                 guard data.count < 4096 else { throw CloudError.malformedResponse }
                 data.append(byte)
             }
@@ -44,7 +53,8 @@ public struct AccountDeletionAPI: Sendable {
     }
     private func send(path: String, token: String, body: Data?, allowNotFound: Bool = false) async throws -> (Data, Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "https://ouchi-maintenance.vercel.app/api/account/deletion" + path)!
+        try Task.checkCancellation()
+        let url = URL(string: origin + "/api/account/deletion" + path)!
         var request = URLRequest(url: url)
         request.httpMethod = body == nil ? "GET" : "POST"
         request.timeoutInterval = 30
@@ -53,6 +63,7 @@ public struct AccountDeletionAPI: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         let (data, response) = try await transport(request)
+        try Task.checkCancellation()
         guard response.url == url, data.count <= 4096 else { throw CloudError.malformedResponse }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
         guard response.statusCode == (body == nil ? 200 : 202) || (allowNotFound && body == nil && response.statusCode == 404) else { throw CloudError.rejected(response.statusCode) }

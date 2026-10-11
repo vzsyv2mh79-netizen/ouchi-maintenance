@@ -25,6 +25,8 @@ async function readConfirmation(request:Request){
 }
 export async function handleAccountDeletionRequest(request:Request,deps:DeletionRequestDependencies){
  const reply=(body:object,status:number)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
+ if(request.method!=='POST')return reply({error:'Method not allowed'},405);
+ if(new URL(request.url).search)return reply({error:'Invalid request'},400);
  const header=request.headers.get('authorization');
  if(!header||header.length>16384||!/^Bearer [^\s]+$/.test(header))return reply({error:'Authentication required'},401);
  let password:string;try{password=await readConfirmation(request);}catch{return reply({error:'Explicit confirmation and password required'},400);}

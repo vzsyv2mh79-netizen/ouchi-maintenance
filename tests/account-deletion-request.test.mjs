@@ -1,6 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';import ts from 'typescript';import {readFileSync} from 'node:fs';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-request.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {handleAccountDeletionRequest:handle}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+test('wrong method and query refuse deletion before authentication or reauthentication',async()=>{
+ let calls=0;const unused=async()=>{calls++;throw Error('must not call');};
+ const deps={verify:unused,reauthenticate:unused,enqueue:unused};
+ for(const method of ['GET','PUT','DELETE'])assert.equal((await handle(new Request('https://example.invalid/deletion',{method}),deps)).status,405);
+ assert.equal((await handle(new Request('https://example.invalid/deletion?retry=1',{method:'POST',body:'{}'}),deps)).status,400);
+ assert.equal(calls,0);
+});
 test('deletion request requires identity, explicit confirmation, reauthentication and durable enqueue',async()=>{
  const user='11111111-1111-4111-8111-111111111111',session='22222222-2222-4222-8222-222222222222',epoch='33333333-3333-4333-8333-333333333333',id='44444444-4444-4444-8444-444444444444';
  let reauth=user,ack=id,identity={userID:user,sessionID:session,epochID:epoch,email:'synthetic@example.invalid'},writes=0;
