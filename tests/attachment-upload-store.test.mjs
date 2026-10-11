@@ -42,3 +42,12 @@ test('denied begin receipt prevents sending; mismatched content prevents complet
 test('lost settlement response reconciles through a read without resending the object',async()=>{
  const f=fixture({settleAckLost:true});assert.equal((await f.run()).status,200);assert.equal(f.calls.filter(x=>x==='upload').length,1);
 });
+test('aborted callers cannot authenticate or start a remote write',async()=>{
+ const f=fixture(),controller=new AbortController();controller.abort();
+ const services=storedAttachmentUploadServices({auth:{getUser:async()=>{throw Error('Auth must not run');}},storage:{from:()=>({})}},'Sandbox',controller.signal);
+ const result=await uploadProductAttachment(new Request('https://example.invalid/upload',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'image/png'},body:bytes}),product,id,services);
+ assert.equal(result.status,503);assert.deepEqual(f.calls,[]);
+});
+test('formal adapter rejects a caller-selected unsupported billing environment',()=>{
+ assert.throws(()=>storedAttachmentUploadServices({},'Unverified'),/Invalid attachment environment/);
+});

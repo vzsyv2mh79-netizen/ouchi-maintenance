@@ -8,6 +8,16 @@ const {runAccountDeletion}=await compiled('lib/account-deletion-worker.ts');
 const {dispatchRegisteredSandboxPush}=await compiled('lib/native-push-dispatch.ts');
 const {createAttachmentFetch}=await compiled('lib/attachment-fetch.ts');
 const {storedNativePushDispatch}=await compiled('lib/native-push-dispatch-store.ts');
+const attachmentModules=new Map();
+function attachmentModule(name){
+ if(attachmentModules.has(name))return attachmentModules.get(name);
+ let source=ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+ source=source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency)=>`from ${JSON.stringify(attachmentModule(dependency))}`);
+ const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');attachmentModules.set(name,url);return url;
+}
+const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
+const {uploadProductAttachment}=await import(attachmentModule('attachment-upload'));
+
 const workerStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-worker-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./account-deletion-objects'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(code).toString('base64')));
 const {storedDeletionDependencies}=await import('data:text/javascript;base64,'+Buffer.from(workerStoreCode).toString('base64'));
 const {handleAccountDeletionRequest}=await compiled('lib/account-deletion-request.ts');
@@ -42,6 +52,12 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
   const sharedBefore=await other.from('products').select('id').eq('id',product);assert.equal(sharedBefore.error,null);assert.deepEqual(sharedBefore.data,[{id:product}]);
   for(const id of [userID,epoch.data,product,file])assert.match(id,/^[0-9a-f-]{36}$/i);
+  // Formal adapter sees the real live Auth session and server ledger. No purchase
+  // exists in this disposable account: an authenticated request cannot upload.
+  const deniedAttachment=randomUUID();
+  const denied=await uploadProductAttachment(new Request(origin+'/formal-adapter-test',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token,'content-type':'image/png'},body:new Uint8Array([137,80,78,71,13,10,26,10])}),product,deniedAttachment,storedAttachmentUploadServices(admin,'Sandbox'));
+  assert.equal(denied.status,403);
+  const deniedUsage=await admin.rpc('maintenance_attachment_usage',{target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data});assert.equal(deniedUsage.error,null);assert.equal(deniedUsage.data.usedFiles,0);assert.equal(deniedUsage.data.reservedFiles,0);
   const bytes=Buffer.from('synthetic-disposable-file'),hash=createHash('sha256').update(bytes).digest('hex');
   const reservation={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data,target_product:product,attachment_id:file,byte_count:bytes.length,media_type:'image/png',measured_sha256:hash};
   const reserved=await admin.rpc('reserve_maintenance_attachment',reservation);assert.equal(reserved.error,null);assert.equal(reserved.data,file);
@@ -73,6 +89,21 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const retainedPage=await admin.rpc('page_maintenance_attachments',pageArgs);assert.equal(retainedPage.error,null);assert.equal(retainedPage.data.items.length,1);assert.equal(retainedPage.data.next,null);assert.deepEqual(Object.keys(retainedPage.data.items[0]).sort(),['createdAt','id','mime','size']);
   const usageArgs={target_user:userID,verified_session:claims.session_id,expected_epoch:epoch.data};
   const used=await admin.rpc('maintenance_attachment_usage',usageArgs);assert.equal(used.error,null);assert.equal(used.data.usedBytes,bytes.length);assert.equal(used.data.usedFiles,1);assert.equal(used.data.reservedFiles,0);
+  // Successful formal adapter uses a synthetic server-persisted ledger event.
+  // This verifies database/Storage wiring, not an Apple-signed Sandbox purchase.
+  const paidProduct=randomUUID(),paidFile=randomUUID(),now=Date.now();
+  assert.equal((await other.from('products').insert({id:paidProduct,homeId:otherHome,categoryId:'air',name:'Synthetic adapter product'})).error,null);
+  const paidEvent={environment:'Sandbox',transactionId:'901',originalTransactionId:'900',accountToken:otherEpoch.data,productId:'ouchi.premium.monthly',signedAt:now,purchasedAt:now-1000,expiresAt:now+3600000};
+  const paidSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:paidEvent,proof_sha256:'d'.repeat(64)});assert.equal(paidSeed.error,null);
+  const adapterBytes=new Uint8Array([137,80,78,71,13,10,26,10]);
+  const paidRequest=()=>new Request(origin+'/formal-adapter-test',{method:'POST',headers:{authorization:'Bearer '+otherSignup.data.session.access_token,'content-type':'image/png'},body:adapterBytes});
+  const paidResult=await uploadProductAttachment(paidRequest(),paidProduct,paidFile,storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{saved:true,attachmentId:paidFile});
+  const paidRetry=await uploadProductAttachment(paidRequest(),paidProduct,paidFile,storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(paidRetry.status,200);
+  const paidReadArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,attachment_id:paidFile};
+  assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
+  assert.equal((await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,revokedAt:now},proof_sha256:'e'.repeat(64)})).error,null);
+  const deniedAfterRevocation=await uploadProductAttachment(paidRequest(),paidProduct,randomUUID(),storedAttachmentUploadServices(admin,'Sandbox'));assert.equal(deniedAfterRevocation.status,403);
+  assert.equal((await admin.rpc('read_maintenance_attachment',paidReadArgs)).data.id,paidFile);
   assert.equal((await user.from('home_members').delete().eq('homeId',home).eq('user_id',otherSignup.data.user.id)).error,null);
   assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
