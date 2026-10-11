@@ -18,6 +18,16 @@ struct FormalReminderSelection {
     var canEdit: Bool { receipt.premiumActive && rights.premiumIsCurrent(expectedEnvironment: environment) }
 }
 
+struct FormalChannelSelection {
+    let receipt: NotificationChannelReceipt
+    let epoch: UUID
+    let environment: BillingEnvironment
+    let checkedAt: Date
+    let deadline: Date
+    let clockStart: ContinuousClock.Instant
+    var current: Bool { Date() >= checkedAt && Date() < deadline && clockStart.duration(to: .now) >= .zero && clockStart.duration(to: .now) < .seconds(300) }
+}
+
 @MainActor final class NativeStore: ObservableObject {
     @Published private(set) var household: Household? { didSet {
         report = nil; reportGeneration += 1
@@ -787,6 +797,55 @@ struct FormalReminderSelection {
         return BillingEnvironment(rawValue: value)
     }
     /// Preferences only; never registers or dispatches a notification.
+    var formalChannelEnvironment: BillingEnvironment? {
+        guard api != nil, Bundle.main.infoDictionary?["OUCHI_NOTIFICATION_CHANNELS_ENABLED"] as? Bool == true,
+              let value = Bundle.main.infoDictionary?["OUCHI_NOTIFICATION_CHANNEL_ENVIRONMENT"] as? String else { return nil }
+        return BillingEnvironment(rawValue: value)
+    }
+    func stopLocalPendingForRemoteDelivery() async {
+        guard !busy, signedIn, let account = snapshotAccount else { return }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision
+        defer { if expected == generation { busy = false } }
+        let stillBound: @MainActor () -> Bool = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision && snapshotAccount == account }
+        let stopped = await reminders.stopPendingForRemoteDelivery(account: account, stillBound: stillBound)
+        guard stillBound() else { return }
+        if stopped { remindersEnabled = false; message = "この端末内の予約通知を停止しました。遠隔配信の有効化は別の設定です。" }
+        else { message = "予約通知の停止を確認できません。通知設定を確認して、もう一度お試しください。" }
+    }
+    func changeFormalChannel(_ channel: NotificationChannel? = nil, prior: FormalChannelSelection? = nil) async -> FormalChannelSelection? {
+        guard !busy, signedIn, let environment = formalChannelEnvironment, let session else { return nil }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision, home = homeID
+        defer { if expected == generation { busy = false } }
+        let stillBound = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision && home == homeID }
+        do {
+            let credentials = try await session.credentials()
+            guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
+            let billing = BillingAPI(environment: environment)
+            let rights = try await billing.entitlement(token: credentials.access_token)
+            guard stillBound(), rights.environment == environment.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
+            let service = FormalNotificationChannelAPI(environment: environment)
+            let receipt: NotificationChannelReceipt
+            if let channel {
+                guard let prior, prior.current, prior.epoch == epoch, prior.environment == environment else { throw CloudError.invalidInput }
+                receipt = try await service.save(channel, revision: prior.receipt.revision, epoch: epoch, token: credentials.access_token)
+            } else { receipt = try await service.load(epoch: epoch, token: credentials.access_token) }
+            guard stillBound() else { return nil }
+            let current = try await billing.entitlement(token: credentials.access_token)
+            let currentCredentials = try await session.credentials()
+            guard stillBound(), current.purchaseAccountToken == epoch, current.environment == environment.rawValue,
+                  currentCredentials.user.id == credentials.user.id, currentCredentials.access_token == credentials.access_token else { return nil }
+            if channel != nil { message = "受け取り先の保存を確認しました。実際の配信は準備中です。" }
+            let now = Date()
+            return FormalChannelSelection(receipt: receipt, epoch: epoch, environment: environment, checkedAt: now,
+                                          deadline: now.addingTimeInterval(300), clockStart: .now)
+        } catch {
+            if stillBound() { message = "保存結果を確認できません。最新の受け取り先を読み込んでください。" }
+            return nil
+        }
+    }
+
     func changeFormalReminderSettings(schedule: ReminderSchedule? = nil, prior: FormalReminderSelection? = nil) async -> FormalReminderSelection? {
         guard !busy, signedIn, let environment = formalReminderEnvironment, let session else { return nil }
         busy = true; message = nil

@@ -110,6 +110,25 @@ import OuchiCore
         if preferenceAccount == account, preferences.account == account { preferences.account = nil }
         return true
     }
+    /// Explicit local opt-out for remote delivery setup. Only pending requests
+    /// owned by this account are removed; delivered and other-account notices remain.
+    func stopPendingForRemoteDelivery(account: UUID, stillBound: @MainActor () -> Bool) async -> Bool {
+        guard stillBound(), !Task.isCancelled else { return false }
+        generation += 1
+        let expected = generation
+        let pending = await backend.pendingIDs()
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
+        let plan = ReminderCleanupPlan(identifiers: pending, account: account)
+        guard !plan.ambiguousLegacy else { return false }
+        backend.removePending(plan.identifiers)
+        activeIDs.removeAll { plan.identifiers.contains($0) }
+        let remaining = await backend.pendingIDs()
+        guard generation == expected, stillBound(), !Task.isCancelled else { return false }
+        let check = ReminderCleanupPlan(identifiers: remaining, account: account)
+        guard check.identifiers.isEmpty, !check.ambiguousLegacy else { return false }
+        if preferences.account == account { preferences.account = nil }
+        return true
+    }
     func reset(clearPreference: Bool) async {
         generation += 1
         let expected = generation

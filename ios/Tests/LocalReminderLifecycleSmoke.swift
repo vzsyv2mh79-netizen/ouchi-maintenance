@@ -14,6 +14,7 @@ import OuchiCore
     var additions = 0
     var failAt: Int?
     var onPending: (@MainActor () async -> Void)?
+    var ignoreRemoval = false
     var onAdd: (@MainActor () async -> Void)?
     func pendingIDs() async -> [String] {
         let hook = onPending; onPending = nil
@@ -30,7 +31,7 @@ import OuchiCore
         let hook = onAdd; onAdd = nil
         await hook?()
     }
-    func removePending(_ identifiers: [String]) { for id in identifiers { pending.removeValue(forKey: id) } }
+    func removePending(_ identifiers: [String]) { if ignoreRemoval { return }; for id in identifiers { pending.removeValue(forKey: id) } }
     func removeDelivered(_ identifiers: [String]) { delivered.removeAll { identifiers.contains($0) } }
 }
 
@@ -95,6 +96,23 @@ import OuchiCore
         let erased = await restarted.eraseForAccountDeletion(account: account, stillBound: { true })
         precondition(erased && preferences.account == other && backend.pending[foreign] != nil && backend.delivered.contains(foreign))
         precondition(backend.pending[old] == nil && !backend.delivered.contains(old))
+        // Explicit remote setup opt-out is pending-only, exact-account and verified.
+        preferences.account = account
+        backend.pending[old] = UNNotificationRequest(identifier: old, content: UNMutableNotificationContent(), trigger: nil)
+        backend.delivered = [old, foreign]
+        backend.ignoreRemoval = true
+        let unconfirmed = await restarted.stopPendingForRemoteDelivery(account: account, stillBound: { true })
+        precondition(!unconfirmed && preferences.account == account && backend.pending[old] != nil)
+        backend.ignoreRemoval = false
+        var bound = true
+        backend.onPending = { bound = false }
+        let changed = await restarted.stopPendingForRemoteDelivery(account: account, stillBound: { bound })
+        precondition(!changed && backend.pending[old] != nil && preferences.account == account)
+        let stopped = await restarted.stopPendingForRemoteDelivery(account: account, stillBound: { true })
+        precondition(stopped && preferences.account == nil && backend.pending[old] == nil)
+        precondition(backend.pending[foreign] != nil && backend.pending["another-feature"] != nil && backend.delivered == [old, foreign])
+        let repeatStop = await restarted.stopPendingForRemoteDelivery(account: account, stillBound: { true })
+        precondition(repeatStop)
         print("LocalReminderLifecycleSmoke PASS: opt-in, restart replacement, scoped preservation, expiry trigger dates, partial failure cleanup, account switch and interruption. Injected backend only; no OS permissions/notifications or user preferences changed.")
     }
 }

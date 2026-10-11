@@ -174,6 +174,9 @@ private struct NativeSettings: View {
                 if store.formalNativePushConfiguration != nil {
                     Section("この端末への通知") { NavigationLink("通知先を管理") { FormalNativePushView() } }
                 }
+                if store.formalChannelEnvironment != nil {
+                    Section("通知の受け取り先") { NavigationLink("受け取り先を選ぶ") { FormalChannelView() } }
+                }
                 if store.formalReminderEnvironment != nil {
                     Section("お手入れの通知") { NavigationLink("通知の細かな設定") { FormalReminderSettingsView() } }
                 }
@@ -1390,5 +1393,70 @@ private struct AttachmentView: View {
             status = "アカウントの状態が変わりました。保存先とファイルをもう一度確認してください。"
         }
         .onDisappear { choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+    }
+}
+
+private struct FormalChannelView: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var localMessage: String?
+    @State private var confirmLocalStop = false
+    @State private var selection: FormalChannelSelection?
+    @State private var chosen: NotificationChannel = .both
+    @State private var operation: Task<Void, Never>?
+    private var binding: String { store.accountBindingRevision.uuidString + "/" + store.homeID }
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Form {
+                Section {
+                    Text("無料で選べます。このアカウントの定期通知に反映します。iPhoneへの配信は準備中です。")
+                    Button("受け取り先を確認") { load() }.disabled(store.busy)
+                }
+                Section("受け取り先") {
+                    Picker("受け取り先", selection: $chosen) {
+                        Text("WebとiPhoneの両方").tag(NotificationChannel.both)
+                        Text("Webだけ").tag(NotificationChannel.web)
+                        Text("iPhoneだけ").tag(NotificationChannel.native).disabled(selection?.receipt.nativeRegistered != true)
+                    }
+                    .disabled(selection?.current != true || store.busy)
+                    if selection?.receipt.nativeRegistered == false { Text("iPhoneだけを選ぶには、iPhone版で通知先の登録が必要です。") }
+                    Button("受け取り先を保存") { load(save: true) }
+                        .disabled(selection?.current != true || store.busy || chosen == .native && selection?.receipt.nativeRegistered != true)
+                }
+                Section {
+                    Text("iPhoneだけを選ぶと、このアカウントのすべてのWeb端末への定期通知を止めます。届いた通知と、別の端末内に予約済みの通知は取り消せません。")
+                    Text("この端末内の朝9時の通知は別の設定です。WebやiPhoneへの遠隔配信を使う前に、この端末内の予約通知を停止できます。遠隔配信はまだ準備中のため、停止すると通知が届かなくなる場合があります。")
+                    Button("この端末内の予約通知を止める", role: .destructive) { confirmLocalStop = true }.disabled(store.busy)
+                    if let message = localMessage { Text(message).font(.caption) }
+                }
+            }
+        }
+        .navigationTitle("通知の受け取り先")
+        .confirmationDialog("この端末内の予約通知を停止しますか？", isPresented: $confirmLocalStop, titleVisibility: .visible) {
+            Button("予約通知を停止", role: .destructive) {
+                operation?.cancel()
+                let expected = binding
+                localMessage = nil
+                operation = Task { @MainActor in
+                    await store.stopLocalPendingForRemoteDelivery()
+                    guard !Task.isCancelled, expected == binding else { return }
+                    localMessage = store.message
+                }
+            }
+            Button("キャンセル", role: .cancel) { }
+        } message: { Text("このアカウントがこの端末内に予約した通知を止めます。届いた通知と他の端末の予約はそのままです。遠隔配信を有効にする操作ではありません。") }
+        .task(id: binding) { clear() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
+        .onDisappear { clear() }
+    }
+    private func clear() { operation?.cancel(); operation = nil; selection = nil; chosen = .both; confirmLocalStop = false; localMessage = nil }
+    private func load(save: Bool = false) {
+        let expected = binding, prior = selection, requested = chosen
+        clear()
+        operation = Task { @MainActor in
+            let result = await store.changeFormalChannel(save ? requested : nil, prior: prior)
+            guard !Task.isCancelled, expected == binding else { return }
+            selection = result; chosen = result?.receipt.channel ?? .both; localMessage = store.message
+        }
     }
 }
