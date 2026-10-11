@@ -213,7 +213,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
     }
     public func binding(token: String) async throws -> Binding {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "http://127.0.0.1:3000/api/development/product-attachments?binding=true")!
+        let url = URL(string: "http://127.0.0.1:3000/api/development/verified-product-attachments?binding=true")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
@@ -236,7 +236,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
     }
     public func usage(token: String) async throws -> Usage {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "http://127.0.0.1:3000/api/development/product-attachments?usage=true")!
+        let url = URL(string: "http://127.0.0.1:3000/api/development/verified-product-attachments?usage=true")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
@@ -264,7 +264,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
         let nilID = "00000000-0000-0000-0000-000000000000"
         guard product.uuidString != nilID, after?.uuidString != nilID else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "page", value: "true")]
         if let after { components.queryItems?.append(URLQueryItem(name: "after", value: after.uuidString.lowercased())) }
         let url = components.url!
@@ -288,7 +288,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
     public func list(product: UUID, token: String) async throws -> [StoredAttachment] {
         guard product.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased())]
         let url = components.url!
         var request = URLRequest(url: url)
@@ -315,7 +315,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
     public func download(attachment: UUID, token: String) async throws -> DownloadedFile {
         guard attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
         let identifier = attachment.uuidString.lowercased()
         components.queryItems = [URLQueryItem(name: "attachmentId", value: identifier)]
         let url = components.url!
@@ -345,7 +345,7 @@ public struct DevelopmentAttachmentAPI: Sendable {
               product.uuidString != "00000000-0000-0000-0000-000000000000",
               attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/product-attachments")!
+        var components = URLComponents(string: "http://127.0.0.1:3000/api/development/verified-product-attachments")!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
         let url = components.url!
         var request = URLRequest(url: url)

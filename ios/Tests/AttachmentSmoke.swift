@@ -4,7 +4,7 @@ import OuchiCore
  static func main() async throws {
   let product=UUID(),attachment=UUID(),bytes=Data([137,80,78,71,13,10,26,10])
   let api=DevelopmentAttachmentAPI { request in
-   precondition(request.url?.host=="127.0.0.1" && request.url?.port==3000)
+   precondition(request.url?.host=="127.0.0.1" && request.url?.port==3000 && request.url?.path=="/api/development/verified-product-attachments")
    precondition(request.httpMethod=="POST" && request.httpBody==bytes)
    precondition(request.value(forHTTPHeaderField:"Content-Type")=="image/png" && request.value(forHTTPHeaderField:"Content-Length")=="8")
    let query=URLComponents(url:request.url!,resolvingAgainstBaseURL:false)!.queryItems!
