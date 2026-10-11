@@ -52,7 +52,12 @@ final class PurchaseManager: ObservableObject {
         id.hasPrefix("ouchi.tip.") ? .consumable : .autoRenewable
     }
     func markRetryNeeded() { needsRetry = true }
-    func load() async throws { products = try await Product.products(for: ids) }
+    func load() async throws {
+        try Task.checkCancellation()
+        let loaded = try await Product.products(for: ids)
+        try Task.checkCancellation()
+        products = loaded
+    }
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
         guard ids.contains(product.id), product.type == expectedType(for: product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
@@ -103,6 +108,7 @@ final class PurchaseManager: ObservableObject {
             try await deliver(result, account: account, finish: true)
         }
         guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
         needsRetry = false
     }
     enum PurchaseError: Error { case notConfigured, unverified }
