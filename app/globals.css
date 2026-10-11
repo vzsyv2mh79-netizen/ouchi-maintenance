@@ -98,3 +98,13 @@ button:focus-visible, a:focus-visible { outline: 3px solid #246bfe; outline-offs
 
 .theme-toggle { flex:none; width:44px; height:44px; }
 @media(max-width:760px) { .topbar { gap:8px; } .home-switch select { max-width:100px; } .mobile-brand { font-size:13px; } }
+
+.attachment-controls { display:grid; gap:12px; }
+.attachment-controls h2 { margin:0; font-size:16px; color:var(--ink); font-weight:700; }
+.attachment-controls p { margin:0; line-height:1.6; }
+.attachment-controls label { display:grid; gap:8px; font-size:14px; }
+.attachment-controls input[type="file"] { width:100%; min-width:0; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.attachment-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.attachment-file { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.attachment-file p { font-size:13px; color:var(--muted); }
+.attachment-file button { flex-shrink:0; }
