@@ -1,9 +1,10 @@
+import type {BillingEnvironment} from './billing';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import {sessionAfterAuthVerification} from './verified-app-session';
 import {ReminderSettingsError,type ReminderSettingsDependencies,type ReminderScope} from './reminder-settings';
 /** Bounded service client only; exact bearer verification precedes signed claim use. */
-export function storedReminderSettings(db:SupabaseClient):ReminderSettingsDependencies{
- const args=(s:ReminderScope)=>({target_user:s.userID,verified_session:s.sessionID,target_epoch:s.epochID,target_environment:'Sandbox'});
+export function storedReminderSettings(db:SupabaseClient,environment:BillingEnvironment="Sandbox"):ReminderSettingsDependencies{
+ const args=(s:ReminderScope)=>({target_user:s.userID,verified_session:s.sessionID,target_epoch:s.epochID,target_environment:environment});
  const result=(r:{data:unknown;error:unknown})=>{
   if(r.error){const e=r.error as {code?:string;message?:string};if(e.code==='P0001'){
    if(e.message==='Settings changed; reload required')throw new ReminderSettingsError('conflict');

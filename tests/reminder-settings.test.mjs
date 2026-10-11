@@ -23,3 +23,14 @@ test('disabled, malformed and unauthorized settings never reach reads or writes'
  assert.equal((await handle(req('GET',undefined,{authorization:'Bearer injected token'}),deps)).status,401);assert.equal(calls,0);
  assert.equal((await handle(req(),{...deps,verify:async()=>null})).status,401);
 });
+test('formal selected environment and enrollment bind reads/saves and reverify exact session after acknowledgement',async()=>{
+ const formal={environment:'Production',expectedEpoch:scope.epochID},production=value=>({...value,environment:'Production'});
+ let checks=0,reads=0,writes=0;
+ const deps={verify:async()=>{checks++;return scope;},read:async()=>{reads++;return production(state(chosen,false,1));},save:async()=>{writes++;return production(state(chosen,true,1));}};
+ let response=await handle(req(),deps,formal);assert.equal(response.status,200);const body=await response.json();assert.equal(body.environment,'Production');assert.equal(body.purchaseAccountToken,scope.epochID);assert.deepEqual(body.effective,free);assert.equal(checks,2);
+ response=await handle(req('PUT',{revision:0,schedule:chosen}),deps,formal);assert.equal(response.status,200);assert.equal(writes,1);
+ assert.equal((await handle(req(),deps,{...formal,expectedEpoch:scope.userID})).status,403);assert.equal(reads,1);
+ for(const latest of [null,{...scope,epochID:scope.userID},{...scope,sessionID:scope.userID},{...scope,userID:scope.sessionID}]){let calls=0;response=await handle(req(),{...deps,verify:async()=>++calls===1?scope:latest},formal);assert.equal(response.status,403);}
+ assert.equal((await handle(req(),{...deps,read:async()=>state()},formal)).status,503);
+ assert.equal((await handle(req(),deps,{...formal,expectedEpoch:'bad'})).status,400);
+});

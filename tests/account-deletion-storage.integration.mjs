@@ -26,6 +26,7 @@ const {GET:reminderGET,PUT:reminderPUT}=await import('data:text/javascript;base6
 const {storedAttachmentUploadServices}=await import(attachmentModule('attachment-upload-store'));
 const {attachmentDeployment,attachmentServiceResponse}=await import(attachmentModule('attachment-service-handler'));
 const {reportDeployment,reportServiceResponse}=await import(attachmentModule('report-service-handler'));
+const {reminderDeployment,reminderServiceResponse}=await import(attachmentModule('reminder-service-handler'));
 const {countedNativePushDispatch}=await import(attachmentModule('native-push-job-dispatch'));
 const {deletionProgressDependencies}=await import(attachmentModule('account-deletion-progress-store'));
 const {runNativePushBatch}=await compiled('lib/native-push-batch.ts');
@@ -199,6 +200,15 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await settingsRequest(paidToken,{revision:0,schedule:selectedSchedule})).status,200);
   assert.equal((await settingsRequest(paidToken,{revision:0,schedule:{...selectedSchedule,minuteOfDay:1200}})).status,409);
 
+  const formalReminderConfig=reminderDeployment({url:'https://disposable.supabase.co/',key:service,storage:'verified-ledger',environment:'Sandbox'},'true');assert.ok(formalReminderConfig);
+  const formalReminderFactory=(config,signal)=>{assert.equal(config.environment,'Sandbox');return createClient(origin,service,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch(signal)}});};
+  const formalReminderRequest=(body,token=paidToken,capturedEpoch=otherEpoch.data)=>new Request(origin+'/api/reminder-settings',{method:body===undefined?'GET':'PUT',headers:{authorization:'Bearer '+token,'content-type':'application/json','X-Ouchi-App-Epoch':capturedEpoch},body:body===undefined?undefined:JSON.stringify(body)});
+  const formalSettings=await reminderServiceResponse(formalReminderRequest(),formalReminderConfig,formalReminderFactory);assert.equal(formalSettings.status,200);const formalSettingsBody=await formalSettings.json();assert.equal(formalSettingsBody.environment,'Sandbox');assert.equal(formalSettingsBody.purchaseAccountToken,otherEpoch.data);assert.equal(formalSettingsBody.revision,1);assert.deepEqual(formalSettingsBody.effective,selectedSchedule);
+  assert.equal((await reminderServiceResponse(formalReminderRequest({revision:0,schedule:selectedSchedule}),formalReminderConfig,formalReminderFactory)).status,200);
+  assert.equal((await reminderServiceResponse(formalReminderRequest({revision:0,schedule:{...selectedSchedule,minuteOfDay:1200}}),formalReminderConfig,formalReminderFactory)).status,409);
+  assert.equal((await reminderServiceResponse(formalReminderRequest(undefined,paidToken,randomUUID()),formalReminderConfig,formalReminderFactory)).status,403);
+  assert.equal((await reminderServiceResponse(formalReminderRequest({revision:0,schedule:selectedSchedule},signup.data.session.access_token,epoch.data),formalReminderConfig,formalReminderFactory)).status,403);
+
   const reportKeys=['VERCEL_ENV','OUCHI_REPORT_TEST_MODE','NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','BILLING_STORAGE_MODE'];
   const reportBefore=Object.fromEntries(reportKeys.map(key=>[key,process.env[key]]));
   async function reportRequest(targetHome){
@@ -254,6 +264,9 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const expiredSeed=await admin.rpc('apply_maintenance_verified_transaction',{payload:{...paidEvent,signedAt:now+1,expiresAt:now-1},proof_sha256:'f'.repeat(64)});assert.equal(expiredSeed.error,null);assert.equal(expiredSeed.data,'updated');
   const expiredRights=await admin.rpc('read_maintenance_verified_entitlement',{target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,target_epoch:otherEpoch.data,target_environment:'Sandbox'});assert.equal(expiredRights.error,null);assert.equal(expiredRights.data.plan,'free');
   assert.equal((await reportServiceResponse(formalReportRequest(),formalReportConfig,reportFactories)).status,403);
+  const expiredFormalSettings=await reminderServiceResponse(formalReminderRequest(),formalReminderConfig,formalReminderFactory);assert.equal(expiredFormalSettings.status,200);const expiredSettingsBody=await expiredFormalSettings.json();assert.equal(expiredSettingsBody.premiumActive,false);assert.deepEqual(expiredSettingsBody.saved,selectedSchedule);assert.deepEqual(expiredSettingsBody.effective,defaultSchedule);
+  assert.equal((await reminderServiceResponse(formalReminderRequest({revision:1,schedule:selectedSchedule}),formalReminderConfig,formalReminderFactory)).status,403);
+  console.log('Formal reminder settings actual Auth/ledger: scoped read/save retry, conflict, wrong epoch, free write refusal and expired retained preferences/default fallback. No notification dispatch or Apple signature.');
   console.log('Formal report shared handler actual Auth/ledger/RLS: paid report, exact enrollment, free foreign caller and ordinary expiry denial verified. Synthetic Apple transaction; no production deployment.');
   const expiredNewID=randomUUID();assert.equal((await attachmentServiceResponse(expiryRequest('POST',expiredNewID),expiryConfig,formalClient)).status,403);
   const expiredRead=await attachmentServiceResponse(expiryRequest('GET',expiryFile),expiryConfig,formalClient);assert.equal(expiredRead.status,200);assert.deepEqual(new Uint8Array(await expiredRead.arrayBuffer()),adapterBytes);
