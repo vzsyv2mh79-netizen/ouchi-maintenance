@@ -17,6 +17,10 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDependencies,signal?:AbortSignal){
  if(!scope||Object.keys(scope).sort().join(',')!=='epochID,leaseToken,requestID,userID'||Object.values(scope).some(v=>typeof v!=='string'||!uuid.test(v)||v==='00000000-0000-0000-0000-000000000000'))throw new Error('Invalid deletion scope');
+ // Validate the complete adapter before the first irreversible stage.
+ // Missing finalization must not start a partially configured deletion.
+ const required = ['leaseCurrent', 'revokeAndCaptureInventory', 'eraseDeviceRegistrations', 'eraseAttachments', 'eraseRecords', 'finalizeIdentityAndRetention', 'markComplete'] as const;
+ if (!deps || required.some(name => typeof deps[name] !== 'function')) return {state:'pending' as const};
  const fixed=Object.freeze({...scope});
  const steps=[deps.revokeAndCaptureInventory,deps.eraseDeviceRegistrations,deps.eraseAttachments,deps.eraseRecords,deps.finalizeIdentityAndRetention,deps.markComplete];
  for(const step of steps){

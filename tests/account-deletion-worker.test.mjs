@@ -24,3 +24,13 @@ test('cancellation during every awaited stage, including final completion, requi
  // A committed final stage may need a fresh status query after cancellation;
  // cancellation is not evidence that durable server completion rolled back.
 });
+
+test('incomplete adapter does not begin any durable deletion stage',async()=>{
+ for(const missing of ['leaseCurrent',...names]){
+  const calls=[];const deps={leaseCurrent:async()=>{calls.push('lease');return true;}};
+  names.forEach(name=>deps[name]=async()=>{calls.push(name);return true;});
+  delete deps[missing];
+  assert.deepEqual(await run(scope,deps),{state:'pending'});assert.deepEqual(calls,[]);
+ }
+ assert.deepEqual(await run(scope,null),{state:'pending'});
+});

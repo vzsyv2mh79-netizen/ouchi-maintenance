@@ -10,6 +10,10 @@ export type DeletionFinalization = Pick<DeletionDependencies, 'finalizeIdentityA
  * native cleanup/retention/completion. No scheduler or shared Auth deletion here.
  */
 export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFinalization, signal?: AbortSignal): DeletionDependencies {
+ if (!tail || ['eraseNativeDevices', 'finalizeIdentityAndRetention', 'markComplete'].some(name =>
+   typeof tail[name as keyof DeletionFinalization] !== 'function')) {
+  throw new Error('Deletion finalization is not configured');
+ }
  const rpc = async (name: string, scope: DeletionScope) => {
   if (signal?.aborted) return false;
   const result = await db.rpc(name, {target_request: scope.requestID, target_user: scope.userID, target_epoch: scope.epochID, target_lease: scope.leaseToken});
