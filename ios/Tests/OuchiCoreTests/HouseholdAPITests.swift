@@ -19,6 +19,25 @@ final class HouseholdAPITests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first.deletingLastPathComponent())
         XCTAssertThrowsError(try reopened.files(account: UUID(uuidString: link.lastPathComponent)!))
     }
+    func testManagedExportsExcludeUnownedEntriesAndRejectReplacedRoot() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let root = temporary.appendingPathComponent("exports"), account = UUID()
+        let storage = ManagedExportStorage(root: root)
+        XCTAssertTrue(try storage.files(account: account).isEmpty)
+        let owned = try storage.write(Data("synthetic".utf8), account: account, extension: "pdf")
+        let folder = owned.deletingLastPathComponent()
+        try Data("unowned".utf8).write(to: folder.appendingPathComponent("other.json"))
+        try Data("unowned".utf8).write(to: folder.appendingPathComponent(UUID().uuidString + ".txt"))
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent(UUID().uuidString + ".pdf"), withIntermediateDirectories: false)
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent(UUID().uuidString + ".pdf"), withDestinationURL: owned)
+        XCTAssertEqual(try storage.files(account: account).map(\.lastPathComponent), [owned.lastPathComponent])
+        let moved = temporary.appendingPathComponent("moved")
+        try FileManager.default.moveItem(at: root, to: moved)
+        try FileManager.default.createSymbolicLink(at: root, withDestinationURL: moved)
+        XCTAssertThrowsError(try storage.files(account: account))
+        XCTAssertThrowsError(try storage.write(Data(), account: account, extension: "pdf"))
+    }
     func testPendingRemovalRefusesForeignScopeInvalidIdentifiersAndOversizedData() throws {
         let account = UUID(), epoch = UUID(), product = UUID(), id = UUID()
         let value = try PendingAttachmentRemoval(account: account, epoch: epoch, product: product, id: id)

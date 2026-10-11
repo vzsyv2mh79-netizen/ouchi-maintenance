@@ -10,8 +10,14 @@ public struct ManagedExportStorage {
         let result = root.appendingPathComponent(account.uuidString.lowercased(), isDirectory: true)
         // Never follow a replaced app-owned directory into another location.
         for url in [root, result] {
-            if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
-                throw CocoaError(.fileReadNoPermission)
+            do {
+                // URL resource values can remain cached after a directory is replaced.
+                let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+                guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+                    throw CocoaError(.fileReadNoPermission)
+                }
+            } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+                // A missing app-owned directory may be created by write().
             }
         }
         return result
