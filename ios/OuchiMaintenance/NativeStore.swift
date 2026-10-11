@@ -817,6 +817,8 @@ struct FormalChannelSelection {
             if expected == generation { message = "Appleで有効な契約が見つかりましたが、別のおうちメンテアカウントに紐づいています。新しく購入せず、購入時のアカウントを確認してください。" }
         } catch PurchaseManager.PurchaseError.purchaseInProgress {
             if expected == generation { message = "購入処理が進行中です。結果が出るまでお待ちください。" }
+        } catch PurchaseManager.PurchaseError.purchaseNotActive {
+            if expected == generation { message = "Appleから返された購入は、返金済みか期限切れです。有効な契約としては扱っていません。購入の復元から状態を確認してください。" }
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
     }
     func restoreSandboxPurchases() async {

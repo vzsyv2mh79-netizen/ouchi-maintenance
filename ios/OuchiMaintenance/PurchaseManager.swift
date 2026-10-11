@@ -162,6 +162,14 @@ final class PurchaseManager: ObservableObject {
         case .success(let result):
             guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
             try await deliver(result, account: account, finish: true)
+            // A verified success can replay an already revoked transaction.
+            // Persist that state, but do not report a current purchase as saved.
+            guard case .verified(let transaction) = result,
+                  transaction.revocationDate == nil, !transaction.isUpgraded,
+                  transaction.productType != .autoRenewable ||
+                    (transaction.expirationDate ?? .distantPast) > Date() else {
+                throw PurchaseError.purchaseNotActive
+            }
             return .saved
         case .pending: return .pending
         case .userCancelled: return .cancelled
@@ -222,5 +230,5 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         needsRetry = false
     }
-    enum PurchaseError: Error { case notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere, purchaseInProgress }
+    enum PurchaseError: Error { case notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere, purchaseInProgress, purchaseNotActive }
 }

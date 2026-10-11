@@ -74,16 +74,57 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         return window
     }
-    private func localTransactionID(_ jws: String) throws -> String {
+    private func localClaims(_ jws: String) throws -> [String: Any] {
         let segments = jws.split(separator: ".")
         guard segments.count == 3 else { throw FixtureError.missingTransaction }
         var body = String(segments[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         body += String(repeating: "=", count: (4 - body.count % 4) % 4)
         let data = try XCTUnwrap(Data(base64Encoded: body))
         let claims = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        return try XCTUnwrap(claims["transactionId"] as? String)
+        return claims
         // Fixture callback bookkeeping only; SDK verifies local signature.
         // This parser is NOT server-side verification and grants no rights.
+    }
+    private func localTransactionID(_ jws: String) throws -> String {
+        try XCTUnwrap(localClaims(jws)["transactionId"] as? String)
+    }
+    @MainActor func testActualManagerRestoresRefundAndRefusesRevokedPurchaseReplay() async throws {
+        let session = try await disposableSession(), window = fixtureWindow()
+        defer { window.close() }
+        let account = UUID(uuidString: "39999999-9999-4999-8999-999999999999")!
+        let manager = try PurchaseManager(localStoreKitFixtureWindow: window)
+        var acknowledged = Set<String>(), revoked = Set<String>()
+        manager.persist = { [self] jws in
+            let claims = try localClaims(jws)
+            let id = try XCTUnwrap(claims["transactionId"] as? String)
+            acknowledged.insert(id)
+            if claims["revocationDate"] != nil { revoked.insert(id) }
+        }
+        manager.startObserving(account: account)
+        defer { manager.stopObserving() }
+        await Task.yield(); try await manager.load()
+        let product = try XCTUnwrap(manager.products.first { $0.id == "ouchi.premium.monthly" })
+        guard case .saved = try await manager.purchase(product, account: account) else { XCTFail("subscription not saved"); return }
+        let original = try await latest(product.id, phase: "subscription before refund") { $0.appAccountToken == account }
+        XCTAssertEqual(acknowledged, [String(original.id)])
+        XCTAssertTrue(revoked.isEmpty)
+        try session.refundTransaction(identifier: XCTUnwrap(UInt(exactly: original.id)))
+        let refund = try await latest(product.id, phase: "subscription refund") { $0.id == original.id && $0.revocationDate != nil }
+        XCTAssertNotNil(refund.revocationDate)
+        let restored = try await manager.restore(account: account)
+        XCTAssertGreaterThanOrEqual(restored.savedTransactions, 1)
+        XCTAssertFalse(restored.otherAccountSubscriptionFound)
+        XCTAssertEqual(revoked, [String(original.id)], "actual restore must submit verified revocation before a later purchase")
+        do {
+            _ = try await manager.purchase(product, account: account)
+            XCTFail("revoked transaction replay reported a current purchase")
+        } catch PurchaseManager.PurchaseError.purchaseNotActive { }
+        XCTAssertEqual(acknowledged, [String(original.id)], "revoked replay must retain the original identity")
+        XCTAssertEqual(revoked, [String(original.id)])
+        XCTAssertEqual(session.allTransactions().count, 1)
+        withExtendedLifetime(session) {}
+        // Mock persistence inspects SDK-verified local payloads only. No server
+        // entitlement, money, real App Store refund or retention change.
     }
     func testLocalCatalogLoadsWithoutPurchase() async throws {
         let bundle = Bundle(for: Self.self)
