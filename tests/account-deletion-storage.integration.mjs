@@ -54,6 +54,15 @@ const sessionCode=ts.transpileModule(readFileSync('lib/verified-app-session.ts',
 const requestStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-request-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./verified-app-session'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(sessionCode).toString('base64')));
 const {deletionRequestDependencies}=await import('data:text/javascript;base64,'+Buffer.from(requestStoreCode).toString('base64'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
+ // Metadata only, inside the opt-in disposable database. No row/customer values.
+ const inventoryText=execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:readFileSync('tests/fixtures/deletion/schema-inventory.sql','utf8'),encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']});
+ const inventory=JSON.parse(inventoryText.trim());assert.ok(Array.isArray(inventory));
+ for(const table of inventory){assert.equal(table.rls,true,table.relation+' requires RLS');assert.ok(table.columns.length>0);assert.ok(Array.isArray(table.foreign_keys));}
+ const relations=new Map(inventory.map(table=>[table.relation,table]));
+ for(const name of ['maintenance_private.account_access','maintenance_private.app_epochs','maintenance_private.app_session_epochs','maintenance_private.transaction_ownership','maintenance_private.verified_transactions','maintenance_private.verified_renewals','maintenance_private.verified_notifications','maintenance_private.account_deletion_requests','maintenance_private.account_deletion_objects','maintenance_private.native_delivery_identities','public.homes','public.home_invites','public.maintenance_backup_restores'])assert.ok(relations.has(name),'missing erasure inventory: '+name);
+ assert.ok(relations.get('maintenance_private.transaction_ownership').columns.some(column=>column.name==='app_epoch_id'));
+ assert.ok(relations.get('maintenance_private.account_deletion_objects').columns.some(column=>column.name==='object_path'));
+ console.log('Deletion metadata inventory (no customer values): '+JSON.stringify(inventory));
  let pausedFileID=null,releaseWrite,recordWriteArrival;
  const writePermit=new Promise(resolve=>{releaseWrite=resolve;}),writeArrived=new Promise(resolve=>{recordWriteArrival=resolve;});
  const gateway=createServer(async(req,res)=>{
@@ -488,5 +497,9 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('erase_maintenance_deletion_reminder_schedule',args)).data,true);
   console.log('Reminder settings actual deletion lease cleanup verified; repeat confirmed absence.');
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
+  assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
+  assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
+  console.log('Actual deletion inventory minimization: confirmed object paths removed only after record erasure, pending final identity stage never claims complete.');
+
  }finally{releaseWrite();gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
