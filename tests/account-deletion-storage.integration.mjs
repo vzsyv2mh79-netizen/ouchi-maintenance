@@ -132,6 +132,8 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   const delayedWriter=createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(undefined,30000)}});
   const lateUpload=delayedWriter.storage.from('ouchi-product-attachments').upload(latePath,lateBytes,{contentType:'image/png',upsert:false}).then(result=>({result}),error=>({error}));
   let arrivalTimer;try{await Promise.race([writeArrived,new Promise((resolve,reject)=>{arrivalTimer=setTimeout(()=>reject(Error('Real delayed upload did not reach gateway')),5000);})]);}finally{clearTimeout(arrivalTimer);}
+  // Normal product deletion must not lose the original owner's family file.
+  const deletedProduct=await user.from('products').delete().eq('id',product).select('id');assert.equal(deletedProduct.error,null);assert.deepEqual(deletedProduct.data,[{id:product}]);
   const beforeLateWrite=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(beforeLateWrite.data,null);assert.equal(beforeLateWrite.error.code,'NoSuchKey');
 
   const pushID=randomUUID(),pushLease=randomUUID(),pushEndpoint='https://web.push.apple.com/synthetic-'+randomUUID();assert.equal((await admin.from('maintenance_push_subscriptions').insert({id:pushID,user_id:userID,endpoint:pushEndpoint,p256dh:'A'.repeat(87),auth:'A'.repeat(22),claim_token:pushLease,claimed_until:new Date(Date.now()+120000).toISOString()})).error,null);
