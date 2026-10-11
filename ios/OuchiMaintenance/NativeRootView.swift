@@ -30,7 +30,9 @@ struct NativeRootView: View {
                 .accessibilityLabel(appearance == .dark ? "ライトモードに切り替える" : "ダークモードに切り替える")
             }.padding(.horizontal).background(.bar)
         }
-        .tint(Color(red: 0.125, green: 0.357, blue: 0.251))
+        .tint(appearance == .dark
+            ? Color(red: 0.502, green: 0.839, blue: 0.667)
+            : Color(red: 0.125, green: 0.357, blue: 0.251))
         .alert("おうちメンテ", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
             Button("閉じる", role: .cancel) { store.message = nil }
         } message: { Text(store.message ?? "") }
@@ -189,6 +191,8 @@ private struct NativeSettings: View {
                     NavigationLink("家族と共有") { FamilySettings() }
                 }
                 Section("記録") {
+                    Text("家電・お手入れ・完了履歴を、無料でバックアップ用ファイルに保存できます。元の記録は消えません。ほかのアプリへの取り込みは、移行先がこの形式に対応している必要があります。")
+                        .font(.caption)
                     Button("すべての記録を書き出す") {
                         store.prepareExport()
                     }.disabled(store.household == nil || store.busy)
@@ -693,7 +697,7 @@ private struct SandboxTipView: View {
                 Button("未完了取引を再確認") { Task { await store.retrySandboxTransactions() } }.disabled(store.busy)
                 if purchases.needsRetry { Text("未完了の結果を確認する必要があります。") }
             }
-            Section { Text("正式な利用規約・プライバシーポリシーと問い合わせ窓口は公開前に整備します。サブスクリプションの販売画面は、有料特典の実装後に追加します。") }
+            Section { Text("正式な利用規約・プライバシーポリシーと問い合わせ窓口は公開前に整備します。サブスクリプションも別の開発画面で検証中です。正式販売は、有料特典と購入テストの確認後に開始します。") }
         }.navigationTitle("応援チップの確認")
          .confirmationDialog("一回払いのSandboxテストを開始しますか？", isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } }), titleVisibility: .visible) {
              if let product = selected { Button("\(product.displayPrice)のチップをテスト") { selected = nil; Task { await store.testTip(product) } } }
