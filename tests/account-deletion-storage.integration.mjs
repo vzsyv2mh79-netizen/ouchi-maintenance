@@ -506,12 +506,22 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.ok((await user.rpc('erase_maintenance_deletion_enrollment_consents',args)).error);
   assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',{...args,target_lease:randomUUID()})).data,false);
   assert.ok((await user.rpc('erase_maintenance_deletion_purchase_ledger',args)).error);assert.equal((await admin.rpc('erase_maintenance_deletion_purchase_ledger',{...args,target_lease:randomUUID()})).data,false);
+  const priorEpoch=randomUUID(),foreignPriorEpoch=randomUUID(),priorConsent=randomUUID();
+  recoverySql(`insert into maintenance_private.enrollment_consents values('${priorConsent}','${userID}','${randomUUID()}','${randomUUID()}','${priorEpoch}',now()+interval '5 minutes');insert into maintenance_private.notification_channels values('${userID}','${priorEpoch}','Sandbox','web',1),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox','web',1);insert into maintenance_private.reminder_schedules values('${userID}','${priorEpoch}','Sandbox',600,array[1]::smallint[],0,true,1),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox',600,array[1]::smallint[],0,true,1);insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values('${userID}','${priorEpoch}','Sandbox','prior-deletion-user'),('${otherSignup.data.user.id}','${foreignPriorEpoch}','Sandbox','prior-deletion-foreign');`);
+  assert.ok((await user.rpc('erase_maintenance_deletion_prior_preferences',args)).error);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_prior_preferences',{...args,target_lease:randomUUID()})).data,false);
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${deletionConsent}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${foreignConsent}';`).trim(),'1');
   assert.equal((await admin.rpc('erase_maintenance_deletion_enrollment_consents',args)).data,true);
+  for(const table of ['enrollment_consents','notification_channels','reminder_schedules','reconciliation_jobs']){
+   assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${userID}';`).trim(),'0');
+   assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${otherSignup.data.user.id}';`).trim(),table==='reconciliation_jobs'?'2':'1');
+  }
+  assert.equal((await admin.rpc('erase_maintenance_deletion_prior_preferences',args)).data,true);
+  console.log('Actual prior enrollment cleanup: all target consent/recovery/channel/schedule generations removed; foreign generations preserved, repeated absence, wrong lease/browser denied. No completion.');
   console.log('Actual deletion consent erasure: target closed epoch removed after confirmed household/file erasure, foreign consent/shared Auth preserved, wrong lease/browser denied, final account status still pending.');
   for(const table of ['transaction_ownership','verified_transactions','verified_renewals'])assert.equal(recoverySql(`select count(*) from maintenance_private.${table} where user_id='${userID}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from maintenance_private.verified_transactions where environment='Sandbox' and transaction_id='901' and user_id='${otherSignup.data.user.id}';`).trim(),'1');

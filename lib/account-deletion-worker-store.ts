@@ -39,6 +39,7 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
    if (!await rpc('erase_maintenance_deletion_notifications', scope)) return false;
    if (!await rpc('capture_maintenance_deletion_receipt_sessions', scope)) return false;
    if (!await rpc('erase_maintenance_deletion_enrollment_consents', scope)) return false;
+   if (!await rpc('erase_maintenance_deletion_prior_preferences', scope)) return false;
    if (!await rpc('minimize_maintenance_deletion_object_inventory', scope)) return false;
    return rpc('erase_maintenance_deletion_purchase_ledger', scope);
   },
