@@ -27,10 +27,16 @@ The shared Supabase Auth identity must not be globally deleted as a shortcut. Ot
 ## Implementation sequence
 
 1. Add a durable private deletion request and immutable app epoch scope. No client-supplied arbitrary user/object IDs. Live verified session plus reauthentication are required to enqueue.
-2. In one database transaction revoke app access, cancel dependent jobs, capture exact storage paths, and erase application records. Idempotent retry must never touch a later enrollment.
-3. Worker removes queued objects, verifies absence, retries failures, then purges remaining app identity links according to the documented retention policy. Storage metadata DELETE alone does not erase file bytes.
+2. Under the immutable epoch and current deletion lease, revoke app access and capture exact storage paths before erasing any application records. Block family access to a closed owner’s homes. Upload reservation and finalization must share the enrollment/home locking protocol before production activation.
+3. Worker removes captured objects through Storage, verifies actual absence, and durably acknowledges each object. Only then erase owned household records. Cancel dependent delivery/recovery work and purge remaining app identity links according to the documented retention policy. Idempotent retry must never touch a later enrollment. Storage metadata DELETE alone does not erase file bytes.
 4. Expose authenticated progress separate from purchase entitlement. Never report deleted until every required operation is acknowledged.
 5. Wire native UI and test shared-family impact, session races, storage outage, duplicate requests, restore attempts and retained Apple notifications.
 6. Run only disposable isolated tests first. Production migration and any existing-data erasure remain held.
 
 No legal retention basis or deadline is assumed. Operator identity, support contact, retention policy and account boundary need finalization before activating this feature or submitting the app.
+
+## Current evidence and remaining connections
+
+At commit 861fab7 the isolated Auth/PostgREST/Storage integration confirms object removal, absence acknowledgement, owned home/product deletion, repeatable erasure, and preservation of another owner’s home. It deliberately leaves the shared Auth identity and the deletion request running; this is not proof of complete account deletion. Native Gmail login and existing record display were directly verified on the Mac iPhone 17e screen.
+
+The closed-owner household helper and member isolation tests are prepared separately. Native deletion UI, authenticated request/progress routes, bounded worker adapters, delivery cancellation, local-file cleanup and justified purchase retention still require implementation and end-to-end verification. No production deletion endpoint or scheduler is active.
