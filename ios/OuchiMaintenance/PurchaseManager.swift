@@ -56,14 +56,31 @@ final class PurchaseManager: ObservableObject {
         id.hasPrefix("ouchi.tip.") ? .consumable : .autoRenewable
     }
     func markRetryNeeded() { needsRetry = true }
+    private func descriptor(_ product: Product) -> StoreProductDescriptor {
+        let kind: StoreProductDescriptor.Kind = product.type == .consumable ? .consumable : product.type == .autoRenewable ? .autoRenewable : .other
+        var period: StoreProductDescriptor.Period?
+        if let unit=product.subscription?.subscriptionPeriod.unit {
+            switch unit {
+            case .month: period = .month
+            case .year: period = .year
+            default: period = .other
+            }
+        }
+        return .init(id:product.id,kind:kind,period:period,periodValue:product.subscription?.subscriptionPeriod.value,subscriptionGroupID:product.subscription?.subscriptionGroupID)
+    }
     func load() async throws {
         try Task.checkCancellation()
+        // A failed reload must not leave previously accepted purchase options active.
+        products = []
         let loaded = try await Product.products(for: ids)
         try Task.checkCancellation()
-        products = loaded
+        let eligible=try StoreProductCatalogPolicy.eligibleProductIDs(loaded.map(descriptor))
+        products = loaded.filter { eligible.contains($0.id) }
     }
     func purchase(_ product: Product, account: UUID) async throws -> Outcome {
-        guard ids.contains(product.id), product.type == expectedType(for: product.id), persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        guard ids.contains(product.id), product.type == expectedType(for: product.id),
+              products.contains(where: { descriptor($0)==descriptor(product) }),
+              persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
         let expected = bindingGeneration
         guard case .verified(let app) = try await AppTransaction.shared, app.environment == storeEnvironment,
               app.bundleID == Bundle.main.bundleIdentifier else { throw PurchaseError.unverified }
