@@ -171,6 +171,9 @@ private struct NativeSettings: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.formalReminderEnvironment != nil {
+                    Section("お手入れの通知") { NavigationLink("通知の細かな設定") { FormalReminderSettingsView() } }
+                }
                 if store.formalReportEnvironment != nil {
                     Section("お手入れレポート") { NavigationLink("住まい全体のレポート") { FormalReportView() } }
                 }
@@ -863,6 +866,86 @@ private struct SandboxReminderSettingsView: View {
         }
         .onDisappear { operation?.cancel(); operation = nil }
     }
+}
+
+private struct FormalReminderSettingsView: View {
+    @EnvironmentObject private var store: NativeStore
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var selection: FormalReminderSelection?
+    private var binding: String { store.accountBindingRevision.uuidString + "/" + store.homeID }
+    @State private var hour = 9
+    @State private var minute = 0
+    @State private var weekdays = Set(1...7)
+    @State private var leadDays = 0
+    @State private var includeOverdue = true
+    @State private var operation: Task<Void, Never>?
+    private let labels = ["日", "月", "火", "水", "木", "金", "土"]
+    private var canEdit: Bool { selection?.canEdit == true && !store.busy }
+    var body: some View {
+        Form {
+            Section {
+                Text("時刻・曜日・何日前から知らせるかを保存できます。保存した設定を使った通知配信は準備中です。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button(store.busy ? "確認中…" : "最新の設定を読み込む") {
+                    load()
+                }.disabled(store.busy)
+                if let receipt = selection?.receipt {
+                    Text(receipt.premiumActive ? "有料プランの利用権を確認済み" : "無料の設定を使用：毎日9時、期限が来たお手入れ")
+                    if !receipt.premiumActive, receipt.saved != nil {
+                        Text("以前の設定は保存されています。利用権がない間は無料の設定を使用します。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Section("通知時刻（日本時間）") {
+                Picker("時", selection: $hour) { ForEach(0..<24, id: \.self) { Text("\($0)時").tag($0) } }
+                Picker("分", selection: $minute) { ForEach(0..<60, id: \.self) { Text("\($0)分").tag($0) } }
+            }.disabled(!canEdit)
+            Section("通知する曜日") {
+                ForEach(1...7, id: \.self) { day in
+                    Toggle(labels[day - 1] + "曜日", isOn: Binding(
+                        get: { weekdays.contains(day) },
+                        set: { if $0 { weekdays.insert(day) } else { weekdays.remove(day) } }
+                    ))
+                }
+            }.disabled(!canEdit)
+            Section("お知らせするお手入れ") {
+                Picker("何日前から", selection: $leadDays) {
+                    Text("当日から").tag(0); Text("1日前から").tag(1)
+                    Text("3日前から").tag(3); Text("7日前から").tag(7)
+                }
+                Toggle("期限を過ぎたものも含める", isOn: $includeOverdue)
+            }.disabled(!canEdit)
+            Section {
+                Button("設定を保存") {
+                    guard let schedule = try? ReminderSchedule(minuteOfDay: hour * 60 + minute,
+                        weekdays: Array(weekdays), leadDays: leadDays, includeOverdue: includeOverdue) else { return }
+                    load(schedule: schedule)
+                }.disabled(!canEdit || weekdays.isEmpty)
+                if let message = store.message { Text(message).font(.caption) }
+            }
+        }
+        .navigationTitle("通知の細かな設定")
+        .onChange(of: selection?.receipt) { _, receipt in
+            let schedule = receipt?.saved ?? receipt?.effective ?? .free
+            hour = schedule.minuteOfDay / 60; minute = schedule.minuteOfDay % 60
+            weekdays = Set(schedule.weekdays); leadDays = schedule.leadDays; includeOverdue = schedule.includeOverdue
+        }
+        .task(id: binding) { clear() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
+        .onDisappear { clear() }
+    }
+    private func clear() { operation?.cancel(); operation = nil; selection = nil }
+    private func load(schedule: ReminderSchedule? = nil) {
+        let expected = binding, prior = selection
+        clear()
+        operation = Task { @MainActor in
+            let result = await store.changeFormalReminderSettings(schedule: schedule, prior: prior)
+            guard !Task.isCancelled, expected == binding else { return }
+            selection = result
+        }
+    }
+
 }
 
 private struct FormalReportView: View {

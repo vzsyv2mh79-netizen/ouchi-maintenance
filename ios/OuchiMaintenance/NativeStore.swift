@@ -3,6 +3,14 @@ import Combine
 import StoreKit
 import OuchiCore
 
+struct FormalReminderSelection {
+    let receipt: ReminderSettingsReceipt
+    let epoch: UUID
+    let rights: VerifiedEntitlement
+    let environment: BillingEnvironment
+    var canEdit: Bool { receipt.premiumActive && rights.premiumIsCurrent(expectedEnvironment: environment) }
+}
+
 @MainActor final class NativeStore: ObservableObject {
     @Published private(set) var household: Household? { didSet {
         report = nil; reportGeneration += 1
@@ -708,6 +716,48 @@ import OuchiCore
             // fresh read before another edit; never infer a committed revision.
             reminderSettings = nil
             message = "通知設定は準備中、または結果を確認できません。最新の設定を読み込んでください。"
+        }
+    }
+    var formalReminderEnvironment: BillingEnvironment? {
+        guard api != nil, Bundle.main.infoDictionary?["OUCHI_REMINDER_SETTINGS_ENABLED"] as? Bool == true,
+              let value = Bundle.main.infoDictionary?["OUCHI_REMINDER_SETTINGS_ENVIRONMENT"] as? String else { return nil }
+        return BillingEnvironment(rawValue: value)
+    }
+    /// Preferences only; never registers or dispatches a notification.
+    func changeFormalReminderSettings(schedule: ReminderSchedule? = nil, prior: FormalReminderSelection? = nil) async -> FormalReminderSelection? {
+        guard !busy, signedIn, let environment = formalReminderEnvironment, let session else { return nil }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision, home = homeID
+        defer { if expected == generation { busy = false } }
+        let stillBound = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision && home == homeID }
+        do {
+            let credentials = try await session.credentials()
+            guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
+            let billing = BillingAPI(environment: environment)
+            let rights = try await billing.entitlement(token: credentials.access_token)
+            guard stillBound(), let epoch = rights.purchaseAccountToken else { return nil }
+            let service = FormalReminderSettingsAPI(environment: environment)
+            let receipt: ReminderSettingsReceipt
+            if let schedule {
+                guard let prior, prior.epoch == epoch, prior.environment == environment,
+                      rights.premiumIsCurrent(expectedEnvironment: environment) else {
+                    if stillBound() { message = "現在の利用権を確認して、最新の設定を読み込んでください。" }; return nil
+                }
+                receipt = try await service.save(schedule, revision: prior.receipt.revision, epoch: epoch, token: credentials.access_token)
+            } else {
+                receipt = try await service.load(epoch: epoch, token: credentials.access_token)
+            }
+            guard stillBound() else { return nil }
+            let current = try await billing.entitlement(token: credentials.access_token)
+            guard stillBound(), current.purchaseAccountToken == epoch,
+                  receipt.premiumActive == current.premiumIsCurrent(expectedEnvironment: environment) else {
+                if stillBound() { message = "利用状態が変わりました。最新の設定を読み込んでください。" }; return nil
+            }
+            if schedule != nil { message = "設定の保存を確認しました。通知の配信は準備中です。" }
+            return FormalReminderSelection(receipt: receipt, epoch: epoch, rights: current, environment: environment)
+        } catch {
+            if stillBound() { message = "保存結果を確認できません。最新の設定を読み込んでから、もう一度お試しください。" }
+            return nil
         }
     }
     /// Availability only. This flag never grants premium rights.
