@@ -1,4 +1,5 @@
 // Durable registry test route; still rejects production and shared projects.
+import { createBillingFetch } from '@/lib/billing-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { sessionAfterAuthVerification } from '@/lib/verified-app-session';
 import { purchaseAccountAfterAuthVerification } from '@/lib/billing-account';
@@ -22,7 +23,10 @@ async function handle(request: Request, disable: boolean) {
   if (!authorization?.startsWith('Bearer ') || authorization.length > 16384
       || !authorization.slice(7) || /\s/.test(authorization.slice(7))) return reply('ログインしてください。', 401);
   try {
-    const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(15000)]);
+    const bounded = createBillingFetch();
+    const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: (input, init) => bounded(input, { ...init, signal: AbortSignal.any([deadline, ...(init?.signal ? [init.signal] : [])]) }) } });
     const token = authorization.slice(7);
     const verified = await db.auth.getUser(token);
     if (verified.error || !verified.data.user) return reply('ログインを確認できません。', 401);

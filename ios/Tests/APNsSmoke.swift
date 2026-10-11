@@ -4,7 +4,7 @@ import OuchiCore
     static func main() async throws {
         let id = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
         let api = DevelopmentAPNsAPI { request in
-            precondition(request.url?.absoluteString == "http://127.0.0.1:3000/api/development/apns-registration")
+            precondition(request.url?.absoluteString == "http://127.0.0.1:3000/api/development/native-push-registration")
             precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
             precondition(request.cachePolicy == .reloadIgnoringLocalCacheData && request.timeoutInterval == 15)
             let body = try JSONDecoder().decode([String: String].self, from: request.httpBody!)

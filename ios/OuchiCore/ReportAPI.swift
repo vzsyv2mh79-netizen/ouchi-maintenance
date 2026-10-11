@@ -8,9 +8,14 @@ public struct DevelopmentAPNsAPI: Sendable {
         self.transport = transport ?? { request in
             #if DEBUG
             let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
-            defer { session.finishTasksAndInvalidate() }
-            let (bytes, response) = try await session.data(for: request)
+            defer { session.invalidateAndCancel() }
+            let (stream, response) = try await session.bytes(for: request)
             guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            var bytes = Data()
+            for try await byte in stream {
+                guard bytes.count < 4096 else { throw CloudError.malformedResponse }
+                bytes.append(byte)
+            }
             return (bytes, response)
             #else
             throw CloudError.rejected(503)
@@ -36,7 +41,7 @@ public struct DevelopmentAPNsAPI: Sendable {
     }
     private func send(method: String, body: [String: String], token: String) async throws -> Data {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
-        let url = URL(string: "http://127.0.0.1:3000/api/development/apns-registration")!
+        let url = URL(string: "http://127.0.0.1:3000/api/development/native-push-registration")!
         var request = URLRequest(url: url)
         request.httpMethod = method; request.timeoutInterval = 15; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")

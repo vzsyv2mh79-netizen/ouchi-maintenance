@@ -7,9 +7,11 @@ const compile = path => ts.transpileModule(readFileSync(path,'utf8'), { compiler
 const sessionModule = moduleURL(compile('lib/verified-app-session.ts'));
 const bindingModule = moduleURL(compile('lib/billing-account.ts').replace("'./verified-app-session'", JSON.stringify(sessionModule)));
 const bodyModule = moduleURL(compile('lib/billing-body.ts'));
-const stub = moduleURL(`export function createClient(url,key){ const h=globalThis.nativePushRouteHarness;h.clients++;return {auth:{getUser:async token=>{h.authTokens.push(token);return {data:{user:h.authError?null:{id:h.user}},error:h.authError};}},rpc:async(name,args)=>{h.calls.push({name,args});if(h.databaseError)return {data:null,error:Error('synthetic')};return {error:null,data:name==='current_maintenance_purchase_account'?h.epoch:name==='disable_maintenance_native_push'?h.disabled:h.id};}};}`);
+const fetchModule = moduleURL(compile('lib/billing-fetch.ts'));
+const stub = moduleURL(`export function createClient(url,key,options){ const h=globalThis.nativePushRouteHarness;h.clients++;h.fetch=options.global.fetch;return {auth:{getUser:async token=>{h.authTokens.push(token);return {data:{user:h.authError?null:{id:h.user}},error:h.authError};}},rpc:async(name,args)=>{h.calls.push({name,args});if(h.databaseError)return {data:null,error:Error('synthetic')};return {error:null,data:name==='current_maintenance_purchase_account'?h.epoch:name==='disable_maintenance_native_push'?h.disabled:h.id};}};}`);
 const code = compile('app/api/development/native-push-registration/route.ts')
  .replace("'@supabase/supabase-js'",JSON.stringify(stub))
+ .replace("'@/lib/billing-fetch'",JSON.stringify(fetchModule))
  .replace("'@/lib/verified-app-session'",JSON.stringify(sessionModule))
  .replace("'@/lib/billing-account'",JSON.stringify(bindingModule))
  .replace("'@/lib/billing-body'",JSON.stringify(bodyModule));
@@ -37,6 +39,10 @@ test('durable registry route enforces isolated configuration and verified identi
   h.disabled=false;assert.equal((await (await DELETE(request({registrationId:id}))).json()).disabled,false);
   h.id='not-an-id';assert.equal((await POST(request({deviceToken:'ab'.repeat(32)}))).status,503);h.id=id;
   h.databaseError=true;assert.equal((await POST(request({deviceToken:'ab'.repeat(32)}))).status,503);
+  const previousFetch=globalThis.fetch;let observed=0;
+  const caller=new AbortController();caller.abort();
+  globalThis.fetch=async(input,options)=>{observed++;assert.equal(options.signal.aborted,true);throw options.signal.reason;};
+  try{await assert.rejects(()=>h.fetch('https://example.invalid',{signal:caller.signal}));assert.equal(observed,1);}finally{globalThis.fetch=previousFetch;}
   assert.ok(h.authTokens.every(value=>value===token));
  }finally{delete globalThis.nativePushRouteHarness;for(const [key,value] of Object.entries(original)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 });
