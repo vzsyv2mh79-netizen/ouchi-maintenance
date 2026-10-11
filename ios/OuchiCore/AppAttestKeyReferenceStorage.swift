@@ -33,11 +33,32 @@ public struct AppAttestKeyReference: Codable, Equatable, Sendable {
     }
 }
 
+/// Durable intent BEFORE generation. Its descriptor's zero key is a marker,
+/// never a DeviceCheck key, attestation input or authorization credential.
+public struct AppAttestGenerationIntent: Codable, Equatable, Sendable {
+    private let descriptor: AppAttestKeyReference
+    private static let placeholder=Data(repeating:0,count:32).base64EncodedString()
+    public var userID: UUID { descriptor.userID }
+    public var epochID: UUID { descriptor.epochID }
+    public init(context: AppAttestRegistrationContext, requestID: UUID, createdAtMilliseconds: Int64, retainUntilMilliseconds: Int64) throws {
+        descriptor=try AppAttestKeyReference(scope:context.session(keyID:Self.placeholder).scope,requestID:requestID,createdAtMilliseconds:createdAtMilliseconds,retainUntilMilliseconds:retainUntilMilliseconds)
+    }
+    fileprivate func validate() throws {
+        try descriptor.validate();guard descriptor.keyID==Self.placeholder else { throw CloudError.invalidInput }
+    }
+    public func reference(keyID: String) throws -> AppAttestKeyReference {
+        try validate()
+        let scope=AppAttestRegistrationScope(userID:descriptor.userID,sessionID:descriptor.sessionID,epochID:descriptor.epochID,keyID:keyID,appID:descriptor.appID,environment:descriptor.environment)
+        return try AppAttestKeyReference(scope:scope,requestID:descriptor.requestID,createdAtMilliseconds:descriptor.createdAtMilliseconds,retainUntilMilliseconds:descriptor.retainUntilMilliseconds)
+    }
+}
+
 /// Immutable generated/confirmed records. Device-only Keychain protects values;
 /// no credential/private key or purchase entitlement is stored in this schema.
 /// Not instantiated by the release app. Operations are injectable for tests.
 public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     private struct Envelope: Codable { let version: Int; let reference: AppAttestKeyReference }
+    private struct IntentEnvelope: Codable { let version: Int; let intent: AppAttestGenerationIntent }
     private let namespace: String
     private let operations: AppAttestEncryptionKeyStorage.Operations
     private let lock=NSLock()
@@ -46,7 +67,7 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
               namespace.unicodeScalars.allSatisfy({ CharacterSet(charactersIn:"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-").contains($0) }) else { throw CloudError.invalidInput }
         self.namespace=namespace+".attest-reference.v1"; self.operations=operations
     }
-    private func query(account: UUID, epoch: UUID? = nil, confirmed: Bool = false) throws -> [String:Any] {
+    private func query(account: UUID, epoch: UUID? = nil, confirmed: Bool = false, intent: Bool = false) throws -> [String:Any] {
         let zero=UUID(uuidString:"00000000-0000-0000-0000-000000000000")!
         guard account != zero, epoch == nil || (epoch != zero && epoch != account) else { throw CloudError.invalidInput }
         let context=LAContext();context.interactionNotAllowed=true
@@ -54,15 +75,15 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
             kSecAttrService as String:namespace+"."+account.uuidString.lowercased(),
             kSecAttrSynchronizable as String:false,kSecUseDataProtectionKeychain as String:true,
             kSecUseAuthenticationContext as String:context]
-        if let epoch { q[kSecAttrAccount as String]=epoch.uuidString.lowercased()+(confirmed ? ".confirmed" : ".generated") }
+        if let epoch { q[kSecAttrAccount as String]=epoch.uuidString.lowercased()+(intent ? ".intent" : confirmed ? ".confirmed" : ".generated") }
         return q
     }
     private func encoded(_ reference: AppAttestKeyReference) throws -> Data {
         let encoder=JSONEncoder();encoder.outputFormatting=[.sortedKeys]
         return try encoder.encode(Envelope(version:1,reference:reference))
     }
-    private func readUnlocked(account: UUID, epoch: UUID, confirmed: Bool) throws -> AppAttestKeyReference? {
-        var q=try query(account:account,epoch:epoch,confirmed:confirmed)
+    private func bytesUnlocked(_ identity: [String:Any]) throws -> Data? {
+        var q=identity
         q[kSecReturnAttributes as String]=true;q[kSecReturnData as String]=true;q[kSecMatchLimit as String]=kSecMatchLimitOne
         let (status,item)=operations.copy(q)
         if status==errSecItemNotFound { return nil }
@@ -72,11 +93,51 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
               item[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String,
               let sync=item[kSecAttrSynchronizable as String] as? NSNumber, sync==false,
               let bytes=item[kSecValueData as String] as? Data, !bytes.isEmpty, bytes.count<=4096 else { throw CloudError.unavailable }
+        return bytes
+    }
+    private func readUnlocked(account: UUID, epoch: UUID, confirmed: Bool) throws -> AppAttestKeyReference? {
+        guard let bytes=try bytesUnlocked(query(account:account,epoch:epoch,confirmed:confirmed)) else { return nil }
         let envelope=try JSONDecoder().decode(Envelope.self,from:bytes)
         let reference=envelope.reference;try reference.validate()
         guard envelope.version==1, reference.userID==account,reference.epochID==epoch,
               try encoded(reference)==bytes else { throw CloudError.malformedResponse }
         return reference
+    }
+    private func intentBytes(_ intent: AppAttestGenerationIntent) throws -> Data {
+        let encoder=JSONEncoder();encoder.outputFormatting=[.sortedKeys]
+        return try encoder.encode(IntentEnvelope(version:1,intent:intent))
+    }
+    private func intentUnlocked(account: UUID, epoch: UUID) throws -> AppAttestGenerationIntent? {
+        guard let bytes=try bytesUnlocked(query(account:account,epoch:epoch,intent:true)) else { return nil }
+        let envelope=try JSONDecoder().decode(IntentEnvelope.self,from:bytes),intent=envelope.intent
+        try intent.validate()
+        guard envelope.version==1,intent.userID==account,intent.epochID==epoch,try intentBytes(intent)==bytes else { throw CloudError.malformedResponse }
+        return intent
+    }
+    public func generationIntent(account: UUID, epoch: UUID) throws -> AppAttestGenerationIntent? {
+        lock.lock();defer { lock.unlock() };return try intentUnlocked(account:account,epoch:epoch)
+    }
+    public func persistGenerationIntent(_ intent: AppAttestGenerationIntent) throws {
+        lock.lock();defer { lock.unlock() };try intent.validate()
+        guard try readUnlocked(account:intent.userID,epoch:intent.epochID,confirmed:false)==nil,
+              try readUnlocked(account:intent.userID,epoch:intent.epochID,confirmed:true)==nil else { throw CloudError.invalidInput }
+        if let old=try intentUnlocked(account:intent.userID,epoch:intent.epochID) {
+            guard old==intent else { throw CloudError.invalidInput };return
+        }
+        var q=try query(account:intent.userID,epoch:intent.epochID,intent:true)
+        let bytes=try intentBytes(intent);guard bytes.count<=4096 else { throw CloudError.invalidInput }
+        q[kSecValueData as String]=bytes;q[kSecAttrAccessible as String]=kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let status=operations.add(q)
+        guard status==errSecSuccess || status==errSecDuplicateItem,
+              try intentUnlocked(account:intent.userID,epoch:intent.epochID)==intent else { throw CloudError.unavailable }
+    }
+    /// Record even an expired COMPLETED generation, so its identifier is not
+    /// lost. Normal generated()/confirmed() readers still refuse expired use.
+    public func persistCompletedGeneration(_ reference: AppAttestKeyReference) throws {
+        lock.lock();defer { lock.unlock() };try reference.validate()
+        guard let intent=try intentUnlocked(account:reference.userID,epoch:reference.epochID),
+              try intent.reference(keyID:reference.keyID)==reference else { throw CloudError.invalidInput }
+        try persistUnlocked(reference,confirmed:false)
     }
     private func persistUnlocked(_ reference: AppAttestKeyReference, confirmed: Bool) throws {
         if let old=try readUnlocked(account:reference.userID,epoch:reference.epochID,confirmed:confirmed) {

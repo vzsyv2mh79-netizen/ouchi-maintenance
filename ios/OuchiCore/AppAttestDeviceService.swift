@@ -22,6 +22,7 @@ public struct AppAttestDeviceService: Sendable {
     }
     private let operations: Operations
     public init(operations: Operations = .device) { self.operations = operations }
+    public var isSupported: Bool { operations.supported() }
     public func generateKey() async throws -> String {
         try Task.checkCancellation()
         guard operations.supported() else { throw CloudError.unavailable }

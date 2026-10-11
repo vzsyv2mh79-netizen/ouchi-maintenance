@@ -1,0 +1,175 @@
+import Foundation
+import Security
+import LocalAuthentication
+import OuchiCore
+
+final class CoordinatorSyntheticKeychain: @unchecked Sendable {
+    private let lock=NSLock();private var items:[String:[String:Any]]=[:]
+    private func identity(_ q:[String:Any])->String { (q[kSecAttrService as String] as! String)+"|"+(q[kSecAttrAccount as String] as! String) }
+    private func check(_ q:[String:Any]) {
+        precondition(q[kSecClass as String] as? String == kSecClassGenericPassword as String)
+        precondition(q[kSecAttrSynchronizable as String] as? Bool == false && q[kSecUseDataProtectionKeychain as String] as? Bool == true)
+        precondition((q[kSecUseAuthenticationContext as String] as? LAContext)?.interactionNotAllowed==true)
+    }
+    var operations:AppAttestEncryptionKeyStorage.Operations {
+        .init(copy:{ [self] q in
+            lock.lock();defer { lock.unlock() };check(q)
+            let service=q[kSecAttrService as String] as! String
+            let value=q[kSecAttrAccount as String]==nil ? items.values.first(where:{ $0[kSecAttrService as String] as? String == service }) : items[identity(q)]
+            return value==nil ? (errSecItemNotFound,nil) : (errSecSuccess,value)
+        },add:{ [self] q in
+            lock.lock();defer { lock.unlock() };check(q)
+            precondition(q[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
+            let id=identity(q);if items[id] != nil { return errSecDuplicateItem };items[id]=q;return errSecSuccess
+        },delete:{ [self] q in
+            lock.lock();defer { lock.unlock() };check(q)
+            let service=q[kSecAttrService as String] as! String
+            items=items.filter { $0.value[kSecAttrService as String] as? String != service };return errSecSuccess
+        },random:{ Data(repeating:7,count:32) })
+    }
+    func count()->Int { lock.lock();defer { lock.unlock() };return items.count }
+}
+final class CoordinatorSyntheticDevice: @unchecked Sendable {
+    private let lock=NSLock();private var generated=0,attested=0
+    private var delayed:AppAttestDeviceService.ProofCompletion?
+    private var readyWaiters:[CheckedContinuation<Void,Never>]=[]
+    var delay=false,failGeneration=false
+    static let key=Data(repeating:1,count:32).base64EncodedString()
+    static let proof=Data("opaque-coordinator-synthetic-proof".utf8)
+    var operations:AppAttestDeviceService.Operations {
+        .init(supported:{ true },generate:{ [self] done in
+            lock.lock();generated+=1;let failure=failGeneration;lock.unlock()
+            if failure { done(nil,URLError(.networkConnectionLost)) }else { done(Self.key,nil) }
+        },attest:{ [self] key,hash,done in
+            precondition(key==Self.key && hash.count==32)
+            lock.lock();attested+=1
+            if delay {
+                delayed=done;let waiters=readyWaiters;readyWaiters=[];lock.unlock()
+                for waiter in waiters { waiter.resume() }
+            }else { lock.unlock();done(Self.proof,nil) }
+        })
+    }
+    func waitForAttestation()async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if delayed != nil { lock.unlock();continuation.resume() }
+            else { readyWaiters.append(continuation);lock.unlock() }
+        }
+    }
+    func finishAttestation() {
+        lock.lock();let callback=delayed;delayed=nil;lock.unlock()
+        precondition(callback != nil);callback!(Self.proof,nil)
+    }
+    func counts()->(Int,Int) { lock.lock();defer { lock.unlock() };return (generated,attested) }
+}
+actor CoordinatorSyntheticHTTP {
+    let context:AppAttestRegistrationContext,references:AppAttestKeyReferenceStorage,pending:AppAttestPendingRegistrationStorage
+    var failCommit=true,challengeCount=0,commitBodies:[Data]=[]
+    init(context:AppAttestRegistrationContext,references:AppAttestKeyReferenceStorage,pending:AppAttestPendingRegistrationStorage) {
+        self.context=context;self.references=references;self.pending=pending
+    }
+    func allowCommit() { failCommit=false }
+    func counts()->(Int,Int) { (challengeCount,commitBodies.count) }
+    func requests()->[Data] { commitBodies }
+    func send(_ request:URLRequest)async throws->(Data,HTTPURLResponse) {
+        let body=try JSONSerialization.jsonObject(with:request.httpBody!) as! [String:String]
+        let reference=try references.generated(account:context.userID,epoch:context.epochID,nowMilliseconds:AppAttestCoordinatorSmoke.now)!
+        precondition(body["requestID"]==reference.requestID.uuidString.lowercased() && body["keyID"]==reference.keyID,"key/reference must persist before HTTP")
+        let data:Data
+        if request.url!.lastPathComponent=="challenge" {
+            challengeCount+=1
+            data=try JSONSerialization.data(withJSONObject:["clientDataBase64":AppAttestCoordinatorSmoke.clientData(reference).base64EncodedString()])
+        }else {
+            let staged=try await pending.read(scope:reference.scope,nowMilliseconds:AppAttestCoordinatorSmoke.now)
+            precondition(staged?.attestation==CoordinatorSyntheticDevice.proof,"proof must be encrypted before commit HTTP")
+            commitBodies.append(request.httpBody!)
+            if failCommit { throw URLError(.networkConnectionLost) }
+            let scope=reference.scope
+            data=try JSONSerialization.data(withJSONObject:["requestID":reference.requestID.uuidString.lowercased(),"userID":scope.userID.uuidString.lowercased(),"sessionID":scope.sessionID.uuidString.lowercased(),"epochID":scope.epochID.uuidString.lowercased(),"keyID":scope.keyID,"appID":scope.appID,"attestEnvironment":scope.environment,"registered":true])
+        }
+        return (data,HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"application/json","Cache-Control":"no-store"])!)
+    }
+}
+@main struct AppAttestCoordinatorSmoke {
+    static let now:Int64=1_791_727_200_000
+    static func refused(_ action:@Sendable ()async throws->Void)async { do { try await action();fatalError("unsafe coordinator accepted") }catch {} }
+    static func clientData(_ reference:AppAttestKeyReference)->Data {
+        let nonce=Data(repeating:3,count:32).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
+        let s=reference.scope
+        return Data("{\"version\":1,\"purpose\":\"register_ouchi_attested_key\",\"nonce\":\"\(nonce)\",\"issuedAt\":\(now),\"expiresAt\":\(now+300000),\"userID\":\"\(s.userID.uuidString.lowercased())\",\"sessionID\":\"\(s.sessionID.uuidString.lowercased())\",\"epochID\":\"\(s.epochID.uuidString.lowercased())\",\"requestID\":\"\(reference.requestID.uuidString.lowercased())\",\"keyID\":\"\(s.keyID)\",\"appID\":\"\(s.appID)\",\"attestEnvironment\":\"\(s.environment)\"}".utf8)
+    }
+    static func context()throws->AppAttestRegistrationContext {
+        let user=UUID(),session=UUID(),epoch=UUID()
+        let claims=try JSONSerialization.data(withJSONObject:["sub":user.uuidString,"session_id":session.uuidString,"exp":Double(now+7200000)/1000])
+        let token=claims.base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
+        return .init(userID:user,sessionID:session,epochID:epoch,appID:"SYNTHETIC1.dev.synthetic.ouchi",environment:"production",bearer:"e30."+token+".synthetic")
+    }
+    static func main()async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-coordinator-synthetic-"+UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let keychain=CoordinatorSyntheticKeychain(),device=CoordinatorSyntheticDevice(),captured=try context()
+        let keys=try AppAttestEncryptionKeyStorage(namespace:"dev.synthetic.ouchi",operations:keychain.operations)
+        let references=try AppAttestKeyReferenceStorage(namespace:"dev.synthetic.ouchi",operations:keychain.operations)
+        let pending=AppAttestPendingRegistrationStorage(root:root,keyProvider:{ account,epoch in
+            guard let key=try keys.read(account:account,epoch:epoch) else { throw CloudError.unavailable };return key
+        })
+        let http=CoordinatorSyntheticHTTP(context:captured,references:references,pending:pending)
+        let coordinator=try AppAttestRegistrationCoordinator(currentContext:{ captured },device:AppAttestDeviceService(operations:device.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await http.send($0) },now:{ now })
+        await refused { _ = try await coordinator.register(captured:captured) }
+        precondition(device.counts()==(1,1))
+        let reference=try references.generated(account:captured.userID,epoch:captured.epochID,nowMilliseconds:now)!
+        let staged=try await pending.read(scope:reference.scope,nowMilliseconds:now);precondition(staged?.attestation==CoordinatorSyntheticDevice.proof)
+        await http.allowCommit()
+        let result=try await coordinator.register(captured:captured)
+        guard case .newlyConfirmed(let receipt)=result else { fatalError("missing server acknowledgement") }
+        precondition(receipt.scope==reference.scope && device.counts()==(1,1))
+        let bodies=await http.requests();precondition(bodies.count==2 && bodies[0]==bodies[1])
+        let existing=try await coordinator.register(captured:captured);precondition(existing == .recordedReference(reference))
+        let counts=await http.counts();precondition(counts==(1,2))
+        try await coordinator.closeAccount(account:captured.userID)
+        precondition(keychain.count()==0)
+        await refused { _ = try await coordinator.register(captured:captured) };precondition(device.counts()==(1,1))
+
+        // A known generation failure still has a durable intent. Restart-style
+        // retries cannot automatically create another key with an unknown result.
+        let uncertain=try context(),failing=CoordinatorSyntheticDevice();failing.failGeneration=true
+        let makeUncertain:@Sendable ()throws->AppAttestRegistrationCoordinator = {
+            try AppAttestRegistrationCoordinator(currentContext:{ uncertain },device:AppAttestDeviceService(operations:failing.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("uncertain generation reached HTTP") },now:{ now })
+        }
+        await refused { _ = try await makeUncertain().register(captured:uncertain) }
+        let intent=try references.generationIntent(account:uncertain.userID,epoch:uncertain.epochID);precondition(intent != nil)
+        await refused { _ = try await makeUncertain().register(captured:uncertain) };precondition(failing.counts()==(1,0))
+        try await makeUncertain().closeAccount(account:uncertain.userID)
+
+        // Cancellation after the device callback started preserves the completed
+        // proof, with no commit; closing the SAME actor then removes owned data.
+        let cancelledContext=try context(),delayed=CoordinatorSyntheticDevice();delayed.delay=true
+        let cancelledHTTP=CoordinatorSyntheticHTTP(context:cancelledContext,references:references,pending:pending)
+        let cancellable=try AppAttestRegistrationCoordinator(currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await cancelledHTTP.send($0) },now:{ now })
+        let registration=Task { try await cancellable.register(captured:cancelledContext) }
+        await delayed.waitForAttestation()
+        registration.cancel();delayed.finishAttestation()
+        await refused { _ = try await registration.value }
+        let cancellationReference=try references.generated(account:cancelledContext.userID,epoch:cancelledContext.epochID,nowMilliseconds:now)!
+        let cancelledProof=try await pending.read(scope:cancellationReference.scope,nowMilliseconds:now);precondition(cancelledProof?.attestation==CoordinatorSyntheticDevice.proof)
+        let cancelledCounts=await cancelledHTTP.counts();precondition(cancelledCounts==(1,0))
+        try await cancellable.closeAccount(account:cancelledContext.userID);precondition(keychain.count()==0)
+
+        // Closing while Apple is still completing blocks HTTP and waits for
+        // the active flow to finish before erasing its newly staged record.
+        let closingContext=try context(),closingDevice=CoordinatorSyntheticDevice();closingDevice.delay=true
+        let closingHTTP=CoordinatorSyntheticHTTP(context:closingContext,references:references,pending:pending)
+        let closing=try AppAttestRegistrationCoordinator(currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await closingHTTP.send($0) },now:{ now })
+        let running=Task { try await closing.register(captured:closingContext) }
+        await closingDevice.waitForAttestation()
+        await refused { _ = try await closing.register(captured:closingContext) }
+        try await closing.stopAcceptingRegistration(account:closingContext.userID)
+        let cleanup=Task { try await closing.closeAccount(account:closingContext.userID) }
+        closingDevice.finishAttestation()
+        await refused { _ = try await running.value };try await cleanup.value
+        precondition(keychain.count()==0)
+        let remaining=try await pending.hasPendingRecord(account:closingContext.userID,epoch:closingContext.epochID);precondition(!remaining)
+        let closingCounts=await closingHTTP.counts();precondition(closingCounts==(1,0))
+        print("PASS: synthetic initial registration persists intent/key/reference/proof in order, exact uncertain commit retry avoids new device calls, confirmed metadata stays local-only, unknown generation blocks restart retries, cancellation retains proof, and shared-actor closing blocks commit and erases after callback. No Apple service, owner Keychain or purchase.")
+    }
+}

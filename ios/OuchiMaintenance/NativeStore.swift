@@ -42,6 +42,9 @@ struct FormalChannelSelection {
     private var snapshotStorage: HouseholdSnapshotStorage?
     private var pendingAttachmentStorage: PendingAttachmentStorage?
     private var pendingRemovalStorage: PendingAttachmentRemovalStorage?
+    /// Prepared shared lifecycle coordinator. Remains nil until verified
+    /// enrollment/device configuration is wired; no release registration starts.
+    private var appAttestRegistrationCoordinator: AppAttestRegistrationCoordinator?
     private func managedExport(_ bytes: Data, account: UUID, suffix: String) throws -> URL {
         let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask,
             appropriateFor: nil, create: true)
@@ -102,6 +105,12 @@ struct FormalChannelSelection {
             stillBound: stillBound,
             stopNotifications: { [self] in await stopLocalNotificationsForDeletion(account: account, epoch: epoch, revision: revision) },
             erasePendingRegistration: {
+                if let coordinator = self.appAttestRegistrationCoordinator {
+                    do {
+                        try await coordinator.closeAccount(account: account)
+                        return stillBound() ? .complete : .staleBinding
+                    } catch { return stillBound() ? .pending : .staleBinding }
+                }
                 guard let bundle = Bundle.main.bundleIdentifier,
                       let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return .pending }
                 let pending = AppAttestPendingRegistrationStorage(
@@ -150,6 +159,7 @@ struct FormalChannelSelection {
             // Once credentials are erased, finish the same binding even if the view was cancelled.
             guard matches() else { return false }
             generation += 1
+            appAttestRegistrationCoordinator = nil
             snapshotAccount = nil; signedIn = false
             billingAccount = nil; purchaseAccount = nil
             developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
@@ -546,6 +556,13 @@ struct FormalChannelSelection {
         guard !busy else { return }
         busy = true; message = nil
         defer { busy = false }
+        if let coordinator = appAttestRegistrationCoordinator, let account = snapshotAccount {
+            do { try await coordinator.closeAccount(account: account) }
+            catch {
+                message = "端末登録の終了処理が完了していません。通信と端末のロックを確認して、再度ログアウトしてください。"
+                return
+            }
+        }
         if let session, await session.localAccount() != nil {
             do { try await session.revokeRemoteSession() }
             catch {
@@ -554,6 +571,7 @@ struct FormalChannelSelection {
             }
         }
         generation += 1
+        appAttestRegistrationCoordinator = nil
         developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
         var localCleanupFailed = false
         do { try snapshotStorage?.write(nil) }

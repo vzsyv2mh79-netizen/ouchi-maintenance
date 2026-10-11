@@ -88,6 +88,10 @@ public actor AppAttestPendingRegistrationStorage {
         _ = try AppAttestRegistrationChallenge.parse(canonicalClientData: stored.challenge.clientData, expected: scope, nowMilliseconds: nowMilliseconds)
         return stored
     }
+    /// An unknown existing proof must block generation rather than replacement.
+    public func hasPendingRecord(account: UUID, epoch: UUID) throws -> Bool {
+        try readBounded(file(account: account, epoch: epoch)) != nil
+    }
     public func stage(_ pending: AppAttestPendingRegistration, nowMilliseconds: Int64) throws {
         _ = try AppAttestRegistrationChallenge.parse(canonicalClientData: pending.challenge.clientData, expected: pending.scope, nowMilliseconds: nowMilliseconds)
         if let old = try read(scope: pending.scope, nowMilliseconds: nowMilliseconds) {

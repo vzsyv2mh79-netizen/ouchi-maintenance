@@ -62,7 +62,7 @@ public struct AppAttestRegistrationAPI: Sendable {
         _ = try AppAttestRegistrationChallenge.parse(canonicalClientData: challenge.clientData, expected: captured.scope, nowMilliseconds: now())
         return AppAttestRegistrationReceipt(requestID: challenge.requestID, scope: captured.scope)
     }
-    private func validate(_ captured: AppAttestRegistrationSession) async throws {
+    func validate(_ captured: AppAttestRegistrationSession) async throws {
         try Task.checkCancellation()
         guard await currentSession() == captured else { throw CloudError.authenticationRequired }
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
