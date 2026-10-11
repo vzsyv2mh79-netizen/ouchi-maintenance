@@ -15,8 +15,11 @@ const sessionCode=ts.transpileModule(readFileSync('lib/verified-app-session.ts',
 const requestStoreCode=ts.transpileModule(readFileSync('lib/account-deletion-request-store.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'./verified-app-session'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(sessionCode).toString('base64')));
 const {deletionRequestDependencies}=await import('data:text/javascript;base64,'+Buffer.from(requestStoreCode).toString('base64'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
- const gateway=createServer((req,res)=>{
+ let pausedFileID=null,releaseWrite,recordWriteArrival;
+ const writePermit=new Promise(resolve=>{releaseWrite=resolve;}),writeArrived=new Promise(resolve=>{recordWriteArrival=resolve;});
+ const gateway=createServer(async(req,res)=>{
   const auth=req.url?.startsWith('/auth/v1/'),rest=req.url?.startsWith('/rest/v1/'),storage=req.url?.startsWith('/storage/v1/');if(!auth&&!rest&&!storage){res.writeHead(404).end();return;}
+  if(storage&&req.method==='POST'&&pausedFileID&&req.url.includes(pausedFileID)){recordWriteArrival();await writePermit;if(req.destroyed||res.destroyed)return;}
   const upstream=proxyRequest((auth?'http://127.0.0.1:9999':rest?'http://127.0.0.1:3002':'http://127.0.0.1:5002')+req.url.slice(storage?11:8),{method:req.method,headers:req.headers},r=>{res.writeHead(r.statusCode??502,r.headers);r.pipe(res);});upstream.on('error',()=>res.writeHead(502).end());req.pipe(upstream);
  });await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
  try{
@@ -74,6 +77,18 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});
   assert.equal((await user.from('home_members').insert({homeId:home,user_id:otherSignup.data.user.id,nickname:'Synthetic member'})).error,null);
 
+  // Hold a real family upload at the HTTP gateway while owner deletion captures it.
+  const lateFile=randomUUID(),lateAttempt=randomUUID(),lateBytes=Buffer.from([137,80,78,71,13,10,26,10]),lateHash=createHash('sha256').update(lateBytes).digest('hex');
+  const lateReservation={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,target_product:product,attachment_id:lateFile,byte_count:lateBytes.length,media_type:'image/png',measured_sha256:lateHash};
+  const lateReserved=await admin.rpc('reserve_maintenance_attachment',lateReservation);assert.equal(lateReserved.error,null);assert.equal(lateReserved.data,lateFile);
+  const lateWriteArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,target_attachment:lateFile,target_attempt:lateAttempt};
+  const lateStarted=await admin.rpc('begin_maintenance_attachment_write',lateWriteArgs);assert.equal(lateStarted.error,null);assert.equal(lateStarted.data.started,true);
+  const latePath=`${otherSignup.data.user.id}/${otherEpoch.data}/${lateFile}.png`;pausedFileID=lateFile;
+  const delayedWriter=createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(undefined,30000)}});
+  const lateUpload=delayedWriter.storage.from('ouchi-product-attachments').upload(latePath,lateBytes,{contentType:'image/png',upsert:false}).then(result=>({result}),error=>({error}));
+  let arrivalTimer;try{await Promise.race([writeArrived,new Promise((resolve,reject)=>{arrivalTimer=setTimeout(()=>reject(Error('Real delayed upload did not reach gateway')),5000);})]);}finally{clearTimeout(arrivalTimer);}
+  const beforeLateWrite=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(beforeLateWrite.data,null);assert.equal(beforeLateWrite.error.code,'NoSuchKey');
+
   const pushID=randomUUID(),pushLease=randomUUID(),pushEndpoint='https://web.push.apple.com/synthetic-'+randomUUID();assert.equal((await admin.from('maintenance_push_subscriptions').insert({id:pushID,user_id:userID,endpoint:pushEndpoint,p256dh:'A'.repeat(87),auth:'A'.repeat(22),claim_token:pushLease,claimed_until:new Date(Date.now()+120000).toISOString()})).error,null);
   const testDispatchArgs={target_user:userID,target_endpoint:pushEndpoint};assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,true);
   const dispatchArgs={subscription_id:pushID,delivery_token:pushLease};assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,true);assert.ok((await user.rpc('can_dispatch_maintenance_push',dispatchArgs)).error);
@@ -88,6 +103,9 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const claim=await admin.rpc('claim_maintenance_account_deletion');assert.equal(claim.error,null);assert.equal(claim.data.requestID,requested.data);
   const progressArgs={target_request:requested.data,target_user:userID};assert.deepEqual((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data,{requestID:requested.data,userID,state:'running'});assert.equal((await admin.rpc('read_maintenance_deletion_progress',{...progressArgs,target_user:otherSignup.data.user.id})).data,null);assert.ok((await other.rpc('read_maintenance_deletion_progress',progressArgs)).error);
   const scope={requestID:claim.data.requestID,userID,epochID:epoch.data,leaseToken:claim.data.leaseToken},args={target_request:scope.requestID,target_user:userID,target_epoch:epoch.data,target_lease:scope.leaseToken};assert.equal((await admin.rpc('capture_maintenance_deletion_objects',args)).data,true);
+  const capturedWhilePaused=await admin.rpc('read_maintenance_deletion_objects',args);assert.equal(capturedWhilePaused.error,null);assert.equal(capturedWhilePaused.data.length,2);assert.ok(capturedWhilePaused.data.some(item=>item.id===lateFile&&item.uploaderID===otherSignup.data.user.id));
+  const lateAbsenceArgs={...args,target_attachment:lateFile};assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);
+  assert.ok((await admin.rpc('begin_maintenance_attachment_write',lateWriteArgs)).error);
   assert.ok((await admin.rpc('reserve_maintenance_attachment',{...reservation,attachment_id:randomUUID()})).error);assert.ok((await admin.rpc('finalize_maintenance_attachment',completion)).error);assert.equal((await admin.rpc('read_maintenance_attachment',sharedReaderArgs)).data,null);assert.deepEqual((await admin.rpc('page_maintenance_attachments',pageArgs)).data,{items:[],next:null});assert.equal((await admin.rpc('maintenance_attachment_usage',usageArgs)).data,null);
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,1);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
@@ -103,7 +121,17 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);
-  assert.deepEqual(await erase(admin,scope),{completed:1,allObjectsConfirmed:true});const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
+  // Removing currently absent files cannot acknowledge a still-running upload.
+  await assert.rejects(()=>erase(admin,scope),/Object (acknowledgement unavailable|removal not confirmed)/);
+  assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
+  releaseWrite();const lateUploaded=await lateUpload;assert.equal(lateUploaded.error,undefined);assert.equal(lateUploaded.result.error,null);
+  const lateDownloaded=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(lateDownloaded.error,null);assert.deepEqual(Buffer.from(await lateDownloaded.data.arrayBuffer()),lateBytes);
+  assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);
+  const lateSettled=await admin.rpc('settle_maintenance_attachment_write',{target_attachment:lateFile,target_attempt:lateAttempt});assert.equal(lateSettled.error,null);assert.equal(lateSettled.data,true);
+  const stillPending=await admin.rpc('read_maintenance_deletion_objects',args);assert.equal(stillPending.error,null);assert.ok(stillPending.data.some(item=>item.id===lateFile));
+  assert.deepEqual(await erase(admin,scope),{completed:stillPending.data.length,allObjectsConfirmed:true});
+  const lateRemoved=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(lateRemoved.data,null);assert.equal(lateRemoved.error.code,'NoSuchKey');
+const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
   assert.deepEqual(await erase(admin,scope),{completed:0,allObjectsConfirmed:true});assert.equal((await user.auth.getUser()).error,null);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,true);
   const removedHomes=await admin.from('homes').select('id').eq('id',home);assert.equal(removedHomes.error,null);assert.deepEqual(removedHomes.data,[]);const removedProducts=await admin.from('products').select('id').eq('id',product);assert.equal(removedProducts.error,null);assert.deepEqual(removedProducts.data,[]);
@@ -112,5 +140,5 @@ test('actual private Storage removal verifies absence and persists exact leased 
   // Registry erasure is tested with a synthetic native token; actual APNs delivery
   // and device-side removal are NOT proven. Identity finalization remains pending.
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
- }finally{gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
+ }finally{releaseWrite();gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}
 });
