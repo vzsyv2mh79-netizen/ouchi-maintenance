@@ -14,3 +14,17 @@ test('billing JSON is bounded by actual streamed bytes and requires an object',a
  await assert.rejects(()=>readBillingBody(new Request('http://localhost/billing',{method:'POST',body:stream,duplex:'half'})));
  assert.equal(cancelled,true);assert.ok(pulls<=4);assert.equal(stream.locked,false);
 });
+
+test('unfinished JSON streams stop at the body deadline without awaiting a stuck cancellation hook',async()=>{
+ let cancelled=false;
+ const stream=new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{}'));},cancel(){cancelled=true;return new Promise(()=>{});}});
+ const started=Date.now();
+ await assert.rejects(()=>readBillingBody(new Request('http://localhost/billing',{method:'POST',body:stream,duplex:'half'})),/interrupted/);
+ assert.equal(cancelled,true);assert.ok(Date.now()-started<8000);
+});
+test('caller cancellation rejects complete-looking partial JSON and prevents parsing success',async()=>{
+ const controller=new AbortController();let cancelled=false;
+ const stream=new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{}'));},cancel(){cancelled=true;}});
+ const pending=readBillingBody(new Request('http://localhost/billing',{method:'POST',body:stream,duplex:'half',signal:controller.signal}));
+ controller.abort();await assert.rejects(()=>pending,/interrupted/);assert.equal(cancelled,true);
+});
