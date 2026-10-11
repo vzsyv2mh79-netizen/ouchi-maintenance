@@ -56,7 +56,7 @@ import OuchiCore
     /// Prepared adapter only. Caller must first obtain a durable deletion receipt.
     /// The release deletion screen is not enabled by this local operation.
     func stopLocalNotificationsForDeletion(account: UUID, revision: UUID) async -> Bool {
-        func stillBound() -> Bool {
+        let stillBound: @MainActor @Sendable () -> Bool = { [self] in
             signedIn && !busy && snapshotAccount == account && accountBindingRevision == revision
         }
         guard stillBound(), !Task.isCancelled else { return false }
