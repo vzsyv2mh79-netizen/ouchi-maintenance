@@ -3,10 +3,10 @@ name: Native iPhone checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['ios/**', 'lib/product-lookup.ts', '.github/workflows/native.yml']
+    paths: ['ios/**', 'lib/product-lookup.ts', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'package.json', 'package-lock.json', '.github/workflows/native.yml']
   push:
     branches: [main]
-    paths: ['ios/**', '.github/workflows/native.yml']
+    paths: ['ios/**', 'lib/reminder-settings.ts', 'lib/billing-body.ts', 'package.json', 'package-lock.json', '.github/workflows/native.yml']
   workflow_dispatch:
 
 permissions:
@@ -30,6 +30,10 @@ jobs:
           node-version: 24
       - name: Export current full Web model catalog for native contract checks
         run: node ios/Tests/export-web-catalog.mjs "$RUNNER_TEMP/ouchi-catalog.json"
+      - name: Install locked dependencies without install hooks
+        run: npm ci --ignore-scripts
+      - name: Native HTTP settings contract against actual server handler
+        run: node ios/Tests/reminder-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Verify synthetic core and local snapshot tests
         run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests

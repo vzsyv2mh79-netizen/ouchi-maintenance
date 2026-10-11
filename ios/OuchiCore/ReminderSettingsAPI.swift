@@ -23,7 +23,16 @@ public struct ReminderSettingsReceipt: Decodable, Equatable, Sendable {
 /// host or redirect may receive the user's bearer token.
 public struct ReminderSettingsAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    public init(transport: HouseholdAPI.Transport? = nil) {
+    private let endpoint: URL
+    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
+        #if DEBUG
+        endpoint = isolatedDevelopment && loopbackPort > 0
+            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/development/reminder-settings")!
+            : URL(string: "https://ouchi-maintenance.vercel.app/api/development/reminder-settings")!
+        #else
+        endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/development/reminder-settings")!
+        #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: ReminderRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
@@ -51,7 +60,7 @@ public struct ReminderSettingsAPI: Sendable {
     private func send(token: String, body: Data?) async throws -> ReminderSettingsReceipt {
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         try Task.checkCancellation()
-        let url = URL(string: "https://ouchi-maintenance.vercel.app/api/development/reminder-settings")!
+        let url = endpoint
         var request = URLRequest(url: url)
         request.httpMethod = body == nil ? "GET" : "PUT"
         request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData

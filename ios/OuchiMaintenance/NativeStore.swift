@@ -559,7 +559,7 @@ import OuchiCore
         var expiry: Date?
         if sandboxBillingConfigured, billingAccount == credentials.user.id, let purchaseAccount {
             do {
-                let receipt = try await ReminderSettingsAPI().load(token: credentials.access_token)
+                let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
                 let rights = try await BillingAPI().entitlement(token: credentials.access_token)
                 guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                       snapshotAccount == credentials.user.id, billingAccount == credentials.user.id else { return false }
@@ -591,7 +591,7 @@ import OuchiCore
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id,
                   let purchaseAccount else { return }
-            let receipt = try await ReminderSettingsAPI().load(token: credentials.access_token)
+            let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
             let rights = try await BillingAPI().entitlement(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
@@ -623,7 +623,7 @@ import OuchiCore
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
-            let service = ReminderSettingsAPI()
+            let service = ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled)
             let result: ReminderSettingsReceipt
             if let schedule, let receipt {
                 result = try await service.save(schedule, revision: receipt.revision, token: credentials.access_token)

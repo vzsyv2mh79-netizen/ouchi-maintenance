@@ -15,6 +15,13 @@ import OuchiCore
     static func main() async throws {
         let first = try await api(payload()).load(token: "synthetic")
         precondition(first.revision == 0 && first.saved == nil && first.effective == .free && !first.premiumActive)
+        // This suite links the Release core. A caller cannot select loopback
+        // transport in a released binary, even by passing development arguments.
+        let released = ReminderSettingsAPI(isolatedDevelopment: true, loopbackPort: 1) { request in
+            precondition(request.url?.absoluteString == "https://ouchi-maintenance.vercel.app/api/development/reminder-settings")
+            return (Data(payload().utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        _ = try await released.load(token: "synthetic")
         let schedule = try ReminderSchedule(minuteOfDay: 1230, weekdays: [7], leadDays: 1, includeOverdue: false)
         let saving = ReminderSettingsAPI { request in
             precondition(request.httpMethod == "PUT" && request.url?.path == "/api/development/reminder-settings")
