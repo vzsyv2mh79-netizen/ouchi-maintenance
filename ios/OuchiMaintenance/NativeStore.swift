@@ -550,6 +550,35 @@ import OuchiCore
     func loadSandboxReminderSettings() async {
         await changeSandboxReminderSettings(schedule: nil)
     }
+    /// Refresh rights/settings only when this account opted into local reminders.
+    /// Failed verification uses free defaults; cached premium flags never schedule.
+    private func reconcileReminders(data: Household, credentials: Session) async throws -> Bool {
+        guard reminders.enabled(account: credentials.user.id) else { return false }
+        let expected = generation, binding = accountBindingRevision
+        var schedule = ReminderSchedule.free
+        var expiry: Date?
+        if sandboxBillingConfigured, billingAccount == credentials.user.id, let purchaseAccount {
+            do {
+                let receipt = try await ReminderSettingsAPI().load(token: credentials.access_token)
+                let rights = try await BillingAPI().entitlement(token: credentials.access_token)
+                guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+                      snapshotAccount == credentials.user.id, billingAccount == credentials.user.id else { return false }
+                guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
+                if receipt.premiumActive, rights.premiumIsCurrent() {
+                    schedule = receipt.effective
+                    expiry = rights.expiresAt.map { Date(timeIntervalSince1970: $0 / 1000) }
+                }
+                reminderSettings = receipt; sandboxEntitlement = rights
+            } catch {
+                guard !Task.isCancelled, expected == generation, binding == accountBindingRevision else { return false }
+                reminderSettings = nil
+            }
+        }
+        guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
+              snapshotAccount == credentials.user.id else { return false }
+        return try await reminders.reconcile(data: data, account: credentials.user.id,
+            schedule: schedule, premiumValidUntil: expiry)
+    }
     /// Explicit confirmation only; fetch both the authoritative settings and
     /// verified purchase expiry before scheduling any custom notification.
     func applySandboxReminderSettings() async {
@@ -724,7 +753,7 @@ import OuchiCore
             household = value
             await bindSandboxBilling(account: credentials.user.id)
             guard expected == generation else { return }
-            let notificationState = (try? await reminders.reconcile(data: value, account: credentials.user.id)) ?? false
+            let notificationState = (try? await reconcileReminders(data: value, credentials: credentials)) ?? false
             guard expected == generation else { return }
             remindersEnabled = notificationState
             if !value.homes.contains(where: { $0.id == homeID }) { homeID = value.homes.first?.id ?? "" }
@@ -761,7 +790,7 @@ import OuchiCore
             guard expected == generation else { return }
             showingOfflineSnapshot = false
             household = fresh
-            let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
+            let notificationState = (try? await reconcileReminders(data: fresh, credentials: credentials)) ?? false
             guard expected == generation else { return }
             remindersEnabled = notificationState
         } catch {
@@ -793,7 +822,7 @@ import OuchiCore
             guard expected == generation else { return false }
             showingOfflineSnapshot = false
             household = fresh
-            let notificationState = (try? await reminders.reconcile(data: fresh, account: credentials.user.id)) ?? false
+            let notificationState = (try? await reconcileReminders(data: fresh, credentials: credentials)) ?? false
             guard expected == generation else { return false }
             remindersEnabled = notificationState
             busy = false

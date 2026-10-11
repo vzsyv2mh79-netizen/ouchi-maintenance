@@ -7,6 +7,9 @@ import OuchiCore
     private let preference = "ouchi.localReminder.account"
     private var generation = 0
     private var activeIDs: [String] = []
+    func enabled(account: UUID) -> Bool {
+        UserDefaults.standard.string(forKey: preference) == account.uuidString
+    }
     /// Only call after the server has durably accepted the user's deletion.
     /// Confirmation covers this device's app-owned local notifications, not APNs.
     func eraseForAccountDeletion(account: UUID, stillBound: @MainActor () -> Bool) async -> Bool {
