@@ -1281,6 +1281,9 @@ private struct AttachmentView: View {
                 }
             }
             Section("ファイル") {
+                Text("選択したファイルをそのまま保存します。写真の撮影場所や、保証書の氏名・住所が含まれていないか確認してください。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Button(store.developmentLifecycleConfigured ? "テスト用ファイルを選択" : "ファイルを選択") {
                     fileSelectionBinding = selectionBinding
                     choosingFile = true
@@ -1329,6 +1332,8 @@ private struct AttachmentView: View {
                 }
             }
             Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("ファイル内の撮影場所・氏名・住所なども保存されます。不要な情報が含まれていないことを確認してから保存してください。")
         }
         .confirmationDialog("確認待ちのファイル削除を再確認しますか？", isPresented: $confirmRetryRemoval, titleVisibility: .visible) {
             Button("同じファイルの削除を再確認", role: .destructive) {
