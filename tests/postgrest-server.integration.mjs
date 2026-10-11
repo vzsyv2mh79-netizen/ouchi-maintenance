@@ -16,7 +16,7 @@ const actualRoute=async(kind)=>{
 const actualAttachmentRoute=async()=>{
  const reader=encoded(compile('lib/product-attachment.ts'));
  const upload=encoded(compile('lib/attachment-upload.ts').replace("'./product-attachment'",JSON.stringify(reader)));
- const mappings={'@supabase/supabase-js':import.meta.resolve('@supabase/supabase-js'),'@/lib/attachment-upload':upload,'@/lib/product-attachment':reader,'@/lib/verified-app-session':sessionModule,'@/lib/billing-account':encoded(bindingModule),'@/lib/billing':encoded(compile('lib/billing.ts'))};
+ const mappings={'@supabase/supabase-js':import.meta.resolve('@supabase/supabase-js'),'@/lib/attachment-fetch':encoded(compile('lib/attachment-fetch.ts')),'@/lib/attachment-upload':upload,'@/lib/product-attachment':reader,'@/lib/verified-app-session':sessionModule,'@/lib/billing-account':encoded(bindingModule),'@/lib/billing':encoded(compile('lib/billing.ts'))};
  let source=compile('app/api/development/product-attachments/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
  return await import(encoded(source));
 };
@@ -25,6 +25,9 @@ const actualAPNsRoute=async()=>{
  let source=compile('app/api/development/apns-registration/route.ts');for(const [path,value] of Object.entries(mappings))source=source.replaceAll("'"+path+"'",JSON.stringify(value));
  return await import(encoded(source));
 };
+test('actual attachment integration loader resolves route modules before service startup',async()=>{
+ const route=await actualAttachmentRoute();assert.equal(typeof route.POST,'function');assert.equal(typeof route.GET,'function');
+});
 // Disposable CI services only; no real user, SMTP or shared project.
 test('actual app lifecycle routes enforce real Auth and PostgREST closure and reenrollment', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:60000},async()=>{
  const gateway=createServer((request,response)=>{
