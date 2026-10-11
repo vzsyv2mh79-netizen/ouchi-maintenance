@@ -177,7 +177,7 @@ private struct NativeSettings: View {
                             AccountDeletionView(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!,
                                 bindingRevision: deletionPreviewRevision, available: false, deletionExplanation: "",
                                 token: { nil }, exportAvailable: false, export: {},
-                                cleanupLocalNotifications: { false }, flow: deletionPreviewFlow)
+                                cleanupLocalNotifications: { _, _ in false }, flow: deletionPreviewFlow)
                         }
 #endif
                         NavigationLink("写真・保証書の保存テスト") { DevelopmentAttachmentView() }

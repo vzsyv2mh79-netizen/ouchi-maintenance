@@ -11,7 +11,9 @@ import OuchiCore
     let token: () -> String?
     let exportAvailable: Bool
     let export: () -> Void
-    let cleanupLocalNotifications: () async -> Bool
+    // The adapter must check this immutable binding before every side effect.
+    // A view's post-await check cannot undo cleanup applied to a new account.
+    let cleanupLocalNotifications: (_ expectedAccount: UUID, _ expectedRevision: UUID) async -> Bool
     let flow: AccountDeletionFlow
     @State private var operation: Task<Void, Never>?
     @State private var activeRevision: UUID?
@@ -105,7 +107,7 @@ import OuchiCore
             receipt = recovered; message = nil
             if recovered != nil {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications()
+                let cleaned = await cleanupLocalNotifications(accountID, expected)
                 guard expected == activeRevision, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
@@ -124,7 +126,7 @@ import OuchiCore
             message = nil
             if receipt != nil {
                 cleanupPending = true
-                let cleaned = await cleanupLocalNotifications()
+                let cleaned = await cleanupLocalNotifications(accountID, expected)
                 guard expected == activeRevision, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
@@ -141,10 +143,10 @@ import OuchiCore
         }
     }
     private func cleanNotifications() async {
-        guard !busy, receipt != nil else { return }
+        guard !busy, receipt != nil, activeRevision == bindingRevision else { return }
         let expected = bindingRevision
         busy = true; defer { if expected == activeRevision { busy = false } }
-        let cleaned = await cleanupLocalNotifications()
+        let cleaned = await cleanupLocalNotifications(accountID, expected)
         guard expected == activeRevision, !Task.isCancelled else { return }
         cleanupPending = !cleaned
     }
