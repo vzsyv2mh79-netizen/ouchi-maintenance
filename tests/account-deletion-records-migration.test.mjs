@@ -17,6 +17,7 @@ test('record deletion waits for all objects, isolates ownership and never claims
  await db.exec(readFileSync('supabase/migrations/20261011135013_ouchi_deletion_completion_boundary.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011140654_ouchi_completion_receipt_evidence.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql','utf8'));
+ for(const file of ['20261011153328_ouchi_attest_registration_ledger','20261012004145_ouchi_restore_transfer_reservation','20261012004834_ouchi_restore_transfer_completion','20261012005754_ouchi_restore_completion_status','20261012010434_ouchi_restore_ownership_writer_guard','20261012011309_ouchi_deletion_restore_jobs'])await db.exec(readFileSync('supabase/migrations/'+file+'.sql','utf8'));
  await db.exec('create schema storage;create table storage.objects(bucket_id text,name text);grant usage on schema storage to service_role;grant select on storage.objects to service_role;');
  const user='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333';
  await db.query('insert into auth.users values($1),($2)',[user,other]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
@@ -155,6 +156,23 @@ test('record deletion waits for all objects, isolates ownership and never claims
  for(const table of ['enrollment_consents','reconciliation_jobs','notification_channels','reminder_schedules'])assert.deepEqual((await db.query('select user_id from maintenance_private.'+table)).rows,[{user_id:other}]);
  await db.exec('reset role;set role authenticated');await assert.rejects(()=>erasePrior(first));await db.exec('reset role');await db.query('update maintenance_private.enrollment_policy set require_explicit=false where id=1');await db.exec('set role service_role');assert.equal(await eraseIdentity(first),false,'strict enrollment must be required atomically');
  await db.exec('reset role');await db.query('update maintenance_private.enrollment_policy set require_explicit=true where id=1');await db.exec('set role service_role');
+ const eraseRestoreJobs=async j=>(await db.query('select public.erase_maintenance_deletion_restore_jobs($1,$2,$3,$4) value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const restoreJobIDs=['abcdef01-abcd-4abc-8abc-abcdef000001','abcdef02-abcd-4abc-8abc-abcdef000002','abcdef03-abcd-4abc-8abc-abcdef000003','abcdef04-abcd-4abc-8abc-abcdef000004'];
+ // Preexisting job fixtures across retained epochs. Unknown outcome removal
+ // below is privileged test cleanup, not an implemented Apple reconciliation.
+ for(const [i,phase,u,e] of [[0,'authorized',user,otherAttachment],[1,'completed',user,epoch],[2,'update_started',user,epoch],[3,'authorized',other,otherAttachment]]){
+  await db.query(`insert into maintenance_private.restore_transfer_jobs(id,user_id,session_id,app_epoch_id,environment,original_transaction_id,app_transaction_id,previous_account_token,bundle_id,lease_token,authorized_at,phase,mutation_started_at,expected_counter,verified_counter,client_hash,assertion_hash,pair_hash,completed_at,completed_transaction_id,completion_proof_sha256)
+   values($1,$2,$3,$4,'Sandbox',$5,'200001',$6,'dev.synthetic.ouchi',$7,now()-interval '1 hour',$8,case when $8='update_started' then now()-interval '30 minutes' else null end,0,1,$9,$9,$9,case when $8='completed' then now()-interval '10 minutes' else null end,case when $8='completed' then '300001' else null end,case when $8='completed' then $9 else null end)`,[restoreJobIDs[i],u,session,e,String(100001+i),otherDevice,nativeDevice,phase,'a'.repeat(64)]);
+ }
+ assert.equal(await eraseIdentity(first),false,'restore job presence refuses identity erasure');
+ assert.equal(await identityCheckpoint(first),false);
+ assert.equal(await eraseRestoreJobs({...first,leaseToken:other}),false);
+ assert.equal(await eraseRestoreJobs(first),false,'unknown Apple mutation cannot be discarded');
+ assert.equal((await db.query('select count(*)::int n from maintenance_private.restore_transfer_jobs where user_id=$1',[user])).rows[0].n,3,'failure does not partially erase safe jobs');
+ await db.exec('reset role');await db.query('delete from maintenance_private.restore_transfer_jobs where id=$1',[restoreJobIDs[2]]);await db.exec('set role service_role');
+ assert.equal(await eraseRestoreJobs(first),true);assert.equal(await eraseRestoreJobs(first),true);
+ assert.deepEqual((await db.query('select user_id from maintenance_private.restore_transfer_jobs')).rows,[{user_id:other}]);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>eraseRestoreJobs(first),/permission denied/);await db.exec('reset role;set role service_role');
  assert.equal(await eraseIdentity(first),true);assert.equal(await eraseIdentity(first),true);assert.equal(await identityCheckpoint(first),true);assert.equal(await identityCheckpoint({...first,leaseToken:other}),false);
  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running','identity checkpoint never claims retention or completion');
  await db.exec('reset role;set role authenticated');await assert.rejects(()=>eraseIdentity(first));await assert.rejects(()=>identityCheckpoint(first));await db.exec('reset role;set role service_role');

@@ -33,13 +33,16 @@ can proceed. Other owners and recreation after deletion remain refused.
 Ownership identity UPDATE is immutable; service UPDATE is limited to a guarded
 column solely for PostgreSQL row-lock permission.
 
-PGlite tests cover these conditions. A prepared disposable-CI two-session test
-observes actual advisory-lock waits during commit and rollback; it has not been
-executed locally because Docker/PostgreSQL is absent on this host. Current CI
-must pass its new step before claiming concurrent PostgreSQL evidence. The
-migration workflow now applies these four new migrations (it previously stopped
-before them). Deletion, abandoned-mutation reconciliation and retention still
-need integration before enablement; an insert guard is not full-system proof.
+PGlite tests cover these conditions. Disposable CI run 38190996644 passed the
+actual PostgreSQL parallel-session test: foreign and same-owner writers waited
+on the shared locks while completion was uncommitted; commit allowed only the
+same owner's new period, and rollback preserved the reservation with no owner
+or period. The full migration apply, existing retirement race, real Auth and
+PostgREST checks also passed at head 3c42e6f. This concurrency fixture uses
+synthetic Auth/Apple output, not live Apple account proof or an Apple mutation.
+The migration workflow now applies these new migrations (it previously stopped
+before them). The newer deletion integration below still needs current-head CI.
+An ownership insert guard is not full-system release proof.
 
 Prepared completion RPC now rechecks the live enrollment and exact lease,
 Apple account/app scope, Sandbox, original purchase, current target token,
@@ -65,6 +68,21 @@ Malformed boolean responses, RPC errors and null mutation CAS fail closed.
 Job DTO timestamps must use server epoch milliseconds (as the marker RPC does),
 not Date.parse on a Date object, which can discard fractional milliseconds.
 
+Prepared deletion now erases authorized/completed restore jobs across all of the
+closing user's retained epochs only after inventory, records, receipt sessions,
+closed access/current epoch and the exact deletion lease are confirmed. Unknown
+or committing jobs refuse the entire job cleanup; safe jobs are not partially
+erased. The deletion store runs this stage before proof/purchase-ledger erasure.
+Identity checkpoints, identity erasure and completed receipts require all that
+user's restore jobs to be absent. Another user's jobs are preserved.
+
+Local deletion SQL tests physically erase authorized/completed fixtures and
+check identity refusal with an uncertain job. The uncertain fixture is removed
+by privileged test cleanup only: this is NOT a implemented Apple reconciliation.
+A bounded cancellation/reconciliation and approved finite retention policy for
+unknown external outcomes remains mandatory. Do not deploy a deletion flow that
+leaves these jobs pending indefinitely or presents them as erased.
+
 Required next work:
 
 - Trusted authenticated job loading and worker dispatch for the prepared RPC
@@ -74,10 +92,10 @@ Required next work:
 - Apple Sandbox current-status adapter and explicit token-update client. HTTP200
   is not proof. Reconcile a lost PUT response by verified readback; uncertain
   retries must never blindly send a second mutation or free the reservation.
-- Deletion inventory, ordered cleanup, abandoned-mutation reconciliation, finite
-  retention and physical erasure for all new job fields. Existing account-erasure
-  completion checks do not yet cover this new table. Do not enable before those
-  checks and another account's preservation have actual database coverage.
+- Reconciliation of unknown external mutations under a revoked-user deletion
+  lease, bounded retry/escalation, approved finite retention and erasure for those
+  outcomes. Verify full deletion with actual service transport and parallel
+  mutation/closure before enablement; prepared safe-state cleanup is insufficient.
 - Fresh authenticated restore challenge/assertion endpoints and native wiring,
   authentic Apple device/build proof, duplicate/replay/competing ownership,
   response loss, expiry/refund/revocation and Web/native rights verification.
