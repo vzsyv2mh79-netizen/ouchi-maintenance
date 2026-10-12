@@ -39,6 +39,10 @@ public struct SubscriptionOfferDisclosure: Equatable, Sendable {
         self.maximumBytes = maximumBytes; self.maximumFiles = maximumFiles
         self.maximumFileBytes = maximumFileBytes; self.retention = text
     }
+    public func matchesCapacity(_ usage: AttachmentAPI.Usage) -> Bool {
+        maximumBytes == Int64(usage.limitBytes) && maximumFiles == usage.limitFiles &&
+        maximumFileBytes == Int64(usage.fileLimitBytes)
+    }
 }
 
 /// Public store metadata only. This policy never verifies a transaction or grants access.

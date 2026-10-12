@@ -10,12 +10,17 @@ private actor ReleaseBillingHTTPFixture {
     private var premium = false
     private var fail = false
     private var block = false
+    private var failUsage = false
+    private var blockUsage = false
     private var gate: CheckedContinuation<Void, Never>?
     private(set) var blocked = false
     private(set) var submissions = 0
+    private(set) var usageReads = 0
     func setPremium(_ value: Bool) { premium = value }
     func failReads() { fail = true }
     func blockNextRead() { block = true }
+    func failUsageReads() { failUsage = true }
+    func blockNextUsageRead() { blockUsage = true; blocked = false }
     func resumeRead() { gate?.resume(); gate = nil }
     func reply(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         guard let url = request.url, url.scheme == "https", url.host == "ouchi-maintenance.vercel.app",
@@ -39,6 +44,16 @@ private actor ReleaseBillingHTTPFixture {
             let input = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
             guard input.count == 1, input["signedTransaction"]?.split(separator: ".").count == 3 else { throw CloudError.invalidInput }
             submissions += 1; body = ["saved": true, "environment": "Sandbox"]
+        case ("GET", "/api/product-attachments"):
+            guard url.query == "usage=true" else { throw CloudError.invalidInput }
+            usageReads += 1
+            if blockUsage {
+                blockUsage = false; blocked = true
+                await withCheckedContinuation { gate = $0 }
+            }
+            if failUsage { throw URLError(.notConnectedToInternet) }
+            body = ["usage": ["usedBytes": 0, "usedFiles": 0, "reservedBytes": 0, "reservedFiles": 0,
+                "limitBytes": 104857600, "limitFiles": 100, "fileLimitBytes": 5242880]]
         default: throw CloudError.unavailable
         }
         return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: url, statusCode: 200,
@@ -142,7 +157,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         return window
     }
-    @MainActor private func releaseStore(_ fixture: ReleaseBillingHTTPFixture, window: NSWindow, allowPurchases: Bool = false) async throws -> NativeStore {
+    @MainActor private func releaseStore(_ fixture: ReleaseBillingHTTPFixture, window: NSWindow, allowPurchases: Bool = false, offer: SubscriptionOfferDisclosure? = nil) async throws -> NativeStore {
         let householdFixture = NativeReviewFixture()
         let configuration = try CloudConfiguration(url: URL(string: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,
                                                    publishableKey: "sb_publishable_synthetic_review_only")
@@ -152,7 +167,88 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         XCTAssertTrue(restored)
         let billing = BillingAPI(environment: .sandbox, transport: { try await fixture.reply($0) })
         return try NativeStore(localStoreKitWindow: window, household: household, session: session, billing: billing,
-                               account: NativeReviewFixture.account, allowPurchases: allowPurchases)
+                               account: NativeReviewFixture.account, allowPurchases: allowPurchases,
+                               attachments: offer == nil ? nil : AttachmentAPI(transport: { try await fixture.reply($0) }), offer: offer)
+    }
+    private func capacityOffer(bytes: Int64 = 104857600) throws -> SubscriptionOfferDisclosure {
+        try XCTUnwrap(SubscriptionOfferDisclosure(reviewed: true, maximumBytes: bytes,
+            maximumFiles: 100, maximumFileBytes: 5242880, retention: "Synthetic test policy only"))
+    }
+    @MainActor func testSubscriptionCapacityMatchesAndRefreshesBeforeCancelledPurchase() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true, offer: capacityOffer())
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState()
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: true))
+        await store.loadReleasePurchaseProducts()
+        XCTAssertTrue(store.releasePurchaseSalesAvailable(subscription: true))
+        XCTAssertNotNil(store.releaseAttachmentCapacity)
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        try await session.setSimulatedError(.generic(.userCancelled), forAPI: .purchase)
+        await store.purchaseReleaseProduct(product)
+        let reads = await fixture.usageReads, writes = await fixture.submissions
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(writes, 0)
+        XCTAssertTrue(session.allTransactions().allSatisfy { $0.state == .failed },
+                      "StoreKit may retain the failed cancellation; no purchased transaction is allowed")
+        XCTAssertNil(store.message)
+    }
+    @MainActor func testSubscriptionCapacityMismatchRejectsPurchaseButKeepsTipsAvailable() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true, offer: capacityOffer(bytes: 52428800))
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: true))
+        XCTAssertTrue(store.releasePurchaseSalesAvailable(subscription: false))
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        await store.purchaseReleaseProduct(product)
+        let reads = await fixture.usageReads, writes = await fixture.submissions
+        XCTAssertEqual(reads, 2); XCTAssertEqual(writes, 0)
+        XCTAssertNil(store.releaseAttachmentCapacity)
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        XCTAssertTrue(store.message?.contains("一致しません") == true)
+    }
+    @MainActor func testSubscriptionCapacityReadFailureDoesNotCreateTransaction() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true, offer: capacityOffer())
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        await fixture.failUsageReads()
+        await store.purchaseReleaseProduct(product)
+        let writes = await fixture.submissions
+        XCTAssertEqual(writes, 0)
+        XCTAssertNil(store.releaseAttachmentCapacity)
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: true))
+        XCTAssertTrue(store.releasePurchases.needsRetry)
+        XCTAssertTrue(session.allTransactions().isEmpty)
+    }
+    @MainActor func testSubscriptionDelayedCapacityDiscardedAfterBindingChange() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true, offer: capacityOffer())
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        await fixture.blockNextUsageRead()
+        let request = Task { await store.purchaseReleaseProduct(product) }
+        for _ in 0..<200 {
+            if await fixture.blocked { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let blocked = await fixture.blocked
+        XCTAssertTrue(blocked)
+        try store.replaceReleaseFixtureBinding()
+        await fixture.resumeRead(); await request.value
+        let writes = await fixture.submissions
+        XCTAssertEqual(writes, 0)
+        XCTAssertNil(store.releaseAttachmentCapacity)
+        XCTAssertFalse(store.releasePurchaseSalesAvailable(subscription: true))
+        XCTAssertTrue(session.allTransactions().isEmpty)
+        XCTAssertFalse(store.busy)
     }
     @MainActor func testReleaseControllerClearsRightsOnReadFailure() async throws {
         let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()

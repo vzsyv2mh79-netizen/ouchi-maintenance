@@ -100,14 +100,19 @@ struct FormalChannelSelection {
     #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
     private var releaseFixturePurchases: PurchaseManager?
     private var releaseFixtureBilling: BillingAPI?
+    private var releaseFixtureAttachments: AttachmentAPI?
+    private var releaseFixtureOffer: SubscriptionOfferDisclosure?
     private var releaseFixturePurchasesEnabled = false
-    init(localStoreKitWindow: NSWindow, household: HouseholdAPI, session: SessionController, billing: BillingAPI, account: UUID, allowPurchases: Bool = false) throws {
+    init(localStoreKitWindow: NSWindow, household: HouseholdAPI, session: SessionController, billing: BillingAPI, account: UUID, allowPurchases: Bool = false,
+         attachments: AttachmentAPI? = nil, offer: SubscriptionOfferDisclosure? = nil) throws {
         guard Bundle.main.bundleIdentifier == "dev.ouchi.review.storekit.catalog",
               Bundle(for: NativeStore.self).bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests",
-              billing.environment == .sandbox, account == NativeReviewFixture.account else { throw CloudError.unavailable }
+              billing.environment == .sandbox, account == NativeReviewFixture.account,
+              (attachments == nil) == (offer == nil) else { throw CloudError.unavailable }
         api = household; self.session = session; isolatedDevelopmentEnabled = false
         releaseFixturePurchases = try PurchaseManager(localStoreKitFixtureWindow: localStoreKitWindow)
         releaseFixtureBilling = billing
+        releaseFixtureAttachments = attachments; releaseFixtureOffer = offer
         releaseFixturePurchasesEnabled = allowPurchases
         isUIReviewSample = true; snapshotAccount = account; signedIn = true
     }
@@ -117,6 +122,7 @@ struct FormalChannelSelection {
     }
     #endif
     @Published private(set) var releaseEntitlement: VerifiedEntitlement?
+    @Published private(set) var releaseAttachmentCapacity: AttachmentAPI.Usage?
     private var releasePurchaseEpoch: UUID?
     private var releaseBillingAccount: UUID?
     private var billingAccount: UUID?
@@ -826,6 +832,9 @@ struct FormalChannelSelection {
             support: info["OUCHI_SUPPORT_URL"] as? String ?? "")
     }
     var releaseSubscriptionDisclosure: SubscriptionOfferDisclosure? {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if releaseFixtureBilling != nil { return releaseFixtureOffer }
+        #endif
         guard let environment = releasePurchaseEnvironment,
               formalReportEnvironment == environment, formalReminderEnvironment == environment,
               !developmentLifecycleConfigured,
@@ -853,6 +862,9 @@ struct FormalChannelSelection {
               rights.environment == environment.rawValue,
               rights.purchaseAccountToken == releasePurchaseEpoch,
               releasePurchaseEpoch != nil, let account = releaseBillingAccount, account == snapshotAccount else { return false }
+        if subscription, let offer = releaseSubscriptionDisclosure {
+            guard let usage = releaseAttachmentCapacity, offer.matchesCapacity(usage) else { return false }
+        }
         return environment == .sandbox || rights.salesEnabled
     }
     func loadReleasePurchaseProducts() async {
@@ -861,6 +873,26 @@ struct FormalChannelSelection {
         busy = true
         let expected = generation, revision = accountBindingRevision
         defer { if expected == generation { busy = false } }
+        if let offer = releaseSubscriptionDisclosure {
+            releaseAttachmentCapacity = nil
+            do {
+                guard let session, let account = releaseBillingAccount else { throw CloudError.authenticationRequired }
+                let credentials = try await session.credentials()
+                guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                      credentials.user.id == account, snapshotAccount == account else { throw CancellationError() }
+                let usage = try await releaseAttachmentAPI().usage(token: credentials.access_token)
+                let current = try await session.credentials()
+                guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                      current.user.id == account, current.access_token == credentials.access_token else { throw CancellationError() }
+                if offer.matchesCapacity(usage) { releaseAttachmentCapacity = usage }
+                else { message = "保存サービスの容量とプランの表示条件が一致しません。新しい契約は開始できません。" }
+            } catch {
+                if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
+                    message = "保存サービスの容量を確認できません。通信を確認して再取得してください。"
+                }
+            }
+        }
+        guard !Task.isCancelled, expected == generation, revision == accountBindingRevision else { return }
         do { try await releasePurchases.load() }
         catch {
             if !Task.isCancelled, expected == generation, revision == accountBindingRevision {
@@ -900,6 +932,21 @@ struct FormalChannelSelection {
                 message = "有効な契約があります。新しく購入せず、契約の確認・復元をご利用ください。"
                 return
             }
+            if subscription, let offer = releaseSubscriptionDisclosure {
+                // Re-read capacity after current rights, immediately before a
+                // purchase prompt; a cached quote is not permission to charge.
+                releaseAttachmentCapacity = nil
+                let usage = try await releaseAttachmentAPI().usage(token: current.access_token)
+                let afterCapacity = try await session.credentials()
+                guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+                      afterCapacity.user.id == account, afterCapacity.access_token == current.access_token,
+                      releasePurchaseEpoch == epoch else { throw CancellationError() }
+                guard offer.matchesCapacity(usage) else {
+                    message = "保存サービスの容量とプランの表示条件が一致しません。新しい契約は開始できません。"
+                    return
+                }
+                releaseAttachmentCapacity = usage
+            }
             let outcome = try await releasePurchases.purchase(product, account: epoch)
             guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
                   releaseBillingAccount == account, releasePurchaseEpoch == epoch else { return }
@@ -937,9 +984,15 @@ struct FormalChannelSelection {
         #endif
         return BillingAPI(environment: environment)
     }
+    private func releaseAttachmentAPI() -> AttachmentAPI {
+        #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
+        if let releaseFixtureAttachments { return releaseFixtureAttachments }
+        #endif
+        return AttachmentAPI()
+    }
     private func clearReleaseBilling() {
         releasePurchases.stopObserving(); releasePurchases.persist = nil
-        releaseEntitlement = nil; releasePurchaseEpoch = nil; releaseBillingAccount = nil
+        releaseEntitlement = nil; releaseAttachmentCapacity = nil; releasePurchaseEpoch = nil; releaseBillingAccount = nil
     }
     func loadReleasePurchaseState(notifyFailure: Bool = true) async {
         guard !busy, signedIn, let environment = releasePurchaseEnvironment, let session else { return }
