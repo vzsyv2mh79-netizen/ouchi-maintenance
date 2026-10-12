@@ -11,7 +11,7 @@ test('actual ledger SQL: scoped completion, durable retry and rollback of owners
    create table maintenance_private.account_access(user_id uuid,enabled boolean);create table maintenance_private.app_epochs(user_id uuid,epoch_id uuid,enabled boolean);
    create table maintenance_private.app_session_epochs(user_id uuid,epoch_id uuid);
    grant usage on schema auth,maintenance_private to service_role;grant select on all tables in schema maintenance_private to service_role;`);
-  for(const file of ['20261010142053_ouchi_verified_transaction_ledger','20261011083324_ouchi_retired_transaction_ingestion','20261011142510_ouchi_restore_challenge_ledger','20261012004145_ouchi_restore_transfer_reservation','20261012004834_ouchi_restore_transfer_completion','20261012005754_ouchi_restore_completion_status','20261012010434_ouchi_restore_ownership_writer_guard','20261012023800_ouchi_restore_job_recovery'])await db.exec(migration(file));
+  for(const file of ['20261010142053_ouchi_verified_transaction_ledger','20261011083324_ouchi_retired_transaction_ingestion','20261011142510_ouchi_restore_challenge_ledger','20261012004145_ouchi_restore_transfer_reservation','20261012004834_ouchi_restore_transfer_completion','20261012005754_ouchi_restore_completion_status','20261012010434_ouchi_restore_ownership_writer_guard','20261012023800_ouchi_restore_job_recovery','20261012035336_ouchi_restore_dispatch_claim'])await db.exec(migration(file));
   const user=randomUUID(),session=randomUUID(),epoch=randomUUID(),foreign=randomUUID(),foreignEpoch=randomUUID();
   await db.query('insert into auth.users values($1),($2)',[user,foreign]);
   await db.query('insert into maintenance_private.live_scope(user_id,session_id,epoch_id) values($1,$2,$3)',[user,session,epoch]);
@@ -93,13 +93,21 @@ test('actual ledger SQL: scoped completion, durable retry and rollback of owners
    const a={id:job.id,user,session,epoch,bundle:job.bundleID,pair:'a'.repeat(64),assertion:'a'.repeat(64),...changes};
    return (await db.query('select public.read_maintenance_restore_job_status($1,$2,$3,$4,$5,$6,$7) value',Object.values(a))).rows[0].value;
   };
+  const claim=async(changes={})=>{
+   const a={id:job.id,user,session,epoch,bundle:job.bundleID,pair:'a'.repeat(64),assertion:'a'.repeat(64),...changes};
+   return (await db.query('select public.claim_maintenance_restore_transfer($1,$2,$3,$4,$5,$6,$7) value',Object.values(a))).rows[0].value;
+  };
+  for(const changes of [{id:randomUUID()},{user:foreign},{session:randomUUID()},{epoch:foreignEpoch},{bundle:'foreign.app'},{pair:'b'.repeat(64)},{assertion:null}])assert.equal(await claim(changes),null);
+  assert.deepEqual(await claim(),{status:'claimed',job},'server builds the worker job from the matching ledger row');
+  assert.deepEqual(await claim(),{status:'pending'},'durable dispatch throttle suppresses immediate repeated execution');
   assert.deepEqual(await status(),{requestID:job.id,status:'pending'});
   for(const changes of [{id:randomUUID()},{user:foreign},{session:randomUUID()},{epoch:foreignEpoch},{bundle:'foreign.app'},{pair:'b'.repeat(64)},{assertion:'b'.repeat(64)},{pair:null},{assertion:'invalid'}])assert.equal(await status(changes),null);
-  await db.exec('reset role');await db.exec('update maintenance_private.restore_transfer_policy set enabled=false');await db.exec('set role service_role');assert.equal(await status(),null);
+  await db.exec('reset role');await db.exec('update maintenance_private.restore_transfer_policy set enabled=false');await db.exec('set role service_role');assert.equal(await status(),null);assert.equal(await claim(),null);
   await db.exec('reset role');await db.exec('update maintenance_private.restore_transfer_policy set enabled=true');await db.exec('set role service_role');
   assert.deepEqual(await runRestoreTransfer(job,dependencies),{state:'pending',reason:'unavailable'});
   assert.equal((await db.query('select phase from maintenance_private.restore_transfer_jobs where id=$1',[job.id])).rows[0].phase,'completed','real SQL committed before lost acknowledgement');
   assert.deepEqual(await status(),{requestID:job.id,status:'complete'},'lost acknowledgement recovers exact durable completion without a client lease');
+  assert.deepEqual(await claim(),{status:'complete'},'lost worker acknowledgement recovers completion without another dispatch');
   assert.deepEqual(events,['read','PUT','read']);
   assert.deepEqual(await runRestoreTransfer(job,dependencies),{state:'complete'});assert.deepEqual(events,['read','PUT','read'],'restart performs no Apple operation or duplicate ledger write');
   for(const change of [{lease:randomUUID()},{userID:foreign},{sessionID:randomUUID()},{epochID:foreignEpoch},{originalTransactionID:'999999'},{appTransactionID:'999999'},{bundleID:'foreign.app'}])assert.equal(await store.completionIsCurrent({...job,...change}),false);
@@ -109,10 +117,10 @@ test('actual ledger SQL: scoped completion, durable retry and rollback of owners
   assert.deepEqual(events,['read','PUT','read']);
   assert.deepEqual(await status(),{requestID:job.id,status:'complete'},'process status after refund never rewrites current premium ledger');
   await db.exec('reset role');await db.query('update maintenance_private.live_scope set enabled=false where user_id=$1',[user]);await db.exec('set role service_role');
-  assert.equal(await status(),null,'revoked enrollment cannot read durable completion');
+  assert.equal(await status(),null,'revoked enrollment cannot read durable completion');assert.equal(await claim(),null);
   assert.deepEqual(await runRestoreTransfer(job,dependencies),{state:'pending',reason:'scope'});assert.deepEqual(events,['read','PUT','read']);
   await db.exec('reset role');
-  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(status(),/permission denied/);await assert.rejects(db.query('select public.maintenance_restore_completion_is_current($1,$2,$3,$4,$5,$6,$7,$8)',[job.id,job.lease,user,session,epoch,job.originalTransactionID,job.appTransactionID,job.bundleID]),/permission denied/);await db.exec('reset role');}
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(status(),/permission denied/);await assert.rejects(claim(),/permission denied/);await assert.rejects(db.query('select public.maintenance_restore_completion_is_current($1,$2,$3,$4,$5,$6,$7,$8)',[job.id,job.lease,user,session,epoch,job.originalTransactionID,job.appTransactionID,job.bundleID]),/permission denied/);await db.exec('reset role');}
   await db.exec('reset role');const statusCatalog=(await db.query("select prosecdef,proconfig,has_function_privilege('anon',oid,'EXECUTE') anon,has_function_privilege('authenticated',oid,'EXECUTE') authenticated from pg_proc where proname='read_maintenance_restore_job_status'")).rows[0];assert.equal(statusCatalog.prosecdef,false);assert.ok(statusCatalog.proconfig.some(x=>x.startsWith('search_path=')));assert.equal(statusCatalog.anon,false);assert.equal(statusCatalog.authenticated,false);assert.equal((await db.query("select prosecdef from pg_proc where proname='complete_maintenance_restore_transfer'")).rows[0].prosecdef,false);
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(complete(first,p),/permission denied/);await db.exec('reset role');}
  }finally{await db.close();}

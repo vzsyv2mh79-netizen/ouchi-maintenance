@@ -1,0 +1,9 @@
+# Dormant Sandbox restore dispatch
+
+POST /api/billing/restore/process accepts only requestID, pairSHA256 and assertionSHA256 under verified live Auth and the original enrollment/session. It never accepts a client job, lease, Apple identifier or account token. A service-only database claim returns the exact stored worker job after matching scope and digests. A row lock and account advisory lock serialize claims; last_dispatch_at persistently throttles repeated execution for 60 seconds. This is a polling limit, not expiration of the reservation.
+
+The entry requires independent restore and reconciliation flags, complete Sandbox verification/signing configuration, and the disabled-by-default database policy. No configuration is enabled by this change. Apple operations use the existing hardwired SDK adapter. A durable mutation marker precedes the single token update. An unknown earlier update is readback-only; no second update or ownership release occurs automatically. Completion is process status only: premium remains a separate verified-ledger entitlement read. Refunds must not be reversed by a completed process response.
+
+Local tests use synthetic verified Auth/Apple responses and actual disposable PGlite ledger SQL. They cover exact scope, malformed requests/jobs, disabled gates, changed enrollment, dispatch throttling, lost acknowledgement and readback-only unknown updates. They do not prove Apple signatures/device attestation or real Apple mutations. CI applies the additive migration to disposable PostgreSQL. No shared database, owner keys, real payment, production deployment or SDK configuration is accessed.
+
+Release gates: native dispatch transport/flow integration, real Sandbox purchase/token-update readback, device attestation and signed UI checks, service security advisors, and an approved finite retention/escalation policy for unresolved jobs and receipts. App Store publication remains incomplete.
