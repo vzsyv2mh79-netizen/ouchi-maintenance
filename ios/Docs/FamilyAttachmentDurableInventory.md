@@ -5,10 +5,11 @@ in memory in the actual Storage fixture. This change adds a pinned-transaction
 PostgreSQL inventory journal so the exact original files, write attempts, products
 and members can be retained independently of a backend provider instance.
 
-`lib/family-attachment-journal.mjs` records only **planned**. It is deliberately
-not the orchestrator's `prepare` port, and planned never means reserved, copied,
-activated or safe to delete. The only schema is a disposable test fixture; no
-migration, route, credentials, grants or production database change is included.
+`lib/family-attachment-journal.mjs` records **planned** with `record`, or also
+holds receiver capacity with `reserve`, returning **reserved**. Neither is the
+orchestrator's complete `prepare` port, and neither means copied, activated or
+safe to delete. Both schemas are disposable test fixtures; no migration, route,
+credentials or production database change is included.
 
 The provider locks owner, receiver and all original uploaders in sorted order;
 checks original home owner, receiver membership/current enabled epoch and absence
@@ -51,22 +52,51 @@ lease with unchanged inventory, rejection of old/foreign/terminal leases, and
 post-insert expiry rollback. Auth, signed consent and freeze evidence are injected.
 These are not actual PostgreSQL concurrency or shipping tests.
 
-The dedicated family workflow also awaits a new disposable PostgreSQL fixture
+The dedicated family workflow also awaits a disposable PostgreSQL fixture
 using real GoTrue accounts and the existing actual schema. It captures the
 inventory, expires/reclaims the exact native request, requires renewed injected
 authority and verifies old-lease refusal and unchanged home/file owner. Its CI
-result must be observed before claiming actual PostgreSQL evidence. It does not
-prove real signed consent, freeze, quota, activation, concurrency or native UI.
+result must be observed before claiming actual PostgreSQL evidence. The original
+native-claim fixture passed at `6382fbb2` (workflow 38313215611, job 115023621612,
+one awaited enclosing test, 0 failures/skips). Authority/freeze were injected.
+
+## Pending receiver capacity
+
+The private quota fixture stores one immutable reservation per relocating file,
+bound to request/home, original file ID, recipient/epoch and original byte count.
+Original member-owned files keep their own capacity and receive no new charge.
+Nineteen journal tests include all-or-nothing limits across other homes,
+ordinary service-only upload reservation, rollback of a later-file capacity failure,
+client/service mutation refusal, exact replay/reclaim, unchanged member
+paths and post-reservation authority-loss rollback. The source normalizer now
+uses 100 files/100 MiB **per uploader**, allowing a shared home over 100 files;
+the destination still checks the recipient's aggregate existing/pending usage.
+
+Both reservation and ordinary metadata triggers take the same principal quota
+locks and count all nonremoved files across epochs plus pending reservations.
+Ordinary service-only reserve RPCs retain their existing authorization and gain
+the quota trigger, so a handoff cannot be ignored by their old metadata-only
+precheck. The quota trigger is security invoker, with only private SELECT granted
+to the existing service role; clients gain no policy or write permission.
+No reservation expiry, update or deletion is allowed. A timeout cannot refund
+uncertain copies. Consumption/release needs a future exact activation/cancel
+context and receipt; those remain unimplemented and gate migration readiness.
+
+The actual PostgreSQL fixture is extended to hold the receiver's last capacity
+while another connection calls the ordinary service RPC, require lock refusal,
+then quota refusal after commit, and confirm one reservation after reclaim.
+This extension's CI is pending; the earlier passed fixture does not prove the
+new quota/concurrency behavior. No end-to-end shipping claim is made.
 
 Remaining work, in dependency order:
 
 1. Integrate the current database-verified native lease with the signed shared
    controller binding and physical-device recovery. The disabled journal now
    supports native request reclamation; complete shipping recovery remains open.
-2. Persist all receiver byte/file reservations and make ordinary attachment
-   writers account for them under the same lock order. The whole-home 100-file
-   normalization cap differs from the existing per-uploader quota and requires
-   correction before a scalable shipping adapter.
+2. Verify quota/concurrency against actual PostgreSQL, add exact private
+   consumption/cancellation and finite receipt cleanup, and integrate the
+   complete preparation port. Serial all-copy inspection/deadline scaling
+   remains open even though the incorrect whole-home normalization cap is fixed.
 3. Bind full inventory to real dual consent/current Auth-MFA and private freeze.
 4. Atomically consume reservations and switch home/write route, file uploader,
    epoch, captured owner and settled-write metadata using a transaction-scoped

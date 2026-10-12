@@ -4,7 +4,8 @@ import {randomUUID,createHash} from 'node:crypto';
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 
 /** Actual disposable PostgreSQL/GoTrue users; signed consent/freeze injected.
- * No Storage copying, quota reservation, ownership activation or erasure here.
+ * Tests pending quota and concurrent ordinary reservation; no Storage copying,
+ * ownership activation or erasure here.
  */
 export async function verifyDisposableFamilyAttachmentJournal({account,origin,bytes}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');
@@ -14,6 +15,7 @@ export async function verifyDisposableFamilyAttachmentJournal({account,origin,by
  const db=new Client(config);await db.connect();
  try{
   await db.query(readFileSync('tests/fixtures/family-attachment-journal.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/family-attachment-quota.sql','utf8'));
   const owner=await account(),receiver=await account();
   const homeID=randomUUID(),productID=randomUUID(),fileID=randomUUID(),requestID=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
   const sha=createHash('sha256').update(bytes).digest('hex');
@@ -34,6 +36,28 @@ export async function verifyDisposableFamilyAttachmentJournal({account,origin,by
   const signal=()=>AbortSignal.timeout(10000);
   const first=await port(async()=>true).record(scope,plan,signal());
   const original=(await db.query('select * from maintenance_private.family_attachment_journals where request_id=$1',[requestID])).rows[0];
+  const otherHome=randomUUID(),otherProduct=randomUUID();
+  await db.query('insert into public.homes(id,owner_id) values($1,$2)',[otherHome,receiver.user]);
+  await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[otherProduct,otherHome,'air','Synthetic quota product']);
+  await db.query("insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime,captured_owner_id) select gen_random_uuid(),$1::uuid,$2::uuid,$3::uuid,1,'image/png',$1::uuid from generate_series(1,99)",[receiver.user,receiver.epoch,otherProduct]);
+  const contender=new Client(config);await contender.connect();
+  const ordinary=()=>contender.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,1,$6,$7)',[receiver.user,receiver.session,receiver.epoch,otherProduct,randomUUID(),'image/png',sha]);
+  try{
+   let checks=0;
+   const capacity=await port(async()=>{
+    if(++checks===2){
+     // Exact two-connection race: handoff holds the recipient quota lock before
+     // commit; an ordinary server RPC cannot take the last capacity concurrently.
+     await contender.query('begin');await contender.query("set local lock_timeout='150ms'");await contender.query('set local role service_role');
+     try{await assert.rejects(ordinary(),error=>error.code==='55P03');}
+     finally{await contender.query('rollback');}
+    }
+    return true;
+   }).reserve(scope,plan,signal());
+   assert.equal(capacity.state,'reserved');assert.equal(checks,2);
+   await contender.query('set role service_role');await assert.rejects(ordinary(),/Attachment quota exceeded/);
+  }finally{await contender.end();}
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_quota where request_id=$1',[requestID])).rows[0].n,1);
   await db.query("update maintenance_private.account_deletion_requests set lease_until=clock_timestamp()-interval '1 second' where id=$1",[nativeRequestID]);
   await assert.rejects(port(async()=>true).record(scope,plan,signal()),/Current native deletion lease/);
   const claim=(await db.query('select public.claim_maintenance_account_deletion() as job')).rows[0].job;
@@ -47,6 +71,8 @@ export async function verifyDisposableFamilyAttachmentJournal({account,origin,by
    return true;
   }).record(renewed,plan,signal()),first);
   assert.equal(checkedOriginal,true);
+  assert.equal((await port(async()=>true).reserve(renewed,plan,signal())).state,'reserved');
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_quota where request_id=$1',[requestID])).rows[0].n,1);
   await assert.rejects(port(async()=>true).record(scope,plan,signal()),/Current native deletion lease/);
   assert.deepEqual((await db.query('select * from maintenance_private.family_attachment_journals where request_id=$1',[requestID])).rows[0],original);
   assert.equal((await db.query('select owner_id from public.homes where id=$1',[homeID])).rows[0].owner_id,owner.user);

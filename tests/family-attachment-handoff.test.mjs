@@ -5,6 +5,13 @@ import {handoffFamilyAttachments,normalizeFamilyAttachmentPlan,requireFamilyAtta
 const id=n=>`${String(n).padStart(8,'0')}-1111-4111-8111-111111111111`;
 const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
 const file=(n,user=1,epoch=2)=>({id:id(n),mime:'image/png',size:4,sha256:sha,source:{userID:id(user),epoch:id(epoch),path:`${id(user)}/${id(epoch)}/${id(n)}.png`}});
+test('a shared home can include over 100 files when each original uploader remains within their own quota',()=>{
+ const input={requestID:id(10),homeID:id(11),ownerID:id(1),ownerEpoch:id(2),recipientID:id(3),recipientEpoch:id(4),snapshotDigest:'a'.repeat(64),files:[...Array.from({length:100},(_,n)=>file(n+100)),file(201,5,6)]};
+ assert.equal(normalizeFamilyAttachmentPlan(input).files.length,101);
+ input.files.push(file(202));assert.throws(()=>normalizeFamilyAttachmentPlan(input),/Source attachment quota exceeded/);
+ const large={...input,files:Array.from({length:21},(_,n)=>({...file(n+300),size:5242880}))};
+ assert.throws(()=>normalizeFamilyAttachmentPlan(large),/Source attachment quota exceeded/);
+});
 function fixture({files=[file(8),file(9,5,6)],lostActivation=false,lostCopy=false}={}) {
  const input={requestID:id(10),homeID:id(11),ownerID:id(1),ownerEpoch:id(2),recipientID:id(3),recipientEpoch:id(4),snapshotDigest:'a'.repeat(64),files};
  const plan=normalizeFamilyAttachmentPlan(input),scope={requestID:id(10),homeID:id(11),userID:id(1),ownerEpoch:id(2),nativeLease:id(12)},signal=new AbortController().signal;
