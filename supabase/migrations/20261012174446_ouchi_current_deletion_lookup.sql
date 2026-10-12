@@ -1,4 +1,5 @@
--- Local verification candidate only. Not a production migration or activation.
+begin;
+-- Prepared read-only lookup. No route, worker or deletion activation.
 -- Absence is authoritative only within the native app enrollment scope.
 create or replace function public.read_maintenance_session_deletion_lookup(
  target_user uuid, verified_session uuid, target_request uuid default null
@@ -22,3 +23,4 @@ create or replace function public.read_maintenance_session_deletion_lookup(
 $$;
 revoke all on function public.read_maintenance_session_deletion_lookup(uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.read_maintenance_session_deletion_lookup(uuid,uuid,uuid) to service_role;
+commit;

@@ -5,7 +5,7 @@ const user='11111111-1111-4111-8111-111111111111',session='22222222-2222-4222-82
 const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');const bearer=encode({alg:'synthetic'})+'.'+encode({sub:user,session_id:session,exp:Math.floor(Date.now()/1000)+3600})+'.synthetic';
 test('progress checks signed session after Auth and again at read time without trusting user metadata',async()=>{
  let active=true,reads=0;const calls=[];
- const db={auth:{getUser:async token=>{assert.equal(token,bearer);return {data:{user:{id:user}},error:null};}},rpc:async(name,args)=>{calls.push([name,args]);if(name==='maintenance_auth_session_is_current')return {data:active,error:null};assert.equal(name,'read_maintenance_session_deletion_progress');reads++;return {data:active?{state:'running'}:null,error:null};}};
+ const db={auth:{getUser:async token=>{assert.equal(token,bearer);return {data:{user:{id:user}},error:null};}},rpc:async(name,args)=>{calls.push([name,args]);if(name==='maintenance_auth_session_is_current')return {data:active,error:null};assert.equal(name,'read_maintenance_session_deletion_lookup');reads++;return {data:active?{state:'running'}:null,error:null};}};
  const deps=deletionProgressDependencies(db);assert.equal(await deps.verify(bearer),user);active=false;
  assert.equal(await deps.read({requestID:null,userID:user},bearer),null);assert.equal(reads,1);assert.equal(await deps.verify(bearer),null);
  assert.deepEqual(calls[1][1],{target_user:user,verified_session:session,target_request:null});
@@ -23,4 +23,21 @@ test('actual SQL rejects expired, missing, foreign and client sessions and does 
  await db.exec('reset role');await db.query('delete from auth.sessions where id=$1',[session]);await db.exec('set role service_role');assert.equal(await current(),false);assert.equal(await read(),null);
  for(const role of ['anon','authenticated']){await db.exec('reset role;set role '+role);await assert.rejects(()=>current());await assert.rejects(()=>read());}
  }finally{await db.close();}
+});
+
+test('authoritative current reader refuses RPC errors and preserves exact request routing',async()=>{
+ const epoch='44444444-4444-4444-8444-444444444444';
+ let unavailable=false;const calls=[];
+ const db={auth:{getUser:async()=>({data:{user:{id:user}},error:null})},rpc:async(name,args)=>{
+  calls.push([name,args]);if(name==='maintenance_auth_session_is_current')return {data:true,error:null};
+  if(unavailable)return {data:null,error:{message:'missing function or offline'}};
+  return {data:name==='read_maintenance_session_deletion_lookup'?{state:'not_requested',userID:user,epochID:epoch}:{state:'pending',requestID:other,userID:user,epochID:epoch},error:null};
+ }};
+ const deps=deletionProgressDependencies(db);assert.equal(await deps.verify(bearer),user);
+ assert.deepEqual(await deps.read({requestID:null,userID:user},bearer),{state:'not_requested',userID:user,epochID:epoch});
+ assert.equal(calls.at(-1)[0],'read_maintenance_session_deletion_lookup');
+ assert.deepEqual(await deps.read({requestID:other,userID:user},bearer),{state:'pending',requestID:other,userID:user,epochID:epoch});
+ assert.equal(calls.at(-1)[0],'read_maintenance_session_deletion_progress');
+ assert.deepEqual(calls.at(-1)[1],{target_user:user,verified_session:session,target_request:other});
+ unavailable=true;await assert.rejects(()=>deps.read({requestID:null,userID:user},bearer),/unavailable/);
 });

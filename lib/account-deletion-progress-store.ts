@@ -10,7 +10,7 @@ export function deletionProgressReader(db: SupabaseClient) {
   // This exact bearer must already have passed verify() in the request handler.
   const session = sessionAfterAuthVerification(verifiedBearer, fixed.userID);
   if (!session) throw Error('Deletion progress session unavailable');
-  const result = await db.rpc('read_maintenance_session_deletion_progress', {
+  const result = await db.rpc(fixed.requestID === null ? 'read_maintenance_session_deletion_lookup' : 'read_maintenance_session_deletion_progress', {
    target_user: fixed.userID, verified_session: session.sessionID, target_request: fixed.requestID,
   });
   if (result.error) throw new Error('Deletion progress unavailable');
