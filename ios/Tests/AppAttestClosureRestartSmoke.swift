@@ -80,6 +80,9 @@ struct RestartEmptySession: SessionStorage {
         let pending = AppAttestPendingRegistrationStorage(root: root.appendingPathComponent("pending"), keyProvider: { a, e in
             guard let key = try keys.read(account: a, epoch: e) else { throw CloudError.unavailable }; return key
         })
+        let restoreRoot = root.appendingPathComponent("restore-pending", isDirectory: true)
+        let restore = PendingRestoreStorage(root: restoreRoot, keyProvider: { _, _ in fatalError("Cleanup must not decrypt or read a device key") })
+        let restoreFile = restoreRoot.appendingPathComponent(account.uuidString.lowercased()).appendingPathComponent(epoch.uuidString.lowercased() + ".restore-pending")
         if name == "stage" {
             for a in [account, other] {
                 _ = try keys.provision(account: a, epoch: epoch)
@@ -90,6 +93,11 @@ struct RestartEmptySession: SessionStorage {
                 let text = "{\"version\":1,\"purpose\":\"register_ouchi_attested_key\",\"nonce\":\"\(nonce)\",\"issuedAt\":\(now),\"expiresAt\":\(now+300000),\"userID\":\"\(a.uuidString.lowercased())\",\"sessionID\":\"\(scope.sessionID.uuidString.lowercased())\",\"epochID\":\"\(epoch.uuidString.lowercased())\",\"requestID\":\"\(UUID().uuidString.lowercased())\",\"keyID\":\"\(scope.keyID)\",\"appID\":\"\(scope.appID)\",\"attestEnvironment\":\"production\"}"
                 let challenge = try AppAttestRegistrationChallenge.parse(canonicalClientData: Data(text.utf8), expected: scope, nowMilliseconds: now)
                 try await pending.stage(AppAttestPendingRegistration(scope: scope, challenge: challenge, attestation: Data("synthetic-opaque-proof".utf8), nowMilliseconds: now), nowMilliseconds: now)
+            }
+            for a in [account, other] {
+                let folder = restoreRoot.appendingPathComponent(a.uuidString.lowercased())
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                try Data("synthetic-opaque-pending-bytes".utf8).write(to: folder.appendingPathComponent(epoch.uuidString.lowercased() + ".restore-pending"))
             }
             let records = try references.pendingClosures(); precondition(records.count == 2)
             try JSONEncoder().encode(records).write(to: root.appendingPathComponent("original-closures.json"), options: .atomic)
@@ -102,25 +110,38 @@ struct RestartEmptySession: SessionStorage {
         let session = SessionController(api: api, storage: RestartEmptySession())
         let before = try references.pendingClosures()
         precondition(before == original, "new process must recover exact durable intent without extending its deadline")
-        if name == "uncertain" || name == "contended" {
+        if name == "uncertain" || name == "contended" || name == "additional_failure" || name == "restore_contended" {
             do {
-                try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys)
+                try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys, eraseAdditionalPending: { a in
+                    if name == "additional_failure" { throw CloudError.unavailable }
+                    try await restore.eraseAccount(a)
+                })
                 fatalError("false deletion acknowledgement was accepted")
             } catch { }
             let retained = try references.pendingClosures(); precondition(retained == original)
+            if name == "additional_failure" || name == "restore_contended" {
+                precondition(FileManager.default.fileExists(atPath: restoreFile.path))
+                let retainedKey = try keys.read(account: account, epoch: epoch)
+                precondition(retainedKey != nil, "Additional-proof cleanup failure must retain key and closure for retry")
+            }
             if name == "contended" {
                 let proofStillPresent = try await pending.hasPendingRecord(account: account, epoch: epoch)
                 let keyStillPresent = try keys.read(account: account, epoch: epoch)
                 precondition(proofStillPresent && keyStillPresent != nil, "overlapping process must refuse before erasure")
             }
         } else {
-            try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys)
+            try await references.recoverAbandonedLocalClosure(expected: expected, session: session, pending: pending, encryptionKeys: keys, eraseAdditionalPending: { a in
+                    if name == "additional_failure" { throw CloudError.unavailable }
+                    try await restore.eraseAccount(a)
+                })
             let remaining = try references.pendingClosures(); precondition(remaining == original.filter { $0.accountID == other })
             let removed = try await pending.hasPendingRecord(account: account, epoch: epoch)
             let preserved = try await pending.hasPendingRecord(account: other, epoch: epoch)
             let removedKey = try keys.read(account: account, epoch: epoch)
             let otherKey = try keys.read(account: other, epoch: epoch)
             precondition(!removed && preserved && removedKey == nil && otherKey != nil)
+            precondition(!FileManager.default.fileExists(atPath: restoreFile.path))
+            precondition(FileManager.default.fileExists(atPath: restoreRoot.appendingPathComponent(other.uuidString.lowercased()).appendingPathComponent(epoch.uuidString.lowercased() + ".restore-pending").path))
         }
     }
     static func main() async throws {
@@ -130,8 +151,8 @@ struct RestartEmptySession: SessionStorage {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-restart-synthetic-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: root) }
-        for name in ["stage", "contended", "uncertain", "recover"] {
-            let reservation = name == "contended" ? try AppAttestMutationLease.acquire(root: root.appendingPathComponent("pending")) : nil
+        for name in ["stage", "contended", "additional_failure", "restore_contended", "uncertain", "recover"] {
+            let reservation = name == "contended" ? try AppAttestMutationLease.acquire(root: root.appendingPathComponent("pending")) : name == "restore_contended" ? try AppAttestMutationLease.acquire(root: root.appendingPathComponent("restore-pending")) : nil
             defer { reservation?.release() }
             let child = Process(); child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
             child.arguments = [name, root.path]; try child.run(); child.waitUntilExit()

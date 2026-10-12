@@ -282,7 +282,8 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     public func completeLocalClosure(confirmation: LocalSessionErasureConfirmation,
                                      session: SessionController,
                                      pending: AppAttestPendingRegistrationStorage,
-                                     encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+                                     encryptionKeys: AppAttestEncryptionKeyStorage,
+                                     eraseAdditionalPending: @escaping @Sendable (UUID) async throws -> Void = { _ in }) async throws {
         let lease = try await pending.acquireMutationLease()
         defer { lease.release() }
         let account = confirmation.accountID
@@ -290,6 +291,7 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
         try await session.withConfirmedErasure(confirmation) {}
         try Task.checkCancellation()
         try await pending.eraseAccount(account)
+        try await eraseAdditionalPending(account)
         try Task.checkCancellation()
         // No suspension between credential readback, final key erasure and
         // removal of the matching immutable closure record.
@@ -306,13 +308,15 @@ public final class AppAttestKeyReferenceStorage: @unchecked Sendable {
     public func recoverAbandonedLocalClosure(expected: AppAttestAccountClosure,
                                             session: SessionController,
                                             pending: AppAttestPendingRegistrationStorage,
-                                            encryptionKeys: AppAttestEncryptionKeyStorage) async throws {
+                                            encryptionKeys: AppAttestEncryptionKeyStorage,
+                                     eraseAdditionalPending: @escaping @Sendable (UUID) async throws -> Void = { _ in }) async throws {
         let lease = try await pending.acquireMutationLease()
         defer { lease.release() }
         guard try pendingClosure(account: expected.accountID) == expected else { throw CloudError.authenticationRequired }
         let permit = try await session.prepareLocalClosureRecovery(accountID: expected.accountID)
         try Task.checkCancellation()
         try await pending.eraseAccount(expected.accountID)
+        try await eraseAdditionalPending(expected.accountID)
         try Task.checkCancellation()
         try await session.withLocalClosureRecovery(permit) { [self] in
             guard try pendingClosure(account: expected.accountID) == expected else { throw CloudError.authenticationRequired }

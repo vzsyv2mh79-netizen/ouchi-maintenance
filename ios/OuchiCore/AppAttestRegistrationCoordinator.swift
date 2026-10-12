@@ -28,6 +28,7 @@ public actor AppAttestRegistrationCoordinator {
     private let encryptionKeys: AppAttestEncryptionKeyStorage
     private let references: AppAttestKeyReferenceStorage
     private let pending: AppAttestPendingRegistrationStorage
+    private let eraseAdditionalPending: @Sendable (UUID) async throws -> Void
     private let transport: HouseholdAPI.Transport?
     private let now: @Sendable () -> Int64
     private let retentionMilliseconds: Int64
@@ -37,12 +38,13 @@ public actor AppAttestRegistrationCoordinator {
     public init(currentContext: @escaping CurrentContext, device: AppAttestDeviceService,
                 encryptionKeys: AppAttestEncryptionKeyStorage, references: AppAttestKeyReferenceStorage,
                 pending: AppAttestPendingRegistrationStorage, retentionMilliseconds: Int64,
+                eraseAdditionalPending: @escaping @Sendable (UUID) async throws -> Void = { _ in },
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970*1000) }) throws {
         guard retentionMilliseconds>=300000,retentionMilliseconds<=7_776_000_000 else { throw CloudError.invalidInput }
         self.currentContext=currentContext;self.device=device;self.encryptionKeys=encryptionKeys
         self.references=references;self.pending=pending;self.retentionMilliseconds=retentionMilliseconds
-        self.transport=transport;self.now=now
+        self.transport=transport;self.now=now;self.eraseAdditionalPending=eraseAdditionalPending
     }
     private func session(keyID: String) async -> AppAttestRegistrationSession? {
         guard let context=await currentContext(), !closingAccounts.contains(context.userID) else { return nil }
@@ -145,6 +147,7 @@ public actor AppAttestRegistrationCoordinator {
         // A different process/instance is refused before any persistent mutation.
         try references.beginClosure(AppAttestAccountClosure(accountID:account,requestID:UUID(),createdAtMilliseconds:created,retainUntilMilliseconds:created+retentionMilliseconds))
         try await pending.eraseAccount(account)
+        try await eraseAdditionalPending(account)
         try Task.checkCancellation()
         try references.erase(account:account)
         try encryptionKeys.erase(account:account)
@@ -158,7 +161,7 @@ public actor AppAttestRegistrationCoordinator {
         guard activeAccount != account else { throw CloudError.authenticationRequired }
         closingAccounts.insert(account)
         try await references.completeLocalClosure(confirmation: confirmation, session: session,
-                                                   pending: pending, encryptionKeys: encryptionKeys)
+                                                   pending: pending, encryptionKeys: encryptionKeys, eraseAdditionalPending: eraseAdditionalPending)
         // This instance remains closed. A subsequent verified login gets a new coordinator.
     }
 }

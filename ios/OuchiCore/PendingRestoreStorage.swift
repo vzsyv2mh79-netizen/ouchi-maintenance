@@ -120,6 +120,13 @@ public actor PendingRestoreStorage {
         guard pending.scope == scope else { throw CloudError.authenticationRequired }
         return pending
     }
+    /// Probe only; never decrypts, reads a key or creates a directory.
+    public func hasPendingRecords(account: UUID) throws -> Bool {
+        let folder = try directory(account: account)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return false }
+        return try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .contains { $0.pathExtension == "restore-pending" }
+    }
     public func read(scope: AppAttestRegistrationScope) throws -> PendingRestore? {
         _ = try directory(account:scope.userID)
         guard FileManager.default.fileExists(atPath:root.path) else { return nil }

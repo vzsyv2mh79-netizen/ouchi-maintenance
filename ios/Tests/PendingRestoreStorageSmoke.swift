@@ -21,10 +21,12 @@ import OuchiCore
         let root=FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-restore-synthetic-"+UUID().uuidString,isDirectory:true)
         defer { try? FileManager.default.removeItem(at:root) }
         let key=SymmetricKey(data:Data(repeating:7,count:32)),storage=PendingRestoreStorage(root:root,keyProvider:{ _,_ in key })
+        let absentProbe=try await storage.hasPendingRecords(account:user);precondition(!absentProbe && !FileManager.default.fileExists(atPath:root.path))
         let original=try pending()
         try await storage.stage(original,nowMilliseconds:now)
         try await storage.stage(original,nowMilliseconds:now)
         let folder=root.appendingPathComponent(user.uuidString.lowercased()),file=folder.appendingPathComponent(epoch.uuidString.lowercased()+".restore-pending")
+        let presentProbe=try await storage.hasPendingRecords(account:user);precondition(presentProbe)
         let encrypted=try Data(contentsOf:file)
         precondition(encrypted.range(of:Data("合成app.jws".utf8)) == nil && encrypted.range(of:original.assertion) == nil)
         let permissions=try FileManager.default.attributesOfItem(atPath:file.path)[.posixPermissions] as? NSNumber

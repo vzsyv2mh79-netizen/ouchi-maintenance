@@ -177,7 +177,10 @@ struct FormalChannelSelection {
                             AppAttestAccountClosure(accountID: account, requestID: UUID(),
                                 createdAtMilliseconds: now, retainUntilMilliseconds: now + retention))
                     },
-                    erasePendingProofs: { try await pending.eraseAccount(account) },
+                    erasePendingProofs: {
+                        try await pending.eraseAccount(account)
+                        try await Self.erasePendingRestore(account: account)
+                    },
                     eraseEncryptionKeys: {
                         try AppAttestKeyReferenceStorage(namespace: bundle).erase(account: account)
                         try AppAttestEncryptionKeyStorage(namespace: bundle).erase(account: account)
@@ -229,7 +232,8 @@ struct FormalChannelSelection {
                         keyProvider: { _, _ in throw CloudError.unavailable })
                     try await AppAttestKeyReferenceStorage(namespace: bundle).completeLocalClosure(
                         confirmation: confirmation, session: session, pending: pending,
-                        encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle))
+                        encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle),
+                        eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
                 } catch { registrationCleanupFailed = true }
             }
             // Once credentials are erased, finish the same binding even if the view was cancelled.
@@ -309,7 +313,8 @@ struct FormalChannelSelection {
                 keyProvider: { _, _ in throw CloudError.unavailable })
             try await AppAttestKeyReferenceStorage(namespace: bundle).recoverAbandonedLocalClosure(
                 expected: expected, session: session, pending: pending,
-                encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle))
+                encryptionKeys: AppAttestEncryptionKeyStorage(namespace: bundle),
+                        eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
             message = "この端末の登録情報の終了処理を確認しました。サーバー側の退会状況は、別途確認が必要です。"
             return true
         } catch {
@@ -728,16 +733,48 @@ struct FormalChannelSelection {
         } catch { if expected == generation { message = "メールを送信できませんでした。入力内容と通信を確認し、時間をおいてお試しください。" } }
         if expected == generation { busy = false }
     }
+    /// Restart fallback: no coordinator may exist when a retained restore is
+    /// present. Only a pending proof or an existing closure enters this path.
+    private func closeRestartedRestoreForLogout(account: UUID) async throws -> Bool {
+        guard let bundle = Bundle.main.bundleIdentifier,
+              let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { throw CloudError.unavailable }
+        let restore = PendingRestoreStorage(root: support.appendingPathComponent("OuchiPendingRestore", isDirectory: true), keyProvider: { _, _ in throw CloudError.unavailable })
+        let references = try AppAttestKeyReferenceStorage(namespace: bundle)
+        let present = try await restore.hasPendingRecords(account: account)
+        if !present {
+            let folder = support.appendingPathComponent("OuchiPendingRestore",isDirectory:true).appendingPathComponent(account.uuidString.lowercased(),isDirectory:true)
+            guard FileManager.default.fileExists(atPath:folder.path), try references.pendingClosure(account:account) != nil else { return false }
+        }
+        let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { _, _ in throw CloudError.unavailable })
+        let lease = try await pending.acquireMutationLease(); defer { lease.release() }
+        let revision = accountBindingRevision
+        let stillBound = { [self] in signedIn && busy && snapshotAccount == account && accountBindingRevision == revision }
+        let result = await eraseAppAttestLocalRegistration(account:account,stillBound:stillBound,
+            prepareClosure:{
+                let now = Int64(Date().timeIntervalSince1970 * 1000), retention:Int64 = 7_776_000_000
+                guard now > 0, now <= 9_007_199_254_740_991 - retention else { throw CloudError.invalidInput }
+                try references.beginClosure(AppAttestAccountClosure(accountID:account,requestID:UUID(),createdAtMilliseconds:now,retainUntilMilliseconds:now+retention))
+            },
+            erasePendingProofs:{ try await pending.eraseAccount(account); try await restore.eraseAccount(account) },
+            eraseEncryptionKeys:{ try references.erase(account:account); try AppAttestEncryptionKeyStorage(namespace:bundle).erase(account:account) })
+        guard result == .complete, stillBound() else { throw CloudError.unavailable }
+        return true
+    }
     func signOut() async {
         guard !busy else { return }
         busy = true; message = nil
         defer { busy = false }
+        var restoreClosurePrepared = false
         if let coordinator = appAttestRegistrationCoordinator, let account = snapshotAccount {
             do { try await coordinator.closeAccount(account: account) }
             catch {
                 message = "端末登録の終了処理が完了していません。通信と端末のロックを確認して、再度ログアウトしてください。"
                 return
             }
+        }
+        if appAttestRegistrationCoordinator == nil, let account = snapshotAccount {
+            do { restoreClosurePrepared = try await closeRestartedRestoreForLogout(account:account) }
+            catch { message = "復元情報の終了処理を確認できませんでした。再度ログアウトしてください。"; return }
         }
         if let session, await session.localAccount() != nil {
             do { try await session.revokeRemoteSession() }
@@ -753,6 +790,14 @@ struct FormalChannelSelection {
                 if let coordinator = appAttestRegistrationCoordinator {
                     do { try await coordinator.completeLocalClosure(confirmation: confirmation, session: session) }
                     catch { registrationCleanupFailed = true }
+                } else if restoreClosurePrepared {
+                    do {
+                        guard let bundle = Bundle.main.bundleIdentifier,
+                              let support = FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask).first else { throw CloudError.unavailable }
+                        let pending = AppAttestPendingRegistrationStorage(root:support.appendingPathComponent("OuchiAppAttestPendingRegistration",isDirectory:true),keyProvider:{ _,_ in throw CloudError.unavailable })
+                        try await AppAttestKeyReferenceStorage(namespace:bundle).completeLocalClosure(confirmation:confirmation,session:session,pending:pending,
+                            encryptionKeys:AppAttestEncryptionKeyStorage(namespace:bundle),eraseAdditionalPending:{ try await Self.erasePendingRestore(account:$0) })
+                    } catch { registrationCleanupFailed = true }
                 }
             } else { try await session?.signOut() }
         }
@@ -1286,6 +1331,14 @@ struct FormalChannelSelection {
     var appAttestRegistrationConfigured: Bool {
         api != nil && (try? AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier)) != nil
     }
+    private static func erasePendingRestore(account: UUID) async throws {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { throw CloudError.unavailable }
+        let pending = PendingRestoreStorage(root: support.appendingPathComponent("OuchiPendingRestore", isDirectory: true),
+            keyProvider: { _, _ in throw CloudError.unavailable })
+        // Erasure never decrypts proof or reads the encryption key. A competing
+        // restore operation refuses cleanup before registration keys are erased.
+        try await pending.eraseAccount(account)
+    }
     private func makeAppAttestCoordinator(configuration: AppAttestRegistrationConfiguration, bundle: String,
                                          current: @escaping AppAttestRegistrationCoordinator.CurrentContext) throws -> AppAttestRegistrationCoordinator {
         if let existing = appAttestRegistrationCoordinator {
@@ -1309,7 +1362,8 @@ struct FormalChannelSelection {
             return false
         })
         let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
-            references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds)
+            references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds,
+            eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
         appAttestRegistrationCoordinator = coordinator; appAttestCoordinatorConfiguration = configuration
         return coordinator
     }
