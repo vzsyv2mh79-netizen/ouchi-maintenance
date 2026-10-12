@@ -180,6 +180,19 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         return (evidence, challenge, assertion)
     }
+    // Fixed authenticated HTTP path, still not connected to a UI action. The
+    // API's session provider must come from the current enrollment/registered key.
+    func sandboxRestoreAssertion(captured: AppAttestRegistrationSession, originalTransactionID: String,
+        requestID: UUID, api: RestoreChallengeAPI,
+        device: RestoreAssertionDeviceService = .init()) async throws -> (SandboxRestoreEvidence, RestoreAssertionChallenge, Data) {
+        try await sandboxRestoreAssertion(account: captured.scope.epochID, originalTransactionID: originalTransactionID,
+            registration: captured.scope, requestID: requestID,
+            fetchChallenge: { evidence, _ in
+                try await api.challenge(captured: captured, requestID: requestID,
+                    signedAppTransaction: evidence.signedAppTransaction,
+                    signedTransaction: evidence.signedTransaction).clientData
+            }, validateCurrentScope: { try await api.validate(captured) }, device: device)
+    }
     func markRetryNeeded() { needsRetry = true }
     private func descriptor(_ product: Product) -> StoreProductDescriptor {
         let kind: StoreProductDescriptor.Kind = product.type == .consumable ? .consumable : product.type == .autoRenewable ? .autoRenewable : .other
