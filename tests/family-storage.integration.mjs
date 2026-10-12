@@ -7,6 +7,7 @@ import {createClient} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import {verifyDisposableHandoffMFA} from './fixtures/home-handoff-mfa.mjs';
+import {verifyDisposableFamilyAttachmentStorage} from './fixtures/family-attachment-storage.mjs';
 const modules = new Map();
 function serverModule(name) {
  if (modules.has(name)) return modules.get(name);
@@ -140,6 +141,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const successorIdentity = {target_user:successor.user,verified_session:successor.session,expected_epoch:successor.epoch};
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier});
+  await verifyDisposableFamilyAttachmentStorage({account,admin,origin,service,options,bytes,createAttachmentFetch});
   const issued = ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user}));
   assert.equal(issued.state,'pending');
   assert.deepEqual(ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user})),issued);
