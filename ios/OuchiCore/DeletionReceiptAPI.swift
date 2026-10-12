@@ -51,6 +51,8 @@ public struct DeletionReceiptAPI: Sendable {
     private func send(requestID: UUID, receiptToken: String, bearer: String?, body: Data?) async throws -> Data {
         guard requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000"),
               receiptToken.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else { throw CloudError.invalidInput }
+        let encoded = receiptToken.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/") + "="
+        guard let decoded = Data(base64Encoded: encoded), decoded.count == 32, decoded.base64EncodedString() == encoded else { throw CloudError.invalidInput }
         if let bearer { guard !bearer.isEmpty, bearer.count <= 16384, !bearer.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired } }
         try Task.checkCancellation()
         let url = URL(string: origin + "/api/account/deletion/" + requestID.uuidString.lowercased() + "/receipt")!

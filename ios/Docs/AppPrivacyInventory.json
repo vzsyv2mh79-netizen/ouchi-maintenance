@@ -1,7 +1,7 @@
 {
   "status": "source_inventory_not_final_app_store_answers",
-  "sourceHead": "c59cc8f6bc752e73f2cb51bf766eac9395856407",
-  "checkedAt": "2026-10-12",
+  "sourceHead": "672aefc835273f626b6636390b5e33ddf8ea2fe0",
+  "checkedAt": "2026-10-13",
   "interpretation": "Apple collection includes data transmitted off-device and retained beyond real-time servicing, including app-functionality and third-party processing. A required-reason manifest is not proof of no personal data collection.",
   "currentManifestCategories": [
     {
@@ -80,6 +80,17 @@
         "ios/OuchiCore/AppAttestRegistrationAPI.swift"
       ],
       "gate": "confirm classification of active identifiers, retained server evidence and provider practices; this path is prepared and independently gated"
+    },
+    {
+      "candidate": "User ID / Other User Content",
+      "scope": "prepared deletion request ID, fixed account/inventory binding, scoped hashed status credential and expiry, completion proofs; Keychain keeps the plaintext credential on the originating device",
+      "evidence": [
+        "ios/OuchiCore/DeletionReceiptAPI.swift",
+        "ios/OuchiCore/DeletionReceiptRegistrationFlow.swift",
+        "ios/OuchiMaintenance/DeletionReadCredentialVault.swift",
+        "ios/Docs/DeletionReceiptCustody.md"
+      ],
+      "gate": "receipt transport and server pipeline are prepared separately; live route/UI and authoritative Auth remain disconnected. Before activation, adopt finite credential/completion-proof/log retention and reconcile public privacy policy. Request/inventory/proof identifiers are personal data, not anonymous."
     }
   ],
   "unresolvedDeclarations": [
@@ -120,5 +131,7 @@
     "https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/",
     "https://developer.apple.com/documentation/technotes/tn3184-adding-data-collection-details-to-your-privacy-manifest",
     "https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests"
-  ]
+  ],
+  "workingTreeAddition": "canonical receipt token validation and deletion receipt inventory update; prepared route remains disabled",
+  "officialReviewDate": "2026-10-13"
 }

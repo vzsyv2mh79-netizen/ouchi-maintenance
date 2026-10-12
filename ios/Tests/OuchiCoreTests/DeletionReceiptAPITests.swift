@@ -2,7 +2,7 @@ import XCTest
 @testable import OuchiCore
 
 final class DeletionReceiptAPITests: XCTestCase {
-    private let token = String(repeating: "a", count: 43)
+    private let token = String(repeating: "A", count: 43)
     func testStatusUsesHeaderAndNoJWTOrURLSecret() async throws {
         let id = UUID(), secret = token
         let api = DeletionReceiptAPI(transport: { request in
@@ -42,6 +42,12 @@ final class DeletionReceiptAPITests: XCTestCase {
                 (Data("{\"state\":\"complete\"}".utf8), HTTPURLResponse(url: redirect ? URL(string: "https://foreign.invalid/receipt")! : request.url!, statusCode: redirect ? 200 : 401, httpVersion: nil, headerFields: nil)!)
             })
             do { _ = try await api.status(requestID: UUID(), receiptToken: token); XCTFail("Untrusted completion accepted") } catch {}
+        }
+    }
+    func testNoncanonicalTokenIsRejectedBeforeTransport() async {
+        let api = DeletionReceiptAPI(transport: { _ in XCTFail("Transport reached for noncanonical token"); throw CloudError.unavailable })
+        for invalid in [String(repeating: "a", count: 43), String(repeating: "A", count: 42) + "B"] {
+            do { _ = try await api.status(requestID: UUID(), receiptToken: invalid); XCTFail("Noncanonical token accepted") } catch {}
         }
     }
     func testInvalidTokenIsRejectedBeforeTransport() async {
