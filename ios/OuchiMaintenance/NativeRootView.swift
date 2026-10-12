@@ -9,7 +9,9 @@ struct NativeRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("ouchi.appearance") private var preferredAppearance = "system"
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            appearanceBar
+            Group {
             if store.signedIn {
                 TabView {
                     HomeDashboard().tabItem { Label("ホーム", systemImage: "house") }
@@ -19,12 +21,20 @@ struct NativeRootView: View {
                     NativeSettings().tabItem { Label("設定", systemImage: "gearshape") }
                 }
             } else { SignInView() }
+            }
         }
         .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
         .task(id: scenePhase) {
             if scenePhase == .active { await store.recoverPurchasesOnForeground() }
         }
-        .safeAreaInset(edge: .top) {
+        .tint(appearance == .dark
+            ? Color(red: 0.502, green: 0.839, blue: 0.667)
+            : Color(red: 0.125, green: 0.357, blue: 0.251))
+        .alert("おうちメンテ", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
+            Button("閉じる", role: .cancel) { store.message = nil }
+        } message: { Text(store.message ?? "") }
+    }
+    private var appearanceBar: some View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                 #if DEBUG
@@ -46,13 +56,6 @@ struct NativeRootView: View {
                 .accessibilityLabel(appearance == .dark ? "ライトモードに切り替える" : "ダークモードに切り替える")
             }.padding(.horizontal).background(.bar)
         }
-        .tint(appearance == .dark
-            ? Color(red: 0.502, green: 0.839, blue: 0.667)
-            : Color(red: 0.125, green: 0.357, blue: 0.251))
-        .alert("おうちメンテ", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
-            Button("閉じる", role: .cancel) { store.message = nil }
-        } message: { Text(store.message ?? "") }
-    }
 }
 
 /// Prepared explicit local recovery; release configuration defaults to off.
@@ -195,12 +198,14 @@ private struct CareList: View {
                     let tasks = data.tasks(in: store.homeID)
                     if tasks.isEmpty { Text("お手入れ項目がありません。") }
                     ForEach(tasks) { task in
-                        VStack(alignment: .leading, spacing: 8) {
+                        Section {
                             NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
+                            VStack(alignment: .leading, spacing: 8) {
                             Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品").foregroundStyle(.secondary)
                             Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと").font(.subheadline)
                             Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
                             if let note = task.sourceNote, !note.isEmpty { Text(note).font(.caption) }
+                            }
                             Button("完了を記録") { Task { await store.complete(task) } }
                                 .buttonStyle(.borderless)
                                 .accessibilityLabel("\(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")の\(task.name)の完了を記録")
