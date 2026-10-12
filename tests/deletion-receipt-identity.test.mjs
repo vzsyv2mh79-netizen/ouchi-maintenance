@@ -30,6 +30,11 @@ test('session expiry across row-lock wait is checked again after the lock',async
  const result=await verify(token(),{signal:new AbortController().signal,query:async()=>({rows:++reads===1?[{verified_at:Date.now()}]:[]})});
  assert.equal(result,null);assert.equal(reads,2);
 });
+test('fractional PostgreSQL clock is normalized to timestamptz millisecond precision',async()=>{
+ const now=Date.now();const verify=createDeletionReceiptIdentityVerifier({getUser:async()=>auth(user)});
+ const result=await verify(token(),{signal:new AbortController().signal,query:async()=>({rows:[{verified_at:String(now+0.875)}]})});
+ assert.equal(result.authVerifiedAt,now);assert.equal(Number.isInteger(result.authVerifiedAt),true);
+});
 test('cancellation while Auth awaits discards reply and prevents SQL',async()=>{
  const controller=new AbortController();let finish,entered;
  const ready=new Promise(resolve=>{entered=resolve;});

@@ -39,7 +39,9 @@ export function createDeletionReceiptIdentityVerifier({getUser}: {
    [verified.sessionID, verified.userID]);
   signal.throwIfAborted();
   if(current.rows.length !== 1) return null;
-  const authVerifiedAt = Number(current.rows[0].verified_at);
+  // pg's timestamptz Date read-back has millisecond precision. Normalize the
+  // numeric clock to that same precision before the credential freshness check.
+  const authVerifiedAt = Math.floor(Number(current.rows[0].verified_at));
   if(!Number.isFinite(authVerifiedAt) || !sessionAfterAuthVerification(bearer, verified.userID, new Date(authVerifiedAt))) return null;
   return Object.freeze({userID: verified.userID, authVerifiedAt});
  };
