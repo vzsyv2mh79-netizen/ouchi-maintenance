@@ -83,15 +83,37 @@ A bounded cancellation/reconciliation and approved finite retention policy for
 unknown external outcomes remains mandatory. Do not deploy a deletion flow that
 leaves these jobs pending indefinitely or presents them as erased.
 
+Prepared Apple adapter now uses the SDK's current subscription-status request,
+selects one exact original purchase, verifies its exact signed transaction,
+checks Sandbox/bundle/AppTransaction/PURCHASED ownership and normalizes the
+supported subscription. The worker/SQL independently check token, freshness and
+expiry. Ambiguous groups, family-shared/unsupported/revoked/upgraded output and
+signature failure are refused. The guarded factory constructs SDK clients only
+for Sandbox and requires both independent restore-transfer and reconciliation
+opt-ins; absent config leaves it disabled. No route or scheduler calls it.
+
+The mutation requires the worker's durable update_started marker, sends one SDK
+Set App Account Token call, and never interprets success as completion. SDK
+transport cannot be cancelled through this adapter: timeout/abort means unknown,
+not rollback, and the reservation must remain until verified readback. Tests use
+mock API/signature outputs. A factory test uses an in-memory synthetic P-256 key
+and patched SDK methods to check the actual Sandbox URL; no owner key or network
+request is used. Real Apple Sandbox signatures/token update are still required.
+
+Official API references checked for this adapter:
+[Get All Subscription Statuses](https://developer.apple.com/documentation/appstoreserverapi/get-all-subscription-statuses)
+and [Set App Account Token](https://developer.apple.com/documentation/appstoreserverapi/set-app-account-token).
+
 Required next work:
 
 - Trusted authenticated job loading and worker dispatch for the prepared RPC
   store. Test actual service transport and scheduling, changed current JWS,
   live session invalidation and true parallel workers. The helper factory is
   not an enabled route, scheduler or production service client.
-- Apple Sandbox current-status adapter and explicit token-update client. HTTP200
-  is not proof. Reconcile a lost PUT response by verified readback; uncertain
-  retries must never blindly send a second mutation or free the reservation.
+- Live Apple Sandbox status/signature and token-update/readback verification
+  through the prepared adapter, exact approved build proof and actual service
+  transport. HTTP200 is not proof; uncertain retries never blindly send another
+  mutation or free the reservation.
 - Reconciliation of unknown external mutations under a revoked-user deletion
   lease, bounded retry/escalation, approved finite retention and erasure for those
   outcomes. Verify full deletion with actual service transport and parallel

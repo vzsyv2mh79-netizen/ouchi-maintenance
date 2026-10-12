@@ -40,7 +40,7 @@ export type RestoreTransferDependencies = {
 export type RestoreTransferResult = {state:'complete'}|{state:'pending';reason:'cancelled'|'scope'|'unavailable'|'readback'|'commit'};
 const uuid=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v)&&v!=='00000000-0000-0000-0000-000000000000';
 const appleID=(v:unknown):v is string=>typeof v==='string'&&/^[1-9][0-9]{0,127}$/.test(v);
-function validJob(job:RestoreTransferJob){
+export function assertRestoreTransferJob(job:RestoreTransferJob){
  if(!job||!uuid(job.id)||!uuid(job.lease)||!uuid(job.userID)||!uuid(job.sessionID)||!uuid(job.epochID)||job.userID===job.epochID||
     job.environment!=='Sandbox'||!uuid(job.previousAccountToken)||job.previousAccountToken===job.epochID||!appleID(job.originalTransactionID)||!appleID(job.appTransactionID)||
     typeof job.bundleID!=='string'||!/^[A-Za-z0-9][A-Za-z0-9.-]{1,200}$/.test(job.bundleID)||
@@ -64,7 +64,7 @@ function matchingReadback(job:RestoreTransferJob,readback:RestoreReadback,now:nu
  * Apple update is reconciled without sending a second mutation. No local flag
  * or Apple HTTP200 creates premium access. Production is deliberately refused. */
 export async function runRestoreTransfer(job:RestoreTransferJob,deps:RestoreTransferDependencies,signal?:AbortSignal):Promise<RestoreTransferResult>{
- validJob(job);
+ assertRestoreTransferJob(job);
  const now=()=>{const value=(deps.now??Date.now)();if(!Number.isSafeInteger(value)||value<=0)throw Error('Invalid clock');return value;};
  const pending=(reason:Extract<RestoreTransferResult,{state:'pending'}>['reason']):RestoreTransferResult=>({state:'pending',reason});
  const current=async(value:RestoreTransferJob)=>!signal?.aborted&&await deps.store.leaseIsCurrent(value);
@@ -92,7 +92,7 @@ export async function runRestoreTransfer(job:RestoreTransferJob,deps:RestoreTran
   // reservation and keep reading; escalation/retry policy is a separate gate.
   if(job.phase==='update_started')return pending('readback');
   const started=await deps.store.markUpdateStarted(job);
-  validJob(started);
+  assertRestoreTransferJob(started);
   if(!sameJob(job,started)||started.phase!=='update_started')return pending('scope');
   if(!await current(started))return pending(signal?.aborted?'cancelled':'scope');
   await deps.setToken(started);

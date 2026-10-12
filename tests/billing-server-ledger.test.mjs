@@ -110,3 +110,33 @@ test('actual renewal-only adapter pairs only the exact verified ledger period',a
 test('retired SQL result cannot complete a client purchase and is distinct from notification persistence',async()=>{const db={rpc:async()=>({data:'retired',error:null})},config={storage:'verified-ledger'},transaction={accountToken:'synthetic',environment:'Sandbox'};await assert.rejects(()=>server.persistBillingTransaction(db,config,'synthetic',transaction));assert.equal(await server.persistBillingTransaction(db,config,'synthetic',transaction,'notification'),'retired');await assert.rejects(()=>server.persistBillingTransaction({rpc:async()=>({data:'retired',error:Error('outage')})},config,'synthetic',transaction,'notification'));});
 
 test('renewal retirement requires verified scoped locator and explicit notification context',async()=>{const epoch='11111111-1111-4111-8111-111111111111',config={storage:'verified-ledger',environment:'Sandbox'},value={environment:'Sandbox',originalTransactionId:'1',productId:'ouchi.premium.monthly',appAccountToken:epoch,signedDate:100,renewalDate:200,autoRenewStatus:0};let args;for(const result of [true,false]){const db={rpc:async(name,input)=>{args={name,input};return {data:result,error:null};}};assert.equal(await server.renewalRetiredAfterVerification(db,config,value),result);assert.deepEqual(args,{name:'read_maintenance_renewal_retirement',input:{target_environment:'Sandbox',target_original:'1',target_epoch:epoch}});}for(const result of [{data:null,error:null},{data:'true',error:null},{data:true,error:Error('outage')}])await assert.rejects(()=>server.renewalRetiredAfterVerification({rpc:async()=>result},config,value));let called=false;await assert.rejects(()=>server.renewalRetiredAfterVerification({rpc:async()=>{called=true;}},config,{...value,environment:'Production'}));assert.equal(called,false);const renewal={environment:'Sandbox'},db={rpc:async()=>({data:'retired',error:null})};await assert.rejects(()=>server.persistBillingRenewal(db,config,'synthetic',renewal));assert.equal(await server.persistBillingRenewal(db,config,'synthetic',renewal,'notification'),'retired');});
+
+test('restore factory is independently disabled and pins actual SDK clients to Sandbox without external calls',async()=>{
+ const {AppStoreServerAPIClient}=await import('@apple/app-store-server-library');
+ const keys=['BILLING_SANDBOX_RESTORE_TRANSFER_ENABLED','BILLING_RECONCILIATION_ENABLED','APPLE_IAP_PRIVATE_KEY_BASE64','APPLE_IAP_KEY_ID','APPLE_IAP_ISSUER_ID'];
+ const old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ const originalRead=AppStoreServerAPIClient.prototype.getAllSubscriptionStatuses,originalUpdate=AppStoreServerAPIClient.prototype.setAppAccountToken;
+ const config={storage:'verified-ledger',environment:'Sandbox',bundleId:'test.ouchi',certificates:[]};
+ const job={id:'11111111-1111-4111-8111-111111111111',lease:'22222222-2222-4222-8222-222222222222',userID:'33333333-3333-4333-8333-333333333333',sessionID:'44444444-4444-4444-8444-444444444444',epochID:'55555555-5555-4555-8555-555555555555',previousAccountToken:'66666666-6666-4666-8666-666666666666',originalTransactionID:'100001',appTransactionID:'200001',environment:'Sandbox',bundleID:'test.ouchi',authorizedAt:Date.now()-1000,phase:'update_started',mutationStartedAt:Date.now()};
+ const calls=[];
+ try{
+  delete process.env.BILLING_SANDBOX_RESTORE_TRANSFER_ENABLED;assert.equal(server.sandboxRestoreAppleAdapter(config),null);
+  process.env.BILLING_SANDBOX_RESTORE_TRANSFER_ENABLED='true';delete process.env.BILLING_RECONCILIATION_ENABLED;assert.equal(server.sandboxRestoreAppleAdapter(config),null);
+  process.env.BILLING_RECONCILIATION_ENABLED='true';delete process.env.APPLE_IAP_PRIVATE_KEY_BASE64;assert.equal(server.sandboxRestoreAppleAdapter(config),null);
+  const {privateKey}=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
+  process.env.APPLE_IAP_PRIVATE_KEY_BASE64=Buffer.from(privateKey.export({type:'pkcs8',format:'pem'})).toString('base64');process.env.APPLE_IAP_KEY_ID='SYNTHETIC1';process.env.APPLE_IAP_ISSUER_ID=job.id;
+  assert.equal(server.sandboxRestoreAppleAdapter({...config,environment:'Production'}),null);
+  assert.equal(server.sandboxRestoreAppleAdapter({...config,storage:'sandbox-legacy'}),null);
+  AppStoreServerAPIClient.prototype.getAllSubscriptionStatuses=async function(id){calls.push({kind:'read',url:this.urlBase,id});return {environment:'Sandbox',bundleId:config.bundleId,data:[]};};
+  AppStoreServerAPIClient.prototype.setAppAccountToken=async function(id,body){calls.push({kind:'update',url:this.urlBase,id,body});};
+  const adapter=server.sandboxRestoreAppleAdapter(config);assert.ok(adapter);
+  await assert.rejects(adapter.readCurrent(job),/purchase unavailable/);
+  await adapter.setToken(job);
+  assert.equal(calls.length,2);assert.equal(typeof calls[0].url,'string');assert.match(calls[0].url,/storekit-sandbox/);assert.ok(calls.every(c=>c.url===AppStoreServerAPIClient.SANDBOX_URL&&c.id===job.originalTransactionID));
+  assert.deepEqual(calls[1].body,{appAccountToken:job.epochID});
+ }finally{
+  AppStoreServerAPIClient.prototype.getAllSubscriptionStatuses=originalRead;AppStoreServerAPIClient.prototype.setAppAccountToken=originalUpdate;
+  for(const key of keys){if(old[key]===undefined)delete process.env[key];else process.env[key]=old[key];}
+ }
+ // Synthetic in-memory signing key, patched SDK methods, no network or purchase.
+});

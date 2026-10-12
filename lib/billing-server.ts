@@ -1,3 +1,4 @@
+import {createSandboxRestoreAppleAdapter} from './billing-restore-transfer-apple';
 import {verifiedRenewalLocator} from './billing-renewal-locator';
 import {normalizeRecoveryStatus} from './billing-recovery-status';
 import {createBillingFetch} from './billing-fetch';
@@ -203,4 +204,16 @@ export async function renewalRetiredAfterVerification(db:ReturnType<typeof billi
  const result=await db.rpc('read_maintenance_renewal_retirement',{target_environment:config.environment,target_original:locator.originalTransactionId,target_epoch:typeof value.appAccountToken==='string'?value.appAccountToken.toLowerCase():null});
  if(result.error||typeof result.data!=='boolean')throw Error('Renewal retirement unavailable');
  return result.data;
+}
+
+/** Dormant Sandbox-only restore adapter. Explicit independent mutation opt-in,
+ * verified-ledger storage and the SQL operator policy/worker checks are all
+ * required. No route dispatches this factory; no settings are changed here. */
+export function sandboxRestoreAppleAdapter(config:NonNullable<ReturnType<typeof billingConfiguration>>,signal?:AbortSignal){
+ if(process.env.BILLING_SANDBOX_RESTORE_TRANSFER_ENABLED!=='true'||config.environment!=='Sandbox'||config.storage!=='verified-ledger')return null;
+ // This existing factory also requires the independent reconciliation opt-in
+ // and validates the supplied P-256 signing configuration. Sandbox config is
+ // pinned before construction, so a Production API client is never selected.
+ const client=billingReconciliationClient(config);if(!client)return null;
+ return createSandboxRestoreAppleAdapter({client,verifier:billingVerifier(config),bundleID:config.bundleId,signal});
 }
