@@ -79,6 +79,14 @@ struct DeletionReadCredentialVault {
 #if canImport(OuchiCore)
 import OuchiCore
 extension DeletionReadCredentialVault {
+    /// Recovery reads only the original item; it never creates or renews one.
+    func recoveryReceipt(_ binding: OuchiCore.DeletionReceiptRecoveryFlow.Binding) throws -> OuchiCore.DeletionReceiptRecoveryFlow.Receipt? {
+        guard let saved = try read(requestID: binding.requestID) else { return nil }
+        guard saved.userID == binding.userID, saved.inventoryDigest == binding.inventoryDigest,
+              saved.expiresAt == binding.expiresAt else { throw Failure.scopeMismatch }
+        return .init(requestID: saved.requestID, userID: saved.userID, inventoryDigest: saved.inventoryDigest,
+                     expiresAt: saved.expiresAt, token: saved.token)
+    }
     /// Returns only the Keychain read-back; failed persistence prevents HTTP.
     func registrationReceipt(_ binding: OuchiCore.DeletionReceiptRegistrationFlow.Binding) throws -> OuchiCore.DeletionReceiptRegistrationFlow.PersistedReceipt {
         let saved = try prepare(requestID: binding.requestID, userID: binding.userID,

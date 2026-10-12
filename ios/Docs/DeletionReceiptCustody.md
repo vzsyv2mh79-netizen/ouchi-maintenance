@@ -13,3 +13,11 @@ Still pending: real initial Auth verification, actual server route and deletion-
 ## Export verification
 
 The macOS suite passed 29 tests after account-scope/restart tests used the existing unprotected synthetic fixture helper. This does not test protected writes on macOS and does not change production ManagedExportStorage.write. A separate iOS27/iPhone17e simulator review app called the actual production write, reopened the files, removed only the current account exports, preserved another account and user-saved copies, and refused a replaced symlink root. The simulator returned no file protection attribute: device encryption and locked-device access remain UNCONFIRMED and require physical-device verification. The standalone device smoke test is stored in Tests/ManagedExportDeviceSmoke.swift outside the app target.
+
+## Read-only native recovery after login loss
+
+DeletionReceiptRecoveryFlow now reads the original persisted receipt through a read-only vault adapter and calls the receipt status GET without a bearer. Missing/foreign credentials, invalid or expired bindings, cancellation, account/revision changes and expiry while awaiting transport refuse the response. It never prepares a new credential, registers, renews a deadline, submits deletion, removes a receipt or erases local records. Each new attempt clears the prior displayed state; a complete status is not a local-erasure permit.
+
+Validation: 40 native package tests passed in Debug and Release; unsigned simulator app builds passed in both configurations with the new vault adapter. The recovery flow also passed actual default URLSession over loopback TCP against the prepared receipt handler: dropped registration reply/exact retry, status without JWT, wrong token rejection and unconfirmed journal remaining unconfirmed. The HTTP authority and vault read-back in this integration are synthetic memory. It does not prove real Auth, database atomicity, Keychain restart under physical-device lock, production TLS or complete account deletion.
+
+The shipping Settings screen, durable pending-receipt discovery and scoped server prepare/register/claim lifecycle are still disconnected. Those must be connected together with all existing account/family/coverage/custody/lease and retention guards before release; adding this flow enables no production route or deletion.
