@@ -61,6 +61,7 @@ struct FormalChannelSelection {
     } }
     @Published private(set) var accountBindingRevision = UUID() { didSet {
         reminderSettings = nil; pendingRegistrationMaintenanceNeedsAttention = false
+        sandboxRestoreOutcome = nil; sandboxRestoreNeedsAttention = false
         clearReleaseBilling()
     } }
     @Published private(set) var reminderSettings: ReminderSettingsReceipt?
@@ -1164,6 +1165,153 @@ struct FormalChannelSelection {
         } catch PurchaseManager.PurchaseError.purchaseNotActive {
             if expected == generation { message = "Appleから返された購入は、返金済みか期限切れです。有効な契約としては扱っていません。購入の復元から状態を確認してください。" }
         } catch { if expected == generation { message = "テスト購入を完了できませんでした。Sandbox設定と通信を確認してください。保存できていない取引は未完了として残ります。" } }
+    }
+    @Published private(set) var sandboxRestoreOutcome: SandboxRestoreFlow.Outcome?
+    @Published private(set) var sandboxRestoreNeedsAttention = false
+    var sandboxRestoreConfigured: Bool {
+        #if DEBUG
+        guard sandboxBillingConfigured, !isUIReviewSample else { return false }
+        return (try? SandboxRestoreFlow.configuration(info: Bundle.main.infoDictionary ?? [:],
+            bundleIdentifier: Bundle.main.bundleIdentifier, purchaseEnvironment: purchases.environment,
+            isolatedDevelopment: isolatedDevelopmentEnabled)) != nil
+        #else
+        return false
+        #endif
+    }
+    private func sandboxRestoreStillBound(account: UUID, epoch: UUID?, expected: Int, revision: UUID) -> Bool {
+        signedIn && snapshotAccount == account && billingAccount == account &&
+        (epoch == nil || purchaseAccount == epoch) && generation == expected && accountBindingRevision == revision
+    }
+    private func makeSandboxRestoreFlow(expected: Int, revision: UUID) async throws -> (AppAttestRegistrationSession, SandboxRestoreFlow) {
+        guard sandboxRestoreConfigured, let session, let account = snapshotAccount,
+              let bundle = Bundle.main.bundleIdentifier,
+              let configuration = try SandboxRestoreFlow.configuration(info: Bundle.main.infoDictionary ?? [:],
+                bundleIdentifier: bundle, purchaseEnvironment: purchases.environment,
+                isolatedDevelopment: isolatedDevelopmentEnabled),
+              sandboxRestoreStillBound(account: account, epoch: nil, expected: expected, revision: revision) else { throw CloudError.unavailable }
+        let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+        let currentContext: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
+            guard let self, await self.sandboxRestoreStillBound(account: account, epoch: nil, expected: expected, revision: revision),
+                  let context = try? await provider.load(expectedAccount: account),
+                  await self.sandboxRestoreStillBound(account: account, epoch: context.epochID, expected: expected, revision: revision) else { return nil }
+            return context
+        }
+        let context = try await provider.load(expectedAccount: account)
+        guard sandboxRestoreStillBound(account: account, epoch: context.epochID, expected: expected, revision: revision) else { throw CloudError.authenticationRequired }
+        let coordinator = try makeAppAttestCoordinator(configuration: configuration, bundle: bundle, current: currentContext)
+        let registration = try await coordinator.register(captured: context)
+        let scope: AppAttestRegistrationScope
+        switch registration {
+        case .recordedReference(let reference): scope = reference.scope
+        case .newlyConfirmed(let receipt): scope = receipt.scope
+        }
+        let references = try AppAttestKeyReferenceStorage(namespace: bundle)
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        guard try references.pendingClosure(account: account) == nil,
+              let confirmed = try references.confirmed(account: account, epoch: context.epochID, nowMilliseconds: now),
+              confirmed.scope == scope, scope == context.session(keyID: confirmed.keyID).scope else { throw CloudError.authenticationRequired }
+        let captured = context.session(keyID: confirmed.keyID)
+        let currentSession: AppAttestRegistrationAPI.CurrentSession = { [weak self] in
+            guard let self, await self.sandboxRestoreStillBound(account: account, epoch: scope.epochID, expected: expected, revision: revision),
+                  let latest = try? await provider.load(expectedAccount: account),
+                  await self.sandboxRestoreStillBound(account: account, epoch: scope.epochID, expected: expected, revision: revision) else { return nil }
+            do {
+                guard try references.pendingClosure(account: account) == nil,
+                      let key = try references.confirmed(account: account, epoch: scope.epochID,
+                        nowMilliseconds: Int64(Date().timeIntervalSince1970 * 1000)),
+                      key.scope == scope, latest.session(keyID: key.keyID).scope == scope else { return nil }
+                return latest.session(keyID: key.keyID)
+            } catch { return nil }
+        }
+        let keys = try AppAttestEncryptionKeyStorage(namespace: bundle)
+        let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let storage = PendingRestoreStorage(root: support.appendingPathComponent("OuchiPendingRestore", isDirectory: true), keyProvider: { account, epoch in
+            guard account == scope.userID, epoch == scope.epochID,
+                  try references.pendingClosure(account: account) == nil,
+                  let reference = try references.confirmed(account: account, epoch: epoch,
+                    nowMilliseconds: Int64(Date().timeIntervalSince1970 * 1000)), reference.scope == scope,
+                  let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.authenticationRequired }
+            return key
+        })
+        let flow = SandboxRestoreFlow(storage: storage, currentSession: currentSession)
+        try await RestoreCommitAPI(currentSession: currentSession).validate(captured)
+        return (captured, flow)
+    }
+    private enum SandboxRestoreAction { case start, refresh, cancelUnreserved }
+    func startSandboxRestore() async { await runSandboxRestore(.start) }
+    func refreshSandboxRestore() async { await runSandboxRestore(.refresh) }
+    func cancelUnreservedSandboxRestore() async { await runSandboxRestore(.cancelUnreserved) }
+    private func runSandboxRestore(_ action: SandboxRestoreAction) async {
+        guard !busy, sandboxRestoreConfigured, signedIn else { return }
+        busy = true; message = nil
+        let expected = generation, revision = accountBindingRevision
+        defer { if expected == generation, revision == accountBindingRevision { busy = false } }
+        do {
+            let (captured, flow) = try await makeSandboxRestoreFlow(expected: expected, revision: revision)
+            let result: SandboxRestoreFlow.Outcome
+            switch action {
+            case .start:
+                result = try await flow.startOrResume(captured: captured, producer: { [weak self] identity, requestID in
+                    guard let self else { throw CloudError.unavailable }
+                    return try await self.prepareSandboxRestoreProof(identity: identity, requestID: requestID,
+                        expected: expected, revision: revision)
+                })
+            case .refresh: result = try await flow.refresh(captured: captured)
+            case .cancelUnreserved: result = try await flow.cancelUnreserved(captured: captured)
+            }
+            guard !Task.isCancelled, sandboxRestoreStillBound(account: captured.scope.userID,
+                epoch: captured.scope.epochID, expected: expected, revision: revision) else { return }
+            // Process completion is not current premium: only the existing
+            // authenticated verified-ledger API may refresh displayed rights.
+            if result == .complete {
+                let rights = try await BillingAPI(isolatedDevelopment: false).entitlement(token: captured.bearer)
+                guard !Task.isCancelled, sandboxRestoreStillBound(account: captured.scope.userID,
+                    epoch: captured.scope.epochID, expected: expected, revision: revision),
+                    rights.purchaseAccountToken == captured.scope.epochID else { throw CloudError.authenticationRequired }
+                sandboxEntitlement = rights
+            }
+            sandboxRestoreOutcome = result; sandboxRestoreNeedsAttention = false
+            switch result {
+            case .absent: message = "保存された復元はありません。"
+            case .pending: message = "復元を受け付けました。完了するまで新しい購入をせず、状況をご確認ください。"
+            case .complete: message = "復元の処理と現在の契約状態を確認しました。利用できる機能は現在の契約状態に従います。"
+            case .cancelled: message = "未処理の復元を取り消しました。「復元を確認する」から、改めて確認できます。契約は解約していません。"
+            }
+        } catch PurchaseManager.PurchaseError.restoreNotFound {
+            if expected == generation, revision == accountBindingRevision {
+                sandboxRestoreNeedsAttention = false; sandboxRestoreOutcome = .absent
+                message = "この端末で復元できる別の登録に紐づく有効なテスト契約は見つかりませんでした。"
+            }
+        } catch {
+            guard !Task.isCancelled, expected == generation, revision == accountBindingRevision else { return }
+            sandboxRestoreNeedsAttention = true
+            message = "復元の状態を確認できません。保存中の情報は残しています。状況を再確認してください。改善しない場合はサポートへお問い合わせください。"
+        }
+    }
+    private func prepareSandboxRestoreProof(identity: AppAttestRegistrationSession, requestID: UUID,
+                                            expected: Int, revision: UUID) async throws -> PendingRestore {
+        let scope = identity.scope
+        guard sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision) else { throw CloudError.authenticationRequired }
+        let original = try await purchases.sandboxRestoreOriginalTransactionID(account: scope.epochID)
+        // Fresh server enrollment plus the existing confirmed key only. The
+        // challenge API validates this exact captured identity before/after HTTP.
+        guard let session, let configuration = try AppAttestRegistrationConfiguration.parse(
+            info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier) else { throw CloudError.unavailable }
+        let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+        let current: AppAttestRegistrationAPI.CurrentSession = { [weak self] in
+            guard let self, await self.sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision),
+                  let context = try? await provider.load(expectedAccount: scope.userID),
+                  context.session(keyID: scope.keyID).scope == scope,
+                  await self.sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision) else { return nil }
+            return context.session(keyID: scope.keyID)
+        }
+        let api = RestoreChallengeAPI(currentSession: current)
+        let (evidence, challenge, assertion) = try await purchases.sandboxRestoreAssertion(captured: identity,
+            originalTransactionID: original, requestID: requestID, api: api)
+        try await api.validate(identity)
+        guard sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision) else { throw CloudError.authenticationRequired }
+        return try PendingRestore(scope: scope, challenge: challenge, signedAppTransaction: evidence.signedAppTransaction,
+            signedTransaction: evidence.signedTransaction, assertion: assertion, nowMilliseconds: Int64(Date().timeIntervalSince1970 * 1000))
     }
     func restoreSandboxPurchases() async {
         guard !busy, sandboxBillingConfigured, let session else { return }

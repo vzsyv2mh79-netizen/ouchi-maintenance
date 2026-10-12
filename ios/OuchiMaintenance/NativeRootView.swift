@@ -958,6 +958,26 @@ private struct SandboxSubscriptionView: View {
                 Button("\u{5fa9}\u{5143}\u{306e}\u{72b6}\u{6cc1}\u{3092}\u{78ba}\u{8a8d}") { Task { await store.refreshBillingRecoveryStatus() } }.disabled(store.busy)
                 Text("有効な契約がある場合は新規購入を止めます。Webでも同じアカウントの確認済み利用権を使います。")
             }
+            if store.sandboxRestoreConfigured {
+                Section("別の登録に紐づく購入の復元") {
+                    Text("同じAppleアカウントの有効なテスト契約を、この登録で利用できるか確認します。新しい購入は行いません。")
+                    Button("復元を確認する") { Task { await store.startSandboxRestore() } }.disabled(store.busy)
+                    Button("復元の状況を確認") { Task { await store.refreshSandboxRestore() } }.disabled(store.busy)
+                    if let outcome = store.sandboxRestoreOutcome {
+                        switch outcome {
+                        case .absent: Text("保存された復元はありません。")
+                        case .pending: Text("復元の処理待ちです。完了するまで新しい購入をしないでください。")
+                        case .complete: Text("復元の処理が完了しました。現在の契約状態をご確認ください。")
+                        case .cancelled: Text("未処理の復元を取り消しました。改めて確認できます。")
+                        }
+                    }
+                    if store.sandboxRestoreNeedsAttention {
+                        Text("復元の確認が必要です。保存中の情報は残しています。")
+                        Button("復元をやり直す準備") { Task { await store.cancelUnreservedSandboxRestore() } }.disabled(store.busy)
+                        Text("処理が始まっていない場合のみ、前の復元を取り消します。契約の解約は行いません。確認できない場合は情報を残します。")
+                    }
+                }
+            }
             Section("公開前の準備") {
                 Text("正式な利用規約・プライバシーポリシーのリンク、運営者、問い合わせ窓口は公開前に確定します。この画面は正式な販売画面ではありません。")
             }

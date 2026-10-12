@@ -96,6 +96,34 @@ final class PurchaseManager: ObservableObject {
         let originalTransactionID: String
         let appTransactionID: String
     }
+    /// Select only our own verified current SDK purchase, never a text/JWS input.
+    /// A unique active purchased foreign enrollment is required; its full own
+    /// AppTransaction/device proof is checked again by sandboxRestoreEvidence.
+    func sandboxRestoreOriginalTransactionID(account: UUID) async throws -> String {
+        guard environment == .sandbox, storeEnvironment == .sandbox,
+              persist != nil, boundAccount == account else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
+        try Task.checkCancellation()
+        try await AppStore.sync()
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        var found: String?
+        for await result in Transaction.currentEntitlements {
+            guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+            try Task.checkCancellation()
+            guard case .verified(let transaction) = result else { throw PurchaseError.unverified }
+            guard ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(transaction.productID),
+                  transaction.environment == .sandbox, transaction.productType == .autoRenewable,
+                  transaction.ownershipType == .purchased, transaction.revocationDate == nil,
+                  !transaction.isUpgraded, (transaction.expirationDate ?? .distantPast) > Date() else { continue }
+            guard let prior = transaction.appAccountToken, prior != account else { continue }
+            guard found == nil else { throw PurchaseError.unverified }
+            found = String(transaction.originalID)
+        }
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        guard let found else { throw PurchaseError.restoreNotFound }
+        return found
+    }
     func sandboxRestoreEvidence(account: UUID, originalTransactionID: String) async throws -> SandboxRestoreEvidence {
         guard environment == .sandbox, storeEnvironment == .sandbox,
               persist != nil, boundAccount == account,
@@ -356,5 +384,5 @@ final class PurchaseManager: ObservableObject {
         try Task.checkCancellation()
         needsRetry = false
     }
-    enum PurchaseError: Error { case notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere, purchaseInProgress, purchaseNotActive }
+    enum PurchaseError: Error { case restoreNotFound, notConfigured, unverified, subscriptionAlreadyActive, subscriptionBoundElsewhere, purchaseInProgress, purchaseNotActive }
 }
