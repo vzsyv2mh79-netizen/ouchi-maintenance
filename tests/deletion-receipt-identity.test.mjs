@@ -12,8 +12,8 @@ const auth=id=>({data:{user:{id}},error:null});
 test('fresh exact-bearer Auth verification precedes pinned live-session read',async()=>{
  const signal=new AbortController().signal,bearer=token(),calls=[];
  const verify=createDeletionReceiptIdentityVerifier({getUser:async(value,s)=>{assert.equal(value,bearer);assert.equal(s,signal);calls.push('auth');return auth(user);}});
- const tx={signal,query:async(sql,args)=>{assert.match(sql,/for share/);assert.deepEqual(args,[session,user]);calls.push('session');return {rows:[{verified_at:Date.now()}]};}};
- const result=await verify(bearer,tx);assert.equal(result.userID,user);assert.ok(Number.isFinite(result.authVerifiedAt));assert.deepEqual(calls,['auth','session']);
+ const tx={signal,query:async(sql,args)=>{if(calls.length===1)assert.match(sql,/for share/);else assert.doesNotMatch(sql,/for share/);assert.deepEqual(args,[session,user]);calls.push('session');return {rows:[{verified_at:Date.now()}]};}};
+ const result=await verify(bearer,tx);assert.equal(result.userID,user);assert.ok(Number.isFinite(result.authVerifiedAt));assert.deepEqual(calls,['auth','session','session']);
 });
 test('wrong subject, metadata-only session and expired JWT stop before database',async()=>{
  const verify=createDeletionReceiptIdentityVerifier({getUser:async()=>auth(user)});
@@ -24,6 +24,11 @@ test('revoked session or token expiring during live read never authenticates',as
  const verify=createDeletionReceiptIdentityVerifier({getUser:async()=>auth(user)}),signal=new AbortController().signal;
  assert.equal(await verify(token(),{signal,query:async()=>({rows:[]})}),null);
  assert.equal(await verify(token(),{signal,query:async()=>({rows:[{verified_at:Date.now()+3600000}]})}),null);
+});
+test('session expiry across row-lock wait is checked again after the lock',async()=>{
+ const verify=createDeletionReceiptIdentityVerifier({getUser:async()=>auth(user)});let reads=0;
+ const result=await verify(token(),{signal:new AbortController().signal,query:async()=>({rows:++reads===1?[{verified_at:Date.now()}]:[]})});
+ assert.equal(result,null);assert.equal(reads,2);
 });
 test('cancellation while Auth awaits discards reply and prevents SQL',async()=>{
  const controller=new AbortController();let finish,entered;

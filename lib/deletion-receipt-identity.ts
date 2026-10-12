@@ -31,7 +31,15 @@ export function createDeletionReceiptIdentityVerifier({getUser}: {
    [verified.sessionID, verified.userID]);
   signal.throwIfAborted();
   if(live.rows.length !== 1) return null;
-  const authVerifiedAt = Number(live.rows[0].verified_at);
+  // A row-lock wait can cross a deadline. Recheck against a new server clock
+  // after acquiring the lock; do not reuse a timestamp evaluated before wait.
+  const current = await tx.query(`select extract(epoch from clock_timestamp()) * 1000 as verified_at
+   from auth.sessions where id=$1::uuid and user_id=$2::uuid
+   and (not_after is null or not_after > clock_timestamp())`,
+   [verified.sessionID, verified.userID]);
+  signal.throwIfAborted();
+  if(current.rows.length !== 1) return null;
+  const authVerifiedAt = Number(current.rows[0].verified_at);
   if(!Number.isFinite(authVerifiedAt) || !sessionAfterAuthVerification(bearer, verified.userID, new Date(authVerifiedAt))) return null;
   return Object.freeze({userID: verified.userID, authVerifiedAt});
  };

@@ -2,7 +2,7 @@ name: Isolated real Auth checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['lib/deletion-receipt-auth.ts', 'tests/deletion-receipt-auth.test.mjs', 'lib/deletion-receipt-identity.ts', 'tests/deletion-receipt-identity.test.mjs', 'lib/account-closure.ts', 'lib/billing-account.ts', 'lib/attachment-upload.ts', 'lib/product-attachment.ts', 'app/api/development/product-attachments/**', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'app/api/development/account-reenrollment/**', 'tests/auth-server.integration.mjs', 'tests/postgrest-server.integration.mjs', 'tests/fixtures/auth/**', 'tests/fixtures/billing*.sql', 'tests/fixtures/attachment*.sql', 'tests/fixtures/apns*.sql', 'tests/fixtures/app-session*.sql', 'app/api/development/apns-registration/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
+    paths: ['lib/deletion-receipt-*.mjs', 'lib/shared-deletion-protocol.mjs', 'tests/receipt-custody-auth.integration.mjs', 'package.json', 'pnpm-lock.yaml', 'lib/deletion-receipt-auth.ts', 'tests/deletion-receipt-auth.test.mjs', 'lib/deletion-receipt-identity.ts', 'tests/deletion-receipt-identity.test.mjs', 'lib/account-closure.ts', 'lib/billing-account.ts', 'lib/attachment-upload.ts', 'lib/product-attachment.ts', 'app/api/development/product-attachments/**', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'app/api/development/account-reenrollment/**', 'tests/auth-server.integration.mjs', 'tests/postgrest-server.integration.mjs', 'tests/fixtures/auth/**', 'tests/fixtures/billing*.sql', 'tests/fixtures/attachment*.sql', 'tests/fixtures/apns*.sql', 'tests/fixtures/app-session*.sql', 'app/api/development/apns-registration/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,6 +32,10 @@ jobs:
         env:
           OUCHI_REAL_AUTH_TEST: 'true'
         run: node --test tests/auth-server.integration.mjs
+      - name: Real Auth database receipt custody registration
+        env:
+          OUCHI_REAL_AUTH_TEST: 'true'
+        run: node --test tests/receipt-custody-auth.integration.mjs
       - name: Initialize disposable household data API schema
         run: |
           for file in tests/fixtures/auth/rest-bootstrap.sql supabase/migrations/20261001144732_household_storage.sql supabase/migrations/20261001232931_atomic_import.sql supabase/migrations/20261001233450_household_sharing.sql supabase/migrations/20261001235138_account_data_erasure.sql supabase/migrations/20261002004530_push_reminders.sql supabase/migrations/20261005134316_cloud_backup_restore.sql ios/Tests/Fixtures/account-access-prototype.sql ios/Tests/Fixtures/account-epochs-prototype.sql tests/fixtures/auth/rest-session-gate.sql tests/fixtures/billing-schema.sql tests/fixtures/billing-epoch-prototype.sql tests/fixtures/attachment-quota-prototype.sql tests/fixtures/apns-registration-prototype.sql tests/fixtures/app-session-binding-prototype.sql; do

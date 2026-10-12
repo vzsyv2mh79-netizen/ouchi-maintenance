@@ -1,6 +1,8 @@
 services:
   db:
     image: postgres:17.6-alpine
+    ports:
+      - '127.0.0.1:54323:5432'
     environment:
       POSTGRES_PASSWORD: synthetic-ci-only
       POSTGRES_DB: auth_test
