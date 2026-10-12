@@ -45,7 +45,7 @@ import Foundation
         }
         // Explicitly empty current epoch may submit; an outage must never do so.
         guard let password else { receipt = nil; return nil }
-        let accepted = try await api.request(password: password, token: token)
+        let accepted = try await api.request(password: password, token: token, expectedEpochID: epochID)
         try Task.checkCancellation()
         guard generation == expected else { throw CloudError.authenticationRequired }
         guard accepted.epochID == epochID else { throw CloudError.authenticationRequired }

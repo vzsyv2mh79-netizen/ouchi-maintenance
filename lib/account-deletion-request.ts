@@ -19,8 +19,8 @@ async function readConfirmation(request:Request){
   if(cancelled||request.signal.aborted)throw Error('Cancelled body');
   const body=new Uint8Array(bytes);let offset=0;for(const p of parts){body.set(p,offset);offset+=p.byteLength;}
   const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(body));
-  if(!parsed||Array.isArray(parsed)||Object.keys(parsed).sort().join(',')!=='confirmation,password'||parsed.confirmation!=='DELETE_OUCHI_ACCOUNT'||typeof parsed.password!=='string'||parsed.password.length<1||parsed.password.length>1024)throw Error('Invalid confirmation');
-  return parsed.password as string;
+  if(!parsed||Array.isArray(parsed)||Object.keys(parsed).sort().join(',')!=='confirmation,expectedEpochID,password'||parsed.confirmation!=='DELETE_OUCHI_ACCOUNT'||!uuid(parsed.expectedEpochID)||typeof parsed.password!=='string'||parsed.password.length<1||parsed.password.length>1024)throw Error('Invalid confirmation');
+  return Object.freeze({password:parsed.password as string,expectedEpochID:parsed.expectedEpochID as string});
  }finally{clearTimeout(timer);request.signal.removeEventListener('abort',abort);void reader.cancel().catch(()=>{});}
 }
 export async function handleAccountDeletionRequest(request:Request,deps:DeletionRequestDependencies){
@@ -29,19 +29,21 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
  if(new URL(request.url).search)return reply({error:'Invalid request'},400);
  const header=request.headers.get('authorization');
  if(!header||header.length>16384||!/^Bearer [^\s]+$/.test(header))return reply({error:'Authentication required'},401);
- let password:string;try{password=await readConfirmation(request);}catch{return reply({error:'Explicit confirmation and password required'},400);}
+ let confirmation:Readonly<{password:string;expectedEpochID:string}>;try{confirmation=await readConfirmation(request);}catch{return reply({error:'Explicit confirmation and password required'},400);}
  try{
   request.signal.throwIfAborted();
   const identity=await deps.verify(header.slice(7));
   request.signal.throwIfAborted();
   if(!identity||![identity.userID,identity.sessionID,identity.epochID].every(uuid)||typeof identity.email!=='string'||!identity.email||identity.email.length>320)return reply({error:'Authentication required'},401);
-  const confirmed=await deps.reauthenticate(identity.email,password);
-  if(!uuid(confirmed)||confirmed.toLowerCase()!==identity.userID.toLowerCase())return reply({error:'Reauthentication required'},403);
+  const fixed=Object.freeze({...identity});
+  if(fixed.epochID.toLowerCase()!==confirmation.expectedEpochID.toLowerCase())return reply({error:'Account registration changed. Review before retrying.'},409);
+  const confirmed=await deps.reauthenticate(fixed.email,confirmation.password);
+  if(!uuid(confirmed)||confirmed.toLowerCase()!==fixed.userID.toLowerCase())return reply({error:'Reauthentication required'},403);
   if(request.signal.aborted)return reply({error:'Request cancelled'},409);
-  const requestID=await deps.enqueue(Object.freeze({...identity}));
+  const requestID=await deps.enqueue(fixed);
   // An aborted response does not undo a durable remote request. Recover its status.
   request.signal.throwIfAborted();
   if(!uuid(requestID))throw Error('Missing durable acknowledgement');
-  return reply({state:'pending',requestID,epochID:identity.epochID},202);
+  return reply({state:'pending',requestID,epochID:fixed.epochID},202);
  }catch{return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);}
 }

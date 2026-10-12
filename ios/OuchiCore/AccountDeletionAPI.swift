@@ -36,12 +36,14 @@ public struct AccountDeletionAPI: Sendable {
             return (data, response)
         }
     }
-    public func request(password: String, token: String) async throws -> AccountDeletionStatus {
-        guard !password.isEmpty, password.count <= 1024 else { throw CloudError.invalidInput }
-        let body = try JSONEncoder().encode(["confirmation": "DELETE_OUCHI_ACCOUNT", "password": password])
+    public func request(password: String, token: String, expectedEpochID: UUID) async throws -> AccountDeletionStatus {
+        guard !password.isEmpty, password.count <= 1024, expectedEpochID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else { throw CloudError.invalidInput }
+        let body = try JSONEncoder().encode(["confirmation": "DELETE_OUCHI_ACCOUNT", "password": password, "expectedEpochID": expectedEpochID.uuidString.lowercased()])
         guard body.count <= 4096 else { throw CloudError.invalidInput }
         let result = try await send(path: "", token: token, body: body)
-        return try AccountDeletionStatus.accepted(result.0, httpStatus: result.1)
+        let accepted = try AccountDeletionStatus.accepted(result.0, httpStatus: result.1)
+        guard accepted.epochID == expectedEpochID else { throw CloudError.malformedResponse }
+        return accepted
     }
     public func progress(requestID: UUID, token: String) async throws -> AccountDeletionStatus {
         guard requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else { throw CloudError.invalidInput }

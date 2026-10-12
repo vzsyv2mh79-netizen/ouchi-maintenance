@@ -209,14 +209,14 @@ extension HouseholdAPITests {
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer synthetic")
             if request.httpMethod == "POST" {
                 let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
-                XCTAssertEqual(body, ["confirmation": "DELETE_OUCHI_ACCOUNT", "password": "Synthetic-only"])
+                XCTAssertEqual(body, ["confirmation": "DELETE_OUCHI_ACCOUNT", "password": "Synthetic-only", "expectedEpochID": "33333333-3333-4333-8333-333333333333"])
                 return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"pending\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
             }
             XCTAssertEqual(request.url?.path, "/api/account/deletion/" + id.uuidString.lowercased())
             XCTAssertNil(request.httpBody)
             return (Data("{\"epochID\":\"33333333-3333-4333-8333-333333333333\",\"requestID\":\"\(id.uuidString)\",\"state\":\"running\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
-        let accepted = try await api.request(password: "Synthetic-only", token: "synthetic")
+        let accepted = try await api.request(password: "Synthetic-only", token: "synthetic", expectedEpochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         XCTAssertEqual(accepted.state, .pending)
         let progress = try await api.progress(requestID: accepted.requestID, token: "synthetic")
         XCTAssertEqual(progress.state, .running)
@@ -360,5 +360,25 @@ extension HouseholdAPITests {
         let result = try await api.currentProgress(token: "synthetic", expectedAccountID: account, expectedEpochID: epoch)
         XCTAssertNil(result)
         do { _ = try await api.currentProgress(token: "synthetic"); XCTFail("Unbound absence accepted") } catch {}
+    }
+}
+
+
+extension HouseholdAPITests {
+    func testDeletionPostRefusesWrongEpochAcknowledgement() async {
+        let expected = UUID(), other = UUID(), requestID = UUID()
+        let api = AccountDeletionAPI { request in
+            let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
+            XCTAssertEqual(body["expectedEpochID"], expected.uuidString.lowercased())
+            let reply = try JSONSerialization.data(withJSONObject: ["requestID": requestID.uuidString, "epochID": other.uuidString, "state": "pending"])
+            return (reply, HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
+        }
+        do { _ = try await api.request(password: "synthetic", token: "synthetic", expectedEpochID: expected); XCTFail("Foreign epoch acknowledgement accepted") }
+        catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+    }
+    func testDeletionPostRejectsZeroEpochBeforeTransport() async {
+        let api = AccountDeletionAPI { _ in XCTFail("Invalid epoch reached transport"); throw CloudError.unavailable }
+        do { _ = try await api.request(password: "synthetic", token: "synthetic", expectedEpochID: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!); XCTFail("Zero epoch accepted") }
+        catch { XCTAssertEqual(error as? CloudError, .invalidInput) }
     }
 }

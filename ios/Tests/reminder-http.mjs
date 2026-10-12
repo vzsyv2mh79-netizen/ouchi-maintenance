@@ -49,7 +49,7 @@ const deletionDependencies={
 };
 const deletionProgressDependencies={
  verify:async bearer=>bearer==='synthetic'?scope.userID:null,
- read:async(s,bearer)=>{assert.ok(Object.isFrozen(s));assert.equal(bearer,'synthetic');assert.equal(s.userID,scope.userID);return deletionRow&&(s.requestID===null||s.requestID===deletionID)?deletionRow:null;},
+ read:async(s,bearer)=>{assert.ok(Object.isFrozen(s));assert.equal(bearer,'synthetic');assert.equal(s.userID,scope.userID);if(s.requestID===null&&!deletionRow)return {state:'not_requested',userID:scope.userID,epochID:scope.epochID};return deletionRow&&(s.requestID===null||s.requestID===deletionID)?deletionRow:null;},
 };
 const directory=mkdtempSync(join(tmpdir(),'ouchi-reminder-http-'));
 function compile(args){const result=spawnSync('swiftc',args,{encoding:'utf8',timeout:120000});assert.equal(result.status,0,result.stderr);}

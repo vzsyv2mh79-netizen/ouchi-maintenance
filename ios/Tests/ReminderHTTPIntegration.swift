@@ -61,7 +61,7 @@ import OuchiCore
         deletionFlow.bind(accountID: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, epochID: account, revision: UUID())
         let absent = try await deletionFlow.recover(token: "synthetic")
         precondition(absent == nil)
-        do { _ = try await deletionAPI.request(password: "wrong", token: "synthetic"); fatalError("wrong password accepted") }
+        do { _ = try await deletionAPI.request(password: "wrong", token: "synthetic", expectedEpochID: account); fatalError("wrong password accepted") }
         catch { precondition(error as? CloudError == .rejected(403)) }
         do { _ = try await deletionFlow.submit(password: "synthetic-password", token: "synthetic"); fatalError("lost ack claimed accepted") }
         catch { precondition(error as? CloudError == .rejected(503)) }
