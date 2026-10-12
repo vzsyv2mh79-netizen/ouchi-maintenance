@@ -87,6 +87,64 @@ final class PurchaseManager: ObservableObject {
     private func expectedType(for id: String) -> Product.ProductType {
         id.hasPrefix("ouchi.tip.") ? .consumable : .autoRenewable
     }
+    // Evidence collection only. The server must verify both signatures, consume a
+    // fresh App Attest challenge, reserve ownership and confirm persistence.
+    // No externally supplied JWS or device identifier can enter this path.
+    struct SandboxRestoreEvidence: Sendable {
+        let signedAppTransaction: String
+        let signedTransaction: String
+        let originalTransactionID: String
+        let appTransactionID: String
+    }
+    func sandboxRestoreEvidence(account: UUID, originalTransactionID: String) async throws -> SandboxRestoreEvidence {
+        guard environment == .sandbox, storeEnvironment == .sandbox,
+              persist != nil, boundAccount == account,
+              !originalTransactionID.isEmpty, originalTransactionID.utf8.count <= 128,
+              originalTransactionID.utf8.allSatisfy({ (48...57).contains($0) }),
+              let bundleID = Bundle.main.bundleIdentifier,
+              let deviceID = AppStore.deviceVerificationID else { throw PurchaseError.notConfigured }
+        let expected = bindingGeneration
+        try Task.checkCancellation()
+        let appResult = try await AppTransaction.shared
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        guard case .verified(let app) = appResult,
+              app.environment == .sandbox, app.bundleID == bundleID, app.revocationDate == nil,
+              !app.appTransactionID.isEmpty,
+              StoreDeviceVerification.matches(nonce: app.deviceVerificationNonce,
+                  deviceID: deviceID, signedDigest: app.deviceVerification),
+              !appResult.jwsRepresentation.isEmpty,
+              appResult.jwsRepresentation.utf8.count <= 131_072 else { throw PurchaseError.unverified }
+        var found: (SandboxRestoreEvidence, Date)?
+        for await result in Transaction.currentEntitlements {
+            guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+            try Task.checkCancellation()
+            guard case .verified(let transaction) = result else { throw PurchaseError.unverified }
+            guard String(transaction.originalID) == originalTransactionID else { continue }
+            guard found == nil, transaction.environment == .sandbox,
+                  ["ouchi.premium.monthly", "ouchi.premium.annual"].contains(transaction.productID),
+                  transaction.productType == .autoRenewable,
+                  transaction.ownershipType == .purchased,
+                  transaction.appTransactionID == app.appTransactionID,
+                  transaction.revocationDate == nil, !transaction.isUpgraded,
+                  let expiry = transaction.expirationDate, expiry > Date(),
+                  StoreDeviceVerification.matches(nonce: transaction.deviceVerificationNonce,
+                      deviceID: deviceID, signedDigest: transaction.deviceVerification),
+                  !result.jwsRepresentation.isEmpty,
+                  result.jwsRepresentation.utf8.count <= 131_072 else { throw PurchaseError.unverified }
+            found = (.init(signedAppTransaction: appResult.jwsRepresentation,
+                signedTransaction: result.jwsRepresentation,
+                originalTransactionID: String(transaction.originalID),
+                appTransactionID: app.appTransactionID), expiry)
+        }
+        guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        guard AppStore.deviceVerificationID == deviceID,
+              let found, found.1 > Date() else { throw PurchaseError.unverified }
+        // An old appAccountToken is not permission to transfer this subscription.
+        // Keep the exact signed pair for the independent server authorization.
+        return found.0
+    }
     func markRetryNeeded() { needsRetry = true }
     private func descriptor(_ product: Product) -> StoreProductDescriptor {
         let kind: StoreProductDescriptor.Kind = product.type == .consumable ? .consumable : product.type == .autoRenewable ? .autoRenewable : .other
