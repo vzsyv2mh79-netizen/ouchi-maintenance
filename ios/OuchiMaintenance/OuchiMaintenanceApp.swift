@@ -57,7 +57,11 @@ import OuchiCore
         WindowGroup {
             Group {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ouchi-report-preview") { ReportPreviewView() }
+            if ProcessInfo.processInfo.arguments.contains("--ouchi-saved-receipts-preview") {
+                SavedDeletionReceiptPreview()
+                    .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
+            }
+            else if ProcessInfo.processInfo.arguments.contains("--ouchi-report-preview") { ReportPreviewView() }
             else { NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() } }
             #else
             NativeRootView().environmentObject(store).environmentObject(remoteNotifications).task { await store.restore() }

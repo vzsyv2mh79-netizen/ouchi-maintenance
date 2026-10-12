@@ -1,14 +1,19 @@
 import SwiftUI
 import OuchiCore
+#if DEBUG
+import Security
+#endif
 
 /// Read-only screen; callers must supply the dedicated vault and a new revision
 /// whenever the visible account/session changes. Live navigation remains gated.
 @MainActor struct SavedDeletionReceiptsView: View {
+    @Environment(\.dynamicTypeSize) private var textSize
     let userID: UUID?
     let revision: UUID
     let available: Bool
     let vault: DeletionReadCredentialVault
     let flow: DeletionReceiptRecoveryFlow
+    var now: () -> Date = Date.init
     @State private var references: [DeletionReadCredentialVault.Reference] = []
     @State private var loaded = false
     @State private var message: String?
@@ -38,7 +43,7 @@ import OuchiCore
                         Text("申請番号：" + String(reference.requestID.uuidString.suffix(8)))
                         Text("確認期限：" + reference.expiresAt.formatted(date: .numeric, time: .shortened))
                             .font(.footnote)
-                        if reference.expiresAt <= Date() {
+                        if reference.expiresAt <= now() {
                             Text("確認期限が過ぎています。削除完了を意味するものではありません。")
                         } else {
                             Button("この申請の状況を確認") { check(reference) }
@@ -51,6 +56,7 @@ import OuchiCore
             if busy { Section { ProgressView("状況を確認しています") } }
         }
         .navigationTitle("削除申請の確認")
+        .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
         .task(id: context) {
             operation?.cancel(); operation = nil; flow.bind(nil)
             activeRevision = revision; activeContext = context
@@ -65,7 +71,7 @@ import OuchiCore
     }
 
     private func check(_ reference: DeletionReadCredentialVault.Reference) {
-        guard available, !busy, activeContext == context, activeRevision == revision, reference.expiresAt > Date(),
+        guard available, !busy, activeContext == context, activeRevision == revision, reference.expiresAt > now(),
               references.contains(reference) else { return }
         let expected = revision
         let expectedContext = context
@@ -91,6 +97,61 @@ import OuchiCore
         }
     }
 }
+
+#if DEBUG
+/// Isolated rendering fixture. Never accepts an owner account or server token.
+@MainActor struct SavedDeletionReceiptPreview: View {
+    private let vault = DeletionReadCredentialVault(service: "dev.ouchi.review.receipts.deletion-receipts")
+    private let account = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+    private let requests = [UUID(uuidString: "22222222-2222-4222-8222-222222222222")!,
+                            UUID(uuidString: "33333333-3333-4333-8333-333333333333")!]
+    @State private var revision = UUID()
+    @State private var flow: DeletionReceiptRecoveryFlow?
+    @State private var referenceTime = Date()
+    @State private var message: String?
+    var body: some View {
+        NavigationStack {
+            if let flow {
+                SavedDeletionReceiptsView(userID: account, revision: revision, available: false,
+                    vault: vault, flow: flow, now: { referenceTime })
+                    .safeAreaInset(edge: .top) {
+                        Text("確認用サンプル・通信なし").font(.caption)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(8)
+                    }
+            } else { Text(message ?? "確認用の申請を準備しています") }
+        }
+        .task {
+            guard Bundle.main.bundleIdentifier == "dev.ouchi.review.receipts",
+                  Bundle.main.infoDictionary?["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES" else {
+                message = "専用の確認版でのみ表示できます"; return
+            }
+            do {
+                for request in requests { try vault.remove(requestID: request) }
+                guard try vault.references().isEmpty else { throw CloudError.unavailable }
+                if ProcessInfo.processInfo.arguments.contains("--ouchi-cleanup-preview") {
+                    message = "確認用の保存情報を消去しました"; return
+                }
+                let start = Date()
+                for (index, request) in requests.enumerated() {
+                    _ = try vault.prepare(requestID: request, userID: account,
+                        inventoryDigest: String(repeating: "a", count: 64),
+                        expiresAt: start.addingTimeInterval(index == 0 ? 300 : 600))
+                }
+                // Advance only this view's clock: one expired and one live row,
+                // without changing simulator/system time or renewing a record.
+                referenceTime = start.addingTimeInterval(450)
+                flow = DeletionReceiptRecoveryFlow { binding in try vault.recoveryReceipt(binding) }
+            } catch {
+                // Only a numeric status from this synthetic service is shown.
+                // Never print credentials or query an owner's Keychain group.
+                let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: vault.service, kSecMatchLimit as String: kSecMatchLimitOne]
+                message = "確認用の保存情報を読み込めませんでした（状態 \(SecItemCopyMatching(query as CFDictionary, nil))）"
+            }
+        }
+    }
+}
+#endif
 
 /// Prepared screen. Not connected to Settings until full server/device erasure,
 /// the shared-login boundary and retention disclosure have been finalized.
