@@ -4,7 +4,7 @@
 create table maintenance_private.family_attachment_quota (
  request_id uuid not null,
  home_id uuid not null,
- attachment_id uuid not null unique,
+ attachment_id uuid not null,
  recipient_id uuid not null,
  recipient_epoch uuid not null,
  size_bytes bigint not null check(size_bytes between 1 and 5242880),
@@ -13,6 +13,9 @@ create table maintenance_private.family_attachment_quota (
  foreign key(request_id,home_id) references maintenance_private.family_attachment_journals(request_id,home_id)
 );
 create index family_attachment_quota_recipient on maintenance_private.family_attachment_quota(recipient_id);
+-- Consumed history must not permanently prevent a future legitimate handoff of
+-- this same retained file. Only a currently pending reservation is exclusive.
+create unique index family_attachment_quota_pending_file on maintenance_private.family_attachment_quota(attachment_id) where state='reserved';
 alter table maintenance_private.family_attachment_quota enable row level security;
 revoke all on maintenance_private.family_attachment_quota from public,anon,authenticated,service_role;
 -- Existing server-only reserve RPCs need read-only quota totals in their invoker
@@ -57,7 +60,7 @@ begin
  then raise exception 'Quota source inventory changed';end if;
  select coalesce(sum(bytes),0),coalesce(sum(files),0) into used_bytes,used_files from (
   select coalesce(sum(size_bytes),0) bytes,count(*) files from maintenance_private.product_attachments where user_id=new.recipient_id and state<>'removed'
-  union all select coalesce(sum(size_bytes),0),count(*) from maintenance_private.family_attachment_quota where recipient_id=new.recipient_id
+  union all select coalesce(sum(size_bytes),0),count(*) from maintenance_private.family_attachment_quota where recipient_id=new.recipient_id and state='reserved'
  ) totals;
  if used_bytes+new.size_bytes>104857600 or used_files+1>100 then raise exception 'Attachment quota exceeded';end if;
  return new;
@@ -79,7 +82,7 @@ begin
  if new.state='removed' then return new;end if;
  select coalesce(sum(bytes),0),coalesce(sum(files),0) into used_bytes,used_files from (
   select coalesce(sum(size_bytes),0) bytes,count(*) files from maintenance_private.product_attachments where user_id=new.user_id and state<>'removed' and id<>new.id
-  union all select coalesce(sum(size_bytes),0),count(*) from maintenance_private.family_attachment_quota where recipient_id=new.user_id
+  union all select coalesce(sum(size_bytes),0),count(*) from maintenance_private.family_attachment_quota where recipient_id=new.user_id and state='reserved'
  ) totals;
  if used_bytes+new.size_bytes>104857600 or used_files+1>100 then raise exception 'Attachment quota exceeded';end if;
  return new;

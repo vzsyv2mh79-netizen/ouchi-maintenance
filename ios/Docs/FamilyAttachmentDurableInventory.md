@@ -79,8 +79,10 @@ the quota trigger, so a handoff cannot be ignored by their old metadata-only
 precheck. The quota trigger is security invoker, with only private SELECT granted
 to the existing service role; clients gain no policy or write permission.
 No reservation expiry, update or deletion is allowed. A timeout cannot refund
-uncertain copies. Consumption/release needs a future exact activation/cancel
-context and receipt; those remain unimplemented and gate migration readiness.
+uncertain copies. The additional disabled atomic-activation candidate now provides exact quota
+consumption and commit-time receipt/row/route checks (see
+`FamilyAttachmentAtomicActivation.md`). Cancellation/refund remains unimplemented;
+real-service composition and shipping authorization still gate migration readiness.
 
 The actual PostgreSQL fixture is extended to hold the receiver's last capacity
 while another connection calls the ordinary service RPC, require lock refusal,

@@ -1,4 +1,9 @@
 -- Review patch only. Requires v3 household/binding guards loaded first.
+-- Closed by default; exact transaction-scoped activation replaces this only in
+-- the additional disposable activation fixture. No generic stopped-user bypass.
+create function maintenance_private.allowed_family_attachment_activation(tbl text,before_value jsonb,after_value jsonb)
+returns boolean language sql security invoker set search_path='' as $$ select false $$;
+revoke all on function maintenance_private.allowed_family_attachment_activation(text,jsonb,jsonb) from public,anon,authenticated,service_role;
 create table maintenance_private.private_writer_routes(
  kind text not null,object_id uuid not null,principal uuid not null,primary key(kind,object_id));
 alter table maintenance_private.private_writer_routes enable row level security;
@@ -9,6 +14,8 @@ create function maintenance_private.guard_private_account_write() returns trigge
 language plpgsql security definer set search_path='' as $$
 declare r jsonb;old_r jsonb;ids uuid[]:='{}';k text;p uuid;related uuid;route_kind text;record_id uuid;rows_to_check jsonb[];
 begin
+ if tg_op='UPDATE' and tg_table_name in('product_attachments','attachment_write_attempts')
+ and maintenance_private.allowed_family_attachment_activation(tg_table_name,to_jsonb(old),to_jsonb(new)) then return new;end if;
  if tg_op='DELETE' then rows_to_check:=array[to_jsonb(old)];
  elsif tg_op='INSERT' then rows_to_check:=array[to_jsonb(new)];
  else rows_to_check:=array[to_jsonb(old),to_jsonb(new)];end if;
