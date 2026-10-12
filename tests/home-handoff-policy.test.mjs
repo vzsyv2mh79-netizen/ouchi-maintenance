@@ -46,3 +46,18 @@ test('caller cancellation while body waits cancels reader and yields no policy',
  const read=reader({fetcher:async()=>new Response(new ReadableStream({pull(){entered();},cancel(){cancelled=true;}}))});
  const pending=read(controller.signal);await ready;controller.abort();assert.equal(await pending,null);await new Promise(resolve=>setImmediate(resolve));assert.equal(cancelled,true);
 });
+
+test('post-lock freshness uses the original issued object and original cancellation',async()=>{
+ let time=now+58000;
+ const read=reader({clock:()=>time});const controller=new AbortController();
+ const policy=await read(controller.signal);assert.ok(policy);
+ assert.equal(read.isCurrent(policy),true);
+ assert.equal(read.isCurrent({...policy,checkedAt:new Date(time).toISOString()}),false);
+ const other=reader({clock:()=>time});assert.equal(other.isCurrent(policy),false);
+ time=now+59000;assert.equal(read.isCurrent(policy),true);
+ // Simulated successful SQL result cannot make expired policy current.
+ const sqlResult=await Promise.resolve().then(()=>{time=now+60000;return true;});
+ assert.equal(sqlResult,true);assert.equal(read.isCurrent(policy),false);
+ time=now+59000;controller.abort();assert.equal(read.isCurrent(policy),false);
+ assert.equal(read.isCurrent(null),false);
+});
