@@ -35,7 +35,7 @@ import Foundation
         let expected = generation
         busy = true
         defer { if generation == expected { busy = false } }
-        let current = try await api.currentProgress(token: token)
+        let current = try await api.currentProgress(token: token, expectedAccountID: accountID, expectedEpochID: epochID)
         try Task.checkCancellation()
         guard generation == expected else { throw CloudError.authenticationRequired }
         if let current {

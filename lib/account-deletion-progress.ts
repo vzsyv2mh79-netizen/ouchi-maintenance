@@ -16,9 +16,15 @@ export async function handleAccountDeletionProgress(request: Request, requestID:
   if (!uuid(userID)) return reply({error: 'Authentication required'}, 401);
   if (request.signal.aborted) return reply({error: 'Request cancelled'}, 409);
   const result = await deps.read(Object.freeze({requestID, userID}), header.slice(7));
-  if (result === null) return reply({error: 'Request not found'}, 404);
+  if (result === null) return reply({error: requestID === null ? 'Current status unconfirmed' : 'Request not found'}, requestID === null ? 503 : 404);
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw Error('Invalid progress');
   const row = result as Record<string, unknown>;
+  // Only an authoritative store snapshot may declare scoped absence. A null
+  // query result or route-level 404 cannot authorize a new deletion POST.
+  if (requestID === null && row.state === 'not_requested') {
+   if (row.userID !== userID || !uuid(row.epochID) || row.requestID !== undefined) throw Error('Unconfirmed absence');
+   return reply({state: 'not_requested', userID, epochID: row.epochID}, 200);
+  }
   if (!uuid(row.requestID) || !uuid(row.epochID) || (requestID !== null && row.requestID !== requestID) || row.userID !== userID || !['pending', 'running', 'complete', 'failed'].includes(String(row.state))) throw Error('Unconfirmed scope');
   // File/household erasure flags never imply full account completion.
   return reply({requestID: row.requestID, epochID: row.epochID, state: row.state}, 200);

@@ -15,3 +15,12 @@ test('progress authenticates exact ownership and never upgrades partial erasure 
  assert.equal((await handle(req(),requestID,{verify:async()=>null,read:async()=>{throw Error('must not read');}})).status,401);
  assert.equal((await handle(new Request('https://example.invalid/progress?userID='+userID),requestID,{verify:async()=>userID,read:async()=>null})).status,400);
 });
+
+test('current lookup needs a verified scoped absence and never infers it from null',async()=>{
+ const userID='22222222-2222-4222-8222-222222222222',epochID='33333333-3333-4333-8333-333333333333';
+ const req=()=>new Request('https://example.invalid/account/deletion',{headers:{authorization:'Bearer synthetic'}});
+ assert.equal((await handle(req(),null,{verify:async()=>userID,read:async()=>null})).status,503);
+ const response=await handle(req(),null,{verify:async()=>userID,read:async()=>({state:'not_requested',userID,epochID})});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{state:'not_requested',userID,epochID});
+ for(const row of [{state:'not_requested',userID:epochID,epochID},{state:'not_requested',userID,epochID:'invalid'},{state:'not_requested',userID,epochID,requestID:epochID}])assert.equal((await handle(req(),null,{verify:async()=>userID,read:async()=>row})).status,503);
+});

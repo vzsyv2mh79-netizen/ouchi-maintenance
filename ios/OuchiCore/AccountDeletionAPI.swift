@@ -49,12 +49,20 @@ public struct AccountDeletionAPI: Sendable {
         return try AccountDeletionStatus.progress(result.0, httpStatus: result.1, expectedRequestID: requestID)
     }
     /// Check this before retrying a request whose server acknowledgement was lost.
-    public func currentProgress(token: String) async throws -> AccountDeletionStatus? {
-        let result = try await send(path: "", token: token, body: nil, allowNotFound: true)
-        if result.1 == 404 { return nil }
+    public func currentProgress(token: String, expectedAccountID: UUID? = nil, expectedEpochID: UUID? = nil) async throws -> AccountDeletionStatus? {
+        let result = try await send(path: "", token: token, body: nil)
+        let object = try JSONSerialization.jsonObject(with: result.0) as? [String: Any]
+        if object?["state"] as? String == "not_requested" {
+            let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+            guard let account = expectedAccountID, let epoch = expectedEpochID, account != zero, epoch != zero,
+                  Set(object!.keys) == ["state", "userID", "epochID"],
+                  let user = object?["userID"] as? String, UUID(uuidString: user) == account,
+                  let enrollment = object?["epochID"] as? String, UUID(uuidString: enrollment) == epoch else { throw CloudError.malformedResponse }
+            return nil
+        }
         return try AccountDeletionStatus.currentProgress(result.0, httpStatus: result.1)
     }
-    private func send(path: String, token: String, body: Data?, allowNotFound: Bool = false) async throws -> (Data, Int) {
+    private func send(path: String, token: String, body: Data?) async throws -> (Data, Int) {
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         try Task.checkCancellation()
         let url = URL(string: origin + "/api/account/deletion" + path)!
@@ -69,7 +77,7 @@ public struct AccountDeletionAPI: Sendable {
         try Task.checkCancellation()
         guard response.url == url, data.count <= 4096 else { throw CloudError.malformedResponse }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
-        guard response.statusCode == (body == nil ? 200 : 202) || (allowNotFound && body == nil && response.statusCode == 404) else { throw CloudError.rejected(response.statusCode) }
+        guard response.statusCode == (body == nil ? 200 : 202) else { throw CloudError.rejected(response.statusCode) }
         return (data, response.statusCode)
     }
 }

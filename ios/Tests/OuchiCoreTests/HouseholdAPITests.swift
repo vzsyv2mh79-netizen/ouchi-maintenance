@@ -239,8 +239,7 @@ extension HouseholdAPITests {
         XCTAssertEqual(result?.requestID, id)
         XCTAssertEqual(result?.state, .running)
         let absent = AccountDeletionAPI { request in (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!) }
-        let missing = try await absent.currentProgress(token: "synthetic")
-        XCTAssertNil(missing)
+        do { _ = try await absent.currentProgress(token: "synthetic"); XCTFail("Unscoped 404 is not verified absence") } catch { XCTAssertEqual(error as? CloudError, .rejected(404)) }
     }
 }
 
@@ -315,7 +314,7 @@ extension HouseholdAPITests {
         let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
         let api = AccountDeletionAPI { request in
             if request.httpMethod == "GET" {
-                return (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
+                return (Data("{\"state\":\"not_requested\",\"userID\":\"22222222-2222-4222-8222-222222222222\",\"epochID\":\"33333333-3333-4333-8333-333333333333\"}".utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
             }
             XCTAssertEqual(request.httpMethod, "POST")
             withUnsafeCurrentTask { $0?.cancel() }
@@ -323,7 +322,7 @@ extension HouseholdAPITests {
             return (body, HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!)
         }
         let flow = AccountDeletionFlow(api: api)
-        flow.bind(accountID: UUID(), epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
+        flow.bind(accountID: UUID(uuidString: "22222222-2222-4222-8222-222222222222")!, epochID: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!)
         let operation = Task { @MainActor in
             do {
                 _ = try await flow.submit(password: "Synthetic-only", token: "synthetic")
@@ -335,4 +334,31 @@ extension HouseholdAPITests {
         XCTAssertFalse(flow.busy)
     }
 
+}
+
+
+extension HouseholdAPITests {
+    @MainActor func testDeletionUnknownOrForeignAbsenceNeverSubmits() async {
+        let account = UUID(), epoch = UUID()
+        let cases: [(Int, Data)] = [(404, Data()), (404, Data("<html>missing route</html>".utf8)),
+            (200, try! JSONSerialization.data(withJSONObject: ["state": "not_requested", "userID": UUID().uuidString, "epochID": epoch.uuidString])),
+            (200, try! JSONSerialization.data(withJSONObject: ["state": "not_requested", "userID": account.uuidString, "epochID": UUID().uuidString]))]
+        for (status, data) in cases {
+            let api = AccountDeletionAPI { request in
+                XCTAssertEqual(request.httpMethod, "GET", "Unconfirmed absence must not issue a POST")
+                return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            }
+            let flow = AccountDeletionFlow(api: api); flow.bind(accountID: account, epochID: epoch)
+            do { _ = try await flow.submit(password: "synthetic-only", token: "synthetic"); XCTFail("Unconfirmed absence accepted") } catch {}
+            XCTAssertNil(flow.receipt); XCTAssertFalse(flow.busy)
+        }
+    }
+    func testDeletionAbsenceRequiresExplicitCurrentAccountAndEpoch() async throws {
+        let account = UUID(), epoch = UUID()
+        let data = try JSONSerialization.data(withJSONObject: ["state": "not_requested", "userID": account.uuidString, "epochID": epoch.uuidString])
+        let api = AccountDeletionAPI { request in (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!) }
+        let result = try await api.currentProgress(token: "synthetic", expectedAccountID: account, expectedEpochID: epoch)
+        XCTAssertNil(result)
+        do { _ = try await api.currentProgress(token: "synthetic"); XCTFail("Unbound absence accepted") } catch {}
+    }
 }

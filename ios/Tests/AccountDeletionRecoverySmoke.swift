@@ -2,7 +2,7 @@ import Foundation
 import OuchiCore
 
 private actor DeletionServer {
-    let epoch = UUID(), requestID = UUID()
+    let epoch = UUID(), requestID = UUID(), account = UUID()
     var accepted = false, posts = 0, reads = 0, timeoutRead = false
     func setReadTimeout(_ value: Bool) { timeoutRead = value }
     func counts() -> (Int, Int) { (posts, reads) }
@@ -18,15 +18,16 @@ private actor DeletionServer {
         let body = accepted
             ? try JSONSerialization.data(withJSONObject: [
                 "requestID": requestID.uuidString, "epochID": epoch.uuidString, "state": "pending"])
-            : Data()
-        return (body, HTTPURLResponse(url: request.url!, statusCode: accepted ? 200 : 404,
+            : try JSONSerialization.data(withJSONObject: ["state": "not_requested", "userID": account.uuidString, "epochID": epoch.uuidString])
+        return (body, HTTPURLResponse(url: request.url!, statusCode: 200,
                                      httpVersion: nil, headerFields: nil)!)
     }
 }
 
 @main struct AccountDeletionRecoverySmoke {
     @MainActor static func main() async throws {
-        let server = DeletionServer(), account = UUID()
+        let server = DeletionServer()
+        let account = await server.account
         let epoch = await server.epoch
         let flow = AccountDeletionFlow(api: AccountDeletionAPI(transport: { try await server.respond($0) }))
         flow.bind(accountID: account, epochID: epoch, revision: UUID())
