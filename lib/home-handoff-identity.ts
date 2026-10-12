@@ -14,6 +14,7 @@ export const HOME_HANDOFF_SESSION_POLICY_SQL=`select
  exists(select 1 from auth.mfa_factors f where f.user_id=s.user_id and f.status::text='verified') as has_verified_factor,
  (s.not_after is null or s.not_after>clock_timestamp())
  and s.created_at<=clock_timestamp()
+ and (s.refreshed_at is null or (s.refreshed_at at time zone 'UTC')<=clock_timestamp())
  and ($3::bigint is null or s.created_at+($3::bigint * interval '1 second')>clock_timestamp())
  and ($4::bigint is null or (s.refreshed_at is not null and s.refreshed_at at time zone 'UTC'+($4::bigint * interval '1 second')>clock_timestamp())) as session_current
  from auth.sessions s where s.id=$1::uuid and s.user_id=$2::uuid`;
