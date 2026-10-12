@@ -146,6 +146,13 @@ private struct SignInView: View {
                     if store.localClosureRecoveryConfigured {
                         NavigationLink("未完了の端末登録を確認") { LocalRegistrationClosureRecoveryView() }
                     }
+                    #if DEBUG
+                    NavigationLink("保存された削除申請を確認（準備中）") {
+                        SavedDeletionReceiptsView(userID: nil, revision: store.accountBindingRevision,
+                            available: false, vault: store.deletionReceiptVault,
+                            flow: store.deletionReceiptRecoveryFlow)
+                    }
+                    #endif
 
                 }
             }.navigationTitle("おうちメンテ").modifier(AdaptiveNavigationTitle())
@@ -360,6 +367,15 @@ private struct NativeSettings: View {
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("ヘルプ") { NavigationLink("使い方・困ったとき") { HelpInformation() } }
                 Section("アカウント") {
+                    #if DEBUG
+                    if let account = store.preparedDeletionAccountID {
+                        NavigationLink("保存された削除申請を確認（準備中）") {
+                            SavedDeletionReceiptsView(userID: account, revision: store.accountBindingRevision,
+                                available: false, vault: store.deletionReceiptVault,
+                                flow: store.deletionReceiptRecoveryFlow)
+                        }
+                    }
+                    #endif
                     if let email = store.accountEmail, !email.isEmpty {
                         LabeledContent("ログイン中", value: email)
                             .textSelection(.enabled)

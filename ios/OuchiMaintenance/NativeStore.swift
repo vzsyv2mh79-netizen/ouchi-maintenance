@@ -66,6 +66,13 @@ struct FormalChannelSelection {
     } }
     @Published private(set) var reminderSettings: ReminderSettingsReceipt?
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
+    /// Dedicated receipt custody is independent of login storage. Logging out
+    /// does not remove credentials needed to read an already accepted request.
+    let deletionReceiptVault = DeletionReadCredentialVault(
+        service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".deletion-receipts")
+    lazy var deletionReceiptRecoveryFlow = DeletionReceiptRecoveryFlow { [deletionReceiptVault] binding in
+        try deletionReceiptVault.recoveryReceipt(binding)
+    }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
     @Published var message: String?
