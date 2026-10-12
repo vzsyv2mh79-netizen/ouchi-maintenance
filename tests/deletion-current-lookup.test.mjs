@@ -34,3 +34,11 @@ test('current lookup proves absence read-only and refuses stale or unresolved sc
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(()=>read());await db.exec('reset role');}
  } finally {await db.close();}
 });
+
+test('real Auth migration workflow includes the current lookup before API checks',()=>{
+ const workflow=readFileSync('.github/workflows/billing-identity-migration.yml','utf8');
+ const lookup='supabase/migrations/20261012174446_ouchi_current_deletion_lookup.sql';
+ const loop=workflow.match(/for file in ([^\n]+); do/);
+ assert.ok(loop);assert.ok(loop[1].split(/\s+/).includes(lookup));
+ assert.ok(workflow.indexOf(lookup)<workflow.indexOf('tests/account-deletion-storage.integration.mjs',workflow.indexOf('jobs:')));
+});
