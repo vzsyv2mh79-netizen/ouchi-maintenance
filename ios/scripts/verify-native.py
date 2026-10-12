@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Compile every smoke executable against a fresh core; optionally build iOS.
-All executable tests use fixtures/mock transport, never the live household.
+Executable tests use fixtures/mock transport and uniquely scoped test Keychain items, never the live household.
 """
 import argparse
 import pathlib
@@ -27,15 +27,25 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     run(common + ['-emit-module', '-emit-library', '-enable-testing', '-module-name', 'OuchiCore',
                   *sorted((root / 'OuchiCore').glob('*.swift')), '-o', build / 'libOuchiCore.dylib',
                   '-emit-module-path', build / 'OuchiCore.swiftmodule'])
-    tests = sorted((root / 'Tests').glob('*Smoke.swift'))
+    # Simulator-only protected-file helper has no macOS entry point; it is
+    # exercised by the separate device review app, not this executable loop.
+    tests = sorted(test for test in (root / 'Tests').glob('*Smoke.swift')
+                   if test.name != 'ManagedExportDeviceSmoke.swift')
     for test in tests:
         executable = build / test.stem
         sources = [test]
         if test.stem in ('SnapshotStorageSmoke', 'AccountDeletionLocalCleanupSmoke'): sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
+        if test.stem in ('DeletionReceiptVaultSmoke', 'DeletionReceiptVaultRestartSmoke'): sources.append(root / 'OuchiMaintenance' / 'DeletionReadCredentialVault.swift')
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
         run(common + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
-        run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
-    typechecked = ['KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
+        if test.stem == 'DeletionReceiptVaultRestartSmoke':
+            marker = build / 'receipt-restart-marker.json'
+            run([executable, 'save', marker])
+            run([executable, 'restore', marker])
+            assert not marker.exists()
+        else:
+            run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
+    typechecked = ['DeletionReadCredentialVault.swift', 'KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
     run(common + ['-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])
