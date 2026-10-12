@@ -66,7 +66,9 @@ composition, deployed route or physical-device claim is made from these tests.
   transaction, concurrency, cancellation and uncertain commit readback.
 - Real current Auth/MFA plus BOTH inventory-bound consents, signing-key and
   least-privilege provider provisioning, and shipping native/HTTP integration.
-- Durable activation-status/cleanup/completion adapters. Only activation receipt
+- Durable cleanup/completion and shipping status integration. A disabled backend
+  status reader now validates committed receipts and exact retained inventory
+  (see `FamilyAttachmentDurableStatus.md`). Only activation receipt
   readback may advance to source cleanup; measured destination bytes must still
   be current. Auth retirement must await durable definitive source absence.
 - Verified native lease reclamation while the shared private-writer freeze is
