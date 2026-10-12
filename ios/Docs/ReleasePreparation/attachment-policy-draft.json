@@ -1,0 +1,42 @@
+{
+  "status": "proposed_not_enabled",
+  "version": "2026-10-12",
+  "capacityScope": "uploading app account and account epoch; not per household or per family member view",
+  "totalBytes": 104857600,
+  "fileCount": 100,
+  "perFileBytes": 5242880,
+  "formats": ["image/jpeg", "image/png", "application/pdf"],
+  "customerDisclosure": "写真・保証書は、アップロードしたアカウント全体で合計100MiB、100件、1件5MiBまで。参加している住まいのメンバーに共有されます。サブスク終了後は追加できませんが、保存済みのファイルは閲覧・ダウンロード・削除できます。終了だけを理由に削除せず、本人が削除するか、おうちメンテを退会するまで保管します。",
+  "retention": {
+    "active": "until explicit file/product/owning household deletion or app account deletion",
+    "subscriptionExpiry": "no automatic erasure; retained reading, download and deletion; new uploads require verified rights",
+    "membershipRemoval": "revoke access immediately; does not alone erase another uploader's files",
+    "fileDeletion": "block reads immediately on accepted deletion; proposed physical removal target within 30 days after successful acceptance",
+    "appDeletion": "block app account writes/reads at accepted closure; purge owned live objects with durable retry; proposed physical removal target within 30 days",
+    "backup": "public wording blocked until provider backup inventory and expiry are confirmed",
+    "outage": "show pending deletion and allow status reread; never claim erasure before verified completion",
+    "basicRecords": "subscription expiry does not erase products, tasks or history; free viewing/export remain"
+  },
+  "capacityAccounting": [
+    "reserve bytes and count before upload, using server transaction",
+    "pending and confirmed objects count against capacity",
+    "reserve release only after verified write absence or removal",
+    "changing household does not create a fresh quota",
+    "shared household members do not multiply the uploader's allowance"
+  ],
+  "costScenarios": [
+    {"accounts": 10, "worstCaseGiB": 0.9765625},
+    {"accounts": 100, "worstCaseGiB": 9.765625},
+    {"accounts": 1000, "worstCaseGiB": 97.65625}
+  ],
+  "releaseGates": [
+    "measure shared-project capacity, storage/download costs and expected retention burden",
+    "confirm actual deployment supports these limits and retained free reads",
+    "implement and verify deletion SLA and backlog monitoring before promising 30 days",
+    "confirm backups, provider retention and offboarding behavior",
+    "verify PDF preview/download and JPEG/PNG metadata preparation on actual iPhone",
+    "publish operator and support details; do not sell an unimplemented benefit"
+  ],
+  "notIncluded": ["unlimited storage", "indefinite service availability guarantee", "automatic retention purge on subscription expiry"],
+  "sourceFiles": ["lib/product-attachment.ts", "lib/attachment-read-handler.ts", "ios/Docs/PurchaseDisclosureReleaseGate.md"]
+}

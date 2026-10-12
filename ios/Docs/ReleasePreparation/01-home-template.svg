@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="2868" viewBox="0 0 1320 2868">
+ <rect width="1320" height="2868" fill="#f2f5ef"/>
+ <g font-family="-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif">
+ <text x="94" y="142" font-size="37" letter-spacing="5" fill="#355947">おうちメンテ</text>
+ <text x="94" y="310" font-size="86" font-weight="700" fill="#172d23">次のお手入れを</text>
+ <text x="94" y="424" font-size="86" font-weight="700" fill="#172d23">ひと目で。</text>
+ <text x="94" y="535" font-size="39" fill="#506359">製品ごとの予定をまとめて確認</text>
+ <rect x="165" y="675" width="990" height="1960" rx="62" fill="#fff" stroke="#c5d0c5" stroke-width="3"/>
+ <rect x="234" y="930" width="852" height="1050" rx="28" fill="#f2f5ef"/>
+ <text x="660" y="1380" text-anchor="middle" font-size="45" fill="#506359">検証済みの実画面を配置</text>
+ <text x="660" y="1470" text-anchor="middle" font-size="34" fill="#506359">home / 架空のサンプル記録</text>
+ <text x="660" y="2560" text-anchor="middle" font-size="31" fill="#66746c">確認用テンプレート・提出不可</text>
+ <text x="94" y="2780" font-size="27" fill="#66746c">デザイン案 01 / 実画面の撮影・差し替え前</text>
+ </g></svg>

@@ -26,6 +26,7 @@ struct NativeRootView: View {
         }
         .safeAreaInset(edge: .top) {
             HStack {
+                VStack(alignment: .leading, spacing: 4) {
                 #if DEBUG
                 if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
                    let stamp=Bundle.main.infoDictionary?["OUCHI_REVIEW_BUILD_ID"] as? String,
@@ -37,6 +38,7 @@ struct NativeRootView: View {
                 }
                 #endif
                 if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
+                }.fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button {
                     preferredAppearance = appearance == .dark ? "light" : "dark"

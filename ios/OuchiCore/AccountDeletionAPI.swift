@@ -20,7 +20,10 @@ public struct AccountDeletionAPI: Sendable {
         origin = "https://ouchi-maintenance.vercel.app"
         #endif
         self.transport = transport ?? { request in
-            let session = URLSession(configuration: .ephemeral, delegate: DeletionRedirectBlocker(), delegateQueue: nil)
+            // Bound the entire response, including a peer that trickles bytes.
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.timeoutIntervalForResource = 35
+            let session = URLSession(configuration: configuration, delegate: DeletionRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
             let (bytes, response) = try await session.bytes(for: request)
             guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }

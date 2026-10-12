@@ -1,0 +1,101 @@
+{
+  "status": "draft_not_for_submission",
+  "locale": "ja-JP",
+  "bundleId": "jp.ouchi.maintenance",
+  "sourceHead": "f11e57d09ac34eb9c6c379a58532523f735b9bb6",
+  "fields": {
+    "name": "おうちメンテ",
+    "subtitle": "家電のお手入れと家族の記録",
+    "promotionalText": "家電のお手入れ、いつしたっけ？ 製品ごとの予定と履歴をまとめて、家族と共有できます。",
+    "keywords": "家電管理,お手入れ,掃除記録,点検記録,家族共有,リマインダー",
+    "description": "家電のお手入れを、家族で忘れずに。\n\nおうちメンテは、製品ごとのお手入れ予定と実施履歴をまとめるアプリです。掃除・交換・点検の周期を設定し、完了すると次の予定が更新されます。\n\n【できること】\n・製品名、品番、購入日などを登録\n・お手入れの周期と次回予定を管理\n・完了したお手入れを履歴に記録\n・住まいを分けて管理し、家族と共有\n・記録のバックアップとカレンダーファイルの書き出し\n・ライトモードとダークモードの切り替え\n\n【品番からお手入れの候補を探す】\n対応を確認した品番には、メーカー公式情報を根拠とした候補を表示します。根拠となる説明書やページを確認して登録できます。未対応の品番や独自のお手入れは手入力で追加できます。\n\n【記録を家族と共有】\niPhone版はアカウントにログインして利用します。同じ住まいに参加した家族と、製品・予定・完了履歴を共有できます。家族はそれぞれ自分のアカウントでログインします。\n\n基本の家電登録、お手入れ記録、家族共有、記録の書き出しは無料で利用できます。\n\n実際のお手入れは、製品の取扱説明書と安全上の注意を確認して行ってください。"
+  },
+  "proposedCategories": {
+    "primary": "Lifestyle",
+    "secondary": "Utilities"
+  },
+  "ownerFields": {
+    "developerName": null,
+    "supportURL": null,
+    "privacyPolicyURL": null,
+    "reviewContact": null,
+    "demoAccount": null
+  },
+  "releaseGates": [
+    "paid Apple membership and Team confirmed",
+    "live native/Web same-account and family flow verified",
+    "production account deletion available in app",
+    "public operator/support and legal pages confirmed",
+    "real signed Apple Sandbox lifecycle verified",
+    "premium benefits, capacity/retention and actual store prices confirmed before sale",
+    "signed archive/TestFlight and actual screenshots",
+    "App Review submission and approval"
+  ],
+  "excludedFromPublicClaims": [
+    "photo/warranty storage not live",
+    "advanced notifications not live",
+    "premium report not live",
+    "unconfirmed subscription/tip prices",
+    "all-model support",
+    "direct TimeTree synchronization"
+  ],
+  "screenshotPlan": [
+    {
+      "screen": "home",
+      "purpose": "次のお手入れと期限を確認"
+    },
+    {
+      "screen": "products",
+      "purpose": "家電ごとの製品とお手入れ"
+    },
+    {
+      "screen": "history",
+      "purpose": "完了したお手入れの記録"
+    },
+    {
+      "screen": "family",
+      "purpose": "同じ住まいを家族で共有"
+    },
+    {
+      "screen": "settings",
+      "purpose": "バックアップと表示設定"
+    }
+  ],
+  "privacyLabels": "pending end-to-end data collection/SDK/retention review; do not submit a guessed declaration",
+  "sources": [
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/app-information/",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information/"
+  ],
+  "previewLabels": {
+    "title": "おうちメンテ 掲載内容の確認案",
+    "badge": "公開前の掲載案・未提出",
+    "promo": "紹介文",
+    "description": "アプリの説明",
+    "gates": "提出前に確定すること",
+    "note": "運営者名・問い合わせ先・プライバシーポリシー、Apple登録、審査用アカウント、公開版の動作確認が必要です。スクリーンショットは公開版の検証後に作成します。"
+  },
+  "fieldValidation": {
+    "name": {
+      "characters": 6,
+      "utf8Bytes": 18
+    },
+    "subtitle": {
+      "characters": 13,
+      "utf8Bytes": 39
+    },
+    "promotionalText": {
+      "characters": 42,
+      "utf8Bytes": 124
+    },
+    "keywords": {
+      "characters": 31,
+      "utf8Bytes": 83
+    },
+    "description": {
+      "characters": 488,
+      "utf8Bytes": 1412
+    }
+  },
+  "version": "2026-10-12",
+  "screenshots": "5 designed templates; no real screenshots or submission PNGs yet"
+}

@@ -1,0 +1,60 @@
+{
+  "status": "implementation_and_drafts_prepared_not_release_complete",
+  "sourceHeadBeforeChange": "f11e57d09ac34eb9c6c379a58532523f735b9bb6",
+  "ui": {
+    "change": "stack status captions vertically, retain top-right 44pt theme control and Dynamic Type semantic fonts",
+    "manualChecks": "pending; no Larger Text App Store claim yet",
+    "matrix": [
+      "small iPhone and large iPhone",
+      "default/AX3/AX5",
+      "light/dark",
+      "keyboard open and landscape",
+      "VoiceOver labels, focus and complete action"
+    ],
+    "flows": [
+      "login/signup/reset",
+      "family invite/join",
+      "product/task editor",
+      "complete/history",
+      "export",
+      "purchase/restore",
+      "account closure/recovery"
+    ]
+  },
+  "network": {
+    "change": "resource deadlines: status/cancel 20s; challenge/commit/deletion 35s; process already 65s",
+    "test": "new synthetic deletion lost-ack/timeout status recovery, no duplicate POST and epoch refusal",
+    "remaining": [
+      "expired/original-session-loss restore recovery",
+      "unknown Apple update outcome reconciliation",
+      "finite pending proof/job/cancel receipt retention",
+      "signed real Apple Sandbox and actual device persistence",
+      "production app closure with shared-Auth isolation and cleanup SLA"
+    ],
+    "limitations": "local smoke proves control flow, not real transport deadlines or production deletion"
+  },
+  "storage": {
+    "policy": "attachment-policy-draft.json",
+    "status": "proposed; physical deletion SLA/backups/costs not enabled or approved"
+  },
+  "legal": {
+    "draft": "legal-drafts-ja.json",
+    "ownerFields": [
+      "operator",
+      "contact",
+      "effective date"
+    ],
+    "publication": "blocked until operational facts verified"
+  },
+  "listing": {
+    "copy": "listing-ja-draft.json",
+    "images": "screenshot-plan.json",
+    "status": "5 SVG templates; real capture and opaque PNG/JPEG export remain"
+  },
+  "enabled": {
+    "production": false,
+    "realPayments": false,
+    "paidInfrastructure": false,
+    "existingDataDeletion": false
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "status": "prepared_templates_not_submission_images",
+  "assets": [
+    {
+      "screen": "home",
+      "file": "01-home-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "次のお手入れを",
+        "ひと目で。"
+      ],
+      "caption": "製品ごとの予定をまとめて確認",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "products",
+      "file": "02-products-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "家電の情報を",
+        "ひとつに。"
+      ],
+      "caption": "品番とお手入れの周期を管理",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "history",
+      "file": "03-history-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "いつお手入れしたか、",
+        "ちゃんと残る。"
+      ],
+      "caption": "完了を記録して次の予定へ",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "family",
+      "file": "04-family-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "家族でわかる、",
+        "わが家のこと。"
+      ],
+      "caption": "同じ住まいの予定と記録を共有",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "settings",
+      "file": "05-settings-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "大切な記録を、",
+        "手元にも。"
+      ],
+      "caption": "基本の記録と書き出しは無料",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    }
+  ],
+  "officialSource": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+  "excludedClaims": [
+    "photo/warranty storage not live",
+    "advanced notifications not live",
+    "premium report not live",
+    "unconfirmed subscription/tip prices",
+    "all-model support",
+    "direct TimeTree synchronization"
+  ]
+}

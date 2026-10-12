@@ -18,7 +18,10 @@ public struct RestoreStatusAPI: Sendable {
         self.now = now
         self.identity = AppAttestRegistrationAPI(currentSession: currentSession, now: now)
         self.transport = transport ?? { request in
-            let session = URLSession(configuration: .ephemeral, delegate: RestoreStatusRedirectBlocker(), delegateQueue: nil)
+            // Bound the entire response, including a peer that trickles bytes.
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.timeoutIntervalForResource = 20
+            let session = URLSession(configuration: configuration, delegate: RestoreStatusRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
             let (stream,response) = try await session.bytes(for: request)
             guard let response = response as? HTTPURLResponse, response.expectedContentLength <= 4096 else { throw CloudError.malformedResponse }
