@@ -52,19 +52,43 @@ import StoreKit
 // Local StoreKit fixtures only; never Apple-signed Sandbox/server rights evidence.
 final class LocalStoreKitCatalogTests: XCTestCase {
     enum FixtureError: Error { case wrongEnvironment, missingTransaction }
-    @MainActor private func disposableSession() async throws -> SKTestSession {
+    // StoreKit testing controls one app-wide service. Retain one owner for this
+    // dedicated host rather than interleave construction/destruction of sessions.
+    @MainActor private static var catalogSession: SKTestSession?
+    @MainActor private func sharedCatalogSession() async throws -> SKTestSession {
         let bundle = Bundle(for: Self.self)
         guard bundle.bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests",
               Bundle.main.bundleIdentifier == "dev.ouchi.review.storekit.catalog" else { throw FixtureError.wrongEnvironment }
         let url = try XCTUnwrap(bundle.url(forResource: "OuchiLocal", withExtension: "storekit"))
-        let session = try SKTestSession(contentsOf: url)
+        let session = try Self.catalogSession ?? SKTestSession(contentsOf: url)
         guard case .verified(let app) = try await AppTransaction.shared,
               app.environment == .xcode, app.bundleID == Bundle.main.bundleIdentifier else { throw FixtureError.wrongEnvironment }
+        Self.catalogSession = session
+        return session
+    }
+    @MainActor private func disposableSession() async throws -> SKTestSession {
+        let session = try await sharedCatalogSession()
         session.resetToDefaultState()
         session.disableDialogs = true
         // Only this dedicated local app's disposable journal, after .xcode proof.
         session.clearTransactions()
-        return session
+        // Journal mutation and the StoreKit receipt view can settle separately.
+        // Do not begin the next case while a previous case's purchase/refund is
+        // still visible through the SDK, even when the journal is already empty.
+        let ids = ["ouchi.premium.monthly", "ouchi.premium.annual", "ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"]
+        for attempt in 0..<100 {
+            var cleared = session.allTransactions().isEmpty
+            for id in ids {
+                if await StoreKit.Transaction.latest(for: id) != nil { cleared = false }
+            }
+            if cleared {
+                if attempt > 0 { print("LOCAL_RECEIPT_RESET_WAIT_ROUNDS", attempt) }
+                return session
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        throw NSError(domain: "OuchiLocalStoreKitFixture", code: 2,
+                      userInfo: [NSLocalizedDescriptionKey: "Disposable journal and StoreKit receipt reset were not both confirmed"])
     }
     @MainActor private func latest(_ id: String, phase: String, accepting predicate: (StoreKit.Transaction) -> Bool) async throws -> StoreKit.Transaction {
         for _ in 0..<100 {
@@ -305,6 +329,33 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         XCTAssertEqual(submissions, 0, "visual review cancels before local purchase")
         XCTAssertTrue(session.allTransactions().isEmpty)
     }
+    @MainActor func testOptionalActualSubscriptionViewRendering() async throws {
+        guard Bundle.main.infoDictionary?["OUCHI_LOCAL_TIP_UI_REVIEW"] as? String == "SUBSCRIPTION" else {
+            throw XCTSkip("Opt-in CUA review of actual subscription view with synthetic limits; no real store/server.")
+        }
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true)
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        XCTAssertEqual(store.releasePurchases.products.filter { $0.type == .autoRenewable }.count, 2)
+        XCTAssertTrue(store.releasePurchaseSalesAvailable(subscription: true))
+        let disclosure = try XCTUnwrap(SubscriptionOfferDisclosure(reviewed: true,
+            maximumBytes: 100 * 1024 * 1024, maximumFiles: 100, maximumFileBytes: 5 * 1024 * 1024,
+            retention: "合成テスト用の保存方針です。正式なサービスの条件ではありません。"))
+        window.title = "おうちメンテ・契約画面確認（請求なし）"
+        window.setContentSize(NSSize(width: 460, height: 780))
+        window.contentView = NSHostingView(rootView: Form {
+            Section { Text("表示確認専用・合成の容量と保存方針・実際の請求なし") }
+            ReleaseSubscriptionPurchaseSection(purchases: store.releasePurchases, disclosure: disclosure)
+        }.environmentObject(store).preferredColorScheme(.light).padding())
+        window.makeKeyAndOrderFront(nil)
+        print("LOCAL_SUBSCRIPTION_UI_REVIEW_READY")
+        try await Task.sleep(for: .seconds(90))
+        let submissions = await fixture.submissions
+        XCTAssertEqual(submissions, 0, "visual review cancels before local purchase")
+        XCTAssertTrue(session.allTransactions().isEmpty)
+    }
     private func localClaims(_ jws: String) throws -> [String: Any] {
         let segments = jws.split(separator: ".")
         guard segments.count == 3 else { throw FixtureError.missingTransaction }
@@ -357,14 +408,8 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         // Mock persistence inspects SDK-verified local payloads only. No server
         // entitlement, money, real App Store refund or retention change.
     }
-    func testLocalCatalogLoadsWithoutPurchase() async throws {
-        let bundle = Bundle(for: Self.self)
-        guard bundle.bundleIdentifier == "dev.ouchi.review.storekit.catalog.tests" else {
-            XCTFail("Run only in the dedicated local StoreKit test bundle")
-            return
-        }
-        let url = try XCTUnwrap(bundle.url(forResource: "OuchiLocal", withExtension: "storekit"))
-        let session = try SKTestSession(contentsOf: url)
+    @MainActor func testLocalCatalogLoadsWithoutPurchase() async throws {
+        let session = try await sharedCatalogSession()
         // Session construction can succeed while its service logs a save error.
         // Product retrieval must prove the catalog is actually active.
         let expected: Set<String> = ["ouchi.premium.monthly", "ouchi.premium.annual", "ouchi.tip.small", "ouchi.tip.medium", "ouchi.tip.large"]
@@ -394,9 +439,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         // No buyProduct, clearTransactions, transaction history or rights grants.
     }
     @MainActor func testActualPurchaseManagerLoadsCatalogWithoutRights() async throws {
-        let bundle = Bundle(for: Self.self)
-        let url = try XCTUnwrap(bundle.url(forResource: "OuchiLocal", withExtension: "storekit"))
-        let session = try SKTestSession(contentsOf: url)
+        let session = try await sharedCatalogSession()
         let manager = PurchaseManager()
         try await manager.load()
         XCTAssertEqual(manager.products.count, 5)
@@ -437,9 +480,39 @@ final class LocalStoreKitCatalogTests: XCTestCase {
             if currentRenewalObserved { break }
             try await Task.sleep(for: .milliseconds(50))
         }
-        XCTAssertTrue(currentRenewalObserved, "current new subscription must acknowledge auto-renew before forcing renewal")
+        guard currentRenewalObserved else {
+            XCTFail("current new subscription must acknowledge auto-renew before forcing renewal")
+            return
+        }
+        var journalReady = false
+        for _ in 0..<100 {
+            journalReady = session.allTransactions().contains {
+                UInt64($0.identifier) == monthly.id && $0.autoRenewingEnabled &&
+                !$0.hasPurchaseIssue && !$0.pendingAskToBuyConfirmation && !$0.isPendingPriceIncreaseConsent
+            }
+            if journalReady { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        guard journalReady else {
+            XCTFail("local journal must confirm current transaction renewal without a pending issue")
+            return
+        }
         try session.forceRenewalOfSubscription(productIdentifier: monthly.productID)
-        print("LOCAL_RENEWAL_FIXTURE_COUNT", session.allTransactions().count)
+        var journalRenewed = false
+        for _ in 0..<300 {
+            journalRenewed = session.allTransactions().contains {
+                $0.productIdentifier == monthly.productID && UInt64($0.identifier) != monthly.id &&
+                UInt64($0.originalTransactionIdentifier) == monthly.originalID
+            }
+            if journalRenewed { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        print("LOCAL_RENEWAL_FIXTURE_COUNT", session.allTransactions().count,
+              "JOURNAL_UPDATED", journalRenewed, "BILLING_RETRY", session.shouldEnterBillingRetryOnRenewal)
+        guard journalRenewed else {
+            XCTFail("forced renewal did not produce a new matching local journal transaction")
+            return
+        }
         let renewed = try await latest(monthly.productID, phase: "forced renewal") { $0.id != monthly.id }
         XCTAssertEqual(renewed.originalID, monthly.originalID)
         XCTAssertEqual(renewed.appAccountToken, account)

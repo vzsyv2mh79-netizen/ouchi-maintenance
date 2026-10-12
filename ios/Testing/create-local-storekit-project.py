@@ -26,6 +26,11 @@ ui_end = ui_source.index('\nprivate struct FormalReminderSettingsView:', ui_star
 ui_body = ui_source[ui_start:ui_end].replace('private struct ReleaseTipPurchaseSection:', 'struct ReleaseTipPurchaseSection:', 1)
 (root/'ReleaseTipUIReview.swift').write_text('import SwiftUI\nimport StoreKit\nimport OuchiCore\n\n'+ui_body+'\n')
 native_sources.append(ref('tip-ui-source','ReleaseTipUIReview.swift','sourcecode.swift'))
+subscription_start = ui_source.index('private struct ReleaseSubscriptionPurchaseSection: View {')
+subscription_end = ui_source.index('\n// Uses StoreKit Product.displayPrice;', subscription_start)
+subscription_body = ui_source[subscription_start:subscription_end].replace('private struct ReleaseSubscriptionPurchaseSection:', 'struct ReleaseSubscriptionPurchaseSection:', 1)
+(root/'ReleaseSubscriptionUIReview.swift').write_text('import SwiftUI\nimport StoreKit\nimport OuchiCore\n\n'+subscription_body+'\n')
+native_sources.append(ref('subscription-ui-source','ReleaseSubscriptionUIReview.swift','sourcecode.swift'))
 
 package=obj('core-package','XCLocalSwiftPackageReference',relativePath='..')
 core=obj('core-product','XCSwiftPackageProductDependency',package=package,productName='OuchiCore')
