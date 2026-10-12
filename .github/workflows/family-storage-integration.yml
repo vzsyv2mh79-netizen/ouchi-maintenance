@@ -1,0 +1,56 @@
+name: Family preservation Auth and Storage checks
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation]
+    paths: ['supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/family-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/family-storage-integration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: family-storage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  migration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Generate public synthetic Storage JWTs
+        run: node tests/fixtures/auth/storage-keys.mjs
+      - name: Start disposable database and Auth without SMTP
+        run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml up -d --wait --wait-timeout 120 db auth
+      - name: Apply existing household migrations and additive identity migration
+        run: |
+          for file in tests/fixtures/auth/rest-bootstrap.sql supabase/migrations/20261001144732_household_storage.sql supabase/migrations/20261001232931_atomic_import.sql supabase/migrations/20261001233450_household_sharing.sql supabase/migrations/20261001235138_account_data_erasure.sql supabase/migrations/20261002004530_push_reminders.sql supabase/migrations/20261005135600_push_test_delivery.sql supabase/migrations/20261005134316_cloud_backup_restore.sql supabase/migrations/20261010141353_ouchi_billing_identity.sql supabase/migrations/20261010142053_ouchi_verified_transaction_ledger.sql supabase/migrations/20261010220727_ouchi_verified_entitlement_read.sql supabase/migrations/20261010224129_ouchi_verified_notification_inbox.sql supabase/migrations/20261010224749_ouchi_verified_renewal_state.sql supabase/migrations/20261010230223_ouchi_reconciliation_seed.sql supabase/migrations/20261010231045_ouchi_reconciliation_jobs.sql supabase/migrations/20261010231448_ouchi_recovery_job_scope.sql supabase/migrations/20261010232153_ouchi_recovery_status.sql supabase/migrations/20261010233437_ouchi_renewal_transaction_lookup.sql supabase/migrations/20261010234402_ouchi_account_deletion_requests.sql supabase/migrations/20261010234625_ouchi_closed_account_access_gate.sql supabase/migrations/20261010234907_ouchi_account_deletion_leases.sql supabase/migrations/20261010235205_ouchi_attachment_erasure_inventory.sql supabase/migrations/20261010235332_ouchi_deletion_object_progress.sql supabase/migrations/20261010235933_ouchi_deletion_household_records.sql supabase/migrations/20261011000718_ouchi_closed_household_owner_gate.sql supabase/migrations/20261011001303_ouchi_deletion_progress_read.sql supabase/migrations/20261011001818_ouchi_closed_account_push_dispatch.sql supabase/migrations/20261011002005_ouchi_deletion_web_push_erasure.sql supabase/migrations/20261011004515_ouchi_native_notification_registry.sql supabase/migrations/20261011004715_ouchi_native_notification_registration.sql supabase/migrations/20261011005546_ouchi_native_dispatch_destination.sql supabase/migrations/20261011002147_ouchi_closed_account_push_test_dispatch.sql supabase/migrations/20261011002954_ouchi_current_deletion_progress.sql supabase/migrations/20261011005859_ouchi_attachment_upload_reservation.sql supabase/migrations/20261011010239_ouchi_attachment_verified_completion.sql supabase/migrations/20261011010724_ouchi_attachment_retained_read.sql supabase/migrations/20261011012412_ouchi_attachment_write_attempts.sql supabase/migrations/20261011020434_ouchi_attachment_captured_owner.sql supabase/migrations/20261011021242_ouchi_attachment_removal_fence.sql supabase/migrations/20261011032644_ouchi_deletion_reconciliation_cleanup.sql supabase/migrations/20261011041519_ouchi_native_push_job_leases.sql supabase/migrations/20261011041841_ouchi_native_push_claim_lookup.sql supabase/migrations/20261011042308_ouchi_native_push_daily_jobs.sql supabase/migrations/20261011042826_ouchi_native_push_delivery_day_gate.sql supabase/migrations/20261011043237_ouchi_native_push_device_paging.sql supabase/migrations/20261011044638_ouchi_native_push_invalidation.sql supabase/migrations/20261011052015_ouchi_deletion_live_session.sql supabase/migrations/20261011054420_ouchi_reminder_schedule.sql supabase/migrations/20261011065720_ouchi_deletion_progress_epoch.sql supabase/migrations/20261011083324_ouchi_retired_transaction_ingestion.sql supabase/migrations/20261011084235_ouchi_retired_renewal_ingestion.sql supabase/migrations/20261011091753_ouchi_notification_account_erasure.sql supabase/migrations/20261011102245_ouchi_native_reminder_job_schedule.sql supabase/migrations/20261011103523_ouchi_native_push_purchase_scope.sql supabase/migrations/20261011105102_ouchi_native_push_registration_lookup.sql supabase/migrations/20261011105847_ouchi_native_push_scoped_jobs.sql supabase/migrations/20261011111558_ouchi_native_delivery_identity.sql supabase/migrations/20261011112330_ouchi_native_delivery_sweep.sql supabase/migrations/20261011113634_ouchi_native_daily_replanning.sql supabase/migrations/20261011114419_ouchi_notification_channels.sql supabase/migrations/20261011122042_ouchi_deletion_inventory_minimization.sql supabase/migrations/20261011122749_ouchi_explicit_enrollment_guard.sql supabase/migrations/20261011123511_ouchi_explicit_enrollment_consent.sql supabase/migrations/20261011131220_ouchi_deletion_consent_erasure.sql supabase/migrations/20261011131725_ouchi_deletion_receipt_session_snapshot.sql supabase/migrations/20261011132618_ouchi_deletion_purchase_ledger_erasure.sql supabase/migrations/20261011133725_ouchi_deletion_identity_checkpoint.sql supabase/migrations/20261011134528_ouchi_deletion_prior_preferences.sql supabase/migrations/20261011135013_ouchi_deletion_completion_boundary.sql supabase/migrations/20261011140432_ouchi_explicit_policy_latch.sql supabase/migrations/20261011140654_ouchi_completion_receipt_evidence.sql supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql supabase/migrations/20261011153328_ouchi_attest_registration_ledger.sql supabase/migrations/20261011155220_ouchi_attest_registration_transport.sql supabase/migrations/20261012004145_ouchi_restore_transfer_reservation.sql supabase/migrations/20261012004834_ouchi_restore_transfer_completion.sql supabase/migrations/20261012005754_ouchi_restore_completion_status.sql supabase/migrations/20261012010434_ouchi_restore_ownership_writer_guard.sql supabase/migrations/20261012011309_ouchi_deletion_restore_jobs.sql supabase/migrations/20261012015539_ouchi_restore_challenge_transport.sql supabase/migrations/20261012022946_ouchi_restore_verification_context.sql supabase/migrations/20261012023800_ouchi_restore_job_recovery.sql supabase/migrations/20261012031710_ouchi_restore_cancel_unreserved.sql supabase/migrations/20261012035336_ouchi_restore_dispatch_claim.sql supabase/migrations/20261012174446_ouchi_current_deletion_lookup.sql supabase/migrations/20261013043000_ouchi_family_handoff.sql supabase/migrations/20261013043100_ouchi_family_retirement_guard.sql supabase/migrations/20261013043200_ouchi_family_handoff_read.sql supabase/migrations/20261013043300_ouchi_shared_home_delete_guard.sql; do
+            docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < "$file"
+          done
+      - name: Pull disposable data services with bounded network retry
+        run: |
+          for attempt in 1 2 3; do
+            if docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml --profile data-api pull rest storage; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+      - name: Start disposable data API and Storage
+        run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml --profile data-api up -d --wait --wait-timeout 120 rest storage
+      - name: Grant disposable Storage server access
+        run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < tests/fixtures/auth/storage-bootstrap.sql
+      - name: Verify shared family preservation with actual Auth and private Storage
+        env:
+          OUCHI_FAMILY_STORAGE_TEST: 'true'
+        run: node --test tests/family-storage.integration.mjs
+      - name: Diagnose disposable failure
+        if: failure()
+        run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml --profile data-api logs --no-color --tail 100 auth db rest storage
+      - name: Remove only disposable test containers and volumes
+        if: always()
+        run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml --profile data-api down --volumes
