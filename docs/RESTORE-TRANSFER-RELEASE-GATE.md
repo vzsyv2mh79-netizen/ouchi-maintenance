@@ -23,11 +23,23 @@ lease is refused. The mutation marker changes authorized to update_started once;
 a stale second worker gets no marker. A revoked session invalidates permission
 without discarding the uncertain original-purchase reservation.
 
-These RPCs do not implement complete cross-worker exclusion yet. Ordinary ledger
-writes, notification/reconciliation workers and deletion currently do not share
-the new reservation protocol. Wire and test consistent account/original/row lock
-ordering across all writers before any enablement. Do not interpret a queue-only
-advisory lock or sequential PGlite calls as real concurrent PostgreSQL evidence.
+The ownership INSERT trigger now shares account -> original advisory -> owner
+row ordering with enqueue/completion and refuses ordinary ingestion while a
+restore reservation is pending. The atomic completion RPC alone enters a
+transient committing phase in the same transaction; failure restores the prior
+phase and rolls back all writes. Completed same-owner duplicate INSERTs remain
+allowed only when that owner still exists, so normal new-period/refund ingestion
+can proceed. Other owners and recreation after deletion remain refused.
+Ownership identity UPDATE is immutable; service UPDATE is limited to a guarded
+column solely for PostgreSQL row-lock permission.
+
+PGlite tests cover these conditions. A prepared disposable-CI two-session test
+observes actual advisory-lock waits during commit and rollback; it has not been
+executed locally because Docker/PostgreSQL is absent on this host. Current CI
+must pass its new step before claiming concurrent PostgreSQL evidence. The
+migration workflow now applies these four new migrations (it previously stopped
+before them). Deletion, abandoned-mutation reconciliation and retention still
+need integration before enablement; an insert guard is not full-system proof.
 
 Prepared completion RPC now rechecks the live enrollment and exact lease,
 Apple account/app scope, Sandbox, original purchase, current target token,
