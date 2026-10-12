@@ -16,6 +16,7 @@ export async function verifyStoreAccountPair(signedApp:string,signedTransaction:
  const payload=await verifiers.verifyTransaction(signedTransaction);
  if(!app||typeof app!=='object'||Array.isArray(app)||!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('Invalid verified payload');
  const id=(value:unknown):value is string=>typeof value==='string'&&value.length>0&&value.length<=128&&!/\s/.test(value);
+ if(app.appRevocationDate!=null)throw Error('Revoked app transaction');
  if(app.bundleId!==scope.bundleId||app.receiptType!==scope.environment||!id(app.appTransactionId)||app.appTransactionId!==payload.appTransactionId)throw Error('Store account mismatch');
  if(scope.appAppleId!==undefined&&app.appAppleId!==scope.appAppleId)throw Error('App identifier mismatch');
  // Old valid signatures remain valid pairs; this is deliberately not a
