@@ -29,12 +29,28 @@ the new reservation protocol. Wire and test consistent account/original/row lock
 ordering across all writers before any enablement. Do not interpret a queue-only
 advisory lock or sequential PGlite calls as real concurrent PostgreSQL evidence.
 
+Prepared completion RPC now rechecks the live enrollment and exact lease,
+Apple account/app scope, Sandbox, original purchase, current target token,
+premium product, signed-time freshness, active expiry and absence of revocation.
+It invokes the existing verified ledger writer and records completion in the
+same SQL transaction. A failure in the final job write rolls back the ownership
+and transaction inserts. No existing owner's purchase is reassigned. Already
+completed exact-receipt retries require the durable transaction/current owner;
+a later ledger refund cannot be overwritten by that completion retry. A changed
+JWS hash/transaction requires status reconciliation/normal ledger ingestion,
+not a second completion. This only validates normalized output from a trusted
+cryptographic adapter; it does not verify Apple signatures in SQL.
+
+The service store adapter must handle completed-job status and acknowledgement
+loss explicitly. The existing worker's lease probe is not a completed-status
+lookup. Do not wire this RPC alone and claim end-to-end retry recovery.
+
 Required next work:
 
 - Trusted service store mapping for the prepared transfer worker, including an
-  atomic completion RPC that rechecks current Auth/enrollment, reservation,
-  verified current Apple token/expiry/revocation and ownership before persisting
-  proof, changing ownership and completing together.
+  mapping of the prepared atomic completion RPC plus durable completed-status
+  lookup and acknowledgement-loss reconciliation. Test the real SQL adapter
+  and worker together, including changed current JWS after completion.
 - Apple Sandbox current-status adapter and explicit token-update client. HTTP200
   is not proof. Reconcile a lost PUT response by verified readback; uncertain
   retries must never blindly send a second mutation or free the reservation.
