@@ -109,7 +109,9 @@ final class PurchaseManager: ObservableObject {
         guard expected == bindingGeneration, boundAccount == account else { throw CancellationError() }
         try Task.checkCancellation()
         guard case .verified(let app) = appResult,
-              app.environment == .sandbox, app.bundleID == bundleID, app.revocationDate == nil,
+              app.environment == .sandbox, app.bundleID == bundleID,
+              let appJSON = try JSONSerialization.jsonObject(with: app.jsonRepresentation) as? [String: Any],
+              appJSON["appRevocationDate"] == nil || appJSON["appRevocationDate"] is NSNull,
               !app.appTransactionID.isEmpty,
               StoreDeviceVerification.matches(nonce: app.deviceVerificationNonce,
                   deviceID: deviceID, signedDigest: app.deviceVerification),
