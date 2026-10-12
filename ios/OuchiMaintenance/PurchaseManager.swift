@@ -147,6 +147,39 @@ final class PurchaseManager: ObservableObject {
         // Keep the exact signed pair for the independent server authorization.
         return found.0
     }
+    // Prepared orchestration boundary. No UI dispatches this path yet. A future
+    // authenticated API supplies the exact stored challenge, never a client nonce.
+    func sandboxRestoreAssertion(account: UUID, originalTransactionID: String,
+        registration: AppAttestRegistrationScope, requestID: UUID,
+        fetchChallenge: @Sendable (SandboxRestoreEvidence, RestoreAssertionScope) async throws -> Data,
+        validateCurrentScope: @Sendable () async throws -> Void,
+        device: RestoreAssertionDeviceService = .init(),
+        now: @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) async throws -> (SandboxRestoreEvidence, RestoreAssertionChallenge, Data) {
+        guard registration.epochID == account, boundAccount == account,
+              let bundleID = Bundle.main.bundleIdentifier,
+              registration.appID.hasSuffix("." + bundleID) else { throw PurchaseError.notConfigured }
+        let generation = bindingGeneration
+        try Task.checkCancellation()
+        try await validateCurrentScope()
+        let evidence = try await sandboxRestoreEvidence(account: account, originalTransactionID: originalTransactionID)
+        guard generation == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        let scope = RestoreAssertionScope(userID: registration.userID, sessionID: registration.sessionID,
+            epochID: registration.epochID, keyID: registration.keyID, appID: registration.appID,
+            environment: registration.environment, requestID: requestID,
+            proofSHA256: try RestoreAssertionChallenge.pairDigest(signedApp: evidence.signedAppTransaction,
+                signedTransaction: evidence.signedTransaction))
+        try await validateCurrentScope()
+        try Task.checkCancellation()
+        let bytes = try await fetchChallenge(evidence, scope)
+        guard generation == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        let challenge = try RestoreAssertionChallenge.parse(canonicalClientData: bytes, expected: scope, nowMilliseconds: now())
+        let assertion = try await device.generate(challenge: challenge, scope: scope,
+            validateCurrentScope: validateCurrentScope, now: now)
+        guard generation == bindingGeneration, boundAccount == account else { throw CancellationError() }
+        try Task.checkCancellation()
+        return (evidence, challenge, assertion)
+    }
     func markRetryNeeded() { needsRetry = true }
     private func descriptor(_ product: Product) -> StoreProductDescriptor {
         let kind: StoreProductDescriptor.Kind = product.type == .consumable ? .consumable : product.type == .autoRenewable ? .autoRenewable : .other
