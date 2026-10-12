@@ -31,11 +31,13 @@ import CryptoKit
    guard marker.service.hasPrefix("dev.ouchi.review.restart.") else { throw TestFailure.invalid }
    let vault = DeletionReadCredentialVault(service: marker.service)
    defer { try? vault.remove(requestID: marker.request) }
-   let receipt = try vault.prepare(requestID: marker.request, userID: marker.user, inventoryDigest: marker.inventory, expiresAt: marker.expiry)
+   let references = try vault.references(userID: marker.user)
+   guard references == [.init(requestID: marker.request, userID: marker.user, inventoryDigest: marker.inventory, expiresAt: marker.expiry)],
+         let receipt = try vault.read(requestID: references[0].requestID) else { throw TestFailure.invalid }
    guard fingerprint(receipt.token) == marker.hash else { throw TestFailure.changed }
    try vault.remove(requestID: marker.request)
    try FileManager.default.removeItem(at: file)
-   print("PASS: fresh process restored exact receipt and removed isolated test data")
+   print("PASS: fresh process discovered and read exact receipt without creating or extending it and removed isolated test data")
   } else { throw TestFailure.invalid }
  }
  enum TestFailure: Error { case invalid, changed }

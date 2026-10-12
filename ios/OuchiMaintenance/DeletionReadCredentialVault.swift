@@ -12,6 +12,13 @@ struct DeletionReadCredentialVault {
         let token: String
         let expiresAt: Date
     }
+    /// Metadata only. Tokens stay in the individual Keychain item.
+    struct Reference: Equatable, Sendable {
+        let requestID: UUID
+        let userID: UUID
+        let inventoryDigest: String
+        let expiresAt: Date
+    }
     enum Failure: Error { case unavailable, scopeMismatch, expired, invalidInput }
     let service: String
 
@@ -39,6 +46,33 @@ struct DeletionReadCredentialVault {
               saved.inventoryDigest.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
               saved.expiresAt.timeIntervalSince1970.isFinite else { throw Failure.invalidInput }
         return saved
+    }
+    /// Discover existing receipts after restart without creating or extending any.
+    /// Expired references remain visible for explicit lifecycle handling.
+    func references(userID: UUID? = nil) throws -> [Reference] {
+        let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        guard !service.isEmpty, userID != zero else { throw Failure.invalidInput }
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service, kSecAttrSynchronizable as String: false,
+            kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(q as CFDictionary, &result)
+        if status == errSecItemNotFound { return [] }
+        guard status == errSecSuccess, let items = result as? [[String: Any]], items.count <= 32 else { throw Failure.unavailable }
+        var references: [Reference] = []
+        var seen = Set<UUID>()
+        for item in items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  account.hasPrefix("deletion-read-"),
+                  let request = UUID(uuidString: String(account.dropFirst("deletion-read-".count))), request != zero,
+                  seen.insert(request).inserted,
+                  let saved = try read(requestID: request), saved.userID != zero else { throw Failure.invalidInput }
+            if userID == nil || saved.userID == userID {
+                references.append(.init(requestID: saved.requestID, userID: saved.userID,
+                                        inventoryDigest: saved.inventoryDigest, expiresAt: saved.expiresAt))
+            }
+        }
+        return references.sorted { $0.requestID.uuidString < $1.requestID.uuidString }
     }
     func prepare(requestID: UUID, userID: UUID, inventoryDigest: String, expiresAt: Date) throws -> Receipt {
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
