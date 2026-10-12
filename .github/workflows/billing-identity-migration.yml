@@ -2,7 +2,7 @@ name: Additive billing identity migration checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/account-deletion-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/billing-identity-migration.yml']
+    paths: ['supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/account-deletion-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/billing-identity-migration.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -45,6 +45,10 @@ jobs:
         env:
           OUCHI_RESTORE_CANCEL_RACE_TEST: 'true'
         run: node tests/billing-restore-cancel-race.integration.mjs
+      - name: Verify dispatch throttle and mutation marker with parallel PostgreSQL sessions
+        env:
+          OUCHI_RESTORE_DISPATCH_RACE_TEST: 'true'
+        run: node tests/billing-restore-dispatch-race.integration.mjs
       - name: Pull disposable data services with bounded network retry
         run: |
           for attempt in 1 2 3; do
