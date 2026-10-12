@@ -2,7 +2,7 @@ name: Isolated real Auth checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['lib/account-closure.ts', 'lib/billing-account.ts', 'lib/attachment-upload.ts', 'lib/product-attachment.ts', 'app/api/development/product-attachments/**', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'app/api/development/account-reenrollment/**', 'tests/auth-server.integration.mjs', 'tests/postgrest-server.integration.mjs', 'tests/fixtures/auth/**', 'tests/fixtures/billing*.sql', 'tests/fixtures/attachment*.sql', 'tests/fixtures/apns*.sql', 'tests/fixtures/app-session*.sql', 'app/api/development/apns-registration/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
+    paths: ['lib/deletion-receipt-identity.ts', 'tests/deletion-receipt-identity.test.mjs', 'lib/account-closure.ts', 'lib/billing-account.ts', 'lib/attachment-upload.ts', 'lib/product-attachment.ts', 'app/api/development/product-attachments/**', 'lib/account-reenrollment.ts', 'lib/verified-app-session.ts', 'app/api/development/account-closure/**', 'app/api/development/account-reenrollment/**', 'tests/auth-server.integration.mjs', 'tests/postgrest-server.integration.mjs', 'tests/fixtures/auth/**', 'tests/fixtures/billing*.sql', 'tests/fixtures/attachment*.sql', 'tests/fixtures/apns*.sql', 'tests/fixtures/app-session*.sql', 'app/api/development/apns-registration/**', 'ios/Tests/Fixtures/account-*.sql', 'supabase/migrations/**', '.github/workflows/auth-integration.yml']
   workflow_dispatch:
 permissions:
   contents: read

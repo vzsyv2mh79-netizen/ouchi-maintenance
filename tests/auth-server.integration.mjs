@@ -4,6 +4,8 @@ const moduleURL=path=>'data:text/javascript;base64,'+Buffer.from(compile(path)).
 const {handleTestAccountReenrollment}=await import(moduleURL('lib/account-reenrollment.ts'));
 const {handleTestAccountClosure}=await import(moduleURL('lib/account-closure.ts'));
 const {sessionAfterAuthVerification}=await import(moduleURL('lib/verified-app-session.ts'));
+const receiptSource=compile('lib/deletion-receipt-identity.ts').replace("'./verified-app-session'",JSON.stringify(moduleURL('lib/verified-app-session.ts')));
+const {createDeletionReceiptIdentityVerifier}=await import('data:text/javascript;base64,'+Buffer.from(receiptSource).toString('base64'));
 // Explicit integration invocation only. Ordinary pnpm test does not run this file.
 // GoTrue and DB are disposable CI containers; no SMTP, real users or shared DB.
 test('real Auth session drives isolated closure and explicit reenrollment without old-session resurrection', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:30000},async()=>{
@@ -29,6 +31,24 @@ test('real Auth session drives isolated closure and explicit reenrollment withou
  await db.exec(`create or replace function maintenance_private.account_enabled() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from maintenance_private.account_access x join maintenance_private.app_epochs a on a.user_id=x.user_id and a.enabled join maintenance_private.app_session_epochs s on s.user_id=a.user_id and s.epoch_id=a.epoch_id where x.user_id=auth.uid() and x.enabled and s.session_id=case when auth.jwt()->>'session_id' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then (auth.jwt()->>'session_id')::uuid else null end)$$;`);
 
   await db.query('insert into auth.users values($1)',[account]);
+  // Real GoTrue verifies the bearer; session liveness remains a disposable
+  // SQL fixture, not a production Auth database or registration end-to-end.
+  await db.exec('create table auth.sessions(id uuid primary key,user_id uuid not null,not_after timestamptz)');
+  await db.query('insert into auth.sessions values($1,$2,null)',[extracted.sessionID,account]);
+  const receiptIdentity=createDeletionReceiptIdentityVerifier({getUser:async(token,signal)=>{
+   const bounded=createClient('http://127.0.0.1:54321','synthetic-public-key',{
+    auth:options.auth,global:{fetch:async(input,init)=>fetch(input,{...init,redirect:'error',
+     signal:AbortSignal.any([signal,AbortSignal.timeout(5000),...(init?.signal?[init.signal]:[])])})}});
+   return bounded.auth.getUser(token);
+  }});
+  const receiptTx={signal:AbortSignal.timeout(10000),query:(sql,args)=>db.query(sql,args)};
+  const receiptVerified=await receiptIdentity(bearer,receiptTx);
+  assert.equal(receiptVerified.userID,account);
+  const forged=bearer.split('.');forged[2]=(forged[2][0]==='A'?'B':'A')+forged[2].slice(1);
+  assert.equal(await receiptIdentity(forged.join('.'),receiptTx),null);
+  await db.query('delete from auth.sessions where id=$1',[extracted.sessionID]);
+  assert.equal(await receiptIdentity(bearer,receiptTx),null);
+  await db.query('insert into auth.sessions values($1,$2,null)',[extracted.sessionID,account]);
   await db.query('insert into maintenance_private.account_access values($1,true)',[account]);
   const service=()=>db.exec('reset role;set role service_role');
   const user=async(identity)=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",[identity.userID,JSON.stringify({session_id:identity.sessionID})]);await db.exec('set role authenticated');};
