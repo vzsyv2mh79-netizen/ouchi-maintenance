@@ -1,0 +1,13 @@
+# Native durable restore recovery
+
+Prepared core, not connected to live native UI, device Keychain, commit transport or account deletion cleanup yet. No Apple updates or purchase rights.
+
+PendingRestore validates exact own-device pair digest, canonical Sandbox challenge and bounded assertion/combined request. The evidence is not cryptographic authorization; the server must verify signatures and atomically reserve ownership. No bearer/password/private Apple key is stored.
+
+PendingRestoreStorage encrypts exact proof bytes with AES-GCM under an injected 256-bit device key and user/enrollment-specific authenticated data. It checks the current registered scope, bounds regular files and per-account count, refuses symlinks/corruption/conflicting replacements and takes a process-shared filesystem lease. iOS writes request complete file protection and backup exclusion; real-device validation remains required. An expired challenge remains readable for status recovery but cannot be staged/recommitted as a fresh proof. Unknown outcome is never silently discarded. Finite server retention/reconciliation and local cleanup policy remain release gates; this unenabled implementation is not a production retention policy.
+
+PendingRestoreRecovery resumes only read-only status with the original stored pair/assertion digests, checks current login/cancellation through the fixed status API, and erases the exact retained record after matching server completion. Pending/errors/cancellation/login changes retain proof. No automatic commit retry or Apple update occurs. Completion describes the process, not current premium rights; normal verified entitlement refresh must handle refund/expiry separately.
+
+Tests use actual encrypted temporary files and synthetic keys, canonical challenge fixtures and injected HTTP. They cover actor restart, ciphertext, permissions, locked/wrong keys, changed session, expiry retention, conflicts, cap, corruption, symlink/process contention, selected-account erasure, pending/error/cancelled responses and exact completion cleanup. They do not exercise a real device key, Apple signatures, live Auth/RPC, process crash persistence, UI or account cleanup integration.
+
+`PurchaseManager.stageSandboxRestore` now composes its existing own-device Sandbox SDK/challenge/assertion path with encrypted staging before any future commit transport. It checks both the manager binding generation and captured login before/after storage. Only typechecking covers this SDK integration so far; actual signed-device flow remains required. Staging synchronizes the encrypted file and containing directory on new writes and exact retries before acknowledgement. Process termination/power loss and real iOS file-protection behavior remain unverified.

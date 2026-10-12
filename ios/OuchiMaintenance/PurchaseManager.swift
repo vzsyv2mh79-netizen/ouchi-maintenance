@@ -193,6 +193,26 @@ final class PurchaseManager: ObservableObject {
                     signedTransaction: evidence.signedTransaction).clientData
             }, validateCurrentScope: { try await api.validate(captured) }, device: device)
     }
+    // Persist the exact own-device evidence before a future commit transport.
+    // Unknown outcome must resume status using these bytes, never a new proof.
+    func stageSandboxRestore(captured: AppAttestRegistrationSession, originalTransactionID: String,
+                             requestID: UUID, api: RestoreChallengeAPI, storage: PendingRestoreStorage,
+                             device: RestoreAssertionDeviceService = .init()) async throws -> PendingRestore {
+        let generation = bindingGeneration
+        let (evidence,challenge,assertion) = try await sandboxRestoreAssertion(captured:captured,
+            originalTransactionID:originalTransactionID,requestID:requestID,api:api,device:device)
+        try await api.validate(captured)
+        guard bindingGeneration == generation, boundAccount == captured.scope.epochID else { throw CloudError.authenticationRequired }
+        try Task.checkCancellation()
+        let pending = try PendingRestore(scope:captured.scope,challenge:challenge,
+            signedAppTransaction:evidence.signedAppTransaction,signedTransaction:evidence.signedTransaction,
+            assertion:assertion,nowMilliseconds:Int64(Date().timeIntervalSince1970 * 1000))
+        try await storage.stage(pending,nowMilliseconds:Int64(Date().timeIntervalSince1970 * 1000))
+        try await api.validate(captured)
+        guard bindingGeneration == generation, boundAccount == captured.scope.epochID else { throw CloudError.authenticationRequired }
+        try Task.checkCancellation()
+        return pending
+    }
     func markRetryNeeded() { needsRetry = true }
     private func descriptor(_ product: Product) -> StoreProductDescriptor {
         let kind: StoreProductDescriptor.Kind = product.type == .consumable ? .consumable : product.type == .autoRenewable ? .autoRenewable : .other
