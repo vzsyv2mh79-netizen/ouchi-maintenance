@@ -15,6 +15,7 @@ private actor ReleaseBillingHTTPFixture {
     private var gate: CheckedContinuation<Void, Never>?
     private(set) var blocked = false
     private(set) var submissions = 0
+    private(set) var submittedTransactionIDs = Set<String>()
     private(set) var usageReads = 0
     func setPremium(_ value: Bool) { premium = value }
     func failReads() { fail = true }
@@ -43,6 +44,15 @@ private actor ReleaseBillingHTTPFixture {
         case ("POST", "/api/billing/transactions"):
             let input = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
             guard input.count == 1, input["signedTransaction"]?.split(separator: ".").count == 3 else { throw CloudError.invalidInput }
+            // Inspect only the synthetic SDK-verified local payload to identify
+            // which update was sent. This is bookkeeping, not JWS verification.
+            let signed = input["signedTransaction"]!
+            var encoded = String(signed.split(separator: ".")[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+            encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+            guard let bytes = Data(base64Encoded: encoded),
+                  let claims = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+                  let id = claims["transactionId"] as? String, !id.isEmpty else { throw CloudError.malformedResponse }
+            submittedTransactionIDs.insert(id)
             submissions += 1; body = ["saved": true, "environment": "Sandbox"]
         case ("GET", "/api/product-attachments"):
             guard url.query == "usage=true" else { throw CloudError.invalidInput }
@@ -544,6 +554,46 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         withExtendedLifetime(session) {}
         // No observing, purchase, restore, server write or entitlement grant.
     }
+    @MainActor func testAutomaticRenewalPersistsThroughActualController() async throws {
+        let session = try await disposableSession(), window = fixtureWindow(), fixture = ReleaseBillingHTTPFixture()
+        defer { window.close() }
+        // Separate coverage of a scheduled renewal, not a replacement or retry
+        // of the force-renewal metadata test. Local .xcode environment only.
+        session.timeRate = .oneRenewalEveryTenSeconds
+        let store = try await releaseStore(fixture, window: window, allowPurchases: true, offer: capacityOffer())
+        defer { store.releasePurchases.stopObserving() }
+        await store.loadReleasePurchaseState(); await store.loadReleasePurchaseProducts()
+        let product = try XCTUnwrap(store.releasePurchases.products.first { $0.id == "ouchi.premium.monthly" })
+        await store.purchaseReleaseProduct(product)
+        let first = try await latest(product.id, phase: "initial automatic-renewal purchase") { _ in true }
+        XCTAssertEqual(first.appAccountToken, ReleaseBillingHTTPFixture.epoch)
+        let initialWrites = await fixture.submissions
+        XCTAssertEqual(initialWrites, 1)
+        var renewed: StoreKit.Transaction?
+        for _ in 0..<600 {
+            if let result = await StoreKit.Transaction.latest(for: product.id), case .verified(let transaction) = result,
+               transaction.id != first.id, transaction.originalID == first.originalID {
+                renewed = transaction
+                break
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let next = try XCTUnwrap(renewed, "scheduled renewal must produce a new verified SDK transaction within 30 seconds")
+        XCTAssertEqual(next.environment, .xcode)
+        XCTAssertEqual(next.appAccountToken, ReleaseBillingHTTPFixture.epoch)
+        XCTAssertGreaterThan(try XCTUnwrap(next.expirationDate), try XCTUnwrap(first.expirationDate))
+        var saved = false
+        for _ in 0..<100 {
+            if await fixture.submittedTransactionIDs.contains(String(next.id)) { saved = true; break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(saved, "actual controller must submit the exact new renewal transaction, not just resend the initial purchase")
+        let sent = await fixture.submittedTransactionIDs
+        XCTAssertTrue(sent.contains(String(first.id)))
+        XCTAssertTrue(sent.contains(String(next.id)))
+        XCTAssertFalse(store.releaseEntitlement?.premiumIsCurrent(expectedEnvironment: .sandbox) == true,
+                       "mock acknowledgement does not grant real premium rights")
+    }
     @MainActor func testLocalRenewalExpiryAndRefundMetadata() async throws {
         let session = try await disposableSession()
         let updates = Task { for await _ in StoreKit.Transaction.updates { if Task.isCancelled { break } } }
@@ -593,6 +643,13 @@ final class LocalStoreKitCatalogTests: XCTestCase {
             XCTFail("local journal must confirm current transaction renewal without a pending issue")
             return
         }
+        let beforeJournal = session.allTransactions().map {
+            "id=\($0.identifier),original=\($0.originalTransactionIdentifier),state=\($0.state.rawValue),purchase=\($0.purchaseDate.timeIntervalSince1970),expiry=\($0.expirationDate?.timeIntervalSince1970 ?? -1),renew=\($0.autoRenewingEnabled),issue=\($0.hasPurchaseIssue)"
+        }
+        let beforeError = await session.simulatedError(forAPI: .purchase)
+        print("LOCAL_FORCE_RENEW_BEFORE", beforeJournal, "SDK_ID", monthly.id,
+              "SDK_EXPIRY", monthly.expirationDate?.timeIntervalSince1970 ?? -1,
+              "TIME_RATE", session.timeRate.rawValue, "PURCHASE_ERROR", String(describing: beforeError))
         try session.forceRenewalOfSubscription(productIdentifier: monthly.productID)
         var journalRenewed = false
         for _ in 0..<300 {
@@ -606,6 +663,15 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         print("LOCAL_RENEWAL_FIXTURE_COUNT", session.allTransactions().count,
               "JOURNAL_UPDATED", journalRenewed, "BILLING_RETRY", session.shouldEnterBillingRetryOnRenewal)
         guard journalRenewed else {
+            let afterJournal = session.allTransactions().map {
+                "id=\($0.identifier),original=\($0.originalTransactionIdentifier),state=\($0.state.rawValue),purchase=\($0.purchaseDate.timeIntervalSince1970),expiry=\($0.expirationDate?.timeIntervalSince1970 ?? -1),renew=\($0.autoRenewingEnabled),issue=\($0.hasPurchaseIssue)"
+            }
+            print("LOCAL_FORCE_RENEW_AFTER_FAILURE", afterJournal)
+            if let result = await StoreKit.Transaction.latest(for: monthly.productID), case .verified(let current) = result {
+                print("LOCAL_FORCE_RENEW_LATEST", "ID", current.id, "ORIGINAL", current.originalID,
+                      "EXPIRY", current.expirationDate?.timeIntervalSince1970 ?? -1,
+                      "REVOCATION", current.revocationDate?.timeIntervalSince1970 ?? -1)
+            }
             XCTFail("forced renewal did not produce a new matching local journal transaction")
             return
         }

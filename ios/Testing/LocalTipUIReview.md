@@ -63,3 +63,20 @@ before validating the verified SDK transaction. Failures remain test failures;
 bounded waiting does not enable retries of the force-renewal command or silently
 skip an unavailable renewal. These are local fixture controls, not a fix or proof
 for Apple Sandbox/Production renewal behavior.
+
+## Scheduled renewal controller coverage
+
+`testAutomaticRenewalPersistsThroughActualController` separately uses the local
+StoreKit ten-second renewal rate. It invokes the actual NativeStore purchase
+handler with synthetic account binding and attachment quota, then requires a new
+verified `.xcode` transaction with the same original ID and issued purchase token,
+a later expiry, and mock submissions containing both the exact initial and new
+renewal transaction IDs through the controller's observer. Resubmitting the
+initial transaction cannot satisfy the renewal assertion. Mock acknowledgements must not turn free server rights into premium.
+The scheduled-renewal test does not retry, replace or skip the force-renewal
+metadata case. Its success proves neither Apple Sandbox JWS validation nor
+Production subscription updates.
+
+Apple documents accelerated time and forced renewal as separate testing controls:
+https://developer.apple.com/documentation/storekittest/sktestsession/timerate-swift.property
+https://developer.apple.com/documentation/storekittest/sktestsession/forcerenewalofsubscription(productidentifier:)
