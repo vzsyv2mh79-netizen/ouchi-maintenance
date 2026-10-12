@@ -19,12 +19,14 @@ concurrency:
 jobs:
   native:
     # Standard runner: public repository, no paid larger runner/cache/artifacts.
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Verify selected Xcode and iPhoneOS submission minimum SDK
+        run: python3 ios/scripts/verify-submission-toolchain.py
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -60,6 +62,8 @@ jobs:
           -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/ouchi-release"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Verify built Release product SDK metadata
+        run: python3 ios/scripts/verify-submission-toolchain.py --product-plist "$RUNNER_TEMP/ouchi-release/Build/Products/Release-iphoneos/OuchiMaintenance.app/Info.plist"
       - name: Unsigned iPhone Debug build covers isolated development UI
         run: >-
           xcodebuild -project ios/OuchiMaintenance.xcodeproj
