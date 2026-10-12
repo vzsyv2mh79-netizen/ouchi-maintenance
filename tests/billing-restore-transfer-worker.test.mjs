@@ -11,6 +11,7 @@ const proof=(token=job.previousAccountToken,changes={})=>({signedTransaction:'sy
 function fixture(){
  const state={job:{...job},events:[],reads:[proof(),proof(job.epochID)],current:true,complete:true};
  const deps={now:()=>now,store:{
+  completionIsCurrent:async()=>false,
   leaseIsCurrent:async()=>{state.events.push('scope');return state.current;},
   markUpdateStarted:async j=>{state.events.push('durable-start');state.job={...j,phase:'update_started',mutationStartedAt:now};return state.job;},
   complete:async(j,p)=>{state.events.push('commit');assert.equal(p.transaction.accountToken,j.epochID);return state.complete;}
@@ -67,4 +68,13 @@ test('Production and malformed service jobs fail before any dependency is invoke
  for(const changed of [{environment:'Production'},{epochID:job.userID},{previousAccountToken:job.epochID},{originalTransactionID:'../x'},{phase:'complete'},{phase:'update_started'}]){
   const {state,deps}=fixture();await assert.rejects(run({...job,...changed},deps));assert.equal(state.events.length,0);
  }
+});
+
+test('durable completed job resumes without Apple reads, mutation or another commit',async()=>{
+ const {state,deps}=fixture();deps.store.completionIsCurrent=async()=>true;
+ assert.deepEqual(await run(job,deps),{state:'complete'});assert.deepEqual(state.events,[]);
+ const unavailable=fixture();unavailable.deps.store.completionIsCurrent=async()=>{throw Error('unavailable');};
+ assert.deepEqual(await run(job,unavailable.deps),{state:'pending',reason:'unavailable'});assert.deepEqual(unavailable.state.events,[]);
+ const cancelled=fixture(),signal=new AbortController();cancelled.deps.store.completionIsCurrent=async()=>{signal.abort();return true;};
+ assert.equal((await run(job,cancelled.deps,signal.signal)).reason,'cancelled');assert.deepEqual(cancelled.state.events,[]);
 });

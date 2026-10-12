@@ -41,16 +41,24 @@ JWS hash/transaction requires status reconciliation/normal ledger ingestion,
 not a second completion. This only validates normalized output from a trusted
 cryptographic adapter; it does not verify Apple signatures in SQL.
 
-The service store adapter must handle completed-job status and acknowledgement
-loss explicitly. The existing worker's lease probe is not a completed-status
-lookup. Do not wire this RPC alone and claim end-to-end retry recovery.
+A prepared service RPC adapter now connects the worker to the lease probe,
+mutation CAS, atomic completion and separate durable completed-status lookup.
+The worker checks completed status before Apple read/mutation; this reports past
+job completion only, never an active entitlement. Later refund/expiry stays in
+the ledger and the normal entitlement path must still evaluate it. The actual
+SQL/worker test loses an acknowledgement AFTER SQL commit, then resumes without
+another Apple call or ledger insert. Apple responses and live Auth remain
+synthetic; neither a real Supabase service nor Apple Sandbox was contacted.
+Malformed boolean responses, RPC errors and null mutation CAS fail closed.
+Job DTO timestamps must use server epoch milliseconds (as the marker RPC does),
+not Date.parse on a Date object, which can discard fractional milliseconds.
 
 Required next work:
 
-- Trusted service store mapping for the prepared transfer worker, including an
-  mapping of the prepared atomic completion RPC plus durable completed-status
-  lookup and acknowledgement-loss reconciliation. Test the real SQL adapter
-  and worker together, including changed current JWS after completion.
+- Trusted authenticated job loading and worker dispatch for the prepared RPC
+  store. Test actual service transport and scheduling, changed current JWS,
+  live session invalidation and true parallel workers. The helper factory is
+  not an enabled route, scheduler or production service client.
 - Apple Sandbox current-status adapter and explicit token-update client. HTTP200
   is not proof. Reconcile a lost PUT response by verified readback; uncertain
   retries must never blindly send a second mutation or free the reservation.

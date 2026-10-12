@@ -12,6 +12,9 @@ export type RestoreReadback = Readonly<{
  signedTransaction:string;transaction:VerifiedTransaction;appTransactionID:string;
 }>;
 export type RestoreTransferStore = {
+ /** Durable job completion under the same live scope. This is process status,
+  * not premium rights; later ledger refund/expiry must remain untouched. */
+ completionIsCurrent:(job:RestoreTransferJob)=>Promise<boolean>;
  /** Rechecks live Auth session/enrollment, exclusive original-purchase reservation,
   * exact job/lease and absence of conflicting active ownership in the database. */
  leaseIsCurrent:(job:RestoreTransferJob)=>Promise<boolean>;
@@ -71,6 +74,8 @@ export async function runRestoreTransfer(job:RestoreTransferJob,deps:RestoreTran
   return await deps.store.complete(value,readback)?{state:'complete'}:pending('commit');
  };
  try{
+  if(signal?.aborted)return pending('cancelled');
+  if(await deps.store.completionIsCurrent(job))return signal?.aborted?pending('cancelled'):{state:'complete'};
   if(!await current(job))return pending(signal?.aborted?'cancelled':'scope');
   const before=await deps.readCurrent(job);
   if(!await current(job))return pending(signal?.aborted?'cancelled':'scope');
