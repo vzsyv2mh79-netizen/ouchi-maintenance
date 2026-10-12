@@ -10,12 +10,20 @@ const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci
 const uuid = value => { assert.match(value, /^[a-f0-9-]{36}$/i); return value; };
 const ok = result => { assert.equal(result.error, null); return result.data; };
 
-test('actual Auth and Storage preserve shared records on retirement refusal, while an unshared home can close', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:60000}, async () => {
+test('actual Auth and Storage preserve family files, recover handoff acknowledgement loss, and isolate retirement', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:60000}, async () => {
+ let dropNextHandoffReply = false, handoffDecisionRequests = 0;
  const gateway = createServer((req,res) => {
   const prefix = ['/auth/v1/','/rest/v1/','/storage/v1/'].find(p => req.url?.startsWith(p));
   if (!prefix) { res.writeHead(404).end(); return; }
   const port = prefix === '/auth/v1/' ? 9999 : prefix === '/rest/v1/' ? 3002 : 5002;
-  const upstream = proxyRequest('http://127.0.0.1:'+port+'/'+req.url.slice(prefix.length), {method:req.method,headers:req.headers}, response => { res.writeHead(response.statusCode ?? 502,response.headers); response.pipe(res); });
+  const decision = prefix === '/rest/v1/' && req.url.endsWith('/rpc/decide_maintenance_home_handoff');
+  if (decision) handoffDecisionRequests++;
+  const drop = decision && dropNextHandoffReply;
+  if (drop) dropNextHandoffReply = false;
+  const upstream = proxyRequest('http://127.0.0.1:'+port+'/'+req.url.slice(prefix.length), {method:req.method,headers:req.headers}, response => {
+   if (drop) { response.resume(); response.once('end',() => res.destroy()); }
+   else { res.writeHead(response.statusCode ?? 502,response.headers); response.pipe(res); }
+  });
   upstream.on('error',() => { if (!res.headersSent) res.writeHead(502); res.end(); }); req.pipe(upstream);
  });
  await new Promise((resolve,reject) => { gateway.once('error',reject); gateway.listen(54321,'127.0.0.1',resolve); });
@@ -67,6 +75,53 @@ test('actual Auth and Storage preserve shared records on retirement refusal, whi
   const retained = ok(await admin.rpc('read_maintenance_attachment',{target_user:member.user,verified_session:member.session,expected_epoch:member.epoch,attachment_id:file})); assert.equal(retained.id,file);
   const downloaded = ok(await admin.storage.from('ouchi-product-attachments').download(path)); assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
   assert.equal(ok(await owner.client.auth.getUser()).user.id,owner.user); assert.equal(ok(await member.client.auth.getUser()).user.id,member.user);
+  // Disabled-by-default handoff becomes enabled only in this disposable fixture.
+  sql('update maintenance_private.home_handoff_policy set enabled=true;');
+  const fileRequest = randomUUID();
+  const fileScope = {target_request:fileRequest,target_home:home,...identity,target_recipient:member.user};
+  const preparedFile = ok(await admin.rpc('request_maintenance_home_handoff',fileScope));
+  const memberIdentity = {target_user:member.user,verified_session:member.session,expected_epoch:member.epoch};
+  const fileDecision = await admin.rpc('decide_maintenance_home_handoff',{target_request:fileRequest,...memberIdentity,accept:true});
+  assert.equal(fileDecision.error?.code,'P0001'); assert.equal(fileDecision.error?.message,'Attachment handoff required');
+  assert.deepEqual(snapshot(),before);
+  const cancelledFile = ok(await admin.rpc('decide_maintenance_home_handoff',{target_request:fileRequest,...identity,accept:false}));
+  assert.equal(cancelledFile.state,'cancelled'); assert.equal(cancelledFile.expiresAt,preparedFile.expiresAt);
+  assert.deepEqual(ok(await admin.rpc('decide_maintenance_home_handoff',{target_request:fileRequest,...identity,accept:false})),cancelledFile);
+  // Independent attachment-free transfer; files are not removed to permit it.
+  const transferOwner = await account(), successor = await account(), observer = await account();
+  const transferHome = randomUUID(), transferProduct = randomUUID(), transferTask = randomUUID(), transferRequest = randomUUID();
+  ok(await transferOwner.client.from('homes').insert({id:transferHome,owner_id:transferOwner.user,name:'Synthetic transfer',kind:'home'}));
+  ok(await transferOwner.client.from('home_members').insert([{homeId:transferHome,user_id:successor.user,nickname:'Successor'},{homeId:transferHome,user_id:observer.user,nickname:'Other family'}]));
+  ok(await transferOwner.client.from('products').insert({id:transferProduct,homeId:transferHome,categoryId:'air',name:'Retained product'}));
+  ok(await transferOwner.client.from('maintenance_tasks').insert({id:transferTask,productId:transferProduct,name:'Retained task',kind:'掃除',intervalDays:30,nextDueAt:'2030-01-01',sourceKind:'ユーザー設定'}));
+  ok(await transferOwner.client.from('maintenance_history').insert({taskId:transferTask,productId:transferProduct,completedAt:'2026-01-01'}));
+  const transferSnapshot = () => JSON.parse(sql(`select jsonb_build_object('product',(select to_jsonb(p) from public.products p where id='${transferProduct}'),'task',(select to_jsonb(t) from public.maintenance_tasks t where id='${transferTask}'),'history',(select jsonb_agg(to_jsonb(h)) from public.maintenance_history h where "taskId"='${transferTask}'));`));
+  const originalRecords = transferSnapshot();
+  const transferIdentity = {target_user:transferOwner.user,verified_session:transferOwner.session,expected_epoch:transferOwner.epoch};
+  const successorIdentity = {target_user:successor.user,verified_session:successor.session,expected_epoch:successor.epoch};
+  assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
+  const issued = ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user}));
+  assert.equal(issued.state,'pending');
+  assert.deepEqual(ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user})),issued);
+  assert.ok((await successor.client.rpc('decide_maintenance_home_handoff',{target_request:transferRequest,...successorIdentity,accept:true})).error,'client role cannot assert a verified service identity');
+  assert.equal(ok(await admin.rpc('read_maintenance_home_handoff',{target_request:transferRequest,target_user:observer.user,verified_session:observer.session,expected_epoch:observer.epoch})),null);
+  assert.ok((await admin.rpc('decide_maintenance_home_handoff',{target_request:transferRequest,...transferIdentity,accept:true})).error,'owner cannot impersonate recipient consent');
+  assert.equal(ok(await successor.client.auth.getUser()).user.id,successor.user);
+  const sentBefore = handoffDecisionRequests;
+  dropNextHandoffReply = true;
+  const unknown = await admin.rpc('decide_maintenance_home_handoff',{target_request:transferRequest,...successorIdentity,accept:true}).retry(false).abortSignal(AbortSignal.timeout(5000));
+  assert.ok(unknown.error,'lost successful response remains unconfirmed to the caller');
+  assert.equal(handoffDecisionRequests,sentBefore+1,'no automatic mutation retry');
+  const recovered = ok(await admin.rpc('read_maintenance_home_handoff',{target_request:transferRequest,...successorIdentity}));
+  assert.equal(recovered.state,'completed'); assert.equal(recovered.expiresAt,issued.expiresAt);
+  assert.equal(handoffDecisionRequests,sentBefore+1,'recovery is read-only');
+  assert.deepEqual(transferSnapshot(),originalRecords);
+  assert.equal(sql(`select owner_id from public.homes where id='${transferHome}';`),successor.user);
+  assert.equal(ok(await successor.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
+  assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
+  assert.deepEqual(ok(await transferOwner.client.from('products').select('id').eq('id',transferProduct)),[],'former owner has no implicit membership');
+  // A transfer receipt alone does not enqueue retirement or imply completion.
+  assert.equal(sql(`select count(*) from maintenance_private.account_deletion_requests where user_id='${transferOwner.user}';`),'0');
   // Separate unshared fixture; do not remove the family member to make deletion pass.
   const soloHome = randomUUID(); ok(await solo.client.from('homes').insert({id:soloHome,owner_id:solo.user,name:'Synthetic solo',kind:'home'}));
   const requestID = ok(await admin.rpc('request_maintenance_account_deletion',{target_user:solo.user,verified_session:solo.session,target_epoch:solo.epoch}));
@@ -76,6 +131,14 @@ test('actual Auth and Storage preserve shared records on retirement refusal, whi
   assert.equal(ok(await admin.rpc('erase_maintenance_deletion_records',lease)),true);
   assert.equal(sql(`select count(*) from public.homes where id='${soloHome}';`),'0');
   assert.deepEqual(snapshot(),before); assert.equal(ok(await solo.client.auth.getUser()).user.id,solo.user);
+  const formerRequest = ok(await admin.rpc('request_maintenance_account_deletion',{target_user:transferOwner.user,verified_session:transferOwner.session,target_epoch:transferOwner.epoch}));
+  const formerClaim = ok(await admin.rpc('claim_maintenance_account_deletion')); assert.equal(formerClaim.requestID,formerRequest);
+  const formerLease = {target_request:formerRequest,target_user:transferOwner.user,target_epoch:transferOwner.epoch,target_lease:formerClaim.leaseToken};
+  assert.equal(ok(await admin.rpc('capture_maintenance_deletion_objects',formerLease)),true);
+  assert.equal(ok(await admin.rpc('erase_maintenance_deletion_records',formerLease)),true);
+  assert.deepEqual(transferSnapshot(),originalRecords); assert.equal(sql(`select owner_id from public.homes where id='${transferHome}';`),successor.user);
+  assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
+  assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });
