@@ -176,6 +176,17 @@ public actor PendingRestoreStorage {
         guard actual == expected else { throw CloudError.invalidInput }
         try FileManager.default.removeItem(at:file(account:expected.scope.userID,epoch:expected.scope.epochID))
     }
+    /// Requires the exact authenticated cancellation receipt constructed only by
+    /// RestoreCancelAPI. Receipt/proof scope and persisted bytes must all match.
+    public func removeCancelled(_ expected: PendingRestore, receipt: RestoreCancelAPI.Receipt) throws {
+        guard receipt.scope == expected.scope,
+              receipt.requestID == expected.challenge.requestID,
+              receipt.pairSHA256 == (try expected.pairSHA256),
+              receipt.assertionSHA256 == expected.assertionSHA256 else { throw CloudError.invalidInput }
+        // Reuse the same process-shared lease and exact-byte local eraser. The
+        // cancellation receipt is not a completed job or paid entitlement.
+        try removeCompleted(expected)
+    }
     /// Explicit logout/deletion cleanup covers every retained epoch for this
     /// account, including corrupted records, without decrypting or touching keys.
     public func eraseAccount(_ account: UUID) throws {
