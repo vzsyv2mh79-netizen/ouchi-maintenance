@@ -134,12 +134,20 @@ public actor PendingRestoreStorage {
         return try readUnlocked(scope:scope)
     }
     public func stage(_ pending: PendingRestore, nowMilliseconds: Int64) throws {
+        try stage(pending,nowMilliseconds:nowMilliseconds,allowExisting:true)
+    }
+    /// Exclusive first submission claim. The same account/epoch cannot be sent
+    /// again while any exact or unknown retained attempt is present.
+    public func stageNew(_ pending: PendingRestore, nowMilliseconds: Int64) throws {
+        try stage(pending,nowMilliseconds:nowMilliseconds,allowExisting:false)
+    }
+    private func stage(_ pending: PendingRestore, nowMilliseconds: Int64, allowExisting: Bool) throws {
         _ = try PendingRestore(scope:pending.scope,challenge:pending.challenge,signedAppTransaction:pending.signedAppTransaction,
             signedTransaction:pending.signedTransaction,assertion:pending.assertion,nowMilliseconds:nowMilliseconds)
         _ = try directory(account:pending.scope.userID,create:true)
         let lease = try AppAttestMutationLease.acquire(root:root); defer { lease.release() }
         if let old = try readUnlocked(scope:pending.scope) {
-            guard old == pending else { throw CloudError.invalidInput }
+            guard allowExisting, old == pending else { throw CloudError.invalidInput }
             try synchronize(file(account:pending.scope.userID,epoch:pending.scope.epochID)); return
         }
         let url = try file(account:pending.scope.userID,epoch:pending.scope.epochID,create:true)
