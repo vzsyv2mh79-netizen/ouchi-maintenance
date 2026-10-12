@@ -1,0 +1,30 @@
+{
+  "source": "read-only sibling review patch, not an enabled production migration",
+  "files": {
+    "household-fence.sql": "6114684b6c7085c7201f3d736b977e65015ee8ac80fa573e786ee8e4daa59fc3",
+    "scoped-worker.sql": "aee661893bac81f5288d31fa98245489c1a7edec611523bf66a9cb87f37bdadd",
+    "handoff.sql": "9af11f02a20eb03116669290f15af90c5d3230961b2b9d20ad6b2ee183c1ad57",
+    "private-writers.sql": "ee6869943cf6a72bed4cb622834d968cbb6e17b8578c242646741562f45c9b48"
+  },
+  "copiedFor": "local composition verification only",
+  "productionApplied": false,
+  "adapters": {
+    "handoff-port.mjs": {
+      "sourceSHA256": "fc04fefd928916860b44e7b0f4f433675604f01dff4892e45382da126f471316",
+      "copySHA256": "b8eddc19bf6a322c65691f73b1f8067f77672c3cfd35937ac70b60d0e6497c66",
+      "importChange": "none",
+      "purpose": "composition fixture only; no shipping provider or credential",
+      "localCorrections": [
+        "refuse unresolved file custody after signed dual consent and before ownership update",
+        "retain parent locks; rely on composed private-writer freeze, not nonexistent product FK",
+        "remove unused destructured binding"
+      ]
+    },
+    "handoff-consent.mjs": {
+      "sourceSHA256": "685b0eb47edba4cf2dcca2c0b4a5731ef3c78696abdfd2b3998aa8e024b6000e",
+      "copySHA256": "db5a89a7cd1d667dbc9c271aecf4d69337abbbbd0bb8c85463318e871f704082",
+      "importChange": "use equivalent existing root protocol normalizer",
+      "purpose": "composition fixture only; no shipping provider or credential"
+    }
+  }
+}
