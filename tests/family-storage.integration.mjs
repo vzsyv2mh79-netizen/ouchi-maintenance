@@ -4,6 +4,18 @@ import {createServer, request as proxyRequest} from 'node:http';
 import {randomUUID, createHmac, createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {createClient} from '@supabase/supabase-js';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+const modules = new Map();
+function serverModule(name) {
+ if (modules.has(name)) return modules.get(name);
+ let source = ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+ source = source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(serverModule(dependency))}`);
+ source = source.replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(import.meta.resolve(dependency))}`);
+ const url = 'data:text/javascript;base64,'+Buffer.from(source).toString('base64'); modules.set(name,url); return url;
+}
+const {readAttachmentResponse} = await import(serverModule('attachment-read-handler'));
+const {createAttachmentFetch} = await import(serverModule('attachment-fetch'));
 
 // Explicit opt-in, disposable local containers only. No configurable remote URL.
 const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci', '-f', 'tests/fixtures/auth/compose.yml', 'exec', '-T', 'db', 'psql', '-U', 'postgres', '-d', 'auth_test', '-v', 'ON_ERROR_STOP=1', '-At'], {input, encoding:'utf8', timeout:10000, stdio:['pipe','pipe','pipe']}).trim();
@@ -11,7 +23,7 @@ const uuid = value => { assert.match(value, /^[a-f0-9-]{36}$/i); return value; }
 const ok = result => { assert.equal(result.error, null); return result.data; };
 
 test('actual Auth and Storage preserve family files, recover handoff acknowledgement loss, and isolate retirement', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:60000}, async () => {
- let dropNextHandoffReply = false, handoffDecisionRequests = 0;
+ let dropNextHandoffReply = false, handoffDecisionRequests = 0, revokeDuringDownload = null;
  const gateway = createServer((req,res) => {
   const prefix = ['/auth/v1/','/rest/v1/','/storage/v1/'].find(p => req.url?.startsWith(p));
   if (!prefix) { res.writeHead(404).end(); return; }
@@ -21,6 +33,9 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const drop = decision && dropNextHandoffReply;
   if (drop) dropNextHandoffReply = false;
   const upstream = proxyRequest('http://127.0.0.1:'+port+'/'+req.url.slice(prefix.length), {method:req.method,headers:req.headers}, response => {
+   if (prefix === '/storage/v1/' && req.method === 'GET' && revokeDuringDownload) {
+    const revoke = revokeDuringDownload; revokeDuringDownload = null; revoke();
+   }
    if (drop) { response.resume(); response.once('end',() => res.destroy()); }
    else { res.writeHead(response.statusCode ?? 502,response.headers); response.pipe(res); }
   });
@@ -28,7 +43,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
  });
  await new Promise((resolve,reject) => { gateway.once('error',reject); gateway.listen(54321,'127.0.0.1',resolve); });
  try {
-  const options = {auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(url,init) => fetch(url,{...init,signal:init?.signal ?? AbortSignal.timeout(10000)})}};
+  const options = {auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch()}};
   const origin = 'http://127.0.0.1:54321';
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   const now = Math.floor(Date.now()/1000);
@@ -54,7 +69,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   ok(await owner.client.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic family product'}));
   ok(await owner.client.from('maintenance_tasks').insert({id:task,productId:product,name:'Synthetic task',kind:'掃除',intervalDays:30,nextDueAt:'2030-01-01',sourceKind:'ユーザー設定'}));
   ok(await owner.client.from('maintenance_history').insert({taskId:task,productId:product,completedAt:'2026-01-01'}));
-  const bytes = Buffer.from('synthetic retained family warranty'), hash = createHash('sha256').update(bytes).digest('hex');
+  const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1EAAAAASUVORK5CYII=','base64'), hash = createHash('sha256').update(bytes).digest('hex');
   const identity = {target_user:owner.user,verified_session:owner.session,expected_epoch:owner.epoch};
   ok(await admin.rpc('reserve_maintenance_attachment',{...identity,target_product:product,attachment_id:file,byte_count:bytes.length,media_type:'image/png',measured_sha256:hash}));
   const attempt = randomUUID();
@@ -75,6 +90,27 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const retained = ok(await admin.rpc('read_maintenance_attachment',{target_user:member.user,verified_session:member.session,expected_epoch:member.epoch,attachment_id:file})); assert.equal(retained.id,file);
   const downloaded = ok(await admin.storage.from('ouchi-product-attachments').download(path)); assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
   assert.equal(ok(await owner.client.auth.getUser()).user.id,owner.user); assert.equal(ok(await member.client.auth.getUser()).user.id,member.user);
+  // The prepared download handler authenticates the member's exact bearer,
+  // rechecks SQL membership after Storage and returns measured private bytes.
+  async function memberDownload(account) {
+   const session = ok(await account.client.auth.getSession()).session; assert.ok(session);
+   return readAttachmentResponse(new Request(origin+'/api/attachments?attachmentId='+file,{headers:{authorization:'Bearer '+session.access_token}}),admin);
+  }
+  const memberFile = await memberDownload(member); assert.equal(memberFile.status,200);
+  assert.equal(memberFile.headers.get('cache-control'),'no-store');
+  assert.equal(memberFile.headers.get('content-type'),'image/png');
+  assert.deepEqual(Buffer.from(await memberFile.arrayBuffer()),bytes);
+  assert.ok((await member.client.storage.from('ouchi-product-attachments').download(path)).error,'private Storage requires the authorized server path');
+  const unrelatedFile = await memberDownload(solo); assert.equal(unrelatedFile.status,404);
+  assert.equal(unrelatedFile.headers.get('content-type'),'application/json');
+  revokeDuringDownload = () => sql(`delete from public.home_members where "homeId"='${home}' and user_id='${member.user}';`);
+  const revokedFile = await memberDownload(member); assert.equal(revokedFile.status,404);
+  assert.equal(revokeDuringDownload,null,'membership was revoked during the actual object response');
+  assert.equal(revokedFile.headers.get('content-type'),'application/json');
+  ok(await owner.client.from('home_members').insert(before.members[0]));
+  assert.deepEqual(snapshot(),before);
+  const restoredMemberFile = await memberDownload(member); assert.equal(restoredMemberFile.status,200);
+  assert.deepEqual(Buffer.from(await restoredMemberFile.arrayBuffer()),bytes);
   // Disabled-by-default handoff becomes enabled only in this disposable fixture.
   sql('update maintenance_private.home_handoff_policy set enabled=true;');
   const fileRequest = randomUUID();
