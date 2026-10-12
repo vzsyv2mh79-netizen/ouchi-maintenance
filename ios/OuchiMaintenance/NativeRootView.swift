@@ -32,9 +32,9 @@ struct NativeRootView: View {
                    let stamp=Bundle.main.infoDictionary?["OUCHI_REVIEW_BUILD_ID"] as? String,
                    stamp.range(of:"^[a-f0-9]{40}$",options:.regularExpression) != nil {
                     Text("確認用 \(stamp.prefix(7))")
-                        .font(.caption).accessibilityIdentifier("ouchi.reviewBuild")
+                        .font(.caption).dynamicTypeSize(...DynamicTypeSize.xxxLarge).accessibilityIdentifier("ouchi.reviewBuild")
                         .accessibilityLabel("確認用ビルド \(stamp)")
-                    if store.isUIReviewSample { Text("サンプルデータ").font(.caption).accessibilityIdentifier("ouchi.reviewSample") }
+                    if store.isUIReviewSample { Text("サンプルデータ").font(.caption).dynamicTypeSize(...DynamicTypeSize.xxxLarge).accessibilityIdentifier("ouchi.reviewSample") }
                 }
                 #endif
                 if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
@@ -89,7 +89,7 @@ private struct LocalRegistrationClosureRecoveryView: View {
             if let message = store.message { Section { Text(message) } }
             if store.busy { ProgressView("確認しています") }
         }
-        .navigationTitle("端末登録の再確認")
+        .navigationTitle("端末登録の再確認").modifier(AdaptiveNavigationTitle())
         .task { await store.loadLocalRegistrationClosures() }
         .confirmationDialog("この終了記録の処理を再開しますか？", isPresented: $confirming, titleVisibility: .visible) {
             Button("終了処理を再試行") {
@@ -145,17 +145,43 @@ private struct SignInView: View {
                     }
 
                 }
-            }.navigationTitle("おうちメンテ")
+            }.navigationTitle("おうちメンテ").modifier(AdaptiveNavigationTitle())
         }
     }
 }
 
 private struct HomePicker: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.dynamicTypeSize) private var textSize
     var body: some View {
-        Picker("住まい", selection: $store.homeID) {
-            ForEach(store.household?.homes ?? []) { Text($0.name).tag($0.id) }
+        Group {
+            if textSize.isAccessibilitySize {
+                Menu {
+                    ForEach(store.household?.homes ?? []) { home in
+                        Button(home.name) { store.homeID = home.id }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("住まい").foregroundStyle(.primary)
+                        Text(store.household?.homes.first(where: { $0.id == store.homeID })?.name ?? "住まいを選ぶ")
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("住まいを切り替える").font(.caption)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                Picker("住まい", selection: $store.homeID) {
+                    ForEach(store.household?.homes ?? []) { Text($0.name).tag($0.id) }
+                }
+            }
         }.disabled(store.busy)
+    }
+}
+
+private struct AdaptiveNavigationTitle: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var textSize
+    func body(content: Content) -> some View {
+        content.navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
     }
 }
 
@@ -182,7 +208,7 @@ private struct CareList: View {
                         }.padding(.vertical, 4)
                     }
                 }
-            }.navigationTitle("お手入れ")
+            }.navigationTitle("お手入れ").modifier(AdaptiveNavigationTitle())
              .refreshable { await store.reload() }
              .toolbar { if store.busy { ProgressView() } else { Button("再読み込み", systemImage: "arrow.clockwise") { Task { await store.reload() } } } }
         }
@@ -208,7 +234,7 @@ private struct ApplianceList: View {
                         }
                     }
                 }
-            }.navigationTitle("製品").refreshable { await store.reload() }
+            }.navigationTitle("製品").modifier(AdaptiveNavigationTitle()).refreshable { await store.reload() }
             .toolbar { Button("製品を追加", systemImage: "plus") { adding = true }.disabled(store.busy || store.homeID.isEmpty) }
             .sheet(isPresented: $adding) { NavigationStack { ProductEditor(home: store.homeID, initial: nil) } }
         }
@@ -229,7 +255,7 @@ private struct HistoryList: View {
                         }
                     }
                 }
-            }.navigationTitle("履歴").refreshable { await store.reload() }
+            }.navigationTitle("履歴").modifier(AdaptiveNavigationTitle()).refreshable { await store.reload() }
         }
     }
 }
@@ -338,7 +364,7 @@ private struct NativeSettings: View {
                     }
                     Button("ログアウト", role: .destructive) { confirmLogout = true }
                 }
-            }.navigationTitle("設定")
+            }.navigationTitle("設定").modifier(AdaptiveNavigationTitle())
              .fileImporter(isPresented: $choosingBackup, allowedContentTypes: [.json]) { result in
                  do {
                      let url = try result.get()
@@ -650,7 +676,7 @@ private struct FamilySettings: View {
                 }.disabled(store.busy || !HouseholdAPI.validInvite(joinCode.trimmingCharacters(in: .whitespacesAndNewlines)) || !(1...80).contains(nickname.trimmingCharacters(in: .whitespacesAndNewlines).count))
                 if joined { Text("参加しました。上の住まい一覧から家族の住まいを選べます。") }
             }
-        }.navigationTitle("家族と共有")
+        }.navigationTitle("家族と共有").modifier(AdaptiveNavigationTitle())
          .task(id: store.homeID) { await store.loadMembers(home: store.homeID) }
          .onDisappear { store.clearFamily() }
          .onChange(of: store.homeID) { _, _ in revoke = false; leave = false; removing = nil; joined = false }
@@ -711,7 +737,7 @@ private struct HelpInformation: View {
                 }
                 Text("問い合わせには、困った操作、表示されたエラー、発生した時刻、アプリとiPhoneのバージョンを添えてください。パスワード・確認コード・支払い情報は送らないでください。画面の写真を送るときは、個人情報が写っていないか確認してください。")
             }
-        }.navigationTitle("使い方・困ったとき")
+        }.navigationTitle("使い方・困ったとき").modifier(AdaptiveNavigationTitle())
     }
 }
 
@@ -746,7 +772,7 @@ private struct PrivacyInformation: View {
             Section("公開前の確認事項") {
                 Text("運営者・問い合わせ先、正式な規約とプライバシーポリシー、保存期間、利用するサービスのデータの扱いを確定し、公開前に案内します。")
             }
-        }.navigationTitle("プライバシー")
+        }.navigationTitle("プライバシー").modifier(AdaptiveNavigationTitle())
     }
 }
 
@@ -761,7 +787,7 @@ private struct HomeSettings: View {
                 }
             }
             Section { NavigationLink("住まいを追加") { HomeEditor(initial: nil) } }
-        }.navigationTitle("住まいを管理")
+        }.navigationTitle("住まいを管理").modifier(AdaptiveNavigationTitle())
     }
 }
 private struct HomeEditor: View {
@@ -850,7 +876,7 @@ private struct HomeDashboard: View {
                         }
                     }
                 }.refreshable { await store.reload() }
-            }.navigationTitle("おうちメンテ")
+            }.navigationTitle("おうちメンテ").modifier(AdaptiveNavigationTitle())
         }
     }
 }
@@ -888,7 +914,7 @@ private struct SandboxTipView: View {
                 if purchases.needsRetry { Text("未完了の結果を確認する必要があります。") }
             }
             Section { Text("正式な利用規約・プライバシーポリシーと問い合わせ窓口は公開前に整備します。サブスクリプションも別の開発画面で検証中です。正式販売は、有料特典と購入テストの確認後に開始します。") }
-        }.navigationTitle("応援チップの確認")
+        }.navigationTitle("応援チップの確認").modifier(AdaptiveNavigationTitle())
          .confirmationDialog("一回払いのSandboxテストを開始しますか？", isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } }), titleVisibility: .visible) {
              if let product = selected { Button("\(product.displayPrice)のチップをテスト") { selected = nil; Task { await store.testTip(product) } } }
              Button("キャンセル", role: .cancel) { selected = nil }
@@ -983,7 +1009,7 @@ private struct SandboxSubscriptionView: View {
             Section("公開前の準備") {
                 Text("正式な利用規約・プライバシーポリシーのリンク、運営者、問い合わせ窓口は公開前に確定します。この画面は正式な販売画面ではありません。")
             }
-        }.navigationTitle("プランのテスト")
+        }.navigationTitle("プランのテスト").modifier(AdaptiveNavigationTitle())
         .confirmationDialog("自動更新契約のSandboxテスト", isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } }), titleVisibility: .visible) {
             if let product = selected {
                 Button("\(product.displayPrice) / \(period(product))でテスト") {
@@ -1053,7 +1079,7 @@ private struct SandboxReminderSettingsView: View {
                 if let message = store.message { Text(message).font(.caption) }
             }
         }
-        .navigationTitle("通知の細かな設定")
+        .navigationTitle("通知の細かな設定").modifier(AdaptiveNavigationTitle())
         .onChange(of: store.reminderSettings) { _, receipt in
             let schedule = receipt?.saved ?? receipt?.effective ?? .free
             hour = schedule.minuteOfDay / 60; minute = schedule.minuteOfDay % 60
@@ -1118,7 +1144,7 @@ private struct ReleasePurchaseRecoveryView: View {
                 if store.busy { ProgressView("確認しています") }
             }
         }
-        .navigationTitle("購入と契約の確認")
+        .navigationTitle("購入と契約の確認").modifier(AdaptiveNavigationTitle())
         .task {
             await store.loadReleasePurchaseState()
             await store.loadReleasePurchaseProducts()
@@ -1301,7 +1327,7 @@ private struct FormalReminderSettingsView: View {
                 if let message = store.message { Text(message).font(.caption) }
             }
         }
-        .navigationTitle("通知の細かな設定")
+        .navigationTitle("通知の細かな設定").modifier(AdaptiveNavigationTitle())
         .onChange(of: selection?.receipt) { _, receipt in
             let schedule = receipt?.saved ?? receipt?.effective ?? .free
             hour = schedule.minuteOfDay / 60; minute = schedule.minuteOfDay % 60
@@ -1358,7 +1384,7 @@ private struct FormalReportView: View {
             }
             if let message = store.message { Section { Text(message) } }
         }
-        .navigationTitle("お手入れレポート")
+        .navigationTitle("お手入れレポート").modifier(AdaptiveNavigationTitle())
         .task(id: binding) { operation?.cancel(); operation = nil; report = nil }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { operation?.cancel(); operation = nil; report = nil }
@@ -1383,7 +1409,7 @@ private struct SandboxReportView: View {
             } else {
                 Section { Text("表示する記録はまだありません。更新時にサーバーでテスト用利用権と住まいへのアクセスを確認します。") }
             }
-        }.navigationTitle("お手入れレポート")
+        }.navigationTitle("お手入れレポート").modifier(AdaptiveNavigationTitle())
     }
 }
 
@@ -1418,7 +1444,7 @@ struct ReportPreviewView: View {
             List {
                 Section { Text("画面確認用のサンプルです。実際の記録ではありません。") }
                 if let report { MaintenanceReportSections(report: report) }
-            }.navigationTitle("お手入れレポート")
+            }.navigationTitle("お手入れレポート").modifier(AdaptiveNavigationTitle())
         }
     }
 }
@@ -1461,7 +1487,7 @@ private struct FormalNativePushView: View {
                 Button("この端末の通知先を停止", role: .destructive) { change(disable: true) }.disabled(store.busy || selection == nil)
                 Text("登録の確認は無料です。通知の配信は準備中です。").font(.caption)
             }
-        }.navigationTitle("この端末への通知")
+        }.navigationTitle("この端末への通知").modifier(AdaptiveNavigationTitle())
         .onChange(of: binding) { _, _ in clear() }
         .onChange(of: scenePhase) { _, phase in if phase == .background { clear() } }
         .onDisappear { clear() }
@@ -1483,7 +1509,7 @@ private struct DevelopmentRemoteNotificationView: View {
                 }.disabled(store.busy || !store.developmentRemoteNotificationsRegistered)
                 Text("通知先の登録と停止を確認するテストです。予定に基づく通知配信はまだ開始していません。通常版ではこの画面を表示しません。").font(.caption)
             }
-        }.navigationTitle("iPhone通知のテスト")
+        }.navigationTitle("iPhone通知のテスト").modifier(AdaptiveNavigationTitle())
     }
 }
 
@@ -1505,7 +1531,7 @@ private struct DevelopmentLifecycleView: View {
                 Button(reenrolling ? "再登録を確認" : "利用終了を確認", role: reenrolling ? nil : .destructive) { confirming = true }
                     .disabled(store.busy || password.isEmpty || !store.developmentLifecycleConfigured)
             }
-        }.navigationTitle("アカウント処理のテスト")
+        }.navigationTitle("アカウント処理のテスト").modifier(AdaptiveNavigationTitle())
         .confirmationDialog(reenrolling ? "新しく再登録しますか？" : "テスト用アカウントの利用を終了しますか？", isPresented: $confirming, titleVisibility: .visible) {
             Button(reenrolling ? "再登録する" : "利用を終了", role: reenrolling ? nil : .destructive) {
                 let secret = password; password = ""
@@ -1807,7 +1833,7 @@ private struct FormalChannelView: View {
                 }
             }
         }
-        .navigationTitle("通知の受け取り先")
+        .navigationTitle("通知の受け取り先").modifier(AdaptiveNavigationTitle())
         .confirmationDialog("この端末内の予約通知を停止しますか？", isPresented: $confirmLocalStop, titleVisibility: .visible) {
             Button("予約通知を停止", role: .destructive) {
                 operation?.cancel()
@@ -1864,7 +1890,7 @@ private struct ExplicitEnrollmentView: View {
                     }.disabled(store.busy)
                 }
             }
-        }.navigationTitle("おうちメンテへの登録")
+        }.navigationTitle("おうちメンテへの登録").modifier(AdaptiveNavigationTitle())
          .task(id: store.accountBindingRevision) { clear() }
          .onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
          .onDisappear { clear() }
