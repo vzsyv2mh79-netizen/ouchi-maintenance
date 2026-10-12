@@ -9,6 +9,7 @@ public actor SandboxRestoreFlow {
     private let storage: PendingRestoreStorage
     private let commit: RestoreCommitAPI
     private let status: RestoreStatusAPI
+    private let process: RestoreProcessAPI
     private let cancel: RestoreCancelAPI
     private let now: @Sendable () -> Int64
     private var active = false
@@ -18,6 +19,7 @@ public actor SandboxRestoreFlow {
         self.storage = storage; self.now = now
         commit = RestoreCommitAPI(currentSession: currentSession, transport: transport, now: now)
         status = RestoreStatusAPI(currentSession: currentSession, transport: transport, now: now)
+        process = RestoreProcessAPI(currentSession: currentSession, transport: transport, now: now)
         cancel = RestoreCancelAPI(currentSession: currentSession, transport: transport, now: now)
     }
     /// Independent opt-in is mandatory; a local StoreKit/loopback fixture cannot
@@ -44,11 +46,22 @@ public actor SandboxRestoreFlow {
         // first submit. Existing records always use status, including lost ack.
         _ = try await PendingRestoreSubmission(storage: storage).submitNew(proof, captured: captured, api: commit, nowMilliseconds: now())
         try await commit.validate(captured)
-        return .pending
+        return try await resume(captured)
     }
     private func resume(_ captured: AppAttestRegistrationSession) async throws -> Outcome {
         switch try await PendingRestoreRecovery(storage: storage).resume(captured: captured, api: status) {
-        case .pending: return .pending
+        case .pending:
+            // A successful status lookup is required before dispatch. Missing or
+            // lost commit state never retries assertion submission or production.
+            try await process.validate(captured)
+            guard let pending = try await storage.read(scope: captured.scope) else { return .absent }
+            let result = try await process.process(captured: captured, requestID: pending.challenge.requestID,
+                pairSHA256: pending.pairSHA256, assertionSHA256: pending.assertionSHA256)
+            try await process.validate(captured)
+            try Task.checkCancellation()
+            if result == .complete { try await storage.removeCompleted(pending) }
+            try await process.validate(captured)
+            return result == .complete ? .complete : .pending
         case .complete: return .complete
         case nil: return .absent
         }

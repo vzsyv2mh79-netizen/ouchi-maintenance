@@ -9,13 +9,13 @@ actor FlowSession {
     func clear() { value = nil }
 }
 actor FlowHTTP {
-    var commits=0, produces=0, statuses=0, cancellations=0
-    var lostCommit=false, lostCancel=false, unknown=false, reserved=true, complete=false
-    func modes(lostCommit:Bool=false,lostCancel:Bool=false,unknown:Bool=false,reserved:Bool=true,complete:Bool=false) {
-        self.lostCommit=lostCommit;self.lostCancel=lostCancel;self.unknown=unknown;self.reserved=reserved;self.complete=complete
+    var commits=0, produces=0, statuses=0, cancellations=0, processes=0
+    var lostCommit=false, lostCancel=false, unknown=false, reserved=true, complete=false, processComplete=false, lostProcess=false
+    func modes(lostCommit:Bool=false,lostCancel:Bool=false,unknown:Bool=false,reserved:Bool=true,complete:Bool=false,processComplete:Bool=false,lostProcess:Bool=false) {
+        self.lostCommit=lostCommit;self.lostCancel=lostCancel;self.unknown=unknown;self.reserved=reserved;self.complete=complete;self.processComplete=processComplete;self.lostProcess=lostProcess
     }
     func produced() { produces += 1 }
-    func counts() -> [Int] { [produces,commits,statuses,cancellations] }
+    func counts() -> [Int] { [produces,commits,statuses,cancellations,processes] }
     func send(_ request:URLRequest) throws -> (Data,HTTPURLResponse) {
         let body=try JSONSerialization.jsonObject(with:request.httpBody!) as! [String:String]
         let id=body["requestID"]!,operation=request.url!.lastPathComponent
@@ -23,8 +23,9 @@ actor FlowHTTP {
         switch operation {
         case "commit": commits += 1;if lostCommit { lostCommit=false;throw URLError(.networkConnectionLost) };object=["requestID":id,"status":"pending"];code=202
         case "status": statuses += 1;object=["requestID":id,"status":complete ? "complete":"pending"];code=unknown ? 409:200
+        case "process": processes += 1;if lostProcess { lostProcess=false;throw URLError(.networkConnectionLost) };object=["requestID":id,"status":processComplete ? "complete":"pending"];code=200
         case "cancel": cancellations += 1;if lostCancel { lostCancel=false;throw URLError(.networkConnectionLost) };object=["requestID":id,"status":"cancelled","pairSHA256":body["pairSHA256"]!,"assertionSHA256":body["assertionSHA256"]!];code=reserved ? 409:200
-        default: fatalError("Unexpected endpoint, Apple dispatch or entitlement")
+        default: fatalError("Unexpected endpoint or entitlement")
         }
         return (try JSONEncoder().encode(object),HTTPURLResponse(url:request.url!,statusCode:code,httpVersion:nil,headerFields:["Content-Type":"application/json","Cache-Control":"no-store"])!)
     }
@@ -71,9 +72,15 @@ actor FlowPause {
         let first=try await flow().startOrResume(captured:captured,producer:producer);precondition(first == .pending)
         let initial=try await storage.read(scope:captured.scope)!;let initialID=initial.challenge.requestID
         let restart=try await flow().startOrResume(captured:captured,producer:producer);precondition(restart == .pending)
-        let counts=await http.counts();precondition(counts == [1,1,1,0],"Restart must not produce/resend")
+        let counts=await http.counts();precondition(counts == [1,1,2,0,2],"Restart must not produce/resend")
+        let beforeFailure=await http.counts()
+        await http.modes(lostProcess:true)
+        await refused { _ = try await flow().refresh(captured:captured) }
+        let retainedProcess=try await storage.read(scope:captured.scope);precondition(retainedProcess == initial)
+        let afterFailure=await http.counts();precondition(afterFailure[0] == beforeFailure[0] && afterFailure[1] == beforeFailure[1] && afterFailure[4] == beforeFailure[4]+1)
         await http.modes(unknown:true)
         await refused { _ = try await flow().startOrResume(captured:captured,producer:producer) }
+        let noUnknownDispatch=await http.counts();precondition(noUnknownDispatch[4] == afterFailure[4],"Missing status must not dispatch")
         let afterUnknown=try await storage.read(scope:captured.scope);precondition(afterUnknown == initial)
         await refused { _ = try await flow().cancelUnreserved(captured:captured) }
         let afterReserved=try await storage.read(scope:captured.scope);precondition(afterReserved == initial)
@@ -85,7 +92,7 @@ actor FlowPause {
         let beforeNew=await http.counts();precondition(beforeNew[0] == 1 && beforeNew[1] == 1,"Cancellation cannot produce a replacement")
         let new=try await flow().startOrResume(captured:captured,producer:producer);precondition(new == .pending)
         let replacement=try await storage.read(scope:captured.scope)!;precondition(replacement.challenge.requestID != initialID)
-        await http.modes(complete:true)
+        await http.modes(processComplete:true)
         let completed=try await flow().refresh(captured:captured);precondition(completed == .complete)
         let afterComplete=try await storage.read(scope:captured.scope);precondition(afterComplete == nil)
         let endCounts=await http.counts()
@@ -112,6 +119,6 @@ actor FlowPause {
         }
         var malformed=info;malformed["OUCHI_SANDBOX_RESTORE_ENABLED"]="true"
         do { _ = try SandboxRestoreFlow.configuration(info:malformed,bundleIdentifier:"dev.synthetic.ouchi",purchaseEnvironment:.sandbox,isolatedDevelopment:false);fatalError("String flag accepted") } catch {}
-        print("PASS: one native flow stages once, resumes exact proof after restart/lost ack, retains unknown/reserved cancellation, removes exact unreserved proof and requires fresh user action/new ID; concurrent actions refused, complete remains process-only, disabled/Production/loopback gates. Synthetic encrypted key/Auth/HTTP only; no live UI/device/Apple/rights.")
+        print("PASS: one native flow stages once, resumes exact proof after restart/lost ack, dispatches only after scoped pending status, retains unknown process response, retains unknown/reserved cancellation, removes exact unreserved proof and requires fresh user action/new ID; concurrent actions refused, complete remains process-only, disabled/Production/loopback gates. Synthetic encrypted key/Auth/HTTP only; no live UI/device/Apple/rights.")
     }
 }

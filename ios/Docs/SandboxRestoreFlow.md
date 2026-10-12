@@ -38,7 +38,15 @@ existing evidence collector, then fixed challenge HTTP and DeviceCheck assertion
 produce the PendingRestore. This is consistency evidence, never permission to
 transfer a still-owned purchase: the trusted server verifies/reserves eligibility.
 
-Refresh uses original stored digests only. Cancellation requires exact authenticated
+Refresh uses original stored digests only. A successful pending status lookup is
+required before the fixed authenticated process endpoint can dispatch the existing
+service-ledger job. First accepted submission follows this same path. Unknown,
+missing or unavailable status does not dispatch or resubmit the assertion. The
+server claim applies a durable polling throttle and the worker never repeats an
+uncertain prior Apple token update. Process transport uses a 60-second timeout
+and a 65-second resource deadline, plus the same strict bounded response/
+captured-session checks as status transport.
+Exact completion removes the matching persisted proof; errors retain it. Cancellation requires exact authenticated
 server receipt and exact persisted record, does not automatically generate a new
 proof, and asks the user to explicitly start again with a fresh request ID. Unknown,
 pruned, consumed, reserved or revoked-session results keep proof. Process completion
@@ -47,10 +55,11 @@ verified-ledger entitlement before refreshing displayed rights.
 
 ## Evidence and incomplete release work
 
-- Standard local verify-native.py passes 57 freshly compiled smoke tests,
+- Standard local verify-native.py passes 58 freshly compiled smoke tests,
   Release/Debug macOS app typecheck, UI syntax and project/plist/privacy manifest.
 - New actual AES-GCM temporary-storage plus synthetic HTTP/Auth flow test covers
-  one staging, restart/lost-commit-ack status-only continuation, unknown/reserved
+  one staging, restart/lost-commit-ack continuation without assertion resubmission,
+  scoped pending status before dispatch, lost process response retention, unknown/reserved
   cancellation refusal, lost cancellation acknowledgement, exact cancellation,
   explicitly new attempt/new ID, completed-process cleanup, absence without HTTP,
   overlap refusal, and disabled/Production/loopback configuration gates.
@@ -59,7 +68,8 @@ verified-ledger entitlement before refreshing displayed rights.
   Keychain/DeviceCheck, AppStore.sync, real signed pair, Apple server APIs, actual
   service dispatch, current premium grants or user accounts.
 
-Before enabling: authenticated worker job lookup/dispatch, external Apple unknown
+Authenticated worker job lookup/dispatch is now prepared but disabled. Before
+enabling: actual signed Apple/device end-to-end dispatch, external Apple unknown
 outcome reconciliation/escalation, finite receipt/job/pending retention and anti-abuse,
 pruned/revoked-scope recovery, formal DB advisors, signed Sandbox/real-device/UI/
 accessibility/background tests, membership/signing/products/TestFlight and listing
