@@ -2,7 +2,7 @@ name: Family preservation Auth and Storage checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['lib/family-attachment-*', 'tests/fixtures/family-attachment-storage.mjs', 'lib/home-handoff-*', 'lib/verified-app-session.ts', 'lib/attachment-read-handler.ts', 'lib/attachment-fetch.ts', 'tests/fixtures/home-handoff-mfa.mjs', 'supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/family-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/family-storage-integration.yml']
+    paths: ['lib/family-attachment-*', 'tests/fixtures/family-attachment-*', 'lib/home-handoff-*', 'lib/verified-app-session.ts', 'lib/attachment-read-handler.ts', 'lib/attachment-fetch.ts', 'tests/fixtures/home-handoff-mfa.mjs', 'supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/family-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/family-storage-integration.yml']
   workflow_dispatch:
 permissions:
   contents: read

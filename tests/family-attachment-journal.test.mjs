@@ -12,7 +12,9 @@ async function fixture(){
  const id=randomUUID(),sha='b'.repeat(64),nativeLease=randomUUID();
  await db.query("insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime,state,expected_sha256,sha256,write_tracking,captured_owner_id) values($1,$2,$3,$4,8,'image/png','stored',$5,$5,true,$2)",[id,owner,oe,product,sha]);
  await db.query("insert into maintenance_private.attachment_write_attempts(attachment_id,attempt_id,uploader_id,owner_id,app_epoch_id,state,settled_at) values($1,$2,$3,$3,$4,'settled',clock_timestamp())",[id,randomUUID(),owner,oe]);
- const scope={requestID:request,homeID:home,userID:owner,ownerEpoch:oe,nativeLease};
+ const nativeRequestID=randomUUID();
+ await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequestID,owner,oe,nativeLease]);
+ const scope={requestID:request,homeID:home,userID:owner,ownerEpoch:oe,nativeRequestID,nativeLease};
  const plan={requestID:request,homeID:home,ownerID:owner,ownerEpoch:oe,recipientID:recipient,recipientEpoch:re,snapshotDigest:'a'.repeat(64),files:[{id,size:8,mime:'image/png',sha256:sha,source:{userID:owner,epoch:oe,path:`${owner}/${oe}/${id}.png`}}]};
  // Only this preparation database contract is exercised. Consent/freeze are
  // injected, not evidence of actual signed Auth/MFA/controller authorization.
@@ -39,7 +41,7 @@ test('journal survives a new provider instance without changing owner, bytes met
 test('journal conflicts preserve original scope and manifest instead of overwriting custody evidence',async()=>{
  const f=await fixture();try{
   await f.port().record(f.scope,f.plan,f.signal());
-  await assert.rejects(f.port().record({...f.scope,nativeLease:randomUUID()},f.plan,f.signal()),/Journal conflict/);
+  await assert.rejects(f.port().record({...f.scope,nativeLease:randomUUID()},f.plan,f.signal()),/Current native deletion lease/);
   const changed=structuredClone(f.plan);changed.files[0].sha256='c'.repeat(64);
   await assert.rejects(f.port().record(f.scope,changed,f.signal()),/Journal conflict/);
   assert.equal(await f.count(),1);
@@ -108,5 +110,60 @@ test('a closing receiver cannot acquire a durable planned inventory',async()=>{
   await f.db.query('insert into maintenance_private.account_deletion_requests(user_id,app_epoch_id) values($1,$2)',[recipient,re]);
   await assert.rejects(f.port().record(f.scope,f.plan,f.signal()),/Receiver retirement pending/);
   assert.equal(await f.count(),0);
+ }finally{await f.db.close();}
+});
+
+test('actual database reclaim accepts only the new lease and preserves the immutable original inventory',async()=>{
+ const f=await fixture();try{
+  const receipt=await f.port().record(f.scope,f.plan,f.signal());
+  const before=(await f.db.query('select * from maintenance_private.family_attachment_journals')).rows[0];
+  await f.db.query("update maintenance_private.account_deletion_requests set lease_until=clock_timestamp()-interval '1 second' where id=$1",[f.scope.nativeRequestID]);
+  await assert.rejects(f.port().record(f.scope,f.plan,f.signal()),/Current native deletion lease/);
+  const claim=(await f.db.query('select public.claim_maintenance_account_deletion() as job')).rows[0].job;
+  assert.equal(claim.requestID,f.scope.nativeRequestID);assert.notEqual(claim.leaseToken,f.scope.nativeLease);
+  const renewed={...f.scope,nativeLease:claim.leaseToken};let seenOriginal;
+  const port=f.port(async(tx,scope,plan,inventory,digest,signal,original)=>{
+   assert.deepEqual(scope,renewed);seenOriginal=original;
+   assert.equal(digest,receipt.inventoryDigest);assert.ok(Object.isFrozen(original));return true;
+  });
+  assert.deepEqual(await port.record(renewed,f.plan,f.signal()),receipt);
+  assert.deepEqual(seenOriginal,f.scope);
+  assert.deepEqual((await f.db.query('select * from maintenance_private.family_attachment_journals')).rows[0],before);
+  await assert.rejects(f.port().record(f.scope,f.plan,f.signal()),/Current native deletion lease/);
+ }finally{await f.db.close();}
+});
+
+test('new database lease still requires signed authority, and another native request cannot replay the manifest',async()=>{
+ const f=await fixture();try{
+  await f.port().record(f.scope,f.plan,f.signal());
+  await f.db.query("update maintenance_private.account_deletion_requests set lease_until=clock_timestamp()-interval '1 second' where id=$1",[f.scope.nativeRequestID]);
+  const claim=(await f.db.query('select public.claim_maintenance_account_deletion() as job')).rows[0].job;
+  const renewed={...f.scope,nativeLease:claim.leaseToken};
+  await assert.rejects(f.port(async()=>false).record(renewed,f.plan,f.signal()),/Verified frozen/);
+  await assert.rejects(f.port().record({...renewed,nativeRequestID:randomUUID()},f.plan,f.signal()),/Current native deletion lease/);
+  assert.equal(await f.count(),1);
+ }finally{await f.db.close();}
+});
+
+test('database lease expiry during authorization rolls back a just-inserted inventory',async()=>{
+ const f=await fixture();try{
+  let checks=0;
+  await assert.rejects(f.port(async tx=>{
+   if(++checks===2)await tx.query("update maintenance_private.account_deletion_requests set lease_until=clock_timestamp()-interval '1 second' where id=$1",[f.scope.nativeRequestID]);
+   return true;
+  }).record(f.scope,f.plan,f.signal()),/Current native deletion lease/);
+  assert.equal(checks,2);assert.equal(await f.count(),0);
+ }finally{await f.db.close();}
+});
+
+test('terminal native request or a replaced owner epoch refuses both capture and replay',async()=>{
+ const f=await fixture();try{
+  await f.port().record(f.scope,f.plan,f.signal());
+  await f.db.query("update maintenance_private.account_deletion_requests set state='failed',lease_token=null,lease_until=null where id=$1",[f.scope.nativeRequestID]);
+  await assert.rejects(f.port().record(f.scope,f.plan,f.signal()),/Current native deletion lease/);
+  await f.db.query("update maintenance_private.account_deletion_requests set state='running',lease_token=$2,lease_until=clock_timestamp()+interval '2 minutes' where id=$1",[f.scope.nativeRequestID,f.scope.nativeLease]);
+  await f.db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[owner,randomUUID()]);
+  await assert.rejects(f.port().record(f.scope,f.plan,f.signal()),/Current native deletion lease/);
+  assert.equal(await f.count(),1);
  }finally{await f.db.close();}
 });
