@@ -6,16 +6,18 @@ import {execFileSync} from 'node:child_process';
 import {createClient} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
+import {verifyDisposableHandoffMFA} from './fixtures/home-handoff-mfa.mjs';
 const modules = new Map();
 function serverModule(name) {
  if (modules.has(name)) return modules.get(name);
  let source = ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
- source = source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(serverModule(dependency))}`);
+ source = source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(dependency.endsWith('.mjs') ? import.meta.resolve('../lib/'+dependency) : serverModule(dependency))}`);
  source = source.replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(import.meta.resolve(dependency))}`);
  const url = 'data:text/javascript;base64,'+Buffer.from(source).toString('base64'); modules.set(name,url); return url;
 }
 const {readAttachmentResponse} = await import(serverModule('attachment-read-handler'));
 const {createAttachmentFetch} = await import(serverModule('attachment-fetch'));
+const {createHomeHandoffIdentityVerifier} = await import(serverModule('home-handoff-identity'));
 
 // Explicit opt-in, disposable local containers only. No configurable remote URL.
 const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci', '-f', 'tests/fixtures/auth/compose.yml', 'exec', '-T', 'db', 'psql', '-U', 'postgres', '-d', 'auth_test', '-v', 'ON_ERROR_STOP=1', '-At'], {input, encoding:'utf8', timeout:10000, stdio:['pipe','pipe','pipe']}).trim();
@@ -52,12 +54,13 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const admin = createClient(origin,service,options);
   async function account() {
    const client = createClient(origin,'synthetic-public-key',options);
-   const result = await client.auth.signUp({email:'family-ci-'+randomUUID()+'@example.invalid',password:'Synthetic-'+randomUUID()});
+   const email='family-ci-'+randomUUID()+'@example.invalid',password='Synthetic-'+randomUUID();
+   const result = await client.auth.signUp({email,password});
    const data = ok(result); assert.ok(data.session);
    const user = uuid(data.user.id), session = uuid(JSON.parse(Buffer.from(data.session.access_token.split('.')[1],'base64url')).session_id), epoch = randomUUID();
    // Operator fixtures bind a real GoTrue session, but do not claim enrollment/MFA UI proof.
    sql(`begin;insert into maintenance_private.app_epochs values('${user}','${epoch}',true);insert into maintenance_private.account_access values('${user}',true);insert into maintenance_private.app_session_epochs values('${session}','${user}','${epoch}');commit;`);
-   return {client,user,session,epoch};
+   return {client,user,session,epoch,email,password};
   }
   sql("update maintenance_private.enrollment_policy set require_explicit=true;");
   ok(await admin.storage.createBucket('ouchi-product-attachments',{public:false}));
@@ -136,6 +139,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const transferIdentity = {target_user:transferOwner.user,verified_session:transferOwner.session,expected_epoch:transferOwner.epoch};
   const successorIdentity = {target_user:successor.user,verified_session:successor.session,expected_epoch:successor.epoch};
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
+  await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier});
   const issued = ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user}));
   assert.equal(issued.state,'pending');
   assert.deepEqual(ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user})),issued);
