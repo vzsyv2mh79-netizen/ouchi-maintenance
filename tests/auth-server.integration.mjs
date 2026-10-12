@@ -6,6 +6,8 @@ const {handleTestAccountClosure}=await import(moduleURL('lib/account-closure.ts'
 const {sessionAfterAuthVerification}=await import(moduleURL('lib/verified-app-session.ts'));
 const receiptSource=compile('lib/deletion-receipt-identity.ts').replace("'./verified-app-session'",JSON.stringify(moduleURL('lib/verified-app-session.ts')));
 const {createDeletionReceiptIdentityVerifier}=await import('data:text/javascript;base64,'+Buffer.from(receiptSource).toString('base64'));
+const receiptAuthSource=compile('lib/deletion-receipt-auth.ts').replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
+const {createDeletionReceiptGetUser}=await import('data:text/javascript;base64,'+Buffer.from(receiptAuthSource).toString('base64'));
 // Explicit integration invocation only. Ordinary pnpm test does not run this file.
 // GoTrue and DB are disposable CI containers; no SMTP, real users or shared DB.
 test('real Auth session drives isolated closure and explicit reenrollment without old-session resurrection', {skip:process.env.OUCHI_REAL_AUTH_TEST!=='true',timeout:30000},async()=>{
@@ -35,12 +37,9 @@ test('real Auth session drives isolated closure and explicit reenrollment withou
   // SQL fixture, not a production Auth database or registration end-to-end.
   await db.exec('create table auth.sessions(id uuid primary key,user_id uuid not null,not_after timestamptz)');
   await db.query('insert into auth.sessions values($1,$2,null)',[extracted.sessionID,account]);
-  const receiptIdentity=createDeletionReceiptIdentityVerifier({getUser:async(token,signal)=>{
-   const bounded=createClient('http://127.0.0.1:54321','synthetic-public-key',{
-    auth:options.auth,global:{fetch:async(input,init)=>fetch(input,{...init,redirect:'error',
-     signal:AbortSignal.any([signal,AbortSignal.timeout(5000),...(init?.signal?[init.signal]:[])])})}});
-   return bounded.auth.getUser(token);
-  }});
+  const receiptIdentity=createDeletionReceiptIdentityVerifier({getUser:createDeletionReceiptGetUser({
+   supabaseURL:'http://127.0.0.1:54321',publishableKey:'synthetic-public-key',isolatedDevelopment:true,
+  })});
   const receiptTx={signal:AbortSignal.timeout(10000),query:(sql,args)=>db.query(sql,args)};
   const receiptVerified=await receiptIdentity(bearer,receiptTx);
   assert.equal(receiptVerified.userID,account);

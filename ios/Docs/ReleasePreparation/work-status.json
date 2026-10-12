@@ -1,6 +1,6 @@
 {
   "status": "implementation_and_drafts_prepared_not_release_complete",
-  "sourceHeadBeforeChange": "f11e57d09ac34eb9c6c379a58532523f735b9bb6",
+  "sourceHeadBeforeChange": "56dc81af0edc30ce3b59243132198bb810ee0109",
   "ui": {
     "change": "stack status captions vertically, retain top-right 44pt theme control and Dynamic Type semantic fonts",
     "manualChecks": "pending; no Larger Text App Store claim yet",
@@ -23,7 +23,7 @@
   },
   "network": {
     "change": "resource deadlines: status/cancel 20s; challenge/commit/deletion 35s; process already 65s",
-    "test": "new synthetic deletion lost-ack/timeout status recovery, no duplicate POST and epoch refusal",
+    "test": "40 native core tests; default URLSession loopback lost-reply and bearer-free receipt recovery; canonical token checks; scoped lookup and expected epoch refusal; isolated actual PostgreSQL cancellation checks and two-app replay",
     "remaining": [
       "expired/original-session-loss restore recovery",
       "unknown Apple update outcome reconciliation",
@@ -31,7 +31,19 @@
       "signed real Apple Sandbox and actual device persistence",
       "production app closure with shared-Auth isolation and cleanup SLA"
     ],
-    "limitations": "local smoke proves control flow, not real transport deadlines or production deletion"
+    "limitations": "Native TCP evidence is macOS loopback. Two-app cancellation replay uses actual local PostgreSQL but synthetic Auth/Storage. Fresh identity CI on 56dc81af uses real disposable GoTrue and PGlite liveness fixtures; complete custody registration with the actual Auth database and shipping route remains unverified.",
+    "receiptRecovery": {
+      "custody": "dedicated device Keychain readback and metadata discovery prepared",
+      "screen": "DEBUG-only navigation; online checks disabled",
+      "remaining": [
+        "trusted prepare/register/claim route coupling",
+        "expiry and explicit custody cleanup",
+        "physical device lock/restart",
+        "all-project retirement coverage",
+        "adopt finite retention and provider cleanup policy"
+      ]
+    },
+    "authTransport": "request-scoped SDK getUser, 5s combined cancellation deadline, 64KiB bounded body and redirects refused; new isolated CI pending"
   },
   "storage": {
     "policy": "attachment-policy-draft.json",
@@ -49,12 +61,36 @@
   "listing": {
     "copy": "listing-ja-draft.json",
     "images": "screenshot-plan.json",
-    "status": "5 SVG templates; real capture and opaque PNG/JPEG export remain"
+    "status": "5 SVG templates and a separate visually reviewed sample home capture exist; final release screenshots and submission PNG/JPEG exports remain"
   },
   "enabled": {
     "production": false,
     "realPayments": false,
     "paidInfrastructure": false,
     "existingDataDeletion": false
-  }
+  },
+  "evidenceReviewedOn": "2026-10-13",
+  "ownerActionsDeferred": [
+    {
+      "item": "Apple Developer membership payment",
+      "status": "held by user",
+      "neededBefore": "signed Sandbox/TestFlight/submission"
+    },
+    {
+      "item": "legal operator/support/contact fields",
+      "status": "not supplied",
+      "neededBefore": "public policy and review submission"
+    },
+    {
+      "item": "real device accessibility and purchase lifecycle review",
+      "status": "pending",
+      "neededBefore": "final release verification"
+    },
+    {
+      "item": "final prices, storage/retention policy and operational cost approval",
+      "status": "proposals only",
+      "neededBefore": "sale activation"
+    }
+  ],
+  "releaseComplete": false
 }
