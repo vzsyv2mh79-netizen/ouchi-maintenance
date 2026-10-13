@@ -38,6 +38,19 @@ private actor ReviewGate {
     func finish() { release?.resume(); release = nil }
 }
 final class AccountClosureReviewTests: XCTestCase {
+    @MainActor func testSelectingAnotherSavedReferenceInvalidatesLateReply() async throws {
+        let gate = ReviewGate()
+        let flow = AccountClosureReviewFlow(api: .init(transport: { try await gate.reply($0) }))
+        let revision = UUID()
+        flow.bind(accountID: reviewAccount, epochID: reviewEpoch, revision: revision, restored: .init(accountID: reviewAccount, epochID: reviewEpoch, submissionID: reviewSubmission))
+        let pending = Task { try await flow.recover(token: "synthetic") }
+        await gate.wait()
+        let selected = AccountClosureReviewBinding(accountID: reviewAccount, epochID: reviewEpoch, submissionID: UUID())
+        flow.bind(accountID: reviewAccount, epochID: reviewEpoch, revision: revision, restored: selected)
+        await gate.finish()
+        do { _ = try await pending.value; XCTFail("Old reference result accepted") } catch { XCTAssertEqual(error as? CloudError, .authenticationRequired) }
+        XCTAssertEqual(flow.binding, selected); XCTAssertNil(flow.receipt); XCTAssertTrue(flow.resultUnconfirmed)
+    }
     func testStrictTransportAndCancellationReceipt() async throws {
         let api = AccountClosureReviewAPI(transport: { request in
             XCTAssertEqual(request.httpMethod, "POST")

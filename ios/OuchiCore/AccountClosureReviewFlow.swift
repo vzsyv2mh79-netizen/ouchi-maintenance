@@ -27,12 +27,14 @@ public struct AccountClosureReviewBinding: Codable, Equatable, Sendable {
         self.api = api; self.persist = persist
     }
     public func bind(accountID: UUID?, epochID: UUID?, revision: UUID?, restored: AccountClosureReviewBinding? = nil) {
-        guard self.accountID != accountID || self.epochID != epochID || self.revision != revision else { return }
+        let restoredMatches = restored.map { $0.accountID == accountID && $0.epochID == epochID && valid($0) } ?? false
+        let referenceChanged = restoredMatches && restored != binding
+        guard self.accountID != accountID || self.epochID != epochID || self.revision != revision || referenceChanged else { return }
         let sameAccount = self.accountID == accountID && self.epochID == epochID
         self.accountID = accountID; self.epochID = epochID; self.revision = revision
         generation += 1; busy = false; receipt = nil; reconciled = false
         if !sameAccount { binding = nil }
-        if let restored, restored.accountID == accountID, restored.epochID == epochID, valid(restored) { binding = restored }
+        if let restored, restoredMatches { binding = restored }
         resultUnconfirmed = binding != nil
     }
     public func recover(token: String) async throws -> AccountClosureReviewReceipt? {
