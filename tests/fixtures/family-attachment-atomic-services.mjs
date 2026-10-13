@@ -21,6 +21,7 @@ import {verifyDisposableClosureReviewHTTP} from './closure-review-http.mjs';
 import {createHomeHandoffAuthVersionReader} from '../../lib/home-handoff-auth-version.mjs';
 import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy.mjs';
 import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STATE_SQL} from '../../lib/account-closure-review-reauthentication.mjs';
+import {verifyDisposableReauthenticationResponseLoss} from './closure-reauth-response-loss.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -128,6 +129,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal(checkedPolicy.assuranceMode,'highest-current-aal/v1');assert.equal('allowLowAALSeconds' in checkedPolicy,false);
   console.log('strict Auth policy: actual GoTrue health + explicit disposable config; highest-current AAL, no fabricated low-AAL default');
   await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification});
+  await verifyDisposableReauthenticationResponseLoss({db,actor:await account(),origin,options,createAttachmentFetch});
   const reviewTransactions={run:async(signal,callback)=>{
    signal.throwIfAborted();await db.query('begin');
    try{
