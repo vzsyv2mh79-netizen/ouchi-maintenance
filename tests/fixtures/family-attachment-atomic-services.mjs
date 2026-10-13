@@ -404,6 +404,18 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await db.query('select owner_id from public.kb_households where id=$1',[budget.plan.householdID])).rows[0].owner_id,owner.user);
   assert.equal((await db.query('select count(*)::int n from private.kb_shared_family_completion_contexts')).rows[0].n,0);
   assert.equal((await db.query('select friendly_name from auth.mfa_factors where id=$1',[totpFactors.get(receiver.user)])).rows[0].friendly_name,'Synthetic atomic handoff authenticator');
+  // An unexpired bearer must not authorize COMMIT after its authoritative
+  // GoTrue session expires in the same transaction. Restoration includes the
+  // original session deadline as well as owner/member/context/receipt state.
+  const originalSession=(await db.query('select not_after from auth.sessions where id=$1 and user_id=$2',[receiver.session,receiver.user])).rows[0];
+  assert.ok(originalSession);
+  await assert.rejects(budget.finish({afterCompletion:async tx=>{
+   assert.equal((await tx.query("update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id=$1 and user_id=$2 returning id",[receiver.session,receiver.user])).rowCount,1);
+  }}),/Current transaction verification required before COMMIT/);
+  assert.equal(await budget.read(),null);
+  assert.equal((await db.query('select owner_id from public.kb_households where id=$1',[budget.plan.householdID])).rows[0].owner_id,owner.user);
+  assert.equal((await db.query('select count(*)::int n from private.kb_shared_family_completion_contexts')).rows[0].n,0);
+  assert.deepEqual((await db.query('select not_after from auth.sessions where id=$1 and user_id=$2',[receiver.session,receiver.user])).rows[0],originalSession);
   // Kakei transfer + signed completion commit in their own dedicated SQL tx.
   // No Storage/GoTrue mutation belongs inside this budget transaction;
   // bounded GoTrue identity reads plus current DB Auth pins are mandatory.

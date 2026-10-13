@@ -1,0 +1,38 @@
+{
+  "status": "prepared_session_expiry_actual_service_ci_pending",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "parentHead": "b4be5a181ae36758bf5c55237d957cdeafb66bb6",
+  "parentCI": "all_five_success",
+  "parentActualV2Service": {
+    "workflow": 38411007735,
+    "job": 115343009816,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "parentRemoteRegression": {
+    "workflow": 38411007559,
+    "job": 115343008890,
+    "passed": 725,
+    "failed": 0,
+    "skipped": 0,
+    "localCasesNotPublished": 19
+  },
+  "newWitness": [
+    "Complete Kakei transfer and private signed completion in one disposable pinned transaction.",
+    "Before COMMIT set the actual receiver GoTrue session not_after to the past; still-unexpired bearer must not override authoritative expired session.",
+    "COMMIT must reject and roll back home ownership, completion context/receipt and exact original session deadline.",
+    "Only after that rollback may the normal independently verified completion proceed."
+  ],
+  "localEvidence": {
+    "lint": "passed",
+    "currentAllCaseRerun": "running with concurrency 2; no terminal success claim"
+  },
+  "remaining": [
+    "Exact-head service execution/raw logs",
+    "Still-local retirement/RPC/schema/read tests with dependencies",
+    "Injected fixture policy/current production Auth policy and complete app registration inventory",
+    "Full shipping route/least privilege/finite retention and physical-device/IAP/Apple submission"
+  ]
+}
