@@ -163,6 +163,10 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const settled=waiting.then(()=>({accepted:true}),error=>({accepted:false,error}));
    let observed=false;
    for(let attempt=0;attempt<20;attempt++){
+    // pg_stat_activity is snapshotted on first access in this lock-holder
+    // transaction. Refresh only its local observation cache, not counters or
+    // locks, so later polls can see the newly connected blocked backend.
+    await db.query('select pg_stat_clear_snapshot()');
     if((await db.query("select exists(select 1 from pg_stat_activity where application_name=$1 and wait_event_type='Lock') as waiting",[reviewApplicationName])).rows[0].waiting){observed=true;break;}
     await new Promise(resolve=>setTimeout(resolve,20));
    }
