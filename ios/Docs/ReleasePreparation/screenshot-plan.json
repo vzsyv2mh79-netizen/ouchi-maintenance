@@ -221,5 +221,30 @@
       "Family detail",
       "Final signed release build"
     ]
+  },
+  "largeTextInteractionReview": {
+    "status": "AX5_sample_interactions_verified_not_full_accessibility",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "textSize": "AX5",
+    "appearance": "light",
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "reviewedAttachments": 4,
+    "scope": [
+      "completion entirely visible and activated",
+      "next due date plus 30 days and history exactly one added",
+      "export entirely visible and activated, share control visible"
+    ],
+    "report": "native-interaction-review.md",
+    "remaining": [
+      "AX3 interaction",
+      "dark large text",
+      "keyboard forms",
+      "VoiceOver",
+      "physical device",
+      "real cloud persistence",
+      "final signed release"
+    ]
   }
 }
