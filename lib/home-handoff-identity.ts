@@ -54,3 +54,80 @@ export function createHomeHandoffIdentityVerifier({getUser,policyReader,projectI
   return Object.freeze({...identity,epochID:row.epoch_id});
  };
 }
+
+// Inventory consent uses these additional locks inside the caller's dedicated
+// transaction. User locks fence factor/session INSERT through validated immediate
+// Auth foreign keys; existing factors/sessions/enrollment rows stay locked until
+// COMMIT. A deployment without those Auth FK guarantees is explicitly refused.
+export const HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL=`select count(distinct c.conrelid)=2 as supported
+ from pg_catalog.pg_constraint c
+ join pg_catalog.pg_attribute a on a.attrelid=c.conrelid and a.attnum=any(c.conkey)
+ join pg_catalog.pg_attribute target on target.attrelid=c.confrelid and target.attnum=any(c.confkey)
+ where c.contype='f' and c.convalidated and not c.condeferrable
+ and c.confrelid='auth.users'::regclass and a.attname='user_id'
+ and target.attname='id' and cardinality(c.conkey)=1 and cardinality(c.confkey)=1
+ and c.conrelid in ('auth.sessions'::regclass,'auth.mfa_factors'::regclass)`;
+export const HOME_HANDOFF_AUTH_USER_PIN_SQL='select id from auth.users where id=$1::uuid for update';
+export const HOME_HANDOFF_AUTH_SESSION_PIN_SQL='select id from auth.sessions where id=$1::uuid and user_id=$2::uuid for update';
+export const HOME_HANDOFF_AUTH_FACTOR_PIN_SQL='select id from auth.mfa_factors where user_id=$1::uuid order by id for update';
+export const HOME_HANDOFF_ENROLLMENT_PIN_SQL=`select e.epoch_id
+ from maintenance_private.app_epochs e
+ join maintenance_private.account_access a on a.user_id=e.user_id
+ join maintenance_private.app_session_epochs b on b.user_id=e.user_id and b.epoch_id=e.epoch_id
+ where e.user_id=$1::uuid and b.session_id=$2::uuid and e.enabled and a.enabled
+ for update of e,a,b`;
+
+/** Prepared inventory issuer identity adapter. No route/grant/connection is
+ * enabled here. Caller must keep this transaction through consent persistence,
+ * order multi-user locks consistently and honor its signal/SQL timeout. Current
+ * deployment Auth-policy acquisition is still a required external provider.
+ * Only password and TOTP recent-authentication methods are supported; unsupported
+ * methods refuse rather than replacing authentication time with verification time.
+ */
+export function createHomeHandoffInventoryIdentityVerifier(options:Parameters<typeof createHomeHandoffIdentityVerifier>[0]) {
+ createHomeHandoffIdentityVerifier(options); // Validate configuration eagerly.
+ return async(bearer:string,tx:Transaction)=>{
+  // Policy evidence belongs to this invocation, never another concurrent actor.
+  let lastPolicy:Policy|null=null;
+  const policyReader:Reader=Object.assign(async(signal:AbortSignal)=>{
+   const policy=await options.policyReader(signal);lastPolicy=policy;return policy;
+  },{isCurrent:(policy:Policy)=>options.policyReader.isCurrent(policy)});
+  const verify=createHomeHandoffIdentityVerifier({...options,policyReader});
+  const first=await verify(bearer,tx);if(!first)return null;
+  const signal=tx.signal;
+  const query=async(sql:string,args:unknown[])=>{signal.throwIfAborted();const value=await tx.query(sql,args);signal.throwIfAborted();return value;};
+  const constraint=await query(HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,[]);
+  if(constraint.rows.length!==1||constraint.rows[0].supported!==true)throw Error('Current Auth pin constraints unavailable');
+  const user=await query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[first.userID]);
+  if(user.rows.length!==1||user.rows[0].id!==first.userID)return null;
+  const session=await query(HOME_HANDOFF_AUTH_SESSION_PIN_SQL,[first.sessionID,first.userID]);
+  if(session.rows.length!==1||session.rows[0].id!==first.sessionID)return null;
+  await query(HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,[first.userID]);
+  const enrollment=await query(HOME_HANDOFF_ENROLLMENT_PIN_SQL,[first.userID,first.sessionID]);
+  if(enrollment.rows.length!==1||enrollment.rows[0].epoch_id!==first.epochID)return null;
+  let policyRow:Record<string,unknown>|undefined;
+  // Reverify the original bearer and current policy AFTER acquiring all locks.
+  const final=await verify(bearer,{signal,query:async(sql,args)=>{
+   const result=await query(sql,args);if(sql===HOME_HANDOFF_SESSION_POLICY_SQL)policyRow=result.rows[0];return result;
+  }});
+  if(!final||final.userID!==first.userID||final.sessionID!==first.sessionID||final.epochID!==first.epochID||!policyRow)return null;
+  // Use exactly the policy validated by the final session read; a new policy
+  // must not silently replace it without applying its session limits again.
+  const policy=lastPolicy as Policy|null;signal.throwIfAborted();
+  if(!policy||policy.projectID!==options.projectID||!options.policyReader.isCurrent(policy)||policy.singleSession!==false)throw Error('Current Auth policy expired');
+  if(policyRow.has_verified_factor===true&&policy.totpVerify!==true)return null;
+  const checkedAt=Math.floor(Number(policyRow.verified_at));
+  if(!Number.isSafeInteger(checkedAt)||checkedAt<=0)return null;
+  const claims=JSON.parse(Buffer.from(bearer.split('.')[1],'base64url').toString('utf8')) as {aal?:unknown;amr?:unknown};
+  if(!['aal1','aal2'].includes(String(claims.aal))||!Array.isArray(claims.amr)||claims.amr.length>16)return null;
+  const recent=claims.amr.filter((c:unknown):c is {method:string;timestamp:number}=>{
+   if(!c||typeof c!=='object')return false;
+   const r=c as {method?:unknown;timestamp?:unknown};
+   return (policyRow?.has_verified_factor===true?r.method==='totp':r.method==='password')
+    &&Number.isSafeInteger(r.timestamp)&&Number(r.timestamp)>0
+    &&Number(r.timestamp)*1000<=checkedAt&&Number(r.timestamp)*1000>=checkedAt-600000;
+  });
+  if(recent.length!==1)return null;
+  return Object.freeze({...final,aal:claims.aal as 'aal1'|'aal2',authenticatedAt:recent[0].timestamp*1000,checkedAt});
+ };
+}

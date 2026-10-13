@@ -29,3 +29,21 @@ test('session SQL refuses future/expired timestamps and preserves explicit inact
   assert.equal((await current()).session_current,false);
  } finally {await db.close();}
 });
+
+
+test('Auth pin capability requires immediate validated one-column user FKs for both sessions and factors',async()=>{
+ const db=new PGlite();try{
+  await db.exec(`create schema auth;create table auth.users(id uuid primary key);
+   create table auth.sessions(id uuid primary key,user_id uuid constraint sessions_user_fk references auth.users(id));
+   create table auth.mfa_factors(id uuid primary key,user_id uuid constraint factors_user_fk references auth.users(id));`);
+  const pinSQL=readFileSync('lib/home-handoff-identity.ts','utf8').match(/HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL=`([\s\S]*?)`;/)[1];
+  const supported=async()=>(await db.query(pinSQL)).rows[0].supported;
+  assert.equal(await supported(),true);
+  await db.exec('alter table auth.mfa_factors drop constraint factors_user_fk;alter table auth.mfa_factors add constraint factors_user_fk foreign key(user_id) references auth.users(id) deferrable initially deferred');
+  assert.equal(await supported(),false);
+  await db.exec('alter table auth.mfa_factors drop constraint factors_user_fk;alter table auth.mfa_factors add constraint factors_user_fk foreign key(user_id) references auth.users(id) not valid');
+  assert.equal(await supported(),false);
+  await db.exec('alter table auth.mfa_factors validate constraint factors_user_fk');assert.equal(await supported(),true);
+  await db.exec('alter table auth.sessions drop constraint sessions_user_fk');assert.equal(await supported(),false);
+ }finally{await db.close();}
+});

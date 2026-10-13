@@ -61,3 +61,23 @@ Auth/policy and byte fixtures remain explicit limits of these cases.
 
 No production schema migration, exposed role/grant, endpoint, real payment,
 paid infrastructure, existing-user deletion or App Store publication is enabled.
+
+
+## Prepared recent-authentication issuer identity adapter
+
+`createHomeHandoffInventoryIdentityVerifier` adds a backend-only issuer identity
+adapter on top of exact-bearer verification and the existing current-policy
+reader. It requires validated immediate single-column Auth foreign keys from
+sessions/factors to `auth.users.id`, locks the user, live session, all existing
+factor rows and exact enabled enrollment/account rows in the same transaction,
+and reverifies the original bearer/current policy after those locks. Unsupported
+Auth schema capability or changed session/enrollment refuses.
+
+Authentication time comes only from verified signed password AMR, or recent TOTP
+AMR when a verified factor is present and the current policy enables TOTP. Fresh
+getUser completion, JWT metadata, stale/future/missing/ambiguous AMR and unsupported
+methods cannot substitute. The new adapter has unit/query checks, but it is not
+yet substituted into the actual-service composition and does not supply the
+separate signed-claim worker `verifyActor` provider. Real Auth concurrency/factor
+insertion and cancellation need actual-service evidence. Policy acquisition,
+credentials, least-privilege grant and a production route are not enabled.
