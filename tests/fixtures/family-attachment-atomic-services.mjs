@@ -14,15 +14,17 @@ import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
  * key. Complete-inventory consents now use verified real bearers, password AMR
- * timestamps and locked live GoTrue sessions. Project MFA policy is fixed to the
- * disposable no-factor configuration; shipping policy/factor pins remain open.
+ * timestamps using the prepared pinned issuer adapter. Its separate scratch
+ * account exercises actual session/factor/enrollment contention and rollback.
+ * Project policy and worker verifyActor remain disposable no-factor providers;
+ * shipping policy/worker predicate pins remain open.
  * No shipping
  * route, new production grant, source cleanup or whole-account completion proof.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
- assert.equal(typeof readAttachmentResponse,'function');
+ assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');
  const {Client}=await import('pg');
  const db=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
  await db.connect();
@@ -71,7 +73,43 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }
   const scope={requestID:controllerScope.requestID,homeID,userID:owner.user,ownerEpoch:owner.epoch,nativeRequestID,nativeLease,controllerScope};
   const plan={requestID:scope.requestID,homeID,ownerID:owner.user,ownerEpoch:owner.epoch,recipientID:receiver.user,recipientEpoch:receiver.epoch,snapshotDigest:consentPlan.familySnapshotDigest,files:source.map(({id,user})=>({id,mime:'image/png',size:bytes.length,sha256:sha,source:{userID:user.user,epoch:user.epoch,path:`${user.user}/${user.epoch}/${id}.png`}}))};
-  const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+  // Explicit disposable policy, not live Management acquisition. The production
+  // issuer adapter itself verifies/pins actual Auth rows and recent signed AMR.
+  const projectID='abcdefghijklmnopqrst';
+  const policy=Object.freeze({projectID,singleSession:false,timeboxSeconds:null,inactivitySeconds:null,allowLowAALSeconds:null,totpVerify:true,phoneVerify:false,webAuthnVerify:false});
+  const policyReader=Object.assign(async()=>policy,{isCurrent:value=>value===policy});
+  const identity=createHomeHandoffInventoryIdentityVerifier({projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)});
+  // A separate real account proves row/factor-insertion fences and cancellation
+  // without revoking the two people needed by the complete Storage handoff.
+  const scratch=await account();
+  const scratchFactor=await scratch.client.auth.mfa.enroll({factorType:'totp',friendlyName:'Synthetic pin test'});assert.equal(scratchFactor.error,null);
+  const scratchSession=await scratch.client.auth.getSession();assert.equal(scratchSession.error,null);
+  const scratchToken=scratchSession.data.session.access_token;
+  const contender=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:3000});
+  await contender.connect();
+  try{
+   await contender.query("set lock_timeout='200ms'");
+   await transaction(async tx=>{
+    const signal=AbortSignal.timeout(10000);
+    const verified=await identity(scratchToken,{signal,query:(sql,args)=>tx.query(sql,args)});
+    assert.equal(verified.userID,scratch.user);assert.equal(verified.sessionID,scratch.session);assert.equal(verified.epochID,scratch.epoch);assert.equal(verified.aal,'aal1');
+    for(const [sql,args] of [
+     ['delete from auth.sessions where id=$1',[scratch.session]],
+     ["update auth.mfa_factors set status='verified' where id=$1",[scratchFactor.data.id]],
+     ['update maintenance_private.app_epochs set enabled=false where user_id=$1',[scratch.user]],
+     ["insert into auth.mfa_factors select (jsonb_populate_record(null::auth.mfa_factors,to_jsonb(f)||jsonb_build_object('id',$1::uuid,'user_id',$2::uuid,'friendly_name',$3::text))).* from auth.mfa_factors f where id=$4",[randomUUID(),scratch.user,'Synthetic concurrent factor '+randomUUID(),scratchFactor.data.id]]
+    ])await assert.rejects(contender.query(sql,args),error=>error.code==='55P03');
+   });
+   const cancellation=new AbortController();
+   await assert.rejects(transaction(tx=>identity(scratchToken,{signal:cancellation.signal,query:async(sql,args)=>{
+    const result=await tx.query(sql,args);if(sql.includes('from auth.users where'))cancellation.abort();return result;
+   }})),{name:'AbortError'});
+   await contender.query('begin');
+   try{assert.equal((await contender.query('select id from auth.users where id=$1 for update nowait',[scratch.user])).rows[0].id,scratch.user);}
+   finally{await contender.query('rollback');}
+   const logout=await scratch.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
+   assert.equal(await transaction(tx=>identity(scratchToken,{signal:AbortSignal.timeout(10000),query:(sql,args)=>tx.query(sql,args)})),null);
+  }finally{await contender.end();}
   async function originalInventory(tx){
    const members=(await tx.query('select user_id from public.home_members where "homeId"=$1 order by user_id for update',[homeID])).rows;
    const products=(await tx.query('select id from public.products where "homeId"=$1 order by id for update',[homeID])).rows;
@@ -92,20 +130,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    transaction,target:async(tx,request,home,actor)=>{assert.equal(request,scope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));return {scope,plan,inventory:await originalInventory(tx)};},
    records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,
    record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
-  },verifyIdentity:async(token,tx,signal)=>{
-   // Decode ONLY after Auth verified this exact bearer. Recent authentication
-   // comes from signed password AMR, never Date.now()/getUser completion time.
-   const verified=await admin.auth.getUser(token);signal.throwIfAborted();
-   if(verified.error||!verified.data.user)return null;
-   const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString('utf8'));
-   const passwords=Array.isArray(claims.amr)?claims.amr.filter(c=>c.method==='password'&&Number.isSafeInteger(c.timestamp)):[];
-   if(claims.sub!==verified.data.user.id||!uuid(claims.session_id)||claims.aal!=='aal1'||passwords.length!==1)return null;
-   const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
-   if(!Number.isSafeInteger(claims.exp)||claims.exp*1000<=clock)return null;
-   const actor={actorID:claims.sub,epochID:claims.sub===owner.user?owner.epoch:claims.sub===receiver.user?receiver.epoch:null,sessionID:claims.session_id,aal:claims.aal};
-   if(!actor.epochID||!await liveActor(tx,actor,signal))return null;
-   return {userID:actor.actorID,...actor,authenticatedAt:passwords[0].timestamp*1000,checkedAt:clock};
-  },verifyActor:liveActor,currentAuthority:async(tx,s,p,i,d,signal)=>{
+  },verifyIdentity:(token,tx,signal)=>identity(token,{signal,query:(sql,args)=>tx.query(sql,args)}),verifyActor:liveActor,currentAuthority:async(tx,s,p,i,d,signal)=>{
    signal.throwIfAborted();
    const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests n join maintenance_private.household_stop_bindings b on b.user_id=n.user_id join maintenance_private.household_family_holds h on h.principal=n.user_id where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4 and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token and b.scope=$5::jsonb and b.state='processing' and b.lease_until>clock_timestamp() and h.home_id=$6 and h.scope=b.scope) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,JSON.stringify(s.controllerScope),s.homeID])).rows[0];
    signal.throwIfAborted();return row.current===true;

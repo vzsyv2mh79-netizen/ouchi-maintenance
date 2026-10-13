@@ -52,3 +52,28 @@ production URL, new exposed role/grant, production migration or paid resource is
 introduced. Concurrent activation/cancellation, current Auth/MFA policy pinning,
 durable source cleanup/completion, shipping/native routes
 and physical-device recovery still require further verification.
+
+
+## Prepared pinned-issuer actual-service extension (result pending)
+
+The final fixture now receives `createHomeHandoffInventoryIdentityVerifier`
+compiled from the actual TypeScript module used by unit/query tests. Inventory
+consent issuance uses that adapter instead of the preceding test-only password
+identity implementation. Policy remains an explicit fixed disposable provider;
+the production Management/current-policy acquisition is not claimed.
+
+A separate real GoTrue account with an unverified TOTP factor tests the adapter
+on a pinned PostgreSQL transaction. A second connection uses a bounded lock
+wait: session deletion, existing-factor promotion, enrollment disable and a new
+factor INSERT must all fail with lock-not-available while the verified transaction
+holds its user/session/factor/enrollment locks. Cancellation immediately after the
+user lock must roll the transaction back; a new connection must acquire that
+user lock without waiting. Actual logout then makes the old bearer return no
+identity. No account is physically deleted. The two transfer participants remain
+available for the full signed-inventory/Storage handoff.
+
+These additional cases require same-head CI logs before being called passed.
+Prior 4e5501a actual-service success used the earlier fixture identity adapter.
+The separate signed-claim worker verifier still uses no-factor test logic and is
+not the new pinned issuer adapter. Full current MFA/policy composition, explicit
+native UI, least-privilege providers and durable cleanup/completion remain open.
