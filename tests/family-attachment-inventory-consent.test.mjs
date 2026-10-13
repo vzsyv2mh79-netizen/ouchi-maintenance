@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,createHmac} from 'node:crypto';
 import {createFamilyAttachmentInventoryConsent} from '../lib/family-attachment-inventory-consent.mjs';
 import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs';
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
@@ -34,7 +34,7 @@ async function setup({activation=false,commitFault=null,memberOnly=false}={}){
  const options={key,store,verifyIdentity:async(actor,tx)=>{
   if(![owner,recipient].includes(actor))return null;
   const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
-  return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authenticatedAt:clock-10000,checkedAt:clock});
+  return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authStateDigest:'a'.repeat(64),authenticatedAt:clock-10000,checkedAt:clock});
  },verifyActor:async(tx,c)=>{
   // Synthetic Auth table/session fixture; current MFA policy remains injected.
   const row=(await tx.query('select user_id from auth.sessions where id=$1 for update',[c.sessionID])).rows[0];
@@ -169,5 +169,23 @@ test('an approval expires by the database clock and repeated authorization canno
    const second=(await tx.query('select expires_at from maintenance_private.family_attachment_inventory_approvals where transaction_id=txid_current()')).rows[0].expires_at;
    assert.deepEqual(second,first);
   });
+ }finally{await s.f.db.close();}
+});
+
+
+test('v2 requires pinned Auth state and cannot reinterpret a legacy v1 consent',async()=>{
+ const s=await setup();try{
+  s.identityTransform=x=>{const value={...x};delete value.authStateDigest;return value;};
+  assert.deepEqual(await s.issue(owner),{status:'unconfirmed'});
+  s.identityTransform=x=>x;await s.issue(owner);await s.issue(recipient);assert.equal(await s.authorize(),true);
+  s.transform=rows=>rows.map((r,i)=>{
+   if(i)return r;
+   const c=JSON.parse(Buffer.from(r.token.split('.')[0],'base64url'));
+   c.purpose='OuchiMaintenance/family-attachment-inventory/v1';delete c.authStateDigest;
+   const body=Buffer.from(JSON.stringify(c)).toString('base64url');
+   const sig=createHmac('sha256',s.options.key).update(c.purpose+'\n'+body).digest('base64url');
+   return {...r,token:body+'.'+sig};
+  });
+  assert.equal(await s.authorize(),false);
  }finally{await s.f.db.close();}
 });

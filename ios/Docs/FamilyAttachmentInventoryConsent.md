@@ -101,3 +101,29 @@ factor-set/state snapshot binding to the signed consent remains an explicit
 release gate: pins/current AAL alone do not prove that the factor set is unchanged
 since issuance. Production current-policy acquisition, native explicit consent
 UI and least-privilege routes remain disabled.
+
+
+## Auth-state binding v2 (actual-service result pending)
+
+The inventory-consent domain is now v2. Every private signature requires the
+issuer's domain-separated Auth-state digest, captured after session/factor/user
+and enrollment pins. It covers relevant user credential/restriction fields, exact
+session identity/assurance/lifetime, and the complete ordered factor rows. Private
+factor material stays in the backend query/hash operation; only its digest enters
+the private signature. Issuer responses still contain status/expiry only.
+
+The worker recomputes that digest under the same transaction pins and refuses a
+mismatch even if current AAL2 and enabled TOTP are unchanged. Missing digests and
+legacy v1 signatures are rejected; there is no implicit migration, fallback or
+renewal of old proofs. All current candidates are disabled review code; existing
+production records are not rewritten.
+
+Prepared actual-service additions replace a verified TOTP factor while preserving
+AAL2/one verified factor and require worker refusal. That mutation is rolled back
+inside its disposable fixture. The full HMAC/Storage fixture adds an unverified
+factor through real Auth, requires status refusal with unchanged AAL1 and no
+revoked consent, removes only that newly created synthetic factor, and verifies
+that separate consent-revocation checks still execute independently. These new
+cases require same-head CI evidence. Live production policy/deadline binding,
+consistent multi-actor store lock ordering, least-privilege routes/native UI and
+cleanup/finite retention remain open.

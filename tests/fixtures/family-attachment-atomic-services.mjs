@@ -187,6 +187,14 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const session=await actor.client.auth.getSession();assert.equal(session.error,null);
    for(const id of [ownFile,memberFile])await refused(await downloadWithToken(session.data.session.access_token,id));
   }
+  // Full HMAC-authorized status must reject a changed factor inventory even
+  // when session AAL1 and the lack of verified factors remain unchanged.
+  const additional=await receiver.client.auth.mfa.enroll({factorType:'totp',friendlyName:'Synthetic post-consent factor'});assert.equal(additional.error,null);
+  assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[receiver.session])).rows[0].aal,'aal1');
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents where request_id=$1 and revoked_at is not null',[scope.requestID])).rows[0].n,0);
+  await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory consent/);
+  const removed=await receiver.client.auth.mfa.unenroll({factorId:additional.data.id});assert.equal(removed.error,null);
+  assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
   await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,1);

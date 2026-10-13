@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {sessionAfterAuthVerification} from './verified-app-session';
 import {HomeHandoffAdditionalVerificationRequired} from './home-handoff-handler.mjs';
 
@@ -77,6 +78,18 @@ export const HOME_HANDOFF_ENROLLMENT_PIN_SQL=`select e.epoch_id
  where e.user_id=$1::uuid and b.session_id=$2::uuid and e.enabled and a.enabled
  for update of e,a,b`;
 
+// Private snapshot never leaves this backend adapter. Only its domain-separated
+// digest is bound into the signed consent; factor secrets are not returned/stored.
+export const HOME_HANDOFF_AUTH_STATE_SQL=`select jsonb_build_object(
+ 'user',jsonb_build_object('id',u.id,'password',to_jsonb(u)->'encrypted_password','bannedUntil',to_jsonb(u)->'banned_until','deletedAt',to_jsonb(u)->'deleted_at'),
+ 'session',jsonb_build_object('id',s.id,'userID',s.user_id,'aal',s.aal,'createdAt',s.created_at,'notAfter',s.not_after),
+ 'factors',coalesce((select jsonb_agg(to_jsonb(f) order by f.id) from auth.mfa_factors f where f.user_id=u.id),'[]'::jsonb)) as auth_state
+ from auth.users u join auth.sessions s on s.user_id=u.id where u.id=$1::uuid and s.id=$2::uuid`;
+const authStateDigest=(state:unknown)=>{
+ if(!state||typeof state!=='object'||Array.isArray(state))throw Error('Pinned Auth state required');
+ return createHash('sha256').update('OuchiMaintenance/inventory-auth-state/v1\n'+JSON.stringify(state)).digest('hex');
+};
+
 /** Prepared inventory issuer identity adapter. No route/grant/connection is
  * enabled here. Caller must keep this transaction through consent persistence,
  * order multi-user locks consistently and honor its signal/SQL timeout. Current
@@ -128,16 +141,18 @@ export function createHomeHandoffInventoryIdentityVerifier(options:Parameters<ty
     &&Number(r.timestamp)*1000<=checkedAt&&Number(r.timestamp)*1000>=checkedAt-600000;
   });
   if(recent.length!==1)return null;
-  return Object.freeze({...final,aal:claims.aal as 'aal1'|'aal2',authenticatedAt:recent[0].timestamp*1000,checkedAt});
+  const state=await query(HOME_HANDOFF_AUTH_STATE_SQL,[final.userID,final.sessionID]);
+  if(state.rows.length!==1||!options.policyReader.isCurrent(policy))return null;
+  return Object.freeze({...final,aal:claims.aal as 'aal1'|'aal2',authenticatedAt:recent[0].timestamp*1000,checkedAt,authStateDigest:authStateDigest(state.rows[0].auth_state)});
  };
 }
 
-type InventoryActorClaim={purpose:string;bindingDigest:string;actorID:string;sessionID:string;epochID:string;aal:'aal1'|'aal2';authenticatedAt:number;checkedAt:number;acceptedAt:number;expiresAt:number};
+type InventoryActorClaim={purpose:string;bindingDigest:string;authStateDigest:string;actorID:string;sessionID:string;epochID:string;aal:'aal1'|'aal2';authenticatedAt:number;checkedAt:number;acceptedAt:number;expiresAt:number};
 /** Backend callback ONLY for claims already signature/binding-verified by the
  * private inventory-consent provider. This does not verify a signature itself,
  * grant household rights, create an endpoint, or accept client-supplied claims.
  * Keep the pinned transaction through COMMIT; lock multiple actors consistently.
- * Exact factor-set snapshot binding remains a separate release gate.
+ * The exact pinned Auth/factor-state digest must match signed issuance evidence.
  */
 export function createHomeHandoffInventoryActorVerifier({policyReader,projectID}:{policyReader:Reader;projectID:string}) {
  if(typeof policyReader!=='function'||typeof policyReader.isCurrent!=='function'||!/^[a-z]{20}$/.test(projectID))throw Error('Current inventory actor provider required');
@@ -145,7 +160,7 @@ export function createHomeHandoffInventoryActorVerifier({policyReader,projectID}
  return async(tx:Transaction,c:InventoryActorClaim,signal:AbortSignal=tx?.signal)=>{
   try{
    if(!(signal instanceof AbortSignal)||tx?.signal!==signal||typeof tx.query!=='function'
-    ||c?.purpose!=='OuchiMaintenance/family-attachment-inventory/v1'||!/^[0-9a-f]{64}$/.test(c.bindingDigest)
+    ||c?.purpose!=='OuchiMaintenance/family-attachment-inventory/v2'||!/^[0-9a-f]{64}$/.test(c.bindingDigest)||!/^[0-9a-f]{64}$/.test(c.authStateDigest)
     ||![c.actorID,c.sessionID,c.epochID].every(uuid)||!['aal1','aal2'].includes(c.aal))return false;
    const query=async(sql:string,args:unknown[])=>{signal.throwIfAborted();const result=await tx.query(sql,args);signal.throwIfAborted();return result;};
    const policy=await policyReader(signal);signal.throwIfAborted();
@@ -166,6 +181,8 @@ export function createHomeHandoffInventoryActorVerifier({policyReader,projectID}
     ||c.authenticatedAt>c.checkedAt||c.checkedAt>c.acceptedAt||c.acceptedAt>now
     ||c.authenticatedAt<now-600000||c.checkedAt<c.acceptedAt-60000
     ||c.expiresAt!==c.acceptedAt+900000||c.expiresAt<=now)return false;
+   const state=await query(HOME_HANDOFF_AUTH_STATE_SQL,[c.actorID,c.sessionID]);
+   if(state.rows.length!==1||authStateDigest(state.rows[0].auth_state)!==c.authStateDigest)return false;
    signal.throwIfAborted();return policyReader.isCurrent(policy);
   }catch{return false;}
  };

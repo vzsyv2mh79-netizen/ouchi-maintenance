@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -6,7 +7,7 @@ import {createHomeHandoffPolicyReader} from '../lib/home-handoff-policy.mjs';
 import {HomeHandoffAdditionalVerificationRequired} from '../lib/home-handoff-handler.mjs';
 const compile=file=>ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
-const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL}=await import(url(compile('lib/home-handoff-identity.ts').replace("'./verified-app-session'",JSON.stringify(url(compile('lib/verified-app-session.ts')))).replace("'./home-handoff-handler.mjs'",JSON.stringify(import.meta.resolve('../lib/home-handoff-handler.mjs')))));
+const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,HOME_HANDOFF_AUTH_STATE_SQL,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL}=await import(url(compile('lib/home-handoff-identity.ts').replace("'./verified-app-session'",JSON.stringify(url(compile('lib/verified-app-session.ts')))).replace("'./home-handoff-handler.mjs'",JSON.stringify(import.meta.resolve('../lib/home-handoff-handler.mjs')))));
 const user='11111111-1111-4111-8111-111111111111',session='22222222-2222-4222-8222-222222222222',epoch='33333333-3333-4333-8333-333333333333',projectID='abcdefghijklmnopqrst';
 const token=claims=>'e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,exp:4102444800,...claims})).toString('base64url')+'.c2ln';
 function fixture({claims={aal:'aal2'},row={},onQuery=()=>{},authUser=user}={}) {
@@ -53,6 +54,7 @@ function pinned({claims,row={},supported=true,pin=()=>{}}={}){
  const f=fixture({claims:claims??{aal:'aal1',amr:[{method:'password',timestamp:Math.floor(Date.now()/1000)}]},row:{has_verified_factor:false,session_aal:'aal1',...row}});
  const original=f.tx.query;let stage=0;
  f.tx.query=async(sql,args)=>{
+  if(sql===HOME_HANDOFF_AUTH_STATE_SQL){f.calls.push('auth-state');return {rows:[{auth_state:{session:'synthetic',factors:[]}}]};}
   if(sql===HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL){f.calls.push('constraints');return {rows:[{supported}]};}
   if(sql===HOME_HANDOFF_AUTH_USER_PIN_SQL){assert.deepEqual(args,[user]);f.calls.push('user-lock');stage++;return pin(stage)??{rows:[{id:user}]};}
   if(sql===HOME_HANDOFF_AUTH_SESSION_PIN_SQL){assert.deepEqual(args,[session,user]);f.calls.push('session-lock');stage++;return pin(stage)??{rows:[{id:session}]};}
@@ -69,7 +71,7 @@ test('inventory identity pins user/session/factors/enrollment then reverifies ex
  const result=await f.verify(f.bearer,f.tx);
  assert.equal(result.userID,user);assert.equal(result.sessionID,session);assert.equal(result.epochID,epoch);
  assert.equal(result.authenticatedAt,timestamp*1000);assert.ok(result.checkedAt>result.authenticatedAt);assert.equal(result.aal,'aal1');
- assert.deepEqual(f.calls,['auth','sql','constraints','user-lock','session-lock','factor-lock','enrollment-lock','auth','sql']);
+ assert.deepEqual(f.calls,['auth','sql','constraints','user-lock','session-lock','factor-lock','enrollment-lock','auth','sql','auth-state']);
 });
 
 test('fresh getUser cannot replace missing, stale, future, ambiguous or metadata-only recent authentication',async()=>{
@@ -104,12 +106,12 @@ test('session authority lost after pinning is rechecked before inventory identit
 
 
 function actorClaim(overrides={}){
- const now=Date.now();return {purpose:'OuchiMaintenance/family-attachment-inventory/v1',bindingDigest:'a'.repeat(64),actorID:user,sessionID:session,epochID:epoch,aal:'aal1',authenticatedAt:now-10000,checkedAt:now-1000,acceptedAt:now-500,expiresAt:now-500+900000,...overrides};
+ const now=Date.now();return {purpose:'OuchiMaintenance/family-attachment-inventory/v2',bindingDigest:'a'.repeat(64),authStateDigest:createHash('sha256').update('OuchiMaintenance/inventory-auth-state/v1\n'+JSON.stringify({session:'synthetic',factors:[]})).digest('hex'),actorID:user,sessionID:session,epochID:epoch,aal:'aal1',authenticatedAt:now-10000,checkedAt:now-1000,acceptedAt:now-500,expiresAt:now-500+900000,...overrides};
 }
 test('signed-claim worker callback pins current session/factors/enrollment and never substitutes getUser freshness',async()=>{
  const f=pinned();const verify=createHomeHandoffInventoryActorVerifier(f.options);
  assert.equal(await verify(f.tx,actorClaim(),f.tx.signal),true);
- assert.deepEqual(f.calls,['constraints','user-lock','session-lock','factor-lock','enrollment-lock','sql']);
+ assert.deepEqual(f.calls,['constraints','user-lock','session-lock','factor-lock','enrollment-lock','sql','auth-state']);
 });
 test('worker refuses stale authentication, foreign enrollment, invalid scope/purpose and expired claims',async()=>{
  for(const change of [{authenticatedAt:Date.now()-600001},{epochID:user},{sessionID:'invalid'},{aal:'aal2'},{purpose:'client-flag'},{bindingDigest:'x'},{checkedAt:Date.now()+60000},{expiresAt:Date.now()-1}]){
@@ -129,4 +131,11 @@ test('worker refuses unsupported schema, a mismatched signal and cancellation du
  const f=pinned();assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim(),new AbortController().signal),false);
  const c=new AbortController();const query=f.tx.query;f.tx.signal=c.signal;f.tx.query=async(sql,args)=>{const result=await query(sql,args);if(sql===HOME_HANDOFF_AUTH_USER_PIN_SQL)c.abort();return result;};
  assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim(),c.signal),false);
+});
+
+
+test('worker refuses a changed factor set or credentials despite preserved AAL2 and current policy',async()=>{
+ const f=pinned({row:{has_verified_factor:true,session_aal:'aal2'}});const original=f.tx.query;
+ f.tx.query=async(sql,args)=>sql===HOME_HANDOFF_AUTH_STATE_SQL?{rows:[{auth_state:{session:'synthetic',factors:[{id:'replacement',status:'verified'}]}}]}:original(sql,args);
+ assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim({aal:'aal2'}),f.tx.signal),false);
 });

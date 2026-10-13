@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createHmac} from 'node:crypto';
+import {createHmac,randomUUID} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
 import {createHomeHandoffPolicyReader} from '../../lib/home-handoff-policy.mjs';
 import {HomeHandoffAdditionalVerificationRequired} from '../../lib/home-handoff-handler.mjs';
@@ -35,7 +35,7 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
  assert.equal(sql(`select aal::text from auth.sessions where id='${mfa.session}';`),'aal2');
  assert.equal(sql(`select status::text from auth.mfa_factors where id='${factor.id}';`),'verified');
  const projectID='abcdefghijklmnopqrst';
- async function identity(bearer,inventory=false,totpVerify=true,actor=null) {
+ async function identity(bearer,inventory=false,totpVerify=true,actor=null,replaceFactor=false) {
   const signal=AbortSignal.timeout(10000);
   // Injected policy is an explicitly labelled fixture, not live Management proof.
   const policyReader=createHomeHandoffPolicyReader({projectID,accessToken:'synthetic',readEffectiveLowAAL:async()=>({projectID,checkedAt:new Date().toISOString(),authVersion:'v2.196.0',allowLowAALSeconds:null}),fetcher:async()=>Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:totpVerify,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false})});
@@ -46,6 +46,14 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
   try {
    await db.query('begin');await db.query("set local statement_timeout='4500ms'");
    const tx={signal,query:(text,values)=>db.query(text,values)};
+   if(replaceFactor){
+    assert.ok(actor);assert.equal(totpVerify,true);
+    const replacement=randomUUID();
+    await db.query("insert into auth.mfa_factors select (jsonb_populate_record(null::auth.mfa_factors,to_jsonb(f)||jsonb_build_object('id',$1::uuid,'friendly_name',$2::text))).* from auth.mfa_factors f where id=$3",[replacement,'Synthetic replacement factor',factor.id]);
+    await db.query('delete from auth.mfa_factors where id=$1',[factor.id]);
+    assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[mfa.session])).rows[0].aal,'aal2');
+    assert.equal((await db.query("select count(*)::int n from auth.mfa_factors where user_id=$1 and status::text='verified'",[mfa.user])).rows[0].n,1);
+   }
    if(actor)return await createHomeHandoffInventoryActorVerifier({projectID,policyReader})(tx,actor,signal);
    return await verifier(bearer,tx);
   } finally {try{await db.query('rollback');}finally{await db.end();}}
@@ -56,10 +64,13 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
  const amr=JSON.parse(Buffer.from(promoted.access_token.split('.')[1],'base64url')).amr.filter(c=>c.method==='totp');
  assert.equal(amr.length,1);assert.equal(inventoryIdentity.authenticatedAt,amr[0].timestamp*1000);
  assert.ok(inventoryIdentity.checkedAt>=inventoryIdentity.authenticatedAt&&inventoryIdentity.checkedAt-inventoryIdentity.authenticatedAt<=600000);
- const claim={purpose:'OuchiMaintenance/family-attachment-inventory/v1',bindingDigest:'a'.repeat(64),actorID:inventoryIdentity.userID,sessionID:inventoryIdentity.sessionID,epochID:inventoryIdentity.epochID,aal:inventoryIdentity.aal,authenticatedAt:inventoryIdentity.authenticatedAt,checkedAt:inventoryIdentity.checkedAt,acceptedAt:Date.now(),expiresAt:0};
+ const claim={purpose:'OuchiMaintenance/family-attachment-inventory/v2',bindingDigest:'a'.repeat(64),actorID:inventoryIdentity.userID,sessionID:inventoryIdentity.sessionID,epochID:inventoryIdentity.epochID,aal:inventoryIdentity.aal,authStateDigest:inventoryIdentity.authStateDigest,authenticatedAt:inventoryIdentity.authenticatedAt,checkedAt:inventoryIdentity.checkedAt,acceptedAt:Date.now(),expiresAt:0};
  claim.expiresAt=claim.acceptedAt+900000;
  // Direct worker predicate check: the complete handoff fixture separately
  // authenticates private HMAC signatures before calling this backend callback.
+ assert.equal(await identity(null,false,true,claim),true);
+ assert.equal(await identity(null,false,true,claim,true),false);
+ // The failed replacement attempt was rolled back by this disposable test.
  assert.equal(await identity(null,false,true,claim),true);
  assert.equal(await identity(null,false,false,claim),false);
  // A policy that no longer enables TOTP cannot reuse its earlier authentication.
