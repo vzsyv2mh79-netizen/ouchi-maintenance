@@ -1,5 +1,6 @@
 import {createReceiptTransactions} from './deletion-receipt-transactions.mjs';
 import {CLOSURE_REAUTHENTICATION_STATE_SQL} from './account-closure-review-reauthentication.mjs';
+import {REAUTH_REGISTER_SQL,REAUTH_OBSERVE_SQL,REAUTH_CLOSE_SQL,REAUTH_SWEEP_SQL} from './closure-reauth-producer.mjs';
 import {HOME_HANDOFF_SESSION_POLICY_SQL,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL} from './home-handoff-identity';
 const id=(value:unknown)=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)&&value!=='00000000-0000-0000-0000-000000000000';
 const ids=(count:number)=>(args:unknown[])=>args.length===count&&args.every(id);
@@ -11,6 +12,7 @@ const allowed=new Map<string,(args:unknown[])=>boolean>([
  [HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,ids(1)],
  [HOME_HANDOFF_ENROLLMENT_PIN_SQL,ids(2)],
  [CLOSURE_REAUTHENTICATION_STATE_SQL,ids(1)],
+ [REAUTH_REGISTER_SQL,ids(4)],[REAUTH_OBSERVE_SQL,ids(4)],[REAUTH_CLOSE_SQL,ids(4)],[REAUTH_SWEEP_SQL,ids(2)],
  ['select pg_advisory_xact_lock(hashtext($1::text))',ids(1)],
  ...['request','read','cancel'].map(verb=>[`select public.${verb}_maintenance_closure_review($1::uuid,$2::uuid,$3::uuid,$4::uuid) as receipt`,ids(4)] as const),
 ]);

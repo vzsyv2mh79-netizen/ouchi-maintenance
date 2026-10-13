@@ -8,7 +8,7 @@ type Options={
  enabled?:boolean;
  identityOptions:Omit<PortOptions['identityOptions'],'getUser'>&{getUser:(bearer:string,signal:AbortSignal)=>Promise<{data:{user:{id:string;email?:string}|null};error:unknown}>};
  transactions:PortOptions['transactions'];
- authenticate:(email:string,password:string,signal:AbortSignal)=>Promise<string|null>;
+ authenticate:(email:string,password:string,signal:AbortSignal,identity:Identity)=>Promise<string|null>;
  timeoutMS?:number;
 };
 
@@ -36,7 +36,7 @@ export function createAccountClosureReviewServer({enabled=false,identityOptions,
    const current=Object.freeze({...identity,email});
    if(first===null){
     first=current;
-    witness=createAccountClosureReviewReauthentication({identity:current,authenticate,readAuthState:(userID,s)=>transactions.run(s,async tx=>{
+    witness=createAccountClosureReviewReauthentication({identity:current,authenticate:(email,password,s)=>authenticate(email,password,s,current),readAuthState:(userID,s)=>transactions.run(s,async tx=>{
      s.throwIfAborted();const result=await tx.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);s.throwIfAborted();
      if(result.rows.length!==1)throw Error('Current reauthentication state required');return result.rows[0].reauthentication_state;
     })});

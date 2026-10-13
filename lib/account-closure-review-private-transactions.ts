@@ -1,5 +1,6 @@
 import {createAccountClosureReviewTransactions} from './account-closure-review-transactions';
 import {CLOSURE_REAUTHENTICATION_STATE_SQL} from './account-closure-review-reauthentication.mjs';
+import {REAUTH_REGISTER_SQL,REAUTH_OBSERVE_SQL,REAUTH_CLOSE_SQL,REAUTH_SWEEP_SQL} from './closure-reauth-producer.mjs';
 import {HOME_HANDOFF_SESSION_POLICY_SQL,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL} from './home-handoff-identity';
 const mapped=new Map<string,{sql:string;actorIndex:number|null}>([
  [HOME_HANDOFF_SESSION_POLICY_SQL,{sql:'select * from maintenance_private.closure_review_session($1::uuid,$2::uuid,$3::bigint,$4::bigint)',actorIndex:1}],
@@ -9,6 +10,7 @@ const mapped=new Map<string,{sql:string;actorIndex:number|null}>([
  [HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,{sql:'select * from maintenance_private.closure_review_pin_factors($1::uuid)',actorIndex:0}],
  [HOME_HANDOFF_ENROLLMENT_PIN_SQL,{sql:'select * from maintenance_private.closure_review_pin_enrollment($1::uuid,$2::uuid)',actorIndex:0}],
  [CLOSURE_REAUTHENTICATION_STATE_SQL,{sql:'select * from maintenance_private.closure_review_auth_state($1::uuid)',actorIndex:0}],
+ ...[REAUTH_REGISTER_SQL,REAUTH_OBSERVE_SQL,REAUTH_CLOSE_SQL,REAUTH_SWEEP_SQL].map(sql=>[sql,{sql,actorIndex:0}] as const),
  ['select pg_advisory_xact_lock(hashtext($1::text))',{sql:'select maintenance_private.closure_review_actor_lock($1::uuid)',actorIndex:0}],
  ...['request','read','cancel'].map(verb=>[`select public.${verb}_maintenance_closure_review($1::uuid,$2::uuid,$3::uuid,$4::uuid) as receipt`,{sql:`select * from maintenance_private.closure_review_execute('${verb}',$1::uuid,$2::uuid,$3::uuid,$4::uuid)`,actorIndex:0}] as const),
 ]);

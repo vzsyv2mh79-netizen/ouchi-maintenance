@@ -104,7 +104,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
   assert.equal(cancelledReceipt.reviewRequestID,receipt.reviewRequestID);
   const replay=await post('request',input);assert.equal(replay.status,202);assert.deepEqual(await replay.json(),cancelledReceipt);
   const status=await post('read');assert.deepEqual(await status.json(),cancelledReceipt);
-  assert.ok(temporaryCleanups>=3);
+  if(!handlerFactory)assert.ok(temporaryCleanups>=3);
   assert.deepEqual((await db.query('select id::text from auth.sessions where user_id=$1 order by id',[actor.user])).rows,baselineSessions,'Temporary Auth sessions must be removed and original session retained');
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and app_epoch_id=$2 and submission_id=$3',[actor.user,actor.epoch,submission])).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[actor.user,actor.epoch])).rows[0].n,0);

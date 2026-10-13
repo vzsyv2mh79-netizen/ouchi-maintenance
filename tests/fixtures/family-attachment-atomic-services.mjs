@@ -22,6 +22,7 @@ import {createHomeHandoffAuthVersionReader} from '../../lib/home-handoff-auth-ve
 import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy.mjs';
 import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STATE_SQL} from '../../lib/account-closure-review-reauthentication.mjs';
 import {verifyDisposableReauthenticationResponseLoss} from './closure-reauth-response-loss.mjs';
+import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer} from './closure-reauth-producer-services.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -140,6 +141,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }};
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
   await db.query(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/closure-reauth-markers.sql','utf8'));
   // Disposable LOGIN only: unlike SET ROLE on an administrator session, this
   // connection cannot regain administrator privileges after a query error.
   await db.query("create role ouchi_closure_review_ci_login login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-private-review-ci-only'");
@@ -166,7 +168,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const reviewWitness=authenticate=>createAccountClosureReviewReauthentication({identity:{userID:owner.user,sessionID:owner.session,epochID:owner.epoch,email:owner.email},authenticate,readAuthState:async(userID,signal)=>{
     signal.throwIfAborted();const result=await db.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);signal.throwIfAborted();return result.rows[0]?.reauthentication_state;
    }});
-  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:authenticate=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:dedicatedReviewTransactions,authenticate})});
+  const markedProducer=disposableMarkedPasswordProducer({origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions});
+  await verifyDisposableMarkedPasswordProducer({db,actor:owner,origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions});
+  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:()=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:dedicatedReviewTransactions,authenticate:markedProducer})});
   await db.query('begin');
   try{
    await db.query('select id from auth.users where id=$1::uuid for update',[owner.user]);
