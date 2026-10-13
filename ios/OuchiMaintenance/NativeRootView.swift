@@ -48,7 +48,11 @@ struct NativeRootView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                 #if DEBUG
-                if Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
+                // Audit the Release header layout only in the guarded in-memory Debug sample.
+                // Shipping builds never read this environment variable.
+                if !(store.isUIReviewSample && Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" &&
+                     ProcessInfo.processInfo.environment["OUCHI_REVIEW_AUDIT_RELEASE_LAYOUT"] == "1"),
+                   Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.")==true,
                    let stamp=Bundle.main.infoDictionary?["OUCHI_REVIEW_BUILD_ID"] as? String,
                    stamp.range(of:"^[a-f0-9]{40}$",options:.regularExpression) != nil {
                     Text("確認用 \(stamp.prefix(7))")
@@ -62,7 +66,11 @@ struct NativeRootView: View {
                 Spacer()
                 Button {
                     preferredAppearance = appearance == .dark ? "light" : "dark"
-                } label: { Image(systemName: appearance == .dark ? "sun.max" : "moon").frame(width: 44, height: 44) }
+                } label: {
+                    Image(systemName: appearance == .dark ? "sun.max" : "moon")
+                        .font(.system(size: 22))
+                        .frame(width: 44, height: 44)
+                }
                 .accessibilityLabel(appearance == .dark ? "ライトモードに切り替える" : "ダークモードに切り替える")
             }.padding(.horizontal).background(.bar)
         }
@@ -172,28 +180,24 @@ private struct SignInView: View {
 
 private struct HomePicker: View {
     @EnvironmentObject private var store: NativeStore
-    @Environment(\.dynamicTypeSize) private var textSize
     var body: some View {
-        Group {
-            if textSize.isAccessibilitySize {
-                Menu {
-                    ForEach(store.household?.homes ?? []) { home in
-                        Button(home.name) { store.homeID = home.id }
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("住まい").foregroundStyle(.primary)
-                        Text(store.household?.homes.first(where: { $0.id == store.homeID })?.name ?? "住まいを選ぶ")
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("住まいを切り替える").font(.caption)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            } else {
-                Picker("住まい", selection: $store.homeID) {
-                    ForEach(store.household?.homes ?? []) { Text($0.name).tag($0.id) }
-                }
+        // Keep the same controls across Dynamic Type sizes. Replacing the entire
+        // subtree at accessibility sizes loses stable accessibility identity.
+        Menu {
+            ForEach(store.household?.homes ?? []) { home in
+                Button(home.name) { store.homeID = home.id }
             }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("住まい").font(.body).foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(store.household?.homes.first(where: { $0.id == store.homeID })?.name ?? "住まいを選ぶ")
+                    .font(.body).fixedSize(horizontal: false, vertical: true)
+                Text("住まいを切り替える").font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.leading)
         }.disabled(store.busy)
     }
 }
@@ -878,7 +882,11 @@ private struct HomeDashboard: View {
                         Button {
                             Task { await store.reload() }
                         } label: {
-                            Label(store.busy ? "記録を更新中…" : "最新の記録を読み込む", systemImage: "arrow.clockwise")
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Image(systemName: "arrow.clockwise").accessibilityHidden(true)
+                                Text(store.busy ? "記録を更新中…" : "最新の記録を読み込む")
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                         .disabled(store.busy)
                     }

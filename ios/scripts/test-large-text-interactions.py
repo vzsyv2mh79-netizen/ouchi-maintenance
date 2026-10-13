@@ -15,7 +15,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
-parser.add_argument('--test', choices=['all', 'editor'], default='all')
+parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
+parser.add_argument('--test', choices=['all', 'editor', 'audit', 'home', 'memo', 'overdue', 'home-switch', 'theme'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -30,11 +31,18 @@ for key, value in info.items():
 sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/*.swift'),
                   root / 'OuchiMaintenance/Info.plist', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
-manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'selectedTest': args.test,
+manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'all'],
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
-            'scope': (['product editor model input above open software keyboard', 'back navigation without save preserves sample model'] if args.test == 'editor' else
+            'scope': (['theme toggle and relaunch retention on isolated sample; restore starting appearance'] if args.test == 'theme' else
+                      ['two synthetic homes: product/history filtering and return to original home; not cloud RLS verification'] if args.test == 'home-switch' else
+                      ['seven unfiltered accessibility audit categories after scrolling overdue-count label entirely above tab bar'] if args.test == 'overdue' else
+                      ['seven unfiltered accessibility audit categories after scrolling product memo entirely above tab bar'] if args.test == 'memo' else
+                      ['home menu open and current-home reselection; not multi-home switching'] if args.test == 'home' else
+                      ['seven automatic accessibility audit categories on five initial tab viewports; no issue suppression'] if args.test == 'audit' else
+                      ['product editor model input above open software keyboard', 'back navigation without save preserves sample model'] if args.test == 'editor' else
                       ['scroll and activate sample completion', 'next due date and history update',
-                       'scroll and activate export; share control appears', 'product editor keyboard and cancel']),
+                       'scroll and activate export; share control appears', 'product editor keyboard and cancel',
+                       'five initial tab automatic accessibility audits', 'home menu current-home reselection', 'visible product memo accessibility audit', 'visible overdue-count accessibility audit', 'two-home product/history filtering', 'theme toggle and relaunch retention']),
             'notVerified': ['real cloud persistence', 'VoiceOver', 'physical device', 'purchases', 'final signed build']}
 device = None
 
@@ -114,14 +122,14 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
         manifest['simulatorUDID'] = device
         run('xcrun', 'simctl', 'boot', device)
         run('xcrun', 'simctl', 'bootstatus', device, '-b')
-        run('xcrun', 'simctl', 'ui', device, 'appearance', 'light')
+        run('xcrun', 'simctl', 'ui', device, 'appearance', args.appearance)
         run('xcrun', 'simctl', 'ui', device, 'content_size', args.text_size)
         with (output / 'test.log').open('w') as log:
             run('xcodebuild', '-project', work / 'OuchiMaintenance.xcodeproj', '-scheme', 'OuchiInteractions',
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
                 '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO',
-                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/testProductEditorKeyboardAndCancel'] if args.test == 'editor' else []),
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + {'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test]] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

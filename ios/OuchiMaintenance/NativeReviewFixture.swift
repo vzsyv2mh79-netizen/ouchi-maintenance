@@ -18,11 +18,17 @@ actor NativeReviewFixture {
     static func sessionBytes() throws -> Data {
         try JSONSerialization.data(withJSONObject:["access_token":token,"refresh_token":"synthetic-unused","expires_at":Date().timeIntervalSince1970+7200,"user":["id":account.uuidString,"email":"review@example.invalid"]])
     }
-    init() {
+    init(includeSecondHome: Bool = false) {
         data=["homes":[["id":Self.home,"name":"サンプルのわが家","kind":"home","role":"owner"]],
               "products":[["id":Self.product,"homeId":Self.home,"categoryId":"air-purifier","maker":"画面確認用","name":"空気清浄機（サンプル）","modelNumber":"SAMPLE-001","memo":"実際の製品・公式情報ではありません。"]],
               "tasks":[["id":Self.task,"productId":Self.product,"name":"フィルター確認（サンプル）","kind":"点検","intervalDays":30,"nextDueAt":Self.day(0),"sourceKind":"ユーザー設定","sourceNote":"画面の確認用です。メンテナンスの推奨ではありません。"]],
               "history":[["id":"55555555-5555-4555-8555-555555555555","taskId":Self.task,"productId":Self.product,"completedAt":Self.day(-2),"note":"サンプルの完了記録"]]]
+        if includeSecondHome {
+            data["homes"] = [
+                ["id":Self.home,"name":"サンプルのわが家","kind":"home","role":"owner"],
+                ["id":"66666666-6666-4666-8666-666666666666","name":"サンプルの別の住まい","kind":"home","role":"member"]
+            ]
+        }
     }
     func reply(_ request:URLRequest) throws -> (Data,HTTPURLResponse) {
         guard let url=request.url,url.host=="aaaaaaaaaaaaaaaaaaaa.supabase.co",

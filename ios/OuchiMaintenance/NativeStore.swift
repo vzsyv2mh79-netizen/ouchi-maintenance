@@ -451,7 +451,9 @@ struct FormalChannelSelection {
            stamp.range(of:"^[a-f0-9]{40}$",options:.regularExpression) != nil,
            let config=try? CloudConfiguration(url:URL(string:"https://aaaaaaaaaaaaaaaaaaaa.supabase.co")!,publishableKey:"sb_publishable_synthetic_review_only"),
            let bytes=try? NativeReviewFixture.sessionBytes() {
-            let fixture=NativeReviewFixture()
+            let fixture=NativeReviewFixture(includeSecondHome:
+                Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" &&
+                ProcessInfo.processInfo.environment["OUCHI_REVIEW_TWO_HOMES"] == "1")
             let client=HouseholdAPI(config:config,transport:{ try await fixture.reply($0) })
             api=client;session=SessionController(api:client,storage:NativeReviewSessionStorage(bytes))
             isolatedDevelopmentEnabled=false;isUIReviewSample=true
