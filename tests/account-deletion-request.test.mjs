@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import ts from 'typescript';import {readFileSync} from 'node:fs';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-request.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const {handleAccountDeletionRequest:handle}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const {handleAccountDeletionRequest:handle,DeletionFamilyHandoffRequiredError}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 test('wrong method and query refuse deletion before authentication or reauthentication',async()=>{
  let calls=0;const unused=async()=>{calls++;throw Error('must not call');};
  const deps={verify:unused,reauthenticate:unused,enqueue:unused};
@@ -56,4 +56,20 @@ test('verified identity is snapshotted before asynchronous reauthentication',asy
  const response=await handle(new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',expectedEpochID:identity.epochID,password:'synthetic'})}),{
  verify:async()=>identity,reauthenticate:async()=>{identity.epochID='44444444-4444-4444-8444-444444444444';return identity.userID;},enqueue:async fixed=>{assert.deepEqual(fixed,original);assert.ok(Object.isFrozen(fixed));enqueued=true;return null;}});
  assert.equal(response.status,503);assert.equal(enqueued,true); // Adapter must recheck the original epoch; never submit the new one.
+});
+
+test('family handoff refusal is reported only by a verified enqueue, without implying acceptance',async()=>{
+ const identity={userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',email:'synthetic@example.invalid',epochID:'33333333-3333-4333-8333-333333333333'};
+ for(const stage of ['verify','enqueue','generic','aborted']){
+  const controller=new AbortController(),calls=[];
+  const response=await handle(new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',expectedEpochID:identity.epochID,password:'synthetic'}),signal:controller.signal}),{
+   verify:async()=>{calls.push('verify');if(stage==='verify')throw new DeletionFamilyHandoffRequiredError();return identity;},
+   reauthenticate:async()=>{calls.push('reauthenticate');return identity.userID;},
+   enqueue:async()=>{calls.push('enqueue');if(stage==='aborted')controller.abort();if(stage==='generic')throw Error('Family handoff required');throw new DeletionFamilyHandoffRequiredError();},
+  });
+  assert.equal(response.status,stage==='enqueue'?409:503);const result=await response.json();
+  assert.equal(result.requestID,undefined);assert.equal(result.state,undefined);assert.equal(response.headers.get('cache-control'),'no-store');
+  if(stage==='enqueue'){assert.equal(result.code,'family_handoff_required');assert.deepEqual(calls,['verify','reauthenticate','enqueue']);}
+  else assert.equal(result.code,undefined);
+ }
 });

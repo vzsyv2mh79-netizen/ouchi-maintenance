@@ -1,5 +1,7 @@
 /** Request preparation only; production routing remains disabled until erasure works. */
 type Identity={userID:string;sessionID:string;email:string;epochID:string};
+/** Only the trusted enqueue adapter may report this verified refusal. */
+export class DeletionFamilyHandoffRequiredError extends Error {}
 export type DeletionRequestDependencies={
  verify:(bearer:string)=>Promise<Identity|null>;
  /** Must clean up the temporary reauthentication session before resolving. */
@@ -30,6 +32,7 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
  const header=request.headers.get('authorization');
  if(!header||header.length>16384||!/^Bearer [^\s]+$/.test(header))return reply({error:'Authentication required'},401);
  let confirmation:Readonly<{password:string;expectedEpochID:string}>;try{confirmation=await readConfirmation(request);}catch{return reply({error:'Explicit confirmation and password required'},400);}
+ let enqueueAttempted=false;
  try{
   request.signal.throwIfAborted();
   const identity=await deps.verify(header.slice(7));
@@ -40,10 +43,14 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
   const confirmed=await deps.reauthenticate(fixed.email,confirmation.password);
   if(!uuid(confirmed)||confirmed.toLowerCase()!==fixed.userID.toLowerCase())return reply({error:'Reauthentication required'},403);
   if(request.signal.aborted)return reply({error:'Request cancelled'},409);
+  enqueueAttempted=true;
   const requestID=await deps.enqueue(fixed);
   // An aborted response does not undo a durable remote request. Recover its status.
   request.signal.throwIfAborted();
   if(!uuid(requestID))throw Error('Missing durable acknowledgement');
   return reply({state:'pending',requestID,epochID:fixed.epochID},202);
- }catch{return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);}
+ }catch(error){
+  if(enqueueAttempted&&!request.signal.aborted&&error instanceof DeletionFamilyHandoffRequiredError)return reply({error:'Family handoff required',code:'family_handoff_required'},409);
+  return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);
+ }
 }
