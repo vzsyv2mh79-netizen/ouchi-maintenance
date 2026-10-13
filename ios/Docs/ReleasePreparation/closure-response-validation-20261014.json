@@ -22,7 +22,7 @@
     "negativeReproduction": "A successful review followed by five different untrusted-header responses produced five XCTAssertNil failures: the prior confirmed receipt remained cached.",
     "fix": "Flow clears receipt when a new operation becomes unconfirmed; view clears visible receipt before attempting authentication/operation. Account/epoch/submission custody remains.",
     "postFix": "All eight related Swift tests passed; actual HTTP fault cases now first confirm a valid cancelled receipt, then prove refusal leaves receipt nil, same binding and resultUnconfirmed=true. Dedicated macOS Keychain cleanup passed.",
-    "viewVerification": "SwiftUI source parsing passed; fault-state visual interaction has not yet been inspected."
+    "viewVerification": "SwiftUI source parsing passed. Dedicated AX5/dark failed-reread UI test later passed1/failed0/skipped0 with no runtime warnings; three PNGs reviewed. See closure-failed-reread-ui-20261014.json. This does not verify enabled settings navigation or real Auth."
   },
   "remaining": ["Enabled settings navigation and live context drift", "Native-to-real-Auth end-to-end shipping integration", "Actual personal/shared content erasure", "Physical iPhone and Apple purchase/distribution verification", "Privacy/operator/capacity/retention and submission approval"]
 }

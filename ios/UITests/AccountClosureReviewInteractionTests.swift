@@ -3,13 +3,14 @@ import XCTest
 /// Dedicated synthetic preview with actual protected custody; no real Auth/erasure.
 @MainActor final class AccountClosureReviewInteractionTests: XCTestCase {
     private let original = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-    private func launch() -> XCUIApplication {
+    private func launch(failRepeatedRead: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.closure")
         let textMode = ProcessInfo.processInfo.environment["OUCHI_UI_TEXT_MODE"] ?? "ax5"
         XCTAssertTrue(["large", "ax5"].contains(textMode), "Only explicitly supported preview text modes may run")
         app.launchArguments = ["--ouchi-closure-review-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         if textMode == "ax5" { app.launchArguments.append("--ouchi-large-text-preview") }
+        if failRepeatedRead { app.launchArguments.append("--ouchi-closure-failed-reread-preview") }
         app.launch()
         XCTAssertTrue(app.staticTexts["closure-review.sample"].waitForExistence(timeout: 45))
         return app
@@ -31,6 +32,28 @@ import XCTest
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    func testFailedRereadClearsVisibleReceiptAndRetainsReference() {
+        let app = launch(failRepeatedRead: true)
+        let check = app.buttons["closure-review.check." + original]
+        reach(check, in: app); check.tap()
+        let status = app.staticTexts["closure-review.status"]
+        reach(status, in: app)
+        XCTAssertEqual(status.label, "退会依頼の受付を確認しました。削除処理はまだ完了していません。")
+        capture(app, "review-confirmed-before-failure")
+        reach(check, in: app, searchingUp: true); check.tap()
+        let message = app.staticTexts["closure-review.message"]
+        reach(message, in: app)
+        XCTAssertEqual(message.label, "結果を確認できません。依頼番号は保持しています。通信できる状態で同じ依頼を再確認してください。")
+        XCTAssertFalse(status.exists, "Prior receipt must disappear after failed reread")
+        XCTAssertFalse(app.buttons["closure-review.cancel"].exists, "Cancellation must not use stale displayed receipt")
+        capture(app, "review-failed-reread-message")
+        let selected = app.staticTexts["closure-review.selected"]
+        reach(selected, in: app, searchingUp: true); XCTAssertTrue(selected.label.contains("AAAAAAAA"))
+        let count = app.staticTexts["closure-review.reference-count"]
+        reach(count, in: app, searchingUp: true); XCTAssertEqual(count.label, "保存された依頼：2件")
+        capture(app, "review-failed-reread-retained-reference")
+        app.terminate()
     }
     func testKeyboardToolbarWarningDiagnostic() {
         let app = launch()

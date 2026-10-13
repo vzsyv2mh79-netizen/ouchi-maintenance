@@ -16,7 +16,7 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['closure-review', 'keyboard-toolbar-probe'], default='closure-review')
+parser.add_argument('--test', choices=['closure-review', 'keyboard-toolbar-probe', 'failed-reread'], default='closure-review')
 parser.add_argument('--omit-input-accessory', '--omit-keyboard-toolbar', dest='omit_keyboard_toolbar', action='store_true', help='Diagnostic temporary copy only; requires keyboard-toolbar-probe')
 args = parser.parse_args()
 if args.omit_keyboard_toolbar and args.test != 'keyboard-toolbar-probe':
@@ -44,6 +44,8 @@ manifest['previewTextMode'] = 'large' if args.text_size == 'large' else 'ax5'
 manifest['temporaryToolbarProjection'] = args.omit_keyboard_toolbar
 if args.test == 'keyboard-toolbar-probe':
     manifest['scope'] = ['Diagnostic read/cancel and scroll to password section only; no full request/keyboard-flow completion claim']
+if args.test == 'failed-reread':
+    manifest['scope'] = ['Confirmed receipt then rejected cached reply clears visible status/cancel action, displays uncertainty and retains selected reference/count2; synthetic preview only']
 device = None
 
 def run(*command, **kwargs):
@@ -147,7 +149,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', '600',
                 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-',
-                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + ('testKeyboardToolbarWarningDiagnostic' if args.test == 'keyboard-toolbar-probe' else 'testProtectedReferenceReadCancelAndExplicitNewSubmission'),
+                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission'}[args.test],
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

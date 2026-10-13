@@ -95,7 +95,7 @@ import Darwin
                     .accessibilityIdentifier("closure-review.submit")
                     .disabled(busy || !ready || !loaded || !consent || password.isEmpty || (selected == nil && !references.isEmpty) || (receipt?.state == .reviewRequired && flow?.resultUnconfirmed == false))
             }
-            if let message { Section("確認結果") { Text(message).id("closure-review.message") } }
+            if let message { Section("確認結果") { Text(message).id("closure-review.message").accessibilityIdentifier("closure-review.message") } }
             if busy { Section { ProgressView("依頼の状況を確認しています") } }
         }
         .navigationTitle("退会の依頼")
@@ -234,19 +234,25 @@ import Darwin
 #if DEBUG
 private actor ClosureReviewPreviewServer {
     private var states: [String: String]
-    init(pending: UUID, cancelled: UUID) { states = [pending.uuidString.lowercased(): "review_required", cancelled.uuidString.lowercased(): "cancelled"] }
+    private let failRepeatedRead: Bool
+    private var reads: [String: Int] = [:]
+    init(pending: UUID, cancelled: UUID, failRepeatedRead: Bool = false) {
+        states = [pending.uuidString.lowercased(): "review_required", cancelled.uuidString.lowercased(): "cancelled"]
+        self.failRepeatedRead = failRepeatedRead
+    }
     func reply(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         guard request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-closure-preview",
               let data = request.httpBody, let body = try JSONSerialization.jsonObject(with: data) as? [String: String],
               let epoch = body["expectedEpochID"], let submission = body["submissionID"] else { throw CloudError.invalidInput }
         let action = request.url!.lastPathComponent
+        if action == "read" { reads[submission, default: 0] += 1 }
         if action == "request", states[submission] == nil { states[submission] = "review_required" }
         if action == "cancel", states[submission] == "review_required" { states[submission] = "cancelled" }
         var result = ["kind": "app-closure-review/v2", "state": states[submission] ?? "review_not_found", "epochID": epoch, "submissionID": submission]
         if states[submission] != nil { result["reviewRequestID"] = submission }
         let status = states[submission] == nil ? 404 : action == "request" ? 202 : 200
         return (try JSONEncoder().encode(result), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
+                    headerFields: ["Content-Type": "application/json", "Cache-Control": failRepeatedRead && action == "read" && (reads[submission] ?? 0) > 1 ? "public" : "no-store"])!)
     }
 }
 /// Explicitly isolated, synthetic-only preview. No owner credentials or network.
@@ -307,7 +313,8 @@ private actor ClosureReviewPreviewServer {
                       attributes[kSecAttrSynchronizable as String] as? Bool == false else { throw CloudError.unavailable }
                 print("PASS: synthetic iOS closure references use WhenUnlockedThisDeviceOnly and synchronizable=false.")
                 fflush(nil)
-                let server = ClosureReviewPreviewServer(pending: pending, cancelled: cancelled)
+                let server = ClosureReviewPreviewServer(pending: pending, cancelled: cancelled,
+                    failRepeatedRead: ProcessInfo.processInfo.arguments.contains("--ouchi-closure-failed-reread-preview"))
                 api = AccountClosureReviewAPI(transport: { try await server.reply($0) })
             } catch {
                 let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: vault.service,
