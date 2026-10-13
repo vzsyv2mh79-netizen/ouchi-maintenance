@@ -36,7 +36,7 @@ import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -107,7 +107,64 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.deepEqual(await reviewSnapshot(),originalReviewFamily);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner.user])).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[owner.user,owner.epoch])).rows[0].n,0);
+  const projectID='abcdefghijklmnopqrst';
+  const authVersionReader=createHomeHandoffAuthVersionReader({projectID,publishableKey:'sb_publishable_disposable_only',fetcher:async(url,init)=>{
+   assert.equal(url,'https://'+projectID+'.supabase.co/auth/v1/health');assert.equal(init.method,'GET');
+   const target=origin+'/auth/v1/health';
+   const response=await createAttachmentFetch(init.signal,5000,8192)(target,{...init,cache:'no-store'});
+   // createAttachmentFetch bounds the fixed local target and refuses redirects;
+   // its buffered Response intentionally does not preserve response.url.
+   assert.equal(response.status,200);
+   // Re-envelope the actual local health bytes for the exact disposable alias.
+   return new Response(await response.arrayBuffer(),{status:response.status,headers:response.headers});
+  }});
+  const policyReader=createStrictHomeHandoffPolicyReader({projectID,accessToken:'synthetic_config_read_only',authVersionReader,fetcher:async(url,init)=>{
+   assert.equal(url,'https://api.supabase.com/v1/projects/'+projectID+'/config/auth');assert.equal(init.method,'GET');
+   // Explicit disposable config fixture, not a live Management credential/read.
+   return Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:true,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false});
+  }});
+  const checkedPolicy=await policyReader(AbortSignal.timeout(5000));
+  assert.equal(checkedPolicy.assuranceMode,'highest-current-aal/v1');assert.equal('allowLowAALSeconds' in checkedPolicy,false);
+  console.log('strict Auth policy: actual GoTrue health + explicit disposable config; highest-current AAL, no fabricated low-AAL default');
   await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification});
+  const reviewTransactions={run:async(signal,callback)=>{
+   signal.throwIfAborted();await db.query('begin');
+   try{
+    await db.query("set local statement_timeout='4500ms';set local lock_timeout='3000ms'");
+    const result=await callback({query:async(sql,args)=>{signal.throwIfAborted();const value=await db.query(sql,args);signal.throwIfAborted();return value;}});
+    signal.throwIfAborted();await db.query('commit');return result;
+   }catch(error){await db.query('rollback');throw error;}
+  }};
+  const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
+  const reviewPortForBearer=bearer=>createAccountClosureReviewTransactionPort({bearer,identityOptions:reviewIdentityOptions,transactions:reviewTransactions});
+  await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer:reviewPortForBearer});
+  // Read actual GoTrue each time, then inject a refusal only at the final check.
+  // PostgreSQL must roll back the intake that its real review SQL just inserted.
+  let finalChecks=0;
+  const refusedPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,transactions:reviewTransactions,identityOptions:{...reviewIdentityOptions,getUser:async(token,signal)=>{
+   const result=await reviewIdentityOptions.getUser(token,signal);assert.equal(result.error,null);finalChecks++;
+   return finalChecks===3?{data:{user:null},error:null}:result;
+  }}});
+  const refusedSubmission=randomUUID();
+  await assert.rejects(refusedPort.request({userID:owner.user,sessionID:owner.session,epochID:owner.epoch,submissionID:refusedSubmission},AbortSignal.timeout(10000)),/Current transaction verification required/);
+  assert.equal(finalChecks,3);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and submission_id=$2',[owner.user,refusedSubmission])).rows[0].n,0);
+  console.log('closure-review actual GoTrue/PostgreSQL: final-check refusal rolls back inserted intake');
+  const originalExpiry=(await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after;
+  let expiredDuringWrite=false;
+  const expiresPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,identityOptions:reviewIdentityOptions,transactions:{run:(signal,callback)=>reviewTransactions.run(signal,raw=>callback({query:async(sql,args)=>{
+   const result=await raw.query(sql,args);
+   if(sql.startsWith('select public.request_maintenance_closure_review')){
+    await raw.query("update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id=$1",[owner.session]);expiredDuringWrite=true;
+   }
+   return result;
+  }}))}});
+  const expiredSubmission=randomUUID();
+  await assert.rejects(expiresPort.request({userID:owner.user,sessionID:owner.session,epochID:owner.epoch,submissionID:expiredSubmission},AbortSignal.timeout(10000)),/Current transaction verification required/);
+  assert.equal(expiredDuringWrite,true);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and submission_id=$2',[owner.user,expiredSubmission])).rows[0].n,0);
+  assert.deepEqual((await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after,originalExpiry);
+  console.log('closure-review actual GoTrue/PostgreSQL: same-transaction session expiry rolls back intake and session change');
   assert.deepEqual(await reviewSnapshot(),originalReviewFamily,'Actual HTTP review operations must retain family content and access');
   await db.query('update maintenance_private.account_closure_review_policy set enabled=false');
   await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequestID,owner.user,owner.epoch,nativeLease]);
@@ -152,25 +209,6 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const plan={requestID:scope.requestID,homeID,ownerID:owner.user,ownerEpoch:owner.epoch,recipientID:receiver.user,recipientEpoch:receiver.epoch,snapshotDigest:consentPlan.familySnapshotDigest,files:source.map(({id,user})=>({id,mime:'image/png',size:bytes.length,sha256:sha,source:{userID:user.user,epoch:user.epoch,path:`${user.user}/${user.epoch}/${id}.png`}}))};
   // Explicit disposable policy, not live Management acquisition. The production
   // issuer adapter itself verifies/pins actual Auth rows and recent signed AMR.
-  const projectID='abcdefghijklmnopqrst';
-  const authVersionReader=createHomeHandoffAuthVersionReader({projectID,publishableKey:'sb_publishable_disposable_only',fetcher:async(url,init)=>{
-   assert.equal(url,'https://'+projectID+'.supabase.co/auth/v1/health');assert.equal(init.method,'GET');
-   const target=origin+'/auth/v1/health';
-   const response=await createAttachmentFetch(init.signal,5000,8192)(target,{...init,cache:'no-store'});
-   // createAttachmentFetch bounds the fixed local target and refuses redirects;
-   // its buffered Response intentionally does not preserve response.url.
-   assert.equal(response.status,200);
-   // Re-envelope the actual local health bytes for the exact disposable alias.
-   return new Response(await response.arrayBuffer(),{status:response.status,headers:response.headers});
-  }});
-  const policyReader=createStrictHomeHandoffPolicyReader({projectID,accessToken:'synthetic_config_read_only',authVersionReader,fetcher:async(url,init)=>{
-   assert.equal(url,'https://api.supabase.com/v1/projects/'+projectID+'/config/auth');assert.equal(init.method,'GET');
-   // Explicit disposable config fixture, not a live Management credential/read.
-   return Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:true,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false});
-  }});
-  const checkedPolicy=await policyReader(AbortSignal.timeout(5000));
-  assert.equal(checkedPolicy.assuranceMode,'highest-current-aal/v1');assert.equal('allowLowAALSeconds' in checkedPolicy,false);
-  console.log('strict Auth policy: actual GoTrue health + explicit disposable config; highest-current AAL, no fabricated low-AAL default');
   const identity=createHomeHandoffInventoryIdentityVerifier({projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)});
   // A separate real account proves row/factor-insertion fences and cancellation
   // without revoking the two people needed by the complete Storage handoff.
