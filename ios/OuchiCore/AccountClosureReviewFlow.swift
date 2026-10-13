@@ -73,7 +73,7 @@ public struct AccountClosureReviewBinding: Codable, Equatable, Sendable {
     }
     private func perform(current: (UUID, UUID, Int), operation: () async throws -> AccountClosureReviewReceipt?) async throws -> AccountClosureReviewReceipt? {
         guard !busy else { throw CloudError.unavailable }
-        busy = true; reconciled = false; resultUnconfirmed = true
+        busy = true; reconciled = false; resultUnconfirmed = true; receipt = nil
         defer { if generation == current.2 { busy = false } }
         let result = try await operation()
         try Task.checkCancellation()

@@ -18,5 +18,11 @@
     "auth": "Synthetic; independent actual GoTrue/PostgREST witness remains separate"
   },
   "sampleCompatibility": "Dedicated preview server now supplies the same application/json and no-store headers as the prepared real handler; no response-validation bypass is added.",
+  "staleReceiptCorrection": {
+    "negativeReproduction": "A successful review followed by five different untrusted-header responses produced five XCTAssertNil failures: the prior confirmed receipt remained cached.",
+    "fix": "Flow clears receipt when a new operation becomes unconfirmed; view clears visible receipt before attempting authentication/operation. Account/epoch/submission custody remains.",
+    "postFix": "All eight related Swift tests passed; actual HTTP fault cases now first confirm a valid cancelled receipt, then prove refusal leaves receipt nil, same binding and resultUnconfirmed=true. Dedicated macOS Keychain cleanup passed.",
+    "viewVerification": "SwiftUI source parsing passed; fault-state visual interaction has not yet been inspected."
+  },
   "remaining": ["Enabled settings navigation and live context drift", "Native-to-real-Auth end-to-end shipping integration", "Actual personal/shared content erasure", "Physical iPhone and Apple purchase/distribution verification", "Privacy/operator/capacity/retention and submission approval"]
 }

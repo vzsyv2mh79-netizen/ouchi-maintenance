@@ -80,6 +80,8 @@ import OuchiCore
         for mode in ["mime", "cache", "declared-large", "stream-large"] {
             let review = AccountClosureReviewFlow(api: api)
             review.bind(accountID: account, epochID: epoch, revision: UUID(), restored: original)
+            let current = try await review.recover(token: "synthetic-token")
+            guard current?.state == .cancelled, !review.resultUnconfirmed else { throw Failure.unexpectedResult }
             do { _ = try await review.recover(token: "fixture-" + mode); throw Failure.unexpectedResult }
             catch CloudError.malformedResponse {}
             guard review.binding == original, review.receipt == nil, review.resultUnconfirmed, !review.busy else { throw Failure.unexpectedResult }

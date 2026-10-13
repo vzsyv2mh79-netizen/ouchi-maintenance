@@ -25,6 +25,26 @@ private actor ReviewScript {
         return (try reviewData(request, state: cancel || requests.contains(where: { $0.url!.path.hasSuffix("/cancel") }) ? "cancelled" : "review_required"), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
 }
+private actor ReviewHeaderScript {
+    let mode: Int
+    private var calls = 0
+    init(mode: Int) { self.mode = mode }
+    func reply(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
+        calls += 1
+        let bytes = try reviewData(request)
+        var headers = ["Content-Type": "application/json", "Cache-Control": "no-store"]
+        if calls > 1 {
+            switch mode {
+            case 0: headers["Content-Type"] = "text/html"
+            case 1: headers["Cache-Control"] = "public, max-age=3600"
+            case 2: headers.removeValue(forKey: "Cache-Control")
+            case 3: headers["Content-Length"] = "5000"
+            default: headers["Content-Length"] = "1"
+            }
+        }
+        return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!)
+    }
+}
 @MainActor private final class ReviewFlowHolder { weak var flow: AccountClosureReviewFlow? }
 private actor ReviewGate {
     var arrived = false
@@ -40,21 +60,13 @@ private actor ReviewGate {
 final class AccountClosureReviewTests: XCTestCase {
     @MainActor func testUntrustedResponseHeadersLeaveSelectedRequestUnconfirmed() async throws {
         for mode in 0..<5 {
-            let api = AccountClosureReviewAPI(transport: { request in
-                let bytes = try reviewData(request)
-                var headers = ["Content-Type": "application/json", "Cache-Control": "no-store"]
-                switch mode {
-                case 0: headers["Content-Type"] = "text/html"
-                case 1: headers["Cache-Control"] = "public, max-age=3600"
-                case 2: headers.removeValue(forKey: "Cache-Control")
-                case 3: headers["Content-Length"] = "5000"
-                default: headers["Content-Length"] = "1"
-                }
-                return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!)
-            })
+            let script = ReviewHeaderScript(mode: mode)
+            let api = AccountClosureReviewAPI(transport: { try await script.reply($0) })
             let saved = AccountClosureReviewBinding(accountID: reviewAccount, epochID: reviewEpoch, submissionID: reviewSubmission)
             let flow = AccountClosureReviewFlow(api: api)
             flow.bind(accountID: reviewAccount, epochID: reviewEpoch, revision: UUID(), restored: saved)
+            let confirmed = try await flow.recover(token: "synthetic")
+            XCTAssertEqual(confirmed?.state, .reviewRequired); XCTAssertFalse(flow.resultUnconfirmed)
             do { _ = try await flow.recover(token: "synthetic"); XCTFail("Untrusted response must not confirm selected request") }
             catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
             XCTAssertEqual(flow.binding, saved); XCTAssertNil(flow.receipt); XCTAssertTrue(flow.resultUnconfirmed); XCTAssertFalse(flow.busy)

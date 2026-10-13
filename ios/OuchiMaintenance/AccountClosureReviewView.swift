@@ -168,6 +168,7 @@ import Darwin
     }
     private func run(_ action: @escaping @MainActor (String) async throws -> AccountClosureReviewReceipt?) {
         guard ready, !busy, active == context, let flow else { return }
+        receipt = nil
         guard let bearer = token() else { message = "ログイン状態を確認してください。依頼は送信していません。"; return }
         let expected = context; busy = true; message = nil
         operation?.cancel()
