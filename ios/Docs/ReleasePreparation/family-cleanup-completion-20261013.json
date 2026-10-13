@@ -1,0 +1,65 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "stage": "Family attachment cleanup only; not whole-account retirement.",
+  "implementation": [
+    "Private completion provider requires committed household+inventory signature verification, independent scoped read/write authorities and branded bounded Storage provider.",
+    "Measures all retained destination bytes/mime/SHA and confirms moved source absence only via SDK NoSuchKey before recording full canonical observations.",
+    "Pins sorted participants, home/native job and current controller/cancellation/leases; namespace admission/freeze is a mandatory trusted write-authority contract.",
+    "Private immutable receipt/context bind exact activation token, scope, original inventory and all source/destination paths to the pinned transaction.",
+    "Finite proof lifetime and deferred COMMIT require exact current job/freeze/receiver, unchanged family and attachment metadata, consumed quota and complete routes.",
+    "Historical readback reconciles a lost finish response without requiring old live consent/session; it still requires independently authenticated read authority.",
+    "No Storage remove, ownership change, quota release or Auth deletion is performed by this completion provider."
+  ],
+  "localEvidence": {
+    "finalCompletionCases": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-family-completion-final-20261013.log"
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "wholeRegression": {
+      "passed": 702,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-family-completion-regression-20261013.log"
+    }
+  },
+  "negativeEvidence": {
+    "initialRun": {
+      "passed": 8,
+      "failed": 1
+    },
+    "reason": "Fault native-job UPDATE was stopped by an existing private writer fence before deferred COMMIT. This did not prove native expiry at COMMIT.",
+    "correction": "Kept writer protection intact; final fault cases separately expire the scoped binding and let the actual immutable completion context deadline pass before COMMIT. Neither relies on a widened expected error regex."
+  },
+  "actualServiceAssertionsPrepared": [
+    "Actual destination and source SDK observations feed the private completion provider.",
+    "Successful finish response deliberately lost; reconstructed reader and worker reconcile one immutable receipt without repeating cleanup.",
+    "Completion remains readable after actual inventory consent revocation and receiver logout while live access remains refused.",
+    "Native retirement job stays running and Auth users remain; whole-account completion is not claimed."
+  ],
+  "actualNewServiceResult": "pending exact-head CI; Docker unavailable locally",
+  "previousHead": {
+    "head": "cba71bc62bdf593e17715d4d4773d1dd366c194f",
+    "allFiveChecks": "success",
+    "familyRun": 38386859592,
+    "familyJob": 115260676685,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawLogsAndDedicatedCleanupChecked": true
+  },
+  "remaining": [
+    "Actual new completion-provider PostgreSQL/GoTrue/Storage CI.",
+    "Shipping authenticated coordinator/read recovery API, real effective Auth policy, least-privilege database and Storage credentials.",
+    "All writers and outstanding external namespace capabilities must be fenced; finite read observations cannot fence a privileged external writer.",
+    "Maximum-size/capacity/latency behavior and global storage accounting including source copies.",
+    "Finite completion/proof retention and all-app controller/retirement integration.",
+    "Physical iPhone, Apple Sandbox and App Store submission; Developer payment held."
+  ],
+  "scope": "Disposable private schema only; no production migration/grant/key provisioning/paid infrastructure/public endpoint/real billing/existing data deletion."
+}

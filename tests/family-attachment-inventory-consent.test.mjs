@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {randomBytes,createHmac} from 'node:crypto';
+import {randomBytes,createHmac,createHash} from 'node:crypto';
 import {createFamilyAttachmentInventoryConsent} from '../lib/family-attachment-inventory-consent.mjs';
 import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs';
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+import {StorageApiError} from '@supabase/supabase-js';
+import {createFamilyAttachmentCompletion} from '../lib/family-attachment-completion.mjs';
+import {createFamilyAttachmentStoragePorts} from '../lib/family-attachment-storage.mjs';
+import {normalizeFamilyAttachmentPlan} from '../lib/family-attachment-handoff.mjs';
 import {createCommittedHouseholdConsentVerifier} from '../lib/home-handoff-consent.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 
@@ -359,4 +363,97 @@ for(const fault of ['forgedFamilySignature','wrongFamilyRole','foreignFamilySnap
   assert.equal(result,false);
   assert.equal(await s.transaction(tx=>verify(tx,s.f.scope,new AbortController().signal)),true);
  }finally{await s.f.db.close();}
+});
+
+
+async function completionSetup(){
+ const s=await setup({activation:true,alignFamilyAuth:true});
+ await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
+ for(const actor of [owner,recipient])await s.issue(actor);
+ await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
+ const plan=normalizeFamilyAttachmentPlan(s.f.plan),signal=()=>new AbortController().signal;
+ let absenceError=new StorageApiError('missing',404,'404','storage','NoSuchKey'),storageAllowed=true,inspections=0;
+ const storage=createFamilyAttachmentStoragePorts({guard:async()=>storageAllowed,clientForSignal:()=>({storage:{from:()=>({download:async path=>{inspections++;return s.f.objects.has(path)?{data:s.f.objects.get(path),error:null}:{data:null,error:absenceError};}})}})});
+ const consent=createCommittedHouseholdConsentVerifier({key:s.f.key,verifyCommittedInventory:s.provider.authorizeCommittedActivation});
+ const options={transaction:s.transaction,verifyCommittedConsent:consent,verifyReadAuthority:async()=>true,
+  verifyWriteAuthority:(tx,scope,p,sig)=>s.options.currentAuthority(tx,scope,p,s.original,digest(s.original),sig,s.f.scope),storage};
+ const fresh=extra=>createFamilyAttachmentCompletion({...options,...extra});
+ const finish=port=>{const c=port??fresh();return c.finish(s.f.scope,plan,createHashDigest(plan),signal());};
+ const status=port=>(port??fresh()).status(s.f.scope,plan,signal());
+ const clean=()=>{for(const file of plan.files.filter(f=>f.source.path!==f.destination.path))s.f.objects.delete(file.source.path);};
+ return {s,plan,options,fresh,finish,status,clean,signal,get inspections(){return inspections;},set absenceError(v){absenceError=v;},set storageAllowed(v){storageAllowed=v;}};
+}
+const createHashDigest=plan=>createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+
+test('durable family cleanup completion reconciles lost reply and can be read after logout without declaring whole-account retirement',async()=>{
+ const c=await completionSetup();try{
+  assert.equal((await c.status()).state,'activated');
+  await assert.rejects(c.finish(),/Definitive family source absence/);
+  assert.equal((await c.status()).state,'activated');c.clean();
+  await assert.rejects((async()=>{await c.finish();throw Error('Successful family completion reply lost');})(),/reply lost/);
+  const first=await c.status(c.fresh());assert.equal(first.state,'complete');
+  const reads=c.inspections;assert.deepEqual(await c.finish(c.fresh()),first);assert.equal(c.inspections,reads);
+  assert.equal((await c.status(c.fresh())).state,'complete');
+  c.s.live=false;await c.s.f.db.query('delete from auth.sessions where id=$1',[rs]);
+  await c.s.f.db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);
+  assert.equal((await c.status(c.fresh())).state,'complete');
+  assert.equal(await c.s.authorize(),false);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_completion_receipts')).rows[0].n,1);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from auth.users')).rows[0].n,3);
+  assert.equal((await c.s.f.db.query('select state from maintenance_private.account_deletion_requests where id=$1',[c.s.f.scope.nativeRequestID])).rows[0].state,'running');
+  for(const table of ['family_attachment_completion_contexts','family_attachment_completion_receipts']){
+   await assert.rejects(c.s.f.db.exec('delete from maintenance_private.'+table),/Immutable/);
+   await assert.rejects(c.s.f.db.exec('update maintenance_private.'+table+" set proof='{}'::jsonb"),/Immutable/);
+  }
+ }finally{await c.s.f.db.close();}
+});
+
+for(const fault of ['unknownAbsence','missingDestination','damagedDestination','storageAuthorityLost'])test(`family completion refuses ${fault} without saving a receipt`,async()=>{
+ const c=await completionSetup();try{
+  c.clean();const file=c.plan.files[0];
+  if(fault==='unknownAbsence')c.absenceError=new StorageApiError('unknown',404,'404','storage','NoSuchBucket');
+  if(fault==='missingDestination')c.s.f.objects.delete(file.destination.path);
+  if(fault==='damagedDestination')c.s.f.objects.set(file.destination.path,new Blob([new Uint8Array([4,3,2,1])],{type:file.mime}));
+  if(fault==='storageAuthorityLost')c.storageAllowed=false;
+  await assert.rejects(c.finish());
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_completion_receipts')).rows[0].n,0);
+  assert.equal((await c.status()).state,'activated');
+ }finally{await c.s.f.db.close();}
+});
+
+for(const fault of ['expiredBinding','expiredCompletionContext','missingRoute','missingReceipt'])test(`deferred family completion COMMIT refuses ${fault} even with an incomplete application adapter`,async()=>{
+ const c=await completionSetup();try{
+  c.clean();
+  const transaction=(cb,sig)=>c.s.transaction(tx=>cb({beforeCommit:()=>{},query:async(sql,args)=>{
+   if(fault==='missingReceipt'&&sql.startsWith('insert into maintenance_private.family_attachment_completion_receipts'))return {rows:[],rowCount:1};
+   if(fault==='missingReceipt'&&sql.startsWith('select * from maintenance_private.family_attachment_completion_receipts')){
+    const context=(await tx.query('select * from maintenance_private.family_attachment_completion_contexts')).rows[0];
+    return {rows:context?[{...context,completion_token:context.token}]:[]};
+   }
+   const result=await tx.query(sql,args);
+   if(sql.startsWith('insert into maintenance_private.family_attachment_completion_receipts')){
+    if(fault==='expiredBinding')await tx.query("update maintenance_private.household_stop_bindings set lease_until=clock_timestamp()-interval '1 second' where user_id=$1",[owner]);
+    if(fault==='expiredCompletionContext')await tx.query('select pg_sleep(5.1)');
+    if(fault==='missingRoute')await tx.query("delete from maintenance_private.household_write_routes where kind='products'");
+   }
+   return result;
+  }}),sig);
+  await assert.rejects(c.finish(c.fresh({transaction})),/family completion|family routes/i);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_completion_receipts')).rows[0].n,0);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_completion_contexts')).rows[0].n,0);
+  assert.equal((await c.finish()).state,'complete');
+ }finally{await c.s.f.db.close();}
+});
+
+test('client JSON storage flags, query-only transactions, cancellation and read-authority loss cannot confirm family completion',async()=>{
+ const c=await completionSetup();try{
+  assert.throws(()=>c.fresh({storage:{verified:true}}),/Trusted family completion/);c.clean();
+  await assert.rejects(c.finish(c.fresh({transaction:(cb,sig)=>c.s.transaction(tx=>cb({query:tx.query}),sig)})),/Pinned completion commit/);
+  const aborted=new AbortController();aborted.abort();
+  await assert.rejects(c.fresh().finish(c.s.f.scope,c.plan,createHashDigest(c.plan),aborted.signal),{name:'AbortError'});
+  await c.finish();await assert.rejects(c.status(c.fresh({verifyReadAuthority:async()=>false})),/authority/);
+  await c.s.f.db.exec('set role service_role');
+  await assert.rejects(c.s.f.db.exec('select * from maintenance_private.family_attachment_completion_receipts'),/permission denied/);
+  await c.s.f.db.exec('reset role');
+ }finally{await c.s.f.db.close();}
 });

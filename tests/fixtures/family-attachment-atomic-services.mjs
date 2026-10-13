@@ -6,6 +6,7 @@ import {createFamilyAttachmentInventoryConsent} from '../../lib/family-attachmen
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
+import {createFamilyAttachmentCompletion} from '../../lib/family-attachment-completion.mjs';
 import {createFamilyAttachmentStoragePorts} from '../../lib/family-attachment-storage.mjs';
 import {handoffFamilyAttachments,normalizeFamilyAttachmentPlan} from '../../lib/family-attachment-handoff.mjs';
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
@@ -67,6 +68,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   for(const name of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.query(readFileSync('tests/fixtures/handoff-controller-compatibility/'+name,'utf8'));
   await db.query(readFileSync('tests/fixtures/family-attachment-activation.sql','utf8'));
   await db.query(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
   const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner.user,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequestID,scopeID:owner.epoch}]};
   await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner.user,controllerScope,nativeLease]);
   await db.query('select maintenance_private.freeze_household_scope($1,$2)',[controllerScope,nativeLease]);
@@ -211,7 +213,32 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const current=await status(s,p,signal);
    return operation==='cleanup'?current.state==='activated':current.state==='prepared'||current.state==='activated';
   }});
-  const ports={...storage,plan:async()=>plan,guard:async(s,signal)=>{await status(s,plan,signal);return true;},status:(...args)=>status(...args),
+  // Disposable coordinator identity is injected. Its actual scoped job/freeze
+  // rows are independently checked; shipping controller authentication and
+  // external namespace capability admission remain required before deployment.
+  const controllerCurrent=async(tx,s,p,signal)=>{
+   signal.throwIfAborted();assert.deepEqual(s,scope);assert.equal(p.requestID,plan.requestID);
+   const row=(await tx.query(`select exists(select 1 from maintenance_private.account_deletion_requests n
+    join maintenance_private.household_stop_bindings b on b.user_id=n.user_id
+    join maintenance_private.household_family_holds h on h.principal=n.user_id and h.home_id=$5
+    join maintenance_private.household_principal_fences f on f.user_id=n.user_id
+    where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4
+    and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token
+    and b.state='processing' and b.lease_until>clock_timestamp() and b.scope=$6::jsonb and h.scope=b.scope and f.stopped
+    and exists(select 1 from maintenance_private.app_epochs e join maintenance_private.account_access a using(user_id)
+     where e.user_id=$7 and e.epoch_id=$8 and e.enabled and a.enabled)
+    and not exists(select 1 from maintenance_private.account_deletion_requests where user_id=$7 and state<>'complete')) as current`,[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,s.homeID,JSON.stringify(s.controllerScope),p.recipientID,p.recipientEpoch])).rows[0];
+   signal.throwIfAborted();return row.current===true;
+  };
+  const completionStorage=createFamilyAttachmentStoragePorts({clientForSignal:signal=>createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(signal)}}),guard:(s,p,f,operation,signal)=>controllerCurrent(db,s,p,signal)});
+  const completionProvider=()=>createFamilyAttachmentCompletion({transaction,verifyCommittedConsent:committedHousehold,verifyReadAuthority:controllerCurrent,verifyWriteAuthority:controllerCurrent,storage:completionStorage});
+  let completion=completionProvider();
+  const completedExists=async()=>(await db.query('select 1 from maintenance_private.family_attachment_completion_receipts where request_id=$1 and home_id=$2',[scope.requestID,scope.homeID])).rows.length===1;
+  const ports={...storage,plan:async()=>plan,guard:async(s,signal)=>{
+   if(!await controllerCurrent(db,s,normalizeFamilyAttachmentPlan(plan),signal))return false;
+   if(await completedExists())return (await completion.status(s,plan,signal)).state==='complete';
+   await status(s,plan,signal);return true;
+  },status:async(...args)=>await completedExists()?completion.status(...args):status(...args),
    prepare:async(...args)=>{preparations++;await journal.prepare(...args);throw Error('Successful reservation reply lost');},
    activate:async(s,p,digest,proof,signal)=>{
     activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:inventoryConsent.authorizeActivation});
@@ -229,7 +256,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    },removeSource:async(s,p,f,proof,signal)=>{
     await storage.removeSource(s,p,f,proof,signal);removedSourcePaths.push(f.source.path);
     if(removedSourcePaths.length===1){cleanupEnabled=false;throw Error('Successful source removal reply lost');}
-   },finish:async()=>{finishCalls++;throw Error('Durable family completion and whole-account completion not implemented');}
+   },finish:async(...args)=>{finishCalls++;await completion.finish(...args);throw Error('Successful family completion reply lost');}
   };
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'absent');
   assert.equal(await historical(),false);
@@ -314,7 +341,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   // Restore the original factor inventory, reconstruct the reader, and resume:
   // absence readback skips the deleted prefix rather than removing it again.
   status=provider();cleanupEnabled=true;
-  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});
   assert.equal(removedSourcePaths.length,2);assert.equal(new Set(removedSourcePaths).size,2);
   assert.equal(finishCalls,1);assert.equal(activations,2);assert.equal(preparations,1);
   for(const f of relocated){
@@ -325,17 +352,26 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const kept=await admin.storage.from('ouchi-product-attachments').download(f.destination.path);
    assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
   }
-  // Physical cleanup is not a durable completion receipt. Keep pending.
-  assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
+  // A reconstructed reader reconciles the deliberately lost finish reply.
+  // This is ONLY family file cleanup, not whole-account retirement.
+  completion=completionProvider();
+  assert.equal((await completion.status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_completion_receipts where request_id=$1',[scope.requestID])).rows[0].n,1);
+  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[nativeRequestID])).rows[0].state,'running');
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});
+  assert.equal(finishCalls,1);
+
   await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
   assert.equal(await historical(),true);
-  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,2);
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(activations,2);assert.equal(finishCalls,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[1].source.path)).error,null);
   assert.equal(removedSourcePaths.length,2);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
   const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
   assert.equal(await historical(),true);
+  assert.equal((await completionProvider().status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(finishCalls,1);
   for(const id of [ownFile,memberFile,secondOwnFile])await refused(await downloadWithToken(receiverToken,id));
   // Logout must not remove records, bytes or the GoTrue user itself.
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
