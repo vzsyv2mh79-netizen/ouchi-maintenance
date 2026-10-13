@@ -37,7 +37,7 @@ import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STAT
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewTransactions}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -137,10 +137,48 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    }catch(error){await db.query('rollback');throw error;}
   }};
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
+  const reviewApplicationName='ouchi-review-'+randomUUID(),reviewSQL=[];
+  const dedicatedReviewTransactions=createAccountClosureReviewTransactions({connect:async({signal})=>{
+   // Disposable administrator credential only. Production requires separately
+   // provisioned minimum database grants; an SQL allowlist is not that proof.
+   const client=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',application_name:reviewApplicationName,connectionTimeoutMillis:3000,query_timeout:5000});
+   client.on('error',()=>{});let closing;
+   const abort=()=>{closing??=client.end();};signal.addEventListener('abort',abort,{once:true});
+   try{signal.throwIfAborted();await client.connect();signal.throwIfAborted();}
+   catch(error){abort();await closing.catch(()=>{});throw error;}
+   finally{signal.removeEventListener('abort',abort);}
+   return {query:(sql,args)=>{reviewSQL.push(sql);return client.query(sql,args);},abort,close:async()=>{abort();await closing;}};
+  }});
   const reviewWitness=authenticate=>createAccountClosureReviewReauthentication({identity:{userID:owner.user,sessionID:owner.session,epochID:owner.epoch,email:owner.email},authenticate,readAuthState:async(userID,signal)=>{
     signal.throwIfAborted();const result=await db.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);signal.throwIfAborted();return result.rows[0]?.reauthentication_state;
    }});
-  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:authenticate=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:reviewTransactions,authenticate})});
+  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:authenticate=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:dedicatedReviewTransactions,authenticate})});
+  await db.query('begin');
+  try{
+   await db.query('select id from auth.users where id=$1::uuid for update',[owner.user]);
+   const controller=new AbortController(),before=reviewSQL.length;
+   const waiting=dedicatedReviewTransactions.run(controller.signal,tx=>tx.query('select id from auth.users where id=$1::uuid for update',[owner.user]));
+   // Attach rejection handling immediately, but verify actual lock contention
+   // before aborting; a pre-query cancellation is not this witness.
+   const settled=waiting.then(()=>({accepted:true}),error=>({accepted:false,error}));
+   let observed=false;
+   for(let attempt=0;attempt<20;attempt++){
+    if((await db.query("select exists(select 1 from pg_stat_activity where application_name=$1 and wait_event_type='Lock') as waiting",[reviewApplicationName])).rows[0].waiting){observed=true;break;}
+    await new Promise(resolve=>setTimeout(resolve,20));
+   }
+   controller.abort();const result=await settled;
+   assert.equal(observed,true,'Cancellation must interrupt an actual PostgreSQL row-lock wait');
+   assert.equal(result.accepted,false);assert.match(result.error.message,/terminated|abort|interrupted|closed|cancel/i);
+   assert.equal(reviewSQL.slice(before).includes('COMMIT'),false);
+   assert.equal(reviewSQL.slice(before).includes('ROLLBACK'),false,'Do not queue rollback behind an in-flight query');
+  }finally{await db.query('rollback');}
+  let reviewConnectionsClosed=false;
+  for(let attempt=0;attempt<20;attempt++){
+   if((await db.query('select count(*)::int n from pg_stat_activity where application_name=$1',[reviewApplicationName])).rows[0].n===0){reviewConnectionsClosed=true;break;}
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.equal(reviewConnectionsClosed,true);
+  console.log('closure-review actual PostgreSQL transport: dedicated connections closed; cancellation interrupts observed Auth row-lock wait without COMMIT or queued rollback');
   const originalReviewSessions=(await db.query('select id::text from auth.sessions where user_id=$1 order by id',[owner.user])).rows;
   // Read actual GoTrue each time, then inject a refusal only at the final check.
   // PostgreSQL must roll back the intake that its real review SQL just inserted.

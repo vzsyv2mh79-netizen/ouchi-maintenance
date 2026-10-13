@@ -76,3 +76,14 @@ test('throwing abort falls back to transport close while a SQL operation is pend
  assert.equal(calls.filter(x=>x==='close').length,1);
  assert.equal(calls.includes('COMMIT'),false);assert.equal(calls.includes('ROLLBACK'),false);
 });
+
+test('unawaited SQL interrupts transport instead of queuing COMMIT or ROLLBACK behind it',async()=>{
+ const calls=[];let rejectQuery,leaked;
+ const transaction=createReceiptTransactions({connect:async()=>({
+  query:async sql=>{calls.push(sql);if(sql==='SELECT pending')return new Promise((resolve,reject)=>{rejectQuery=reject;});return {rows:[]};},
+  abort:()=>{calls.push('abort');rejectQuery(Error('Transport interrupted'));},
+  close:async()=>{calls.push('close');},
+ })});
+ await assert.rejects(transaction(async tx=>{leaked=tx.query('SELECT pending').catch(error=>error);return 'not committed';},{signal:new AbortController().signal,readOnly:false}),/Concurrent receipt SQL/);
+ assert.match((await leaked).message,/interrupted/);assert.equal(calls.includes('COMMIT'),false);assert.equal(calls.includes('ROLLBACK'),false);assert.deepEqual(calls.slice(-2),['abort','close']);
+});
