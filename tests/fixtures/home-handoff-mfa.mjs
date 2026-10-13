@@ -49,8 +49,7 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
    if(replaceFactor){
     assert.ok(actor);assert.equal(totpVerify,true);
     const replacement=randomUUID();
-    await db.query("insert into auth.mfa_factors select (jsonb_populate_record(null::auth.mfa_factors,to_jsonb(f)||jsonb_build_object('id',$1::uuid,'friendly_name',$2::text))).* from auth.mfa_factors f where id=$3",[replacement,'Synthetic replacement factor',factor.id]);
-    await db.query('delete from auth.mfa_factors where id=$1',[factor.id]);
+    await db.query("with original as (delete from auth.mfa_factors where id=$3 returning *) insert into auth.mfa_factors select (jsonb_populate_record(null::auth.mfa_factors,to_jsonb(f)||jsonb_build_object('id',$1::uuid,'friendly_name',$2::text))).* from original f",[replacement,'Synthetic replacement factor',factor.id]);
     assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[mfa.session])).rows[0].aal,'aal2');
     assert.equal((await db.query("select count(*)::int n from auth.mfa_factors where user_id=$1 and status::text='verified'",[mfa.user])).rows[0].n,1);
    }
