@@ -11,6 +11,15 @@ struct FormalNativePushSelection {
     let account: UUID
 }
 
+/// Ephemeral authenticated context; bearer is never stored in reference custody.
+struct AccountClosureReviewSelection {
+    let accountID: UUID
+    let epochID: UUID
+    let revision: UUID
+    let bearer: String
+    let processingExplanation: String
+}
+
 enum FormalNativePushChange { case registered(FormalNativePushSelection), disabled, absent }
 
 struct FormalReminderSelection {
@@ -66,6 +75,41 @@ struct FormalChannelSelection {
     } }
     @Published private(set) var reminderSettings: ReminderSettingsReceipt?
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
+    let closureReviewVault = AccountClosureReviewVault(
+        service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".closure-review-references")
+    var closureReviewConfigured: Bool {
+        api != nil && Bundle.main.infoDictionary?["OUCHI_CLOSURE_REVIEW_ENABLED"] as? Bool == true
+            && closureReviewProcessingExplanation != nil
+    }
+    private var closureReviewProcessingExplanation: String? {
+        guard let value = Bundle.main.infoDictionary?["OUCHI_CLOSURE_REVIEW_PROCESSING_EXPLANATION"] as? String else { return nil }
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !text.isEmpty && text.utf8.count <= 2048 ? text : nil
+    }
+    /// Read an existing enrollment only. Viewing settings never enrolls, purchases,
+    /// starts deletion or invents an epoch from the user's ID/household.
+    func prepareClosureReview() async -> AccountClosureReviewSelection? {
+        guard !busy, signedIn, closureReviewConfigured, let session,
+              let account = snapshotAccount, let explanation = closureReviewProcessingExplanation else { return nil }
+        let expected = generation, revision = accountBindingRevision
+        busy = true; message = nil
+        defer { if expected == generation && revision == accountBindingRevision { busy = false } }
+        let current = { [self] in !Task.isCancelled && signedIn && snapshotAccount == account
+            && generation == expected && accountBindingRevision == revision }
+        do {
+            let before = try await session.credentials()
+            guard current(), before.user.id == account else { return nil }
+            let enrolled = try await AccountEnrollmentAPI().load(account: account, token: before.access_token)
+            let after = try await session.credentials()
+            guard current(), after.user.id == account, after.access_token == before.access_token,
+                  enrolled.userID == account, let epoch = enrolled.epochID else { return nil }
+            return .init(accountID: account, epochID: epoch, revision: revision,
+                         bearer: before.access_token, processingExplanation: explanation)
+        } catch {
+            if current() { message = "退会依頼の準備を確認できません。通信とログイン状態を確認してください。依頼は送信していません。" }
+            return nil
+        }
+    }
     /// Dedicated receipt custody is independent of login storage. Logging out
     /// does not remove credentials needed to read an already accepted request.
     let deletionReceiptVault = DeletionReadCredentialVault(

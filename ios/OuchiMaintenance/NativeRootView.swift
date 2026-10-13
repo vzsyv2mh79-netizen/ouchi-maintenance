@@ -393,6 +393,10 @@ private struct NativeSettings: View {
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("ヘルプ") { NavigationLink("使い方・困ったとき") { HelpInformation() } }
                 Section("アカウント") {
+                    if store.closureReviewConfigured {
+                        NavigationLink("退会の依頼・状況確認") { AccountClosureReviewSettingsView() }
+                            .disabled(store.busy)
+                    }
                     #if DEBUG
                     if let account = store.preparedDeletionAccountID {
                         NavigationLink("保存された削除申請を確認（準備中）") {

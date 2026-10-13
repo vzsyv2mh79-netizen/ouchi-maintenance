@@ -190,6 +190,46 @@ import Darwin
     }
 }
 
+/// Settings wiring is present but default-disabled. Activation requires a real
+/// reviewed processing disclosure and authenticated production backend/erasure.
+@MainActor struct AccountClosureReviewSettingsView: View {
+    @EnvironmentObject private var store: NativeStore
+    @State private var selection: AccountClosureReviewSelection?
+    @State private var loading = false
+    var body: some View {
+        VStack(spacing: 0) {
+            if let selection, selection.revision == store.accountBindingRevision,
+               selection.accountID == store.preparedDeletionAccountID, store.closureReviewConfigured {
+                AccountClosureReviewView(accountID: selection.accountID, epochID: selection.epochID,
+                    revision: selection.revision, available: true, processingExplanation: selection.processingExplanation,
+                    token: {
+                        store.accountBindingRevision == selection.revision
+                            && store.preparedDeletionAccountID == selection.accountID ? selection.bearer : nil
+                    }, vault: store.closureReviewVault, api: AccountClosureReviewAPI())
+            } else {
+                Form {
+                    Section {
+                        if loading { ProgressView("登録とログイン状態を確認中") }
+                        else {
+                            Text("退会依頼を準備できませんでした。通信とログイン状態を確認してください。この画面を開いただけでは依頼・登録・削除は行いません。")
+                            Button("もう一度確認") { Task { await load() } }.disabled(store.busy)
+                        }
+                    }
+                }.navigationTitle("退会の依頼")
+            }
+        }
+        .task(id: store.accountBindingRevision) { await load() }
+        .onDisappear { selection = nil; loading = false }
+    }
+    private func load() async {
+        let revision = store.accountBindingRevision
+        selection = nil; loading = true
+        let prepared = await store.prepareClosureReview()
+        guard !Task.isCancelled, revision == store.accountBindingRevision else { return }
+        selection = prepared; loading = false
+    }
+}
+
 #if DEBUG
 private actor ClosureReviewPreviewServer {
     private var states: [String: String]

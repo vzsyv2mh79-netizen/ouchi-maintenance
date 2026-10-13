@@ -1,0 +1,20 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "settingsWiring": "Account settings can open the review container only after explicit reviewed release configuration. Default Info.plist enabled=false and processing explanation is empty.",
+  "contextLoading": "Read existing enrollment with AccountEnrollmentAPI only; check account, original bearer, generation and binding revision before/after await. Never derive epoch from account/household, enroll on view, or purchase.",
+  "custody": "Dedicated app-bundle Keychain namespace for account/epoch/submission references. Bearer stays in ephemeral view selection and is cleared on disappearance/context change. Existing deletion-receipt custody is separate and not removed.",
+  "localVerification": {
+    "sourceDigest": "955d8a6c97be0a5ad69e75d4ecb051c109ced20c",
+    "platform": "iPhone17e Simulator iOS27.0 (24A434)",
+    "configuration": "Dedicated synthetic normal large text/light preview; real feature flags remain disabled",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "runtimeWarnings": [],
+    "PNGReviewed": 5,
+    "ownedSimulatorRemoved": true,
+    "scope": "All new SwiftUI/settings/store code compiles in the isolated app; existing full synthetic review operation remains successful. This test opens the dedicated preview, not the enabled settings navigation."
+  },
+  "remaining": ["Enabled settings navigation and original-session drift tests with an isolated session/provider", "Shipping authenticated review routes and effective Auth policy", "Actual personal/shared erasure and finite timing/retention disclosure", "Release configuration review before enabling", "Physical iPhone and Apple purchase/distribution verification"]
+}

@@ -56,6 +56,10 @@
 	<string></string>
 	<key>OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED</key>
 	<false/>
+	<key>OUCHI_CLOSURE_REVIEW_ENABLED</key>
+	<false/>
+	<key>OUCHI_CLOSURE_REVIEW_PROCESSING_EXPLANATION</key>
+	<string></string>
 	<key>OUCHI_RELEASE_PURCHASE_ENVIRONMENT</key>
 	<string>Sandbox</string>
 	<key>IOS_SANDBOX_BILLING</key>
