@@ -6,6 +6,7 @@ import {createFamilyAttachmentInventoryConsent} from '../../lib/family-attachmen
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
+import {prepareActualKakeiFamily} from './kakei-completion/actual-family.mjs';
 import {createOtherAppFamilyVerifier} from '../../lib/other-app-family-verifier.mjs';
 import {createSharedFamilyStageStore} from '../../lib/shared-family-stage-store.mjs';
 import {sharedFamilyCoverageDigest} from '../../lib/shared-family-handoff-stage.mjs';
@@ -72,7 +73,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   await db.query(readFileSync('tests/fixtures/family-attachment-activation.sql','utf8'));
   await db.query(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
   await db.query(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
-  const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner.user,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequestID,scopeID:owner.epoch}]};
+  const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner.user,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequestID,scopeID:owner.epoch},{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()}]};
   await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner.user,controllerScope,nativeLease]);
   await db.query('select maintenance_private.freeze_household_scope($1,$2)',[controllerScope,nativeLease]);
   const saved=(await db.query('select maintenance_private.household_family_snapshot($1) as value',[homeID])).rows[0].value;
@@ -199,6 +200,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const claim=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url'));
    assert.equal(claim.actorID,record.actor_id);assert.equal(claim.authVerifiedAt,totpTimes.get(record.actor_id));
   }
+  const budget=await prepareActualKakeiFamily({db,transaction,root:controllerScope,owner,receiver,identity,totpTimes});
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
   // Historical committed fact is separate from current mutation authority.
   const committedHousehold=createCommittedHouseholdConsentVerifier({key,verifyCommittedInventory:inventoryConsent.authorizeCommittedActivation});
@@ -377,19 +379,26 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(finishCalls,1);
   // All remote copy/removal/GoTrue work above is independently committed.
   // This final controller SQL checkpoint never performs remote side effects.
-  await db.query(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
   await db.query(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
-  const fixedController={...controllerScope};delete fixedController.leaseToken;
-  await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '2 minutes',$5)",[controllerScope.requestID,controllerScope.userID,fixedController,controllerScope.leaseToken,{prepare:{durable:true,stage:'prepare',...fixedController}}]);
   const frozenTargets=[{scope,plan:normalizeFamilyAttachmentPlan(plan)}],coverageDigest=sharedFamilyCoverageDigest(frozenTargets,controllerScope);
   const otherFamilies=createOtherAppFamilyVerifier({verifyControllerCoverage:async(tx,current,signal)=>{
    assert.deepEqual(current.apps,controllerScope.apps);return controllerCurrent(tx,scope,normalizeFamilyAttachmentPlan(plan),signal);
-  },verifiers:{}}); // verified maintenance-only inventory; unknown other apps refuse
+  },verifiers:{kakei:budget.verify}}); // every declared app has an independently checked contribution
   const checkpoint=createSharedFamilyStageStore({verifyReadAuthority:(tx,s,signal)=>{assert.deepEqual(s,controllerScope);return controllerCurrent(tx,scope,normalizeFamilyAttachmentPlan(plan),signal);},loadValidatedTargets:async(tx,s,digest,signal)=>{
    assert.deepEqual(s.apps,controllerScope.apps);assert.equal(await otherFamilies(tx,s,signal),true); // no unverified other app in this isolated fixture
    assert.equal(digest,coverageDigest);assert.equal(await committedHousehold(tx,scope,signal),true);
    return frozenTargets;
   }});
+  const unsignedSignal=AbortSignal.timeout(10000);
+  await assert.rejects(transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,unsignedSignal),unsignedSignal));
+  assert.equal((await db.query("select receipts ? 'handoff-family' as present from private.kb_shared_deletion_journal where request_id=$1",[controllerScope.requestID])).rows[0].present,false);
+  assert.equal(await budget.read(),null);
+  // Kakei transfer + signed completion commit in their own dedicated SQL tx.
+  // No Storage/GoTrue mutation belongs inside this budget transaction.
+  await assert.rejects((async()=>{await budget.finish();throw Error('Committed Kakei completion reply lost');})(),/reply lost/);
+  const signedBudget=await budget.read();assert.equal(signedBudget.durable,true);
+  await db.query('update private.kb_shared_handoff_proofs set revoked_at=clock_timestamp() where request_id=$1 and actor_id=$2',[controllerScope.requestID,receiver.user]);
+  assert.deepEqual(await budget.read(),signedBudget);
   const failedSignal=AbortSignal.timeout(10000);
   await assert.rejects(transaction(async tx=>{
    await checkpoint.record(tx,controllerScope,coverageDigest,failedSignal);
@@ -405,7 +414,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   await transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,retrySignal),retrySignal);
   const readSignal=AbortSignal.timeout(10000);
   const globalReceipt=await transaction(tx=>checkpoint.read(tx,controllerScope,readSignal),readSignal);
-  assert.equal(globalReceipt.stage,'handoff-family');assert.equal(globalReceipt.familyCoverageDigest,coverageDigest);
+  assert.equal(globalReceipt.stage,'handoff-family');assert.equal(globalReceipt.familyCoverageDigest,coverageDigest);assert.equal(globalReceipt.apps.length,2);
+  assert.equal((await db.query('select count(*)::int n from private.kb_shared_family_completions')).rows[0].n,1);
+  assert.equal((await db.query('select amount from public.kb_transactions')).rows[0].amount,200);
   const againSignal=AbortSignal.timeout(10000);await transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,againSignal),againSignal);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,1);
   assert.equal(finishCalls,1);assert.equal(removedSourcePaths.length,2);

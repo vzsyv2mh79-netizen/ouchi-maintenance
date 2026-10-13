@@ -1,0 +1,36 @@
+{
+  "status": "prepared_exact_head_actual_service_ci_pending",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Disposable common GoTrue + PostgreSQL + private Storage and both app family checkpoint; not all-account retirement.",
+  "implementation": [
+    "Actual root inventory has maintenance + kakei with fixed request/scope IDs before any issuer.",
+    "Kakei issuer uses actual pinned AAL2 identity/session/factor verification and signed TOTP AMR time, same actors as maintenance.",
+    "Kakei prepares authoritative fixture household membership and applies six copied financial table hooks/current private write-fence checks. Full shipping app enrollment/all-table writer coverage is not implied.",
+    "Kakei protected transfer and signed immutable completion commit in a dedicated DB transaction; deliberately lost completion reply is read back without repeating transfer.",
+    "Global checkpoint refuses missing Kakei completion; later proof revocation/logout does not erase an already committed fact.",
+    "Global checkpoint failure rolls only global SQL state back while maintenance source absence/copy bytes/member bytes/family receipts remain; both contributions are rechecked before retry.",
+    "Kakei completion in this fixture uses unchanged v1 signed proofs and current financial write fences. Receiver logout precedes new Kakei completion: this exposes the weaker v1 scope and is not evidence of fresh two-party Auth authorization."
+  ],
+  "localEvidence": {
+    "priorExactSourceRegression": {
+      "passed": 741,
+      "failed": 0,
+      "skipped": 0
+    },
+    "currentScope": "Only disposable actual-service fixture/helper and source fence copies changed; no production library or UI change.",
+    "lint": "passed",
+    "syntax": "passed"
+  },
+  "actualServiceResult": "Pending exact-head CI; local Docker unavailable; regular unit tests cannot stand in for this proof.",
+  "copiedSource": "Kakei completion/consent/journal/transfer/snapshot/fence sources fixed unchanged with 14 SHA entries in source-manifest.json. Sibling originals read-only.",
+  "remaining": [
+    "Actual service run and raw logs for this exact composition.",
+    "Kakei v1 signed proof does not persist authStateDigest. Actual AAL2 issuer pins do not prove post-consent factor/session changes are rejected at worker/COMMIT; cross-app Auth binding requires a reviewed versioned durable protocol before shipping.",
+    "Independent full frozen inventory/real Kakei app enrollment/all schema and writers/external namespace capabilities.",
+    "Formal current root/native rebind and all app erase/verify/final shared Auth/post-Auth proof.",
+    "Finite proof/context/snapshot retention and least privilege/shipping policy/auth/recovery.",
+    "Maximum capacity/latency, physical device Apple Sandbox/TestFlight/submission; owner Developer payment held."
+  ],
+  "safety": "No production migration/grant/new keys/paid infrastructure/real billing/production data deletion."
+}

@@ -61,6 +61,30 @@
       "path": "tests/fixtures/kakei-completion/review/kakei-family-completion.sql",
       "sha256": "364ae50883888cd47dad6c3d3cbcaa8991e656f6db751ea4b3a579c8204bfae8",
       "gitBlobSHA": "07532931f05b741839da34310d0749586ca59ba5"
+    },
+    {
+      "source": "lib/kakei-write-fence.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-write-fence.mjs",
+      "sha256": "b3f7e3509a3d8eb1d55056efd21304fd10407dc2705a02923eb8832214ee8fba",
+      "gitBlobSHA": "81111b2f5edb84e0e8322a3be9c36e9a72b2d256"
+    },
+    {
+      "source": "tests/fixtures/kakei-write-fence.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-write-fence.sql",
+      "sha256": "9c0d7b50908a5a2bb3519927257a0a49fb1f23520643139e41aaa8e8af810ebf",
+      "gitBlobSHA": "827a96696401e818cba681cd902131b01a314a1a"
+    },
+    {
+      "source": "tests/fixtures/kakei-write-table-guards.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-write-table-guards.sql",
+      "sha256": "57bf9475cc126ef529e180905324d953af1af12acc52314ff8c0bd8106d3b4e1",
+      "gitBlobSHA": "b785d4dfb4f90b7e0d326d39a28c2738f324c8ef"
+    },
+    {
+      "source": "tests/fixtures/kakei-fenced-handoff.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-fenced-handoff.sql",
+      "sha256": "31c34089eb0e1875e2d65359219427dfed7c4025a50423ba55fb741279c429f8",
+      "gitBlobSHA": "85061f69af394b68466b073ba602251773f08401"
     }
   ]
 }
