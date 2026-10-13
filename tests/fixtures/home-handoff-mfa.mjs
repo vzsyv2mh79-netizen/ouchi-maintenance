@@ -19,9 +19,9 @@ export function syntheticTOTP(secret,seconds=Math.floor(Date.now()/1000)) {
  return String((digest.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');
 }
 
-export async function verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier}) {
+export async function verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier}) {
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');
- assert.equal(origin,'http://127.0.0.1:54321');
+ assert.equal(origin,'http://127.0.0.1:54321');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');
  // Import only after the fixed disposable service opt-in; no remote DB option.
  const {Client}=await import('pg');
  const ok=result=>{assert.equal(result.error,null);return result.data;};
@@ -35,11 +35,11 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
  assert.equal(sql(`select aal::text from auth.sessions where id='${mfa.session}';`),'aal2');
  assert.equal(sql(`select status::text from auth.mfa_factors where id='${factor.id}';`),'verified');
  const projectID='abcdefghijklmnopqrst';
- async function identity(bearer) {
+ async function identity(bearer,inventory=false,totpVerify=true) {
   const signal=AbortSignal.timeout(10000);
   // Injected policy is an explicitly labelled fixture, not live Management proof.
-  const policyReader=createHomeHandoffPolicyReader({projectID,accessToken:'synthetic',readEffectiveLowAAL:async()=>({projectID,checkedAt:new Date().toISOString(),authVersion:'v2.196.0',allowLowAALSeconds:null}),fetcher:async()=>Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:true,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false})});
-  const verifier=createHomeHandoffIdentityVerifier({projectID,policyReader,getUser:(token,callerSignal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(callerSignal,5000,65536)}}).auth.getUser(token)});
+  const policyReader=createHomeHandoffPolicyReader({projectID,accessToken:'synthetic',readEffectiveLowAAL:async()=>({projectID,checkedAt:new Date().toISOString(),authVersion:'v2.196.0',allowLowAALSeconds:null}),fetcher:async()=>Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:totpVerify,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false})});
+  const verifier=(inventory?createHomeHandoffInventoryIdentityVerifier:createHomeHandoffIdentityVerifier)({projectID,policyReader,getUser:(token,callerSignal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(callerSignal,5000,65536)}}).auth.getUser(token)});
   // Privileged disposable fixture only; this is not a shipping DB provider/grant.
   const db=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
   await db.connect();
@@ -49,14 +49,24 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
   } finally {try{await db.query('rollback');}finally{await db.end();}}
  }
  assert.deepEqual(await identity(promoted.access_token),{userID:mfa.user,sessionID:mfa.session,epochID:mfa.epoch});
+ const inventoryIdentity=await identity(promoted.access_token,true);
+ assert.equal(inventoryIdentity.userID,mfa.user);assert.equal(inventoryIdentity.sessionID,mfa.session);assert.equal(inventoryIdentity.epochID,mfa.epoch);assert.equal(inventoryIdentity.aal,'aal2');
+ const amr=JSON.parse(Buffer.from(promoted.access_token.split('.')[1],'base64url')).amr.filter(c=>c.method==='totp');
+ assert.equal(amr.length,1);assert.equal(inventoryIdentity.authenticatedAt,amr[0].timestamp*1000);
+ assert.ok(inventoryIdentity.checkedAt>=inventoryIdentity.authenticatedAt&&inventoryIdentity.checkedAt-inventoryIdentity.authenticatedAt<=600000);
+ // A policy that no longer enables TOTP cannot reuse its earlier authentication.
+ assert.equal(await identity(promoted.access_token,true,false),null);
  // Older bearer cannot silently inherit the current session's promotion.
  await assert.rejects(identity(original),HomeHandoffAdditionalVerificationRequired);
+ await assert.rejects(identity(original,true),HomeHandoffAdditionalVerificationRequired);
  const passwordLogin=createClient(origin,'synthetic-public-key',options);
  const low=ok(await passwordLogin.auth.signInWithPassword({email:mfa.email,password:mfa.password}));
  assert.equal(JSON.parse(Buffer.from(low.session.access_token.split('.')[1],'base64url')).aal,'aal1');
  await assert.rejects(identity(low.session.access_token),HomeHandoffAdditionalVerificationRequired);
+ await assert.rejects(identity(low.session.access_token,true),HomeHandoffAdditionalVerificationRequired);
  // Exact original AAL2 bearer remains cryptographically valid after logout,
  // but live-session validation must refuse it. No Auth user is deleted.
  ok(await mfa.client.auth.signOut({scope:'local'}));
  assert.equal(await identity(promoted.access_token),null);
+ assert.equal(await identity(promoted.access_token,true),null);
 }

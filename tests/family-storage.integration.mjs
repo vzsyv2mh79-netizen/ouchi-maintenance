@@ -142,7 +142,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const transferIdentity = {target_user:transferOwner.user,verified_session:transferOwner.session,expected_epoch:transferOwner.epoch};
   const successorIdentity = {target_user:successor.user,verified_session:successor.session,expected_epoch:successor.epoch};
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
-  await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier});
+  await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier});
   await verifyDisposableFamilyAttachmentStorage({account,admin,origin,service,options,bytes,createAttachmentFetch});
   await verifyDisposableFamilyAttachmentJournal({account,origin,bytes});
   const issued = ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user}));
