@@ -105,5 +105,56 @@
     "unconfirmed subscription/tip prices",
     "all-model support",
     "direct TimeTree synchronization"
-  ]
+  ],
+  "specificationsCheckedAt": "2026-10-13",
+  "requiredFinalCaptures": [
+    {
+      "device": "iPhone with Dynamic Island (medium display)",
+      "acceptedPortraitPixels": [
+        [
+          1179,
+          2556
+        ],
+        [
+          1206,
+          2622
+        ]
+      ],
+      "status": "pending_final_release_capture"
+    },
+    {
+      "device": "iPad 13-inch if iPad support retained",
+      "acceptedPortraitPixels": [
+        [
+          2064,
+          2752
+        ],
+        [
+          2048,
+          2732
+        ]
+      ],
+      "status": "pending_final_release_capture"
+    }
+  ],
+  "sampleCapture": {
+    "script": "ios/scripts/capture-store-review.py",
+    "bundle": "dev.ouchi.review.storecaptures",
+    "status": "five_native_sample_screens_visually_reviewed",
+    "screens": [
+      "home",
+      "care",
+      "products",
+      "history",
+      "settings"
+    ],
+    "isSubmissionApproved": false,
+    "familyDetailStillPending": true,
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "containsAlphaChannel": true
+  }
 }

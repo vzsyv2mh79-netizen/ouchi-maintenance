@@ -8,20 +8,30 @@ struct NativeRootView: View {
     @Environment(\.colorScheme) private var appearance
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("ouchi.appearance") private var preferredAppearance = "system"
+    @State private var selectedTab = 0
     var body: some View {
         VStack(spacing: 0) {
             appearanceBar
             Group {
             if store.signedIn {
-                TabView {
-                    HomeDashboard().tabItem { Label("ホーム", systemImage: "house") }
-                    CareList().tabItem { Label("やること", systemImage: "checklist") }
-                    ApplianceList().tabItem { Label("製品", systemImage: "square.grid.2x2") }
-                    HistoryList().tabItem { Label("履歴", systemImage: "clock.arrow.circlepath") }
-                    NativeSettings().tabItem { Label("設定", systemImage: "gearshape") }
+                TabView(selection: $selectedTab) {
+                    HomeDashboard().tabItem { Label("ホーム", systemImage: "house") } .tag(0)
+                    CareList().tabItem { Label("やること", systemImage: "checklist") } .tag(1)
+                    ApplianceList().tabItem { Label("製品", systemImage: "square.grid.2x2") } .tag(2)
+                    HistoryList().tabItem { Label("履歴", systemImage: "clock.arrow.circlepath") } .tag(3)
+                    NativeSettings().tabItem { Label("設定", systemImage: "gearshape") } .tag(4)
                 }
             } else { SignInView() }
             }
+        }
+        .onAppear {
+            #if DEBUG
+            // Only the isolated, in-memory sample can select its first tab for capture.
+            if store.isUIReviewSample,
+               Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures",
+               let value = ProcessInfo.processInfo.environment["OUCHI_REVIEW_CAPTURE_TAB"],
+               let tab = Int(value), (0...4).contains(tab) { selectedTab = tab }
+            #endif
         }
         .preferredColorScheme(preferredAppearance == "dark" ? .dark : preferredAppearance == "light" ? .light : nil)
         .task(id: scenePhase) {

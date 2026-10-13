@@ -667,6 +667,29 @@ struct FormalChannelSelection {
     func restore() async {
         #if DEBUG
         if isClosureUIReviewSample { return }
+        if isUIReviewSample, Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" {
+            // Capture-only fixture loading does not depend on simulator notification daemons.
+            // api/session here are the in-memory sample objects, never live credentials.
+            guard !busy, let session, let api else { return }
+            busy = true
+            defer { busy = false }
+            do {
+                guard try await session.restore() else { throw CloudError.authenticationRequired }
+                let credentials = try await session.credentials()
+                let value = try await api.load(token: credentials.access_token)
+                try Task.checkCancellation()
+                snapshotAccount = credentials.user.id
+                accountEmail = credentials.user.email
+                household = value
+                homeID = value.homes.first?.id ?? ""
+                signedIn = true
+                let directory = URL.documentsDirectory
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let tab = ProcessInfo.processInfo.environment["OUCHI_REVIEW_CAPTURE_TAB"] ?? "0"
+                try Data(tab.utf8).write(to: directory.appendingPathComponent("OuchiCaptureReady.txt"), options: .atomic)
+            } catch { message = "撮影用のサンプルを読み込めませんでした。" }
+            return
+        }
         #endif
         guard !busy else { return }
         accountBindingRevision = UUID()
