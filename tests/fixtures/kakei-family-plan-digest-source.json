@@ -1,0 +1,7 @@
+{
+  "sourceProject": "Sibling Kakei backend",
+  "sourcePath": "ios/Backend/lib/handoff-consent.mjs",
+  "sourceSHA256": "f9e59ac507c284c96b69cdaf24f7185249e76b2c7a300107d12c4f51f2d71479",
+  "copiedFunctionSHA256": "de18596d5856ce6521cf29b9a3362571472fe49e8adaa2cb4318aaa49e55d124",
+  "adaptation": "Pure plan digest unchanged except export name and equivalent protocol normalizer import; no signature or authority inferred."
+}

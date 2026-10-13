@@ -1,0 +1,6 @@
+{
+  "sourceProject": "Sibling Kakei backend",
+  "sourcePath": "ios/Backend/lib/kakei-family-snapshot.mjs",
+  "sha256": "657adad954039ea966e2a28ab8371c76bde78080bdb37a0712643abdb3df743f",
+  "purpose": "Read-only snapshot canonicalization copied unchanged; no transfer or production activation."
+}

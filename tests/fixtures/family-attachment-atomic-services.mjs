@@ -6,6 +6,7 @@ import {createFamilyAttachmentInventoryConsent} from '../../lib/family-attachmen
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
+import {createOtherAppFamilyVerifier} from '../../lib/other-app-family-verifier.mjs';
 import {createSharedFamilyStageStore} from '../../lib/shared-family-stage-store.mjs';
 import {sharedFamilyCoverageDigest} from '../../lib/shared-family-handoff-stage.mjs';
 import {createFamilyAttachmentCompletion} from '../../lib/family-attachment-completion.mjs';
@@ -381,8 +382,11 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const fixedController={...controllerScope};delete fixedController.leaseToken;
   await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '2 minutes',$5)",[controllerScope.requestID,controllerScope.userID,fixedController,controllerScope.leaseToken,{prepare:{durable:true,stage:'prepare',...fixedController}}]);
   const frozenTargets=[{scope,plan:normalizeFamilyAttachmentPlan(plan)}],coverageDigest=sharedFamilyCoverageDigest(frozenTargets,controllerScope);
+  const otherFamilies=createOtherAppFamilyVerifier({verifyControllerCoverage:async(tx,current,signal)=>{
+   assert.deepEqual(current.apps,controllerScope.apps);return controllerCurrent(tx,scope,normalizeFamilyAttachmentPlan(plan),signal);
+  },verifiers:{}}); // verified maintenance-only inventory; unknown other apps refuse
   const checkpoint=createSharedFamilyStageStore({verifyReadAuthority:(tx,s,signal)=>{assert.deepEqual(s,controllerScope);return controllerCurrent(tx,scope,normalizeFamilyAttachmentPlan(plan),signal);},loadValidatedTargets:async(tx,s,digest,signal)=>{
-   assert.deepEqual(s.apps,controllerScope.apps);assert.equal(s.apps.length,1); // no unverified other app in this isolated fixture
+   assert.deepEqual(s.apps,controllerScope.apps);assert.equal(await otherFamilies(tx,s,signal),true); // no unverified other app in this isolated fixture
    assert.equal(digest,coverageDigest);assert.equal(await committedHousehold(tx,scope,signal),true);
    return frozenTargets;
   }});
