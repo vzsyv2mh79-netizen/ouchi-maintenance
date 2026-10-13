@@ -82,7 +82,8 @@ test('durable status reconciles a lost activation reply and a fresh provider wit
 test('readback does not require an expired write context and does not grant a new write capability',async()=>{
  const f=await fixture();try{
   await f.run();
-  await f.db.exec("update maintenance_private.family_attachment_activation_contexts set expires_at=clock_timestamp()-interval '1 second'");
+  // Let the actual finite capability expire; historical evidence is immutable.
+  await f.db.query('select pg_sleep(5.1)');
   assert.equal((await read(f)).state,'activated');
   await assert.rejects(f.db.query('update maintenance_private.product_attachments set sha256=$1 where id=$2',['b'.repeat(64),f.owned]),/Household principal stopped/);
   assert.equal(f.removals,1); // only the deliberately unsuccessful fixture cleanup
@@ -143,5 +144,19 @@ for(const state of ['prepared','activated'])test(`final consent revocation durin
   await assert.rejects(read(f,status),/Retained family consent/);assert.equal(calls,2);
   assert.equal((await f.db.query('select revoked_at from maintenance_private.household_handoff_consents where home_id=$1 and actor_id=$2',[home,recipient])).rows[0].revoked_at,null);
   assert.ok(f.objects.has(f.plan.files.find(x=>x.id===f.owned).source.path));
+ }finally{await f.db.close();}
+});
+
+
+test('activated readback requires the exact receipt-linked context rather than any matching retained context',async()=>{
+ const f=await fixture();try{
+  await f.run();
+  const status=createFamilyAttachmentStatus({authorize:async()=>true,transaction:cb=>f.db.transaction(tx=>cb({query:async(sql,args)=>{
+   const result=await tx.query(sql,args);
+   if(sql.startsWith('select * from maintenance_private.family_attachment_activation_receipts'))return {...result,rows:result.rows.map(r=>({...r,activation_token:randomUUID()}))};
+   return result;
+  }}))});
+  await assert.rejects(read(f,status),/Retained activation consent required/);
+  assert.equal((await read(f)).state,'activated');
  }finally{await f.db.close();}
 });

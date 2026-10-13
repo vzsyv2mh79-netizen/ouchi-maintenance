@@ -12,6 +12,7 @@ create table maintenance_private.family_attachment_activation_rows(
  primary key(token,table_name,attachment_id));
 create table maintenance_private.family_attachment_activation_receipts(
  request_id uuid not null,home_id uuid not null,plan_digest text not null,
+ activation_token uuid not null unique references maintenance_private.family_attachment_activation_contexts(token),
  inventory_digest text not null,expected_inventory_digest text not null,activated_at timestamptz not null default clock_timestamp(),
  primary key(request_id,home_id),
  foreign key(request_id,home_id) references maintenance_private.family_attachment_journals(request_id,home_id));
@@ -19,6 +20,14 @@ alter table maintenance_private.family_attachment_activation_contexts enable row
 alter table maintenance_private.family_attachment_activation_rows enable row level security;
 alter table maintenance_private.family_attachment_activation_receipts enable row level security;
 revoke all on maintenance_private.family_attachment_activation_contexts,maintenance_private.family_attachment_activation_rows,maintenance_private.family_attachment_activation_receipts from public,anon,authenticated,service_role;
+-- Historical evidence must remain bound to the committed transaction, even
+-- after its live write capability expires. No public role gets access.
+create trigger immutable_family_activation_context before update or delete
+on maintenance_private.family_attachment_activation_contexts for each row
+execute function maintenance_private.refuse_family_attachment_journal_change();
+create trigger immutable_family_activation_rows before update or delete
+on maintenance_private.family_attachment_activation_rows for each row
+execute function maintenance_private.refuse_family_attachment_journal_change();
 create trigger immutable_family_activation_receipt before update or delete
 on maintenance_private.family_attachment_activation_receipts for each row
 execute function maintenance_private.refuse_family_attachment_journal_change();
@@ -61,6 +70,27 @@ begin
  then return null;end if;
  return c.token;
 end $$;
+create function maintenance_private.bind_family_activation_receipt()
+returns trigger language plpgsql security invoker set search_path='' as $$
+declare t uuid:=maintenance_private.current_family_attachment_activation();
+ c maintenance_private.family_attachment_activation_contexts;
+begin
+ select * into c from maintenance_private.family_attachment_activation_contexts where token=t;
+ if c.token is null or new.request_id is distinct from c.request_id
+ or new.home_id is distinct from c.home_id or new.plan_digest is distinct from c.plan_digest
+ or new.inventory_digest is distinct from c.inventory_digest
+ or new.expected_inventory_digest is distinct from c.expected_inventory_digest
+ or (new.activation_token is not null and new.activation_token is distinct from t)
+ then raise exception 'Exact committed activation receipt binding required';end if;
+ new.activation_token:=t;
+ new.activated_at:=clock_timestamp();
+ return new;
+end $$;
+revoke all on function maintenance_private.bind_family_activation_receipt() from public,anon,authenticated,service_role;
+create trigger bind_family_activation_receipt before insert
+on maintenance_private.family_attachment_activation_receipts for each row
+execute function maintenance_private.bind_family_activation_receipt();
+
 create or replace function maintenance_private.allowed_family_attachment_activation(tbl text,before_value jsonb,after_value jsonb)
 returns boolean language plpgsql security definer set search_path='' as $$
 declare t uuid:=maintenance_private.current_family_attachment_activation();id uuid;
@@ -110,7 +140,7 @@ begin
  select * into a from maintenance_private.family_attachment_activation_receipts where request_id=c.request_id and home_id=c.home_id;
  select * into h from maintenance_private.household_handoff_receipts where home_id=c.home_id;
  select * into p from maintenance_private.household_handoff_plans where home_id=c.home_id;
- if a.request_id is null or h.home_id is null or a.plan_digest<>c.plan_digest or a.inventory_digest<>c.inventory_digest
+ if a.request_id is null or h.home_id is null or a.activation_token is distinct from c.token or a.plan_digest<>c.plan_digest or a.inventory_digest<>c.inventory_digest
  or a.expected_inventory_digest<>c.expected_inventory_digest or h.scope is distinct from c.scope->'controllerScope'
  or h.successor_id::text is distinct from j.plan->>'recipientID' or h.plan_digest<>p.plan_digest
  or h.snapshot_digest is distinct from j.plan->>'snapshotDigest'

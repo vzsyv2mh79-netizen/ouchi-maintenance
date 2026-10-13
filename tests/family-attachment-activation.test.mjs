@@ -84,7 +84,7 @@ test('deferred commit also protects member-only handoff with no receiver quota c
  }finally{await f.db.close();}
 });
 
-for(const fault of ['missingRoute','expiredBinding','revokedConsent'])test(`deferred commit refuses ${fault} after final application authorization`,async()=>{
+for(const fault of ['missingRoute','expiredBinding','revokedConsent','foreignReceiptContext'])test(`deferred commit refuses ${fault} after final application authorization`,async()=>{
  const f=await fixture({commitFault:fault});try{
   assert.deepEqual(await f.run(),{state:'pending'});
   assert.equal((await f.db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,owner);
@@ -93,5 +93,25 @@ for(const fault of ['missingRoute','expiredBinding','revokedConsent'])test(`defe
   assert.equal((await f.db.query('select owner_id from maintenance_private.household_write_routes where kind=$1 and object_id=$2',['products',product])).rows[0].owner_id,owner);
   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts')).rows[0].n,0);
   assert.equal(f.removals,0);
+ }finally{await f.db.close();}
+});
+
+
+test('committed activation receipt retains an immutable exact context and original row evidence',async()=>{
+ const f=await fixture();try{
+  await f.run();
+  const receipt=(await f.db.query('select * from maintenance_private.family_attachment_activation_receipts')).rows[0];
+  const context=(await f.db.query('select * from maintenance_private.family_attachment_activation_contexts where token=$1',[receipt.activation_token])).rows[0];
+  assert.equal(context.request_id,receipt.request_id);assert.equal(context.home_id,receipt.home_id);
+  for(const key of ['plan_digest','inventory_digest','expected_inventory_digest'])assert.equal(context[key],receipt[key]);
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_activation_rows where token=$1',[context.token])).rows[0].n,f.plan.files.length*2);
+  for(const table of ['family_attachment_activation_contexts','family_attachment_activation_rows','family_attachment_activation_receipts']){
+   const before=(await f.db.query('select to_jsonb(x) value from maintenance_private.'+table+' x')).rows;
+   await assert.rejects(f.db.exec('delete from maintenance_private.'+table),/Immutable/);
+   const assignment=table==='family_attachment_activation_contexts'?"scope='{}'::jsonb":table==='family_attachment_activation_rows'?"before_row='{}'::jsonb":"activation_token='00000000-0000-0000-0000-000000000001'::uuid";
+   await assert.rejects(f.db.exec('update maintenance_private.'+table+' set '+assignment),/Immutable/);
+   assert.deepEqual((await f.db.query('select to_jsonb(x) value from maintenance_private.'+table+' x')).rows,before);
+  }
+  await assert.rejects(f.db.query('insert into maintenance_private.family_attachment_activation_receipts(request_id,home_id,plan_digest,inventory_digest,expected_inventory_digest,activation_token) values($1,$2,$3,$4,$5,$6)',[receipt.request_id,receipt.home_id,receipt.plan_digest,receipt.inventory_digest,receipt.expected_inventory_digest,context.token]),/Exact committed activation receipt binding/);
  }finally{await f.db.close();}
 });

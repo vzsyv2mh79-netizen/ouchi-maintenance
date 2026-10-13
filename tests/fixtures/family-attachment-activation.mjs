@@ -59,6 +59,10 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
      beforeCommit:commitFault==='recentAuthenticationExpired'?()=>{}:pinned.beforeCommit,
      query:async(sql,args)=>{
      if(omitReceipt&&sql.startsWith('insert into maintenance_private.family_attachment_activation_receipts'))return {rows:[],rowCount:1};
+     if(commitFault==='foreignReceiptContext'&&sql.startsWith('insert into maintenance_private.family_attachment_activation_receipts')){
+      return pinned.query('insert into maintenance_private.family_attachment_activation_receipts(request_id,home_id,plan_digest,inventory_digest,expected_inventory_digest,activation_token) values($1,$2,$3,$4,$5,$6)',[...args,randomUUID()]);
+     }
+
      if(commitFault&&sql.startsWith('insert into maintenance_private.household_handoff_receipts')){
       if(commitFault==='inventorySessionLost')await pinned.query('delete from auth.sessions where id=$1',[rs]);
       if(commitFault==='recentAuthenticationExpired'){
