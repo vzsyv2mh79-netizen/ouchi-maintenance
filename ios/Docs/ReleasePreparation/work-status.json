@@ -3,7 +3,7 @@
   "sourceHeadBeforeChange": "5a29aa1113075a88548f69ce7ea016e366176765",
   "ui": {
     "change": "stack status captions vertically, retain top-right 44pt theme control and Dynamic Type semantic fonts",
-    "manualChecks": "pending; no Larger Text App Store claim yet",
+    "manualChecks": "Normal iPhone/iPad light/dark and light AX3/AX5 initial sample viewports reviewed; AX3/AX5 fully visible completion/export interactions passed. Full accessibility and physical-device checks remain.",
     "matrix": [
       "small iPhone and large iPhone",
       "default/AX3/AX5",
@@ -30,6 +30,56 @@
         "VoiceOver",
         "physical-device Keychain",
         "deployed native-server flow"
+      ]
+    },
+    "sampleViewports": {
+      "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+      "normal": {
+        "appearances": [
+          "light",
+          "dark"
+        ],
+        "devices": [
+          "iPhone 18 Pro",
+          "iPad Pro 13-inch M5"
+        ],
+        "reviewed": 20
+      },
+      "largeText": {
+        "appearances": [
+          "light"
+        ],
+        "sizes": [
+          "AX3",
+          "AX5"
+        ],
+        "reviewed": 10,
+        "status": "initial_viewports_only"
+      },
+      "isSubmissionApproved": false
+    },
+    "sampleInteractions": {
+      "status": "AX3_AX5_verified_not_full_accessibility",
+      "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+      "appearance": "light",
+      "textSizes": [
+        "AX3",
+        "AX5"
+      ],
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "scope": [
+        "fully visible completion tap updates due date and adds exactly one sample history entry",
+        "fully visible export tap creates reachable share control"
+      ],
+      "remaining": [
+        "dark large text",
+        "keyboard forms",
+        "VoiceOver",
+        "physical iPhone",
+        "real cloud persistence",
+        "final signed release"
       ]
     }
   },
@@ -73,7 +123,7 @@
   "listing": {
     "copy": "listing-ja-draft.json",
     "images": "screenshot-plan.json",
-    "status": "5 SVG templates and a separate visually reviewed sample home capture exist; final release screenshots and submission PNG/JPEG exports remain"
+    "status": "Twenty opaque JPEG native sample captures reviewed: five tabs in light/dark on iPhone and 13-inch iPad. Family detail and final signed release submission captures remain."
   },
   "enabled": {
     "production": false,

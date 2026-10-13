@@ -41,3 +41,16 @@ exactly two entries (one existing, one new). The owned simulator was removed.
 The earlier pass does not establish fully visible controls. AX3 interaction,
 dark large text, keyboard forms, VoiceOver and physical iPhone remain unverified.
 Shipping Swift sources and the shipping Xcode project were not modified.
+
+
+## AX3 follow-up — 2026-10-13
+
+On a separate newly created iPhone simulator at AX3, both strengthened tests
+passed with zero failures and zero skips. The xcresult summary was independently
+read and all four screenshots were inspected: completion and export controls
+were wholly visible before tapping, and export sharing was wholly visible after
+scrolling. The sample date advanced 30 days and history contained exactly the
+one old and one new entry. The owned simulator was removed. Together AX3/AX5
+have four passing test executions and eight reviewed attachments in light mode.
+This still does not prove cloud persistence, export file content, keyboard,
+VoiceOver, dark large text, physical iPhone or final signed release behavior.

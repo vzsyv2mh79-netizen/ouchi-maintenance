@@ -223,14 +223,13 @@
     ]
   },
   "largeTextInteractionReview": {
-    "status": "AX5_sample_interactions_verified_not_full_accessibility",
+    "status": "AX3_AX5_sample_interactions_verified_not_full_accessibility",
     "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
-    "textSize": "AX5",
     "appearance": "light",
-    "passed": 2,
+    "passed": 4,
     "failed": 0,
     "skipped": 0,
-    "reviewedAttachments": 4,
+    "reviewedAttachments": 8,
     "scope": [
       "completion entirely visible and activated",
       "next due date plus 30 days and history exactly one added",
@@ -238,13 +237,16 @@
     ],
     "report": "native-interaction-review.md",
     "remaining": [
-      "AX3 interaction",
       "dark large text",
       "keyboard forms",
       "VoiceOver",
       "physical device",
       "real cloud persistence",
       "final signed release"
+    ],
+    "textSizes": [
+      "AX3",
+      "AX5"
     ]
   }
 }
