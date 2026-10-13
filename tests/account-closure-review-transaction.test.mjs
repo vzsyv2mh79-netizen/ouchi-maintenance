@@ -11,7 +11,7 @@ const {createAccountClosureReviewTransactionPort}=await import(url(compile('lib/
 const user='11111111-1111-4111-8111-111111111111',session='22222222-2222-4222-8222-222222222222',epoch='33333333-3333-4333-8333-333333333333',submission='44444444-4444-4444-8444-444444444444';
 // Adapter contract test: real verifier/commit checks, synthetic Auth and SQL.
 // Does not establish PostgreSQL lock concurrency, shipping route or erasure.
-function fixture({failAt=null,supported=true,afterOperation=()=>{},receiptOverride}={}){
+function fixture({failAt=null,supported=true,afterOperation=()=>{},receiptOverride,verifyReauthentication=async()=>true}={}){
  const scope={userID:user,sessionID:session,epochID:epoch,submissionID:submission};
  const bearer='e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,aal:'aal1',exp:4102444800})).toString('base64url')+'.c2ln';
  const events=[];let authCount=0,committed=false;
@@ -36,7 +36,7 @@ function fixture({failAt=null,supported=true,afterOperation=()=>{},receiptOverri
  const transactions={run:async(signal,work)=>{
   events.push('begin');try{const value=await work({query});signal.throwIfAborted();events.push('commit');committed=true;return value;}catch(error){events.push('rollback');throw error;}
  }};
- const port=createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions});
+ const port=createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions,verifyReauthentication});
  return {port,scope,events,committed:()=>committed,signal:new AbortController().signal};
 }
 test('review writes and final original-bearer verification finish before owner COMMIT',async()=>{
@@ -48,6 +48,13 @@ test('identity refusal before locks, after pins, or before commit always rolls b
 });
 test('unsupported Auth FK pin contract refuses mutation',async()=>{
  const f=fixture({supported:false});await assert.rejects(f.port.cancel(f.scope,f.signal),/pin constraints/);assert.equal(f.events.includes('operation'),false);assert.equal(f.committed(),false);
+});
+test('request requires bound reauthentication both after pins and immediately before commit',async()=>{
+ const missing=fixture({verifyReauthentication:null});await assert.rejects(missing.port.request(missing.scope,missing.signal),/Bound reauthentication/);assert.deepEqual(missing.events,[]);
+ for(const failAt of [1,2]){
+  let checks=0;const f=fixture({verifyReauthentication:async()=>++checks!==failAt});
+  await assert.rejects(f.port.request(f.scope,f.signal));assert.equal(f.committed(),false);assert.equal(f.events.includes('operation'),failAt===2);
+ }
 });
 test('scope changes or malformed receipts cannot commit an apparent acknowledgement',async()=>{
  for(const options of [{afterOperation:scope=>{scope.epochID=submission;}},{receiptOverride:{kind:'app-account-deletion/v1',state:'complete'}}]){
@@ -82,7 +89,7 @@ test('actual review SQL rolls back inserted intake on failed commit check, then 
   const transactions={run:async(signal,work)=>{
    await db.exec('begin');try{const value=await work({query:(sql,args)=>db.query(sql,args)});signal.throwIfAborted();await db.exec('commit');return value;}catch(error){await db.exec('rollback');throw error;}
   }};
-  const port=createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions}),scope={userID:owner,sessionID:os,epochID:oe,submissionID:submission},signal=new AbortController().signal;
+  const port=createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions,verifyReauthentication:async()=>true}),scope={userID:owner,sessionID:os,epochID:oe,submissionID:submission},signal=new AbortController().signal;
   await assert.rejects(port.request(scope,signal),/verification required/);
   assert.equal((await db.query('select count(*)::int as n from maintenance_private.account_closure_reviews')).rows[0].n,0);
   refuseFinal=false;const receipt=await port.request(scope,signal);

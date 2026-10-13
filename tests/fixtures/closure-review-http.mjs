@@ -16,20 +16,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
  const original=(await actor.client.auth.getSession()).data.session.access_token;
  const baselineSessions=(await db.query('select id::text from auth.sessions where user_id=$1 order by id',[actor.user])).rows;
  let temporaryCleanups=0,dropReply=false,acceptedDroppedReply=false;
- const handlerForBearer=bearer=>createAccountClosureReviewHandler({
-  verify:async(token,signal)=>{
-   const client=createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}});
-   const {data,error}=await client.auth.getUser(token);
-   if(error||!data.user?.email)return null;
-   const bound=sessionAfterAuthVerification(token,data.user.id);
-   if(!bound)return null;
-   // This disposable instance has explicit no-timebox/no-inactivity/single=false
-   // policy. GetUser alone is not a proof of production session-policy validity.
-   const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2)::text as epoch',[bound.userID,bound.sessionID])).rows[0]?.epoch;
-   if(!epoch)return null;
-   return {...bound,epochID:epoch,email:data.user.email};
-  },
-  reauthenticate:async(email,password,signal)=>{
+ const reauthenticate=async(email,password,signal)=>{
    const transport=async(input,init)=>{
     const target=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
     const cleanup=target.origin===origin&&target.pathname==='/auth/v1/logout'&&target.search==='?scope=local'&&init?.method==='POST';
@@ -46,9 +33,25 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
     if(error)throw Error('Synthetic reauthentication session cleanup failed');
     temporaryCleanups++;
    }
+ };
+ const handlerForBearer=bearer=>{
+  const providers=portForBearer?portForBearer(bearer,reauthenticate):{port:createAccountClosureReviewRPC({client:admin}),reauthenticate};
+  return createAccountClosureReviewHandler({
+  verify:async(token,signal)=>{
+   const client=createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}});
+   const {data,error}=await client.auth.getUser(token);
+   if(error||!data.user?.email)return null;
+   const bound=sessionAfterAuthVerification(token,data.user.id);
+   if(!bound)return null;
+   // This disposable instance has explicit no-timebox/no-inactivity/single=false
+   // policy. GetUser alone is not a proof of production session-policy validity.
+   const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2)::text as epoch',[bound.userID,bound.sessionID])).rows[0]?.epoch;
+   if(!epoch)return null;
+   return {...bound,epochID:epoch,email:data.user.email};
   },
-  port:portForBearer?portForBearer(bearer):createAccountClosureReviewRPC({client:admin}),
- });
+  reauthenticate:providers.reauthenticate,
+  port:providers.port,
+ });};
  const server=createServer(async(req,res)=>{
   const action=/^\/api\/account\/closure-review\/(request|read|cancel)$/.exec(req.url??'')?.[1];
   if(!action){res.writeHead(404).end();return;}
@@ -105,6 +108,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and app_epoch_id=$2 and submission_id=$3',[actor.user,actor.epoch,submission])).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[actor.user,actor.epoch])).rows[0].n,0);
   console.log(portForBearer?'closure-review actual HTTP/Auth/pinned transaction: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job':'closure-review actual HTTP/Auth/RPC: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job');
+  return {reauthenticate};
  }finally{
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
  }

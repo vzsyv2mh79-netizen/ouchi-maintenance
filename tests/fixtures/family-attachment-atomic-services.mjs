@@ -20,6 +20,7 @@ import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-check
 import {verifyDisposableClosureReviewHTTP} from './closure-review-http.mjs';
 import {createHomeHandoffAuthVersionReader} from '../../lib/home-handoff-auth-version.mjs';
 import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy.mjs';
+import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STATE_SQL} from '../../lib/account-closure-review-reauthentication.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -136,12 +137,21 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    }catch(error){await db.query('rollback');throw error;}
   }};
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
-  const reviewPortForBearer=bearer=>createAccountClosureReviewTransactionPort({bearer,identityOptions:reviewIdentityOptions,transactions:reviewTransactions});
-  await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer:reviewPortForBearer});
+  const reviewWitness=authenticate=>createAccountClosureReviewReauthentication({identity:{userID:owner.user,sessionID:owner.session,epochID:owner.epoch,email:owner.email},authenticate,readAuthState:async(userID,signal)=>{
+    signal.throwIfAborted();const result=await db.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);signal.throwIfAborted();return result.rows[0]?.reauthentication_state;
+   }});
+  const reviewPortForBearer=(bearer,authenticate)=>{
+   const witness=reviewWitness(authenticate);
+   return {reauthenticate:witness.reauthenticate,port:createAccountClosureReviewTransactionPort({bearer,identityOptions:reviewIdentityOptions,transactions:reviewTransactions,verifyReauthentication:witness.verify})};
+  };
+  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer:reviewPortForBearer});
+  const originalReviewSessions=(await db.query('select id::text from auth.sessions where user_id=$1 order by id',[owner.user])).rows;
   // Read actual GoTrue each time, then inject a refusal only at the final check.
   // PostgreSQL must roll back the intake that its real review SQL just inserted.
   let finalChecks=0;
-  const refusedPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,transactions:reviewTransactions,identityOptions:{...reviewIdentityOptions,getUser:async(token,signal)=>{
+  const refusedWitness=reviewWitness(realReauthentication);
+  assert.equal(await refusedWitness.reauthenticate(owner.email,owner.password,AbortSignal.timeout(10000)),owner.user);
+  const refusedPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,transactions:reviewTransactions,verifyReauthentication:refusedWitness.verify,identityOptions:{...reviewIdentityOptions,getUser:async(token,signal)=>{
    const result=await reviewIdentityOptions.getUser(token,signal);assert.equal(result.error,null);finalChecks++;
    return finalChecks===3?{data:{user:null},error:null}:result;
   }}});
@@ -152,7 +162,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   console.log('closure-review actual GoTrue/PostgreSQL: final-check refusal rolls back inserted intake');
   const originalExpiry=(await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after;
   let expiredDuringWrite=false;
-  const expiresPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,identityOptions:reviewIdentityOptions,transactions:{run:(signal,callback)=>reviewTransactions.run(signal,raw=>callback({query:async(sql,args)=>{
+  const expiresWitness=reviewWitness(realReauthentication);
+  assert.equal(await expiresWitness.reauthenticate(owner.email,owner.password,AbortSignal.timeout(10000)),owner.user);
+  const expiresPort=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,identityOptions:reviewIdentityOptions,verifyReauthentication:expiresWitness.verify,transactions:{run:(signal,callback)=>reviewTransactions.run(signal,raw=>callback({query:async(sql,args)=>{
    const result=await raw.query(sql,args);
    if(sql.startsWith('select public.request_maintenance_closure_review')){
     await raw.query("update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id=$1",[owner.session]);expiredDuringWrite=true;
@@ -165,6 +177,20 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and submission_id=$2',[owner.user,expiredSubmission])).rows[0].n,0);
   assert.deepEqual((await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after,originalExpiry);
   console.log('closure-review actual GoTrue/PostgreSQL: same-transaction session expiry rolls back intake and session change');
+  const credentialWitness=reviewWitness(realReauthentication);
+  assert.equal(await credentialWitness.reauthenticate(owner.email,owner.password,AbortSignal.timeout(10000)),owner.user);
+  const originalPassword=(await db.query('select encrypted_password from auth.users where id=$1',[owner.user])).rows[0].encrypted_password;
+  const changedSubmission=randomUUID();
+  try{
+   // Synthetic account only; change committed credentials AFTER real password
+   // verification and BEFORE row pins. Always restore, never log the hash.
+   await db.query('update auth.users set encrypted_password=$2 where id=$1',[owner.user,'synthetic-fault-only-credential-change']);
+   const port=createAccountClosureReviewTransactionPort({bearer:reviewSession.data.session.access_token,identityOptions:reviewIdentityOptions,transactions:reviewTransactions,verifyReauthentication:credentialWitness.verify});
+   await assert.rejects(port.request({userID:owner.user,sessionID:owner.session,epochID:owner.epoch,submissionID:changedSubmission},AbortSignal.timeout(10000)),/Current bound reauthentication required/);
+  }finally{await db.query('update auth.users set encrypted_password=$2 where id=$1',[owner.user,originalPassword]);}
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and submission_id=$2',[owner.user,changedSubmission])).rows[0].n,0);
+  assert.deepEqual((await db.query('select id::text from auth.sessions where user_id=$1 order by id',[owner.user])).rows,originalReviewSessions);
+  console.log('closure-review actual GoTrue/PostgreSQL: credential change after password authentication refuses pre-pin stale witness; temporary sessions cleaned');
   assert.deepEqual(await reviewSnapshot(),originalReviewFamily,'Actual HTTP review operations must retain family content and access');
   await db.query('update maintenance_private.account_closure_review_policy set enabled=false');
   await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequestID,owner.user,owner.epoch,nativeLease]);

@@ -18,7 +18,7 @@ const operations=Object.freeze({request:'request_maintenance_closure_review',rea
  * cancels SQL on signal/deadline, and never retries an uncertain COMMIT.
  * No route, connection, migration, grants or erasure is enabled here.
  */
-export function createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions,timeoutMS=10000}:{bearer:string;identityOptions:Parameters<typeof createHomeHandoffIdentityVerifier>[0];transactions:Transactions;timeoutMS?:number}) {
+export function createAccountClosureReviewTransactionPort({bearer,identityOptions,transactions,verifyReauthentication,timeoutMS=10000}:{bearer:string;identityOptions:Parameters<typeof createHomeHandoffIdentityVerifier>[0];transactions:Transactions;verifyReauthentication?:(scope:Scope,tx:Transaction&{signal:AbortSignal})=>Promise<boolean>;timeoutMS?:number}) {
  if(typeof bearer!=='string'||!bearer||bearer.length>16384||/\s/.test(bearer)||typeof transactions?.run!=='function'||!Number.isInteger(timeoutMS)||timeoutMS<1||timeoutMS>20000)throw Error('Request-scoped bounded review provider required');
  const verify=createHomeHandoffIdentityVerifier(identityOptions);
  async function invoke(action:keyof typeof operations,scope:Scope,callerSignal:AbortSignal){
@@ -27,6 +27,7 @@ export function createAccountClosureReviewTransactionPort({bearer,identityOption
   const signal=AbortSignal.any([callerSignal,AbortSignal.timeout(timeoutMS)]);
   const unchanged=()=>Object.keys(fixed).every(key=>scope[key as keyof Scope]===fixed[key as keyof Scope]);
   signal.throwIfAborted();
+  if(action==='request'&&typeof verifyReauthentication!=='function')throw Error('Bound reauthentication required for review intake');
   const result=await transactions.run(signal,raw=>runWithTransactionCommitChecks(raw,signal,async tx=>{
    const current=async()=>{
     if(!unchanged())return false;
@@ -46,6 +47,11 @@ export function createAccountClosureReviewTransactionPort({bearer,identityOption
    const enrollment=await tx.query(HOME_HANDOFF_ENROLLMENT_PIN_SQL,[fixed.userID,fixed.sessionID]);
    if(enrollment.rows.length!==1||enrollment.rows[0].epoch_id!==fixed.epochID||!await current())throw Error('Current review registration required');
    tx.beforeCommit('closure-review:original-identity',current);
+   if(action==='request'){
+    const fresh=()=>verifyReauthentication!(fixed,tx);
+    if(await fresh()!==true)throw Error('Current bound reauthentication required');
+    tx.beforeCommit('closure-review:reauthentication',fresh);
+   }
    const reply=await tx.query(`select public.${operations[action]}($1::uuid,$2::uuid,$3::uuid,$4::uuid) as receipt`,[fixed.userID,fixed.sessionID,fixed.epochID,fixed.submissionID]);
    if(reply.rows.length!==1)throw Error('Review result unconfirmed');
    const value=reply.rows[0].receipt;
