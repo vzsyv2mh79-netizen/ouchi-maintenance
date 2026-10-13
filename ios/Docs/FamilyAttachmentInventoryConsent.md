@@ -28,12 +28,23 @@ signatures and wrong keys refuse. Record/revocation and expiry are re-read after
 the final authority callback, and post-write authority loss/cancellation rolls
 issuer writes back through its pinned transaction.
 
-Five full-schema PGlite cases cover signed reserve/readback, one-person refusal,
+Ten full-schema PGlite cases cover signed reserve/readback, one-person refusal,
 changed plan/epoch/metadata, forged/wrong-key records, original expiry/revocation,
 stale authentication, lost current session, late revocation, post-write rollback,
 cancellation and private-role denial. Auth/session tables are synthetic and MFA,
-scope authority and clock-advance policy are injected. The positive case connects
-signed authorization to journal reserve and status only, not atomic activation.
+scope authority and clock-advance policy are injected. The positive cases connect
+signed authorization to journal reserve/status and measured atomic activation.
+The review extension requires a separate private approval stamped by the
+signature provider on the SAME backend/transaction. A boolean callback or an
+approval left by an earlier transaction cannot create an activation context.
+The context captures the exact approval, original signed records, scope and
+plan/inventory digests. Its deadline is capped by original signature expiry and
+five seconds of database time; replay never extends that deadline. A deferred
+COMMIT trigger re-reads exact immutable approval and private revocation rows.
+Revocation after the final application callback rolls home/file/write custody,
+quota and both receipts back, including member-only transfers without quota.
+The approval table has RLS, no exposed grants, and immutable rows. Synthetic
+Auth/policy and byte fixtures remain explicit limits of these cases.
 
 ## Release gates still open
 
@@ -41,10 +52,10 @@ signed authorization to journal reserve and status only, not atomic activation.
   of the complete photo list/receiver; key provisioning and least-privilege store.
 - Current Auth/MFA policy acquisition, recent-authentication evidence, session and
   factor pinning, plus worker current-authority providers and formal lease reclaims.
-- Bind these inventory proofs to the private atomic activation context and
-  deferred COMMIT checks. The existing activation fixture captures family-snapshot
-  consents; it does not yet capture these separate inventory consent rows. This
-  provider's boolean cannot substitute for that missing database boundary.
+- Install and validate the complete signed-inventory review extension with
+  actual PostgreSQL/Auth/Storage and trusted provider composition before creating
+  a production migration. Existing legacy activation tests without that extension
+  still use injected inventory authorization and do not prove this boundary.
 - Actual PostgreSQL/Auth/Storage composition using this provider, cancellation,
   uncertain replies, durable source cleanup/completion and finite proof retention.
 

@@ -9,7 +9,7 @@ import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 
-export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,memberOnly=false,omitReceipt=false,commitFault=null}={}){
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null}={}){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
@@ -49,7 +49,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
   inspectDestination:async(s,p,f)=>objects.get(f.destination.path)??null,
   writeDestination:async(s,p,f)=>{objects.set(f.destination.path,objects.get(f.source.path));},
   activate:async(s,p,d,proof,signal)=>{
-   const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async(...args)=>(++checks===1||postAuthority)&&await inventoryAuthorize(...args)});
+   const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async(...args)=>(++checks===1||postAuthority)&&await (activationAuthorize??inventoryAuthorize)(...args)});
    await db.transaction(tx=>{
     const pinned=adapter(tx);
     // Fault injection: a lying adapter claims the receipt was inserted. The DB
@@ -59,6 +59,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
      if(commitFault&&sql.startsWith('insert into maintenance_private.household_handoff_receipts')){
       if(commitFault==='missingRoute')await pinned.query("delete from maintenance_private.household_write_routes where kind='products' and object_id=$1",[product]);
       if(commitFault==='expiredBinding')await pinned.query("update maintenance_private.household_stop_bindings set lease_until=clock_timestamp()-interval '1 second' where user_id=$1",[owner]);
+      if(commitFault==='revokedInventoryConsent')await pinned.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,home,recipient]);
       if(commitFault==='revokedConsent')await pinned.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where home_id=$1 and actor_id=$2',[home,recipient]);
      }
      return pinned.query(sql,args);

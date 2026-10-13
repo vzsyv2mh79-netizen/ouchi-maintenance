@@ -9,8 +9,8 @@ import {familyAttachmentActivationFixture as fixture} from './fixtures/family-at
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
-async function setup(){
- let provider;const f=await fixture({prepared:false,inventoryAuthorize:(...args)=>provider.authorize(...args)});
+async function setup({activation=false,commitFault=null,memberOnly=false}={}){
+ let provider;const f=await fixture({prepared:false,commitFault,memberOnly,inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
  const key=randomBytes(32);
@@ -112,8 +112,62 @@ test('post-write authority loss and cancellation roll consent back; public roles
   assert.deepEqual(await cancelled.issue({requestID:s.f.scope.requestID,homeID:s.f.scope.homeID,accessToken:owner,confirmation,signal:c.signal}),{status:'unconfirmed'});
   for(const role of ['anon','authenticated','service_role']){
    await s.f.db.exec('set role '+role);
-   await assert.rejects(s.f.db.exec('select * from maintenance_private.family_attachment_inventory_consents'),/permission denied/);
+   for(const table of ['family_attachment_inventory_consents','family_attachment_inventory_approvals'])await assert.rejects(s.f.db.exec('select * from maintenance_private.'+table),/permission denied/);
    await s.f.db.exec('reset role');
   }
+ }finally{await s.f.db.close();}
+});
+
+
+test('signed inventory approvals bind atomic activation to the exact pinned transaction',async()=>{
+ const s=await setup({activation:true});try{
+  await s.issue(owner);await s.issue(recipient);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
+  assert.deepEqual(await s.f.run(),{state:'pending'}); // source cleanup remains disabled
+  assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,recipient);
+  const contexts=(await s.f.db.query('select inventory_approval from maintenance_private.family_attachment_activation_contexts')).rows;
+  assert.equal(contexts.length,1);assert.equal(contexts[0].inventory_approval.consents.length,2);
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts')).rows[0].n,1);
+ }finally{await s.f.db.close();}
+});
+
+for(const memberOnly of [false,true])test(`late inventory revocation rolls atomic activation back (member-only: ${memberOnly})`,async()=>{
+ const s=await setup({activation:true,commitFault:'revokedInventoryConsent',memberOnly});try{
+  await s.issue(owner);await s.issue(recipient);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
+  const before=(await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows;
+  assert.deepEqual(await s.f.run(),{state:'pending'});
+  assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,owner);
+  assert.deepEqual((await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows,before);
+  for(const table of ['family_attachment_activation_contexts','family_attachment_activation_receipts','household_handoff_receipts'])assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.'+table)).rows[0].n,0);
+  assert.equal(s.f.removals,0);
+ }finally{await s.f.db.close();}
+});
+
+test('boolean authorization or a prior transaction approval cannot authorize atomic activation',async()=>{
+ const s=await setup();try{
+  await s.issue(owner);await s.issue(recipient);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
+  assert.equal(await s.transaction(tx=>s.provider.authorizeActivation(tx,s.f.scope,s.f.plan,s.original,digest(s.original),new AbortController().signal)),true);
+  assert.deepEqual(await s.f.run(),{state:'pending'});
+  assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,owner);
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_approvals')).rows[0].n,1);
+  assert.equal(s.f.removals,0);
+ }finally{await s.f.db.close();}
+});
+
+
+test('an approval expires by the database clock and repeated authorization cannot extend its transaction deadline',async()=>{
+ const s=await setup();try{
+  await s.issue(owner);await s.issue(recipient);
+  await s.transaction(async tx=>{
+   const args=[tx,s.f.scope,s.f.plan,s.original,digest(s.original),new AbortController().signal];
+   assert.equal(await s.provider.authorizeActivation(...args),true);
+   const first=(await tx.query('select expires_at from maintenance_private.family_attachment_inventory_approvals where transaction_id=txid_current()')).rows[0].expires_at;
+   await tx.query('select pg_sleep(5.1)');
+   assert.equal(await s.provider.authorizeActivation(...args),false);
+   const second=(await tx.query('select expires_at from maintenance_private.family_attachment_inventory_approvals where transaction_id=txid_current()')).rows[0].expires_at;
+   assert.deepEqual(second,first);
+  });
  }finally{await s.f.db.close();}
 });
