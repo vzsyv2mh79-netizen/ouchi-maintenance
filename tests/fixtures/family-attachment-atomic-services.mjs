@@ -7,7 +7,7 @@ import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
 import {createFamilyAttachmentStoragePorts} from '../../lib/family-attachment-storage.mjs';
-import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
+import {handoffFamilyAttachments,normalizeFamilyAttachmentPlan} from '../../lib/family-attachment-handoff.mjs';
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
 import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller-compatibility/handoff-consent.mjs';
 import {syntheticTOTP} from './home-handoff-mfa.mjs';
@@ -23,7 +23,9 @@ import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-check
  * project policy remains explicitly injected and exact factor-set snapshot
  * binding/current production policy remain open.
  * No shipping
- * route, new production grant, source cleanup or whole-account completion proof.
+ * route, new production grant or whole-account completion proof. Source cleanup
+ * is exercised only against synthetic objects in the disposable test instance;
+ * durable family completion is deliberately still pending.
  * Runs last: its global private review fences must not change preceding cases.
  */
 export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier}){
@@ -48,13 +50,13 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    totpFactors.set(actor.user,enrolled.data.id);
    assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[actor.session])).rows[0].aal,'aal2');
   }
-  const homeID=randomUUID(),productID=randomUUID(),taskID=randomUUID(),ownFile=randomUUID(),memberFile=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
+  const homeID=randomUUID(),productID=randomUUID(),taskID=randomUUID(),ownFile=randomUUID(),memberFile=randomUUID(),secondOwnFile=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
   const sha=createHash('sha256').update(bytes).digest('hex');
   await db.query('insert into public.homes(id,owner_id) values($1,$2)',[homeID,owner.user]);
   await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[homeID,receiver.user,'Synthetic atomic receiver']);
   await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[productID,homeID,'air','Synthetic atomic product']);
   await db.query('insert into public.maintenance_tasks(id,"productId",name,kind,"intervalDays","nextDueAt","sourceKind") values($1,$2,$3,$4,30,current_date,$5)',[taskID,productID,'Synthetic atomic task','掃除','ユーザー設定']);
-  const source=[{id:ownFile,user:owner},{id:memberFile,user:receiver}];
+  const source=[{id:ownFile,user:owner},{id:memberFile,user:receiver},{id:secondOwnFile,user:owner}];
   for(const {id,user} of source){
    await db.query("insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime,state,expected_sha256,sha256,write_tracking,captured_owner_id) values($1,$2,$3,$4,$5,'image/png','stored',$6,$6,true,$7)",[id,user.user,user.epoch,productID,bytes.length,sha,owner.user]);
    await db.query("insert into maintenance_private.attachment_write_attempts(attachment_id,attempt_id,uploader_id,owner_id,app_epoch_id,state,settled_at) values($1,$2,$3,$4,$5,'settled',clock_timestamp())",[id,randomUUID(),user.user,owner.user,user.epoch]);
@@ -176,10 +178,12 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
   const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
-  let status=provider(),preparations=0,activations=0,cleanupCalls=0,tamperNextActivation=true,lastActivationFailure=null;
+  let status=provider(),preparations=0,activations=0,cleanupCalls=0,tamperNextActivation=true,lastActivationFailure=null,cleanupEnabled=false,finishCalls=0;
+  const removedSourcePaths=[];
   const storage=createFamilyAttachmentStoragePorts({clientForSignal:signal=>createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(signal)}}),guard:async(s,p,f,operation,signal)=>{
-   if(operation==='cleanup'){cleanupCalls++;return false;} // no source erasure in this fixture
-   const current=await status(s,p,signal);return current.state==='prepared'||current.state==='activated';
+   if(operation==='cleanup'){cleanupCalls++;if(!cleanupEnabled)return false;}
+   const current=await status(s,p,signal);
+   return operation==='cleanup'?current.state==='activated':current.state==='prepared'||current.state==='activated';
   }});
   const ports={...storage,plan:async()=>plan,guard:async(s,signal)=>{await status(s,plan,signal);return true;},status:(...args)=>status(...args),
    prepare:async(...args)=>{preparations++;await journal.prepare(...args);throw Error('Successful reservation reply lost');},
@@ -196,7 +200,10 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
      }
     },signal);}catch(error){lastActivationFailure=error;throw error;}
     throw Error('Successful activation reply lost');
-   },finish:async()=>{throw Error('Whole-account completion not implemented');}
+   },removeSource:async(s,p,f,proof,signal)=>{
+    await storage.removeSource(s,p,f,proof,signal);removedSourcePaths.push(f.source.path);
+    if(removedSourcePaths.length===1){cleanupEnabled=false;throw Error('Successful source removal reply lost');}
+   },finish:async()=>{finishCalls++;throw Error('Durable family completion and whole-account completion not implemented');}
   };
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'absent');
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
@@ -222,7 +229,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   for(const path of [plan.files[0].source.path,plan.files[1].source.path,`${receiver.user}/${receiver.epoch}/${ownFile}.png`]){
    const result=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(result.error,null);assert.deepEqual(Buffer.from(await result.data.arrayBuffer()),bytes);
   }
-  for(const id of [ownFile,memberFile]){
+  for(const id of [ownFile,memberFile,secondOwnFile]){
    const result=await admin.rpc('read_maintenance_attachment',{target_user:receiver.user,verified_session:receiver.session,expected_epoch:receiver.epoch,attachment_id:id});assert.equal(result.error,null);assert.equal(result.data.user,receiver.user);
   }
   // Exercise the existing prepared HTTP handler with the person's ACTUAL bearer,
@@ -237,14 +244,30 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    assert.notEqual(response.status,200);assert.equal(response.headers.get('content-type'),'application/json');
    assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(typeof (await response.json()).error,'string');
   }
-  for(const id of [ownFile,memberFile]){
+  for(const id of [ownFile,memberFile,secondOwnFile]){
    const response=await downloadWithToken(receiverToken,id);assert.equal(response.status,200);
    assert.equal(response.headers.get('content-type'),'image/png');assert.equal(response.headers.get('cache-control'),'no-store');
    assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);
   }
   for(const actor of [owner,unrelated]){
    const session=await actor.client.auth.getSession();assert.equal(session.error,null);
-   for(const id of [ownFile,memberFile])await refused(await downloadWithToken(session.data.session.access_token,id));
+   for(const id of [ownFile,memberFile,secondOwnFile])await refused(await downloadWithToken(session.data.session.access_token,id));
+  }
+  // Enable source cleanup only in this explicit disposable test. The real
+  // guard still requires current signed Auth and durable atomic activation.
+  // Lose the first successful remove reply and pause before the next mutation.
+  const relocated=normalizeFamilyAttachmentPlan(plan).files.filter(f=>f.source.path!==f.destination.path);
+  assert.equal(relocated.length,2);cleanupEnabled=true;
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal(removedSourcePaths.length,1);assert.equal(finishCalls,0);
+  const removedSource=relocated.find(f=>f.source.path===removedSourcePaths[0]);
+  const remainingSource=relocated.find(f=>f.source.path!==removedSourcePaths[0]);
+  const missingOriginal=await admin.storage.from('ouchi-product-attachments').download(removedSource.source.path);
+  assert.equal(missingOriginal.data,null);assert.equal(missingOriginal.error?.code,'NoSuchKey');
+  assert.equal((await admin.storage.from('ouchi-product-attachments').download(remainingSource.source.path)).error,null);
+  for(const f of normalizeFamilyAttachmentPlan(plan).files){
+   const kept=await admin.storage.from('ouchi-product-attachments').download(f.destination.path);
+   assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
   }
   // Full HMAC-authorized status must reject a changed factor inventory even
   // when the existing AAL2 session and verified TOTP factor remain unchanged.
@@ -252,15 +275,37 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[receiver.session])).rows[0].aal,'aal2');
   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents where request_id=$1 and revoked_at is not null',[scope.requestID])).rows[0].n,0);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory consent/);
+  cleanupEnabled=true;
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal(removedSourcePaths.length,1);
+  const stillOriginal=await admin.storage.from('ouchi-product-attachments').download(remainingSource.source.path);
+  assert.equal(stillOriginal.error,null);assert.deepEqual(Buffer.from(await stillOriginal.data.arrayBuffer()),bytes);
   const removed=await receiver.client.auth.mfa.unenroll({factorId:additional.data.id});assert.equal(removed.error,null);
+  assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
+  // Restore the original factor inventory, reconstruct the reader, and resume:
+  // absence readback skips the deleted prefix rather than removing it again.
+  status=provider();cleanupEnabled=true;
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal(removedSourcePaths.length,2);assert.equal(new Set(removedSourcePaths).size,2);
+  assert.equal(finishCalls,1);assert.equal(activations,2);assert.equal(preparations,1);
+  for(const f of relocated){
+   const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);
+   assert.equal(missing.data,null);assert.equal(missing.error?.code,'NoSuchKey');
+  }
+  for(const f of normalizeFamilyAttachmentPlan(plan).files){
+   const kept=await admin.storage.from('ouchi-product-attachments').download(f.destination.path);
+   assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
+  }
+  // Physical cleanup is not a durable completion receipt. Keep pending.
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
   await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,2);
-  assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[0].source.path)).error,null);
+  assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[1].source.path)).error,null);
+  assert.equal(removedSourcePaths.length,2);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
   const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
-  for(const id of [ownFile,memberFile])await refused(await downloadWithToken(receiverToken,id));
+  for(const id of [ownFile,memberFile,secondOwnFile])await refused(await downloadWithToken(receiverToken,id));
   // Logout must not remove records, bytes or the GoTrue user itself.
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(`${receiver.user}/${receiver.epoch}/${ownFile}.png`)).error,null);
