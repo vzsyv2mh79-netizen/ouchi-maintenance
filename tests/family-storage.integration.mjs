@@ -9,6 +9,7 @@ import ts from 'typescript';
 import {verifyDisposableHandoffMFA} from './fixtures/home-handoff-mfa.mjs';
 import {verifyDisposableFamilyAttachmentStorage} from './fixtures/family-attachment-storage.mjs';
 import {verifyDisposableFamilyAttachmentJournal} from './fixtures/family-attachment-journal.mjs';
+import {verifyDisposableFamilyAttachmentAtomic} from './fixtures/family-attachment-atomic-services.mjs';
 const modules = new Map();
 function serverModule(name) {
  if (modules.has(name)) return modules.get(name);
@@ -26,7 +27,7 @@ const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci
 const uuid = value => { assert.match(value, /^[a-f0-9-]{36}$/i); return value; };
 const ok = result => { assert.equal(result.error, null); return result.data; };
 
-test('actual Auth and Storage preserve family files, recover handoff acknowledgement loss, and isolate retirement', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:60000}, async () => {
+test('actual Auth and Storage preserve family files, recover handoff acknowledgement loss, and isolate retirement', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:120000}, async () => {
  let dropNextHandoffReply = false, handoffDecisionRequests = 0, revokeDuringDownload = null;
  const gateway = createServer((req,res) => {
   const prefix = ['/auth/v1/','/rest/v1/','/storage/v1/'].find(p => req.url?.startsWith(p));
@@ -183,6 +184,8 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.deepEqual(transferSnapshot(),originalRecords); assert.equal(sql(`select owner_id from public.homes where id='${transferHome}';`),successor.user);
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
+  // Runs LAST: composed private review fences must not alter preceding cases.
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });

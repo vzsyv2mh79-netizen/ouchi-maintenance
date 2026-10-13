@@ -1,10 +1,22 @@
 # Durable family attachment status — disabled backend candidate
 
-`createFamilyAttachmentStatus` reads an already reserved original journal on a
-trusted pinned transaction. It returns only `prepared` or `activated` with the
-orchestrator's exact normalized-plan digest. Missing/partial evidence throws and
+`createFamilyAttachmentStatus` verifies initial absence or reads an already reserved
+original journal on a trusted pinned transaction. It returns `absent`, `prepared`
+or `activated` with the orchestrator's exact normalized-plan digest. Partial evidence throws and
 the orchestrator keeps the result pending. It does not claim `complete`, create
 a journal, reserve capacity, activate ownership, remove originals or delete Auth.
+
+Initial `absent` requires no persisted journal, no household/attachment activation
+receipt and no request capacity rows, plus the complete still-original file and
+settled-write inventory, original ownership/routes, unchanged family snapshot,
+two retained family consent records, current freeze/hold/leases and mandatory
+inventory-bound authorization. All evidence and journal absence are read again
+after the final authorization callback. An existing planned journal with missing
+quota is refused rather than relabeled absent. The journal's strict `prepare` port
+derives normalized destinations again and checks the orchestrator wire digest
+before atomically reserving all capacity and persisting the original inventory.
+The orchestrator reconciles an uncertain reservation response through status,
+then measures copies and uses the separate guarded activation.
 
 The reader independently checks the original controller/native request binding,
 current database-clock native/controller lease, retained private freeze and hold,
@@ -24,7 +36,7 @@ reuse the manifest. Normalized caller destinations are derived again and compare
 so an externally supplied path cannot override the original plan.
 
 The original activation fixture is now shared without registering test cases on
-import. Nine unchanged activation assertions and eleven status assertions pass
+import. Nine unchanged activation assertions and sixteen status assertions cover
 in full-schema PGlite. Status cases include a lost commit reply, a new reader/provider
 and orchestrator restart without another activation, expired write context,
 member-only transfers with zero receiver quota, missing product route, revoked
@@ -34,6 +46,10 @@ final callback is refused for both prepared and activated readback. The native
 expiry status test injects a false current-lease SQL result; it is not a real
 clock/claim concurrency proof. Storage bytes and inventory authorization in these
 tests are synthetic/injected, and cleanup is deliberately unsuccessful.
+Five initial-path cases additionally cover original-owner and member-only absent
+to reserve to activation, lost reservation replies and restart without duplication,
+incomplete initial inventory/authority refusal, full journal/quota rollback,
+foreign destinations/digests and refusal of a planned journal lacking capacity.
 
 ## Still required before shipping
 
@@ -43,7 +59,7 @@ tests are synthetic/injected, and cleanup is deliberately unsuccessful.
   replies, plus physical-device persistence/recovery verification.
 - Durable source cleanup and definitive-absence/completion evidence. This reader
   never converts activation into whole-account retirement completion.
-- Initial absent/preparation handling, frozen native lease reclamation, receiver
+- Shipping initial-path integration, frozen native lease reclamation, receiver
   cancellation/refund, later handoff lifecycle and finite hold/receipt retention.
 - Scalable measured-copy inspection and all-project Auth retirement isolation.
 

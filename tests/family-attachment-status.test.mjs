@@ -4,11 +4,64 @@ import {randomUUID} from 'node:crypto';
 import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs';
 import {handoffFamilyAttachments} from '../lib/family-attachment-handoff.mjs';
 import {normalizeFamilyAttachmentPlan} from '../lib/family-attachment-handoff.mjs';
+import {createFamilyAttachmentJournal} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,home,product} from './fixtures/home-handoff-identifiers.mjs';
 
 const reader=(f,authorize=async()=>true)=>createFamilyAttachmentStatus({transaction:cb=>f.db.transaction(cb),authorize});
 const read=(f,status=reader(f))=>status(f.scope,f.plan,new AbortController().signal);
+
+for(const memberOnly of [false,true])test(`initial frozen inventory starts preparation and reconciles a lost reserve reply (member-only: ${memberOnly})`,async()=>{
+ const f=await fixture({prepared:false,memberOnly});try{
+  const status=reader(f);assert.equal((await read(f,status)).state,'absent');
+  let preparations=0,activations=0;const activate=f.ports.activate;
+  f.ports.status=status;f.ports.prepare=async(...args)=>{preparations++;await f.journal.prepare(...args);throw Error('Reservation reply lost');};
+  f.ports.activate=async(...args)=>{activations++;return activate(...args);};
+  f.ports.removeSource=async()=>{throw Error('Cleanup separately gated');};
+  assert.deepEqual(await f.run(),{state:'pending'});assert.equal(preparations,1);assert.equal(activations,1);
+  assert.equal((await read(f,reader(f))).state,'activated');
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_journals')).rows[0].n,1);
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_quota')).rows[0].n,memberOnly?0:1);
+  const restart={...f.ports,status:reader(f),prepare:async()=>{preparations++;throw Error('Do not prepare twice');},activate:async()=>{activations++;throw Error('Do not activate twice');}};
+  assert.deepEqual(await handoffFamilyAttachments(f.scope,restart,new AbortController().signal),{state:'pending'});
+  assert.equal(preparations,1);assert.equal(activations,1);
+  assert.ok(f.objects.has(f.plan.files[0].source.path));
+ }finally{await f.db.close();}
+});
+
+test('initial absence still requires complete original inventory and authority; failures never call prepare',async()=>{
+ const f=await fixture({prepared:false});try{
+  await assert.rejects(reader(f)(f.scope,{...f.plan,files:[f.plan.files[0]]},new AbortController().signal),/Complete initial/);
+  let preparations=0;const ports={...f.ports,status:reader(f,async()=>false),prepare:async()=>{preparations++;}};
+  assert.deepEqual(await handoffFamilyAttachments(f.scope,ports,new AbortController().signal),{state:'pending'});assert.equal(preparations,0);
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_journals')).rows[0].n,0);
+  assert.equal((await f.db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,owner);
+ }finally{await f.db.close();}
+});
+
+test('failed initial preparation rolls journal and quota back; a foreign destination/digest cannot reserve',async()=>{
+ const f=await fixture({prepared:false});try{
+  let authorizations=0;const journal=createFamilyAttachmentJournal({transaction:cb=>f.db.transaction(cb),authorize:async()=>++authorizations===1});
+  const ports={...f.ports,status:reader(f),prepare:journal.prepare};
+  assert.deepEqual(await handoffFamilyAttachments(f.scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal((await read(f)).state,'absent');
+  for(const table of ['family_attachment_journals','family_attachment_quota'])assert.equal((await f.db.query('select count(*)::int n from maintenance_private.'+table)).rows[0].n,0);
+  const plan=structuredClone(normalizeFamilyAttachmentPlan(f.plan));plan.files[0].destination.path='foreign';
+  assert.throws(()=>f.journal.prepare(f.scope,plan,'a'.repeat(64),new AbortController().signal),/Exact preparation/);
+  assert.throws(()=>f.journal.prepare(f.scope,normalizeFamilyAttachmentPlan(f.plan),'a'.repeat(64),new AbortController().signal),/Exact preparation/);
+ }finally{await f.db.close();}
+});
+
+test('an existing journal with missing capacity is partial evidence, never initial absence',async()=>{
+ const f=await fixture({reserve:false});try{
+  await assert.rejects(read(f),/Exact readback quota/);
+  let prepared=0;const ports={...f.ports,status:reader(f),prepare:async()=>{prepared++;}};
+  assert.deepEqual(await handoffFamilyAttachments(f.scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal(prepared,0);assert.equal(f.removals,0);
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_journals')).rows[0].n,1);
+  assert.equal((await f.db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,owner);
+ }finally{await f.db.close();}
+});
 
 test('durable status reconciles a lost activation reply and a fresh provider without another ownership mutation',async()=>{
  const f=await fixture();try{

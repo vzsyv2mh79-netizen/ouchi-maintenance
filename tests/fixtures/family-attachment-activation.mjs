@@ -9,7 +9,7 @@ import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 
-export async function familyAttachmentActivationFixture({reserve=true,postAuthority=true,memberOnly=false,omitReceipt=false,commitFault=null}={}){
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,memberOnly=false,omitReceipt=false,commitFault=null}={}){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
@@ -41,7 +41,7 @@ export async function familyAttachmentActivationFixture({reserve=true,postAuthor
  // Signed family consent uses synthetic identity; complete file inventory
  // consent/freeze authorization is injected. No shipping Auth claim here.
  const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:async()=>true});
- await journal[reserve?'reserve':'record'](scope,plan,new AbortController().signal);
+ if(prepared)await journal[reserve?'reserve':'record'](scope,plan,new AbortController().signal);
  const objects=new Map(plan.files.map(f=>[f.source.path,new Blob([bytes],{type:'image/png'})]));
  let checks=0,removals=0;
  const ports={guard:async()=>true,plan:async()=>plan,prepare:async()=>{throw Error('Preparation already persisted');},
