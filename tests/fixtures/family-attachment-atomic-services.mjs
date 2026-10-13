@@ -10,11 +10,13 @@ import {createFamilyAttachmentStoragePorts} from '../../lib/family-attachment-st
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
 import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller-compatibility/handoff-consent.mjs';
+import {syntheticTOTP} from './home-handoff-mfa.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
- * key. Complete-inventory consents now use verified real bearers, password AMR
- * timestamps using the prepared pinned issuer adapter. Its separate scratch
+ * key. Both transfer participants authenticate with actual GoTrue TOTP before
+ * complete-inventory consent. The pinned issuer verifies their signed TOTP AMR
+ * timestamps and the worker verifies the same AAL2/factor state. Its scratch
  * account exercises actual session/factor/enrollment contention and rollback.
  * Issuer and worker use the prepared current-session/factor/enrollment pins;
  * project policy remains explicitly injected and exact factor-set snapshot
@@ -31,6 +33,19 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
  await db.connect();
  try{
   const owner=await account(),receiver=await account(),unrelated=await account();
+  const totpTimes=new Map();
+  for(const actor of [owner,receiver]){
+   const enrolled=await actor.client.auth.mfa.enroll({factorType:'totp',friendlyName:'Synthetic atomic handoff authenticator'});
+   assert.equal(enrolled.error,null);assert.equal(enrolled.data.type,'totp');
+   const challenge=await actor.client.auth.mfa.challenge({factorId:enrolled.data.id});assert.equal(challenge.error,null);
+   const promoted=await actor.client.auth.mfa.verify({factorId:enrolled.data.id,challengeId:challenge.data.id,code:syntheticTOTP(enrolled.data.totp.secret)});
+   assert.equal(promoted.error,null);
+   const claims=JSON.parse(Buffer.from(promoted.data.access_token.split('.')[1],'base64url'));
+   assert.equal(claims.sub,actor.user);assert.equal(claims.session_id,actor.session);assert.equal(claims.aal,'aal2');
+   const amr=claims.amr.filter(value=>value.method==='totp');assert.equal(amr.length,1);
+   totpTimes.set(actor.user,amr[0].timestamp*1000);
+   assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[actor.session])).rows[0].aal,'aal2');
+  }
   const homeID=randomUUID(),productID=randomUUID(),taskID=randomUUID(),ownFile=randomUUID(),memberFile=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
   const sha=createHash('sha256').update(bytes).digest('hex');
   await db.query('insert into public.homes(id,owner_id) values($1,$2)',[homeID,owner.user]);
@@ -132,6 +147,13 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const session=await actor.client.auth.getSession();assert.equal(session.error,null);
    assert.equal((await inventoryConsent.issue({requestID:scope.requestID,homeID,accessToken:session.data.session.access_token,confirmation:'写真・保証書の一覧と受取先を確認して引き継ぎに同意する',signal:AbortSignal.timeout(10000)})).status,'accepted');
   }
+  const issuedConsents=(await db.query('select actor_id,token from maintenance_private.family_attachment_inventory_consents where request_id=$1',[scope.requestID])).rows;
+  assert.equal(issuedConsents.length,2);
+  for(const record of issuedConsents){
+   const claims=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url'));
+   assert.equal(claims.actorID,record.actor_id);assert.equal(claims.aal,'aal2');
+   assert.equal(claims.authenticatedAt,totpTimes.get(record.actor_id));
+  }
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
   const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
   let status=provider(),preparations=0,activations=0,cleanupCalls=0;
@@ -188,9 +210,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    for(const id of [ownFile,memberFile])await refused(await downloadWithToken(session.data.session.access_token,id));
   }
   // Full HMAC-authorized status must reject a changed factor inventory even
-  // when session AAL1 and the lack of verified factors remain unchanged.
+  // when the existing AAL2 session and verified TOTP factor remain unchanged.
   const additional=await receiver.client.auth.mfa.enroll({factorType:'totp',friendlyName:'Synthetic post-consent factor'});assert.equal(additional.error,null);
-  assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[receiver.session])).rows[0].aal,'aal1');
+  assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[receiver.session])).rows[0].aal,'aal2');
   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents where request_id=$1 and revoked_at is not null',[scope.requestID])).rows[0].n,0);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory consent/);
   const removed=await receiver.client.auth.mfa.unenroll({factorId:additional.data.id});assert.equal(removed.error,null);
