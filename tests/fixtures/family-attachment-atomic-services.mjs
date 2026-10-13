@@ -17,6 +17,7 @@ import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-co
 import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdConsentVerifier} from './handoff-controller-compatibility/handoff-consent.mjs';
 import {syntheticTOTP} from './home-handoff-mfa.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
+import {verifyDisposableClosureReviewHTTP} from './closure-review-http.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -33,7 +34,7 @@ import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-check
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -104,6 +105,8 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.deepEqual(await reviewSnapshot(),originalReviewFamily);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner.user])).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[owner.user,owner.epoch])).rows[0].n,0);
+  await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification});
+  assert.deepEqual(await reviewSnapshot(),originalReviewFamily,'Actual HTTP review operations must retain family content and access');
   await db.query('update maintenance_private.account_closure_review_policy set enabled=false');
   await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequestID,owner.user,owner.epoch,nativeLease]);
   // Journal/quota were installed by the earlier awaited actual quota fixture.
