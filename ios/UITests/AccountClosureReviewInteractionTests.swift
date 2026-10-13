@@ -6,7 +6,10 @@ import XCTest
     private func launch() -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.closure")
-        app.launchArguments = ["--ouchi-closure-review-preview", "--ouchi-large-text-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        let textMode = ProcessInfo.processInfo.environment["OUCHI_UI_TEXT_MODE"] ?? "ax5"
+        XCTAssertTrue(["large", "ax5"].contains(textMode), "Only explicitly supported preview text modes may run")
+        app.launchArguments = ["--ouchi-closure-review-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if textMode == "ax5" { app.launchArguments.append("--ouchi-large-text-preview") }
         app.launch()
         XCTAssertTrue(app.staticTexts["closure-review.sample"].waitForExistence(timeout: 45))
         return app

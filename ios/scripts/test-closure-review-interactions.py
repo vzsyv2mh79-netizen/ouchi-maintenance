@@ -13,7 +13,7 @@ import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
-parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
+parser.add_argument('--text-size', choices=['large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
 parser.add_argument('--test', choices=['closure-review', 'keyboard-toolbar-probe'], default='closure-review')
@@ -36,10 +36,11 @@ sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
 manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance,
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
-            'scope': ['actual protected custody, selected-reference read, cancellation and explicit fresh submission on AX5 preview'],
+            'scope': ['actual protected custody, selected-reference read, cancellation and explicit fresh submission on selected preview text size'],
             'notVerified': ['real Auth HTTP', 'actual account erasure', 'VoiceOver', 'physical locked device', 'purchases', 'distribution signing']}
 manifest['testSourceSHA256'] = hashlib.sha256((root / 'UITests/AccountClosureReviewInteractionTests.swift').read_bytes()).hexdigest()
 manifest['selectedTest'] = args.test
+manifest['previewTextMode'] = 'large' if args.text_size == 'large' else 'ax5'
 manifest['temporaryToolbarProjection'] = args.omit_keyboard_toolbar
 if args.test == 'keyboard-toolbar-probe':
     manifest['scope'] = ['Diagnostic read/cancel and scroll to password section only; no full request/keyboard-flow completion claim']
@@ -130,7 +131,8 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
         project.write_bytes(plistlib.dumps(data))
         ref = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="' + ids['target'] + '" BuildableName="OuchiInteractionTests.xctest" BlueprintName="OuchiInteractionTests" ReferencedContainer="container:OuchiMaintenance.xcodeproj"/>'
         scheme = work / 'OuchiMaintenance.xcodeproj/xcshareddata/xcschemes/OuchiInteractions.xcscheme'
-        scheme.write_text('<Scheme version="1.3"><BuildAction buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES">' + ref + '</BuildActionEntry></BuildActionEntries></BuildAction><TestAction buildConfiguration="Debug" shouldUseLaunchSchemeArgsEnv="NO"><Testables><TestableReference skipped="NO">' + ref + '</TestableReference></Testables></TestAction></Scheme>')
+        text_environment = '<EnvironmentVariables><EnvironmentVariable key="OUCHI_UI_TEXT_MODE" value="' + manifest['previewTextMode'] + '" isEnabled="YES"/></EnvironmentVariables>'
+        scheme.write_text('<Scheme version="1.3"><BuildAction buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES">' + ref + '</BuildActionEntry></BuildActionEntries></BuildAction><TestAction buildConfiguration="Debug" shouldUseLaunchSchemeArgsEnv="NO"><Testables><TestableReference skipped="NO">' + ref + '</TestableReference></Testables>' + text_environment + '</TestAction></Scheme>')
         device = subprocess.check_output(['xcrun', 'simctl', 'create', 'おうちメンテ退会依頼操作テスト',
             'com.apple.CoreSimulator.SimDeviceType.iPhone-17e', args.runtime], text=True).strip()
         manifest['simulatorUDID'] = device
