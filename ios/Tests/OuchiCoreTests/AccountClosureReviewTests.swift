@@ -22,7 +22,7 @@ private actor ReviewScript {
         if loseFirst && requests.count == 1 { throw URLError(.networkConnectionLost) }
         let cancel = request.url!.path.hasSuffix("/cancel")
         let status = request.url!.path.hasSuffix("/request") ? 202 : 200
-        return (try reviewData(request, state: cancel || requests.contains(where: { $0.url!.path.hasSuffix("/cancel") }) ? "cancelled" : "review_required"), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        return (try reviewData(request, state: cancel || requests.contains(where: { $0.url!.path.hasSuffix("/cancel") }) ? "cancelled" : "review_required"), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
 }
 @MainActor private final class ReviewFlowHolder { weak var flow: AccountClosureReviewFlow? }
@@ -33,11 +33,33 @@ private actor ReviewGate {
     func wait() async { if arrived { return }; await withCheckedContinuation { arrival = $0 } }
     func reply(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         await withCheckedContinuation { release = $0; arrived = true; arrival?.resume(); arrival = nil }
-        return (try reviewData(request), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (try reviewData(request), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
     func finish() { release?.resume(); release = nil }
 }
 final class AccountClosureReviewTests: XCTestCase {
+    @MainActor func testUntrustedResponseHeadersLeaveSelectedRequestUnconfirmed() async throws {
+        for mode in 0..<5 {
+            let api = AccountClosureReviewAPI(transport: { request in
+                let bytes = try reviewData(request)
+                var headers = ["Content-Type": "application/json", "Cache-Control": "no-store"]
+                switch mode {
+                case 0: headers["Content-Type"] = "text/html"
+                case 1: headers["Cache-Control"] = "public, max-age=3600"
+                case 2: headers.removeValue(forKey: "Cache-Control")
+                case 3: headers["Content-Length"] = "5000"
+                default: headers["Content-Length"] = "1"
+                }
+                return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!)
+            })
+            let saved = AccountClosureReviewBinding(accountID: reviewAccount, epochID: reviewEpoch, submissionID: reviewSubmission)
+            let flow = AccountClosureReviewFlow(api: api)
+            flow.bind(accountID: reviewAccount, epochID: reviewEpoch, revision: UUID(), restored: saved)
+            do { _ = try await flow.recover(token: "synthetic"); XCTFail("Untrusted response must not confirm selected request") }
+            catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+            XCTAssertEqual(flow.binding, saved); XCTAssertNil(flow.receipt); XCTAssertTrue(flow.resultUnconfirmed); XCTAssertFalse(flow.busy)
+        }
+    }
     @MainActor func testSelectingAnotherSavedReferenceInvalidatesLateReply() async throws {
         let gate = ReviewGate()
         let flow = AccountClosureReviewFlow(api: .init(transport: { try await gate.reply($0) }))
@@ -58,7 +80,7 @@ final class AccountClosureReviewTests: XCTestCase {
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer synthetic")
             let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
             XCTAssertEqual(body, ["confirmation": "CANCEL_OUCHI_DELETION_REVIEW", "expectedEpochID": reviewEpoch.uuidString.lowercased(), "submissionID": reviewSubmission.uuidString.lowercased()])
-            return (try reviewData(request, state: "cancelled"), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (try reviewData(request, state: "cancelled"), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
         })
         let receipt = try await api.cancel(token: "synthetic", epochID: reviewEpoch, submissionID: reviewSubmission)
         XCTAssertEqual(receipt?.state, .cancelled); XCTAssertEqual(receipt?.reviewRequestID, reviewID)
@@ -68,14 +90,14 @@ final class AccountClosureReviewTests: XCTestCase {
             let api = AccountClosureReviewAPI(transport: { request in
                 let extras = mode == 0 ? ["kind": "app-closure-review/v1"] : mode == 1 ? ["submissionID": reviewEpoch.uuidString.lowercased()] : mode == 2 ? ["requestID": reviewSubmission.uuidString.lowercased()] : [:]
                 let data = mode == 4 ? Data(repeating: 65, count: 4097) : try reviewData(request, state: mode == 3 ? "complete" : "review_required", extra: extras)
-                return (data, HTTPURLResponse(url: mode == 5 ? URL(string: "https://example.invalid")! : request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                return (data, HTTPURLResponse(url: mode == 5 ? URL(string: "https://example.invalid")! : request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
             })
             do { _ = try await api.read(token: "synthetic", epochID: reviewEpoch, submissionID: reviewSubmission); XCTFail("Reject unverified response") }
             catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
         }
     }
     func testMissingReviewRequiresExactScoped404() async throws {
-        let api = AccountClosureReviewAPI(transport: { request in (try reviewData(request, state: "review_not_found"), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!) })
+        let api = AccountClosureReviewAPI(transport: { request in (try reviewData(request, state: "review_not_found"), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!) })
         let value = try await api.read(token: "synthetic", epochID: reviewEpoch, submissionID: reviewSubmission); XCTAssertNil(value)
     }
     @MainActor func testPersistenceFailureAndReentrantBindingChangePreventSubmission() async throws {

@@ -1,0 +1,22 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "change": "Native review API requires exact origin, application/json, no-store, UTF-8, maximum declared/actual response size 4096 and matching decimal Content-Length when supplied. Default URLSession rejects oversized declaration before body streaming. Receipt scope/version/state checks remain.",
+  "localSwiftTests": {
+    "suite": "AccountClosureReviewTests",
+    "passed": 8,
+    "failed": 0,
+    "scope": "Wrong MIME, public/missing cache policy and deceptive lengths leave selected binding retained, receipt absent, resultUnconfirmed=true and busy=false; existing identity/session/selected-reference drift and nonce/persistence tests remain successful.",
+    "compilerNote": "Existing unused-result warnings in separate DeletionReceiptRecoveryFlowTests are not claimed fixed."
+  },
+  "actualNativeHTTPWitness": {
+    "exitCode": 0,
+    "targetedLint": "passed without warnings",
+    "transport": "Default Swift URLSession + separate-process macOS Keychain + loopback handler + full embedded SQL fixture",
+    "faults": ["valid scoped JSON labeled text/html", "valid scoped JSON marked public cache", "5000-byte declared body", "4097-byte streamed body", "302 redirect with no sink requests"],
+    "result": "All faults refused; protected selected reference retained/unconfirmed; existing read/cancel/replay/new nonce flow and exact scoped cleanup successful",
+    "auth": "Synthetic; independent actual GoTrue/PostgREST witness remains separate"
+  },
+  "sampleCompatibility": "Dedicated preview server now supplies the same application/json and no-store headers as the prepared real handler; no response-validation bypass is added.",
+  "remaining": ["Enabled settings navigation and live context drift", "Native-to-real-Auth end-to-end shipping integration", "Actual personal/shared content erasure", "Physical iPhone and Apple purchase/distribution verification", "Privacy/operator/capacity/retention and submission approval"]
+}

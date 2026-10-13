@@ -27,7 +27,7 @@ public struct AccountClosureReviewAPI: Sendable {
             let session = URLSession(configuration: config, delegate: ClosureReviewRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
             let (bytes, response) = try await session.bytes(for: request)
-            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            guard let response = response as? HTTPURLResponse, response.expectedContentLength <= 4096 else { throw CloudError.malformedResponse }
             var data = Data()
             for try await byte in bytes {
                 try Task.checkCancellation()
@@ -68,7 +68,14 @@ public struct AccountClosureReviewAPI: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (bytes, response) = try await transport(request)
         try Task.checkCancellation()
-        guard response.url == url, bytes.count <= 4096 else { throw CloudError.malformedResponse }
+        guard response.url == url, bytes.count <= 4096, response.expectedContentLength <= 4096,
+              response.mimeType == "application/json",
+              response.value(forHTTPHeaderField: "Cache-Control")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "no-store",
+              String(data: bytes, encoding: .utf8) != nil else { throw CloudError.malformedResponse }
+        if let declared = response.value(forHTTPHeaderField: "Content-Length") {
+            guard !declared.isEmpty, declared.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  Int(declared) == bytes.count else { throw CloudError.malformedResponse }
+        }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
         guard response.statusCode == (action == "request" ? 202 : 200) || (action != "request" && response.statusCode == 404) else { throw CloudError.rejected(response.statusCode) }
         guard let object = try JSONSerialization.jsonObject(with: bytes) as? [String: String],

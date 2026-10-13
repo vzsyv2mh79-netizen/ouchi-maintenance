@@ -244,7 +244,8 @@ private actor ClosureReviewPreviewServer {
         var result = ["kind": "app-closure-review/v2", "state": states[submission] ?? "review_not_found", "epochID": epoch, "submissionID": submission]
         if states[submission] != nil { result["reviewRequestID"] = submission }
         let status = states[submission] == nil ? 404 : action == "request" ? 202 : 200
-        return (try JSONEncoder().encode(result), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        return (try JSONEncoder().encode(result), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
 }
 /// Explicitly isolated, synthetic-only preview. No owner credentials or network.

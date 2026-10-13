@@ -77,6 +77,16 @@ import OuchiCore
             _ = try await api.read(token: "invalid-synthetic-token", epochID: epoch, submissionID: original.submissionID)
             throw Failure.unexpectedResult
         } catch CloudError.authenticationRequired {}
+        for mode in ["mime", "cache", "declared-large", "stream-large"] {
+            let review = AccountClosureReviewFlow(api: api)
+            review.bind(accountID: account, epochID: epoch, revision: UUID(), restored: original)
+            do { _ = try await review.recover(token: "fixture-" + mode); throw Failure.unexpectedResult }
+            catch CloudError.malformedResponse {}
+            guard review.binding == original, review.receipt == nil, review.resultUnconfirmed, !review.busy else { throw Failure.unexpectedResult }
+        }
+        do { _ = try await api.read(token: "fixture-redirect", epochID: epoch, submissionID: original.submissionID); throw Failure.unexpectedResult }
+        catch CloudError.rejected(302) {}
+        print("PASS: actual HTTP MIME/cache/declared-size/stream-size/redirect refusal preserves protected selection and unconfirmed result.")
         print("PASS: separate-process protected restore, actual URLSession read/cancel/replay, pending refusal, explicit fresh nonce and invalid-bearer refusal.")
     }
 }

@@ -17,7 +17,9 @@ const root=resolve(fileURLToPath(new URL('../..',import.meta.url)));
 assert.ok(process.argv.includes('--sdk'));const sdk=process.argv[process.argv.indexOf('--sdk')+1];
 const directory=mkdtempSync(join(tmpdir(),'ouchi-closure-http-')),marker=join(directory,'marker.json');
 const db=await seedHomeHandoffFullSchemaFixture();
-let executable,server,dropUntilRead=true,originalSubmission,requests=0,dropped=0;
+let executable,server,dropUntilRead=true,originalSubmission,requests=0,dropped=0,redirects=0;
+const responseModes=new Set(['mime','cache','declared-large','stream-large','redirect']);
+const visitedModes=new Set();
 const errors=[];
 const snapshot=async()=>{
  await db.exec('reset role');
@@ -46,9 +48,10 @@ try{
   retry(value){assert.equal(value,false);return this;},
   async abortSignal(signal){signal.throwIfAborted();const data=(await db.query(`select public.${name}($1,$2,$3,$4) as value`,[args.target_user,args.verified_session,args.expected_epoch,args.expected_submission])).rows[0].value;return {data,error:null};}
  };}}});
- const handler=createAccountClosureReviewHandler({verify:async token=>token==='synthetic-token'?{userID:owner,sessionID:os,epochID:oe,email:'synthetic@example.invalid'}:null,
+ const handler=createAccountClosureReviewHandler({verify:async token=>token==='synthetic-token'||responseModes.has(token.replace(/^fixture-/,''))?{userID:owner,sessionID:os,epochID:oe,email:'synthetic@example.invalid'}:null,
   reauthenticate:async(email,password)=>email==='synthetic@example.invalid'&&password==='synthetic-password'?owner:null,port});
  server=createServer(async(req,res)=>{
+  if(req.url==='/sink'){redirects++;res.end();return;}
   const action=/^\/api\/account\/closure-review\/(request|read|cancel)$/.exec(req.url??'')?.[1];
   if(!action){res.writeHead(404).end();return;}
   const abort=new AbortController();req.once('aborted',()=>abort.abort());res.once('close',()=>{if(!res.writableEnded)abort.abort();});
@@ -56,6 +59,17 @@ try{
    requests++;
    const response=await handler(new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,body:Readable.toWeb(req),duplex:'half',signal:abort.signal}),action);
    const bytes=Buffer.from(await response.arrayBuffer()),receipt=JSON.parse(bytes);
+   const mode=req.headers.authorization?.replace(/^Bearer fixture-/,'');
+   if(responseModes.has(mode)){
+    visitedModes.add(mode);assert.equal(action,'read');assert.equal(response.status,200);
+    const headers=Object.fromEntries(response.headers);
+    if(mode==='redirect'){res.writeHead(302,{'content-type':'application/json','cache-control':'no-store',location:'http://127.0.0.1:'+server.address().port+'/sink'}).end();return;}
+    if(mode==='mime')headers['content-type']='text/html';
+    if(mode==='cache')headers['cache-control']='public, max-age=3600';
+    if(mode==='declared-large'){headers['content-length']='5000';res.writeHead(200,headers).end(Buffer.concat([bytes,Buffer.alloc(5000-bytes.length,32)]));return;}
+    if(mode==='stream-large'){res.writeHead(200,headers);res.write(Buffer.alloc(2048,32));res.end(Buffer.alloc(2049,32));return;}
+    res.writeHead(200,headers).end(bytes);return;
+   }
    if(action==='request'&&response.status===202){
     originalSubmission??=receipt.submissionID;
     if(dropUntilRead&&receipt.submissionID===originalSubmission){dropped++;res.destroy();return;}
@@ -73,6 +87,7 @@ try{
  await run('begin');assert.ok(dropped>0);assert.ok(existsSync(marker));
  await run('restore');
  assert.deepEqual(errors,[]);assert.ok(requests>=6);
+ assert.deepEqual(visitedModes,responseModes);assert.equal(redirects,0,'Original bearer must never follow a redirect');
  const records=(await db.query('select submission_id::text,state from maintenance_private.account_closure_reviews where user_id=$1',[owner])).rows;
  assert.equal(records.length,2);assert.equal(records.find(x=>x.submission_id===originalSubmission)?.state,'cancelled');
  assert.equal(records.filter(x=>x.state==='review_required').length,1);
