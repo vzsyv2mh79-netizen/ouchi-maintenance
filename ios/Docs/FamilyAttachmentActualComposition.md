@@ -1,4 +1,4 @@
-# Actual PostgreSQL and Storage composition — prepared test, result pending
+# Signed-inventory PostgreSQL/Auth/Storage composition — result pending
 
 The dedicated disposable-family workflow now awaits a final atomic composition
 fixture, after its original family preservation, MFA, separate Storage and quota
@@ -9,9 +9,20 @@ home/task/file rows and private PNG objects. Existing customer data and remote
 production configuration are never targeted.
 
 The fixture uses actual GoTrue getUser for family-snapshot consent identities,
-a synthetic signing key, the existing signed household port and its full private
-review fences. Complete-inventory authorization and current MFA/management policy
-are still injected. It is not shipping consent or least-privilege route evidence.
+synthetic signing keys, the existing signed household port and its full private
+review fences. The prepared complete-inventory provider verifies the exact real
+bearer using getUser before decoding signed password AMR timestamps. Recent
+password authentication comes from that AMR timestamp, not getUser completion.
+It locks real GoTrue sessions and existing enrollment/account rows and refuses
+verified MFA factors in this disposable no-factor policy. Journal reservation,
+status and activation use separate signed-inventory authorization/approval calls.
+The review SQL captures the same-transaction signed approval and checks it again
+at COMMIT. These new assertions require same-head actual-service CI evidence;
+older green runs with injected inventory authorization do not prove them.
+
+Production policy acquisition, factor-insertion/predicate and current-MFA pins,
+least-privilege adapters and the native consent UI are still open. This test-only
+no-factor policy is not a shipping authorization provider.
 
 Intended checks, not a success claim until same-head CI logs prove execution:
 
@@ -31,12 +42,13 @@ Intended checks, not a success claim until same-head CI logs prove execution:
   refused with JSON errors; after real receiver logout, the old bearer is refused
   while the user row, records and destination bytes remain. These added handler
   assertions require same-head CI verification and do not deploy a public route.
-- Consent revocation blocks readback/restart while original bytes and both Auth
+- Separate complete-inventory consent revocation blocks readback/restart while
+  the old family-snapshot signatures remain unchanged. Original bytes and both Auth
   accounts remain. No activation receipt is equated with retirement completion.
 
 The fixture installs review-only SQL into the workflow's disposable database and
 requires the fixed local service origin and explicit test flag. No configurable
 production URL, new exposed role/grant, production migration or paid resource is
-introduced. Concurrent activation/cancellation, actual inventory-bound signing,
-current Auth/MFA pinning, durable source cleanup/completion, shipping/native routes
+introduced. Concurrent activation/cancellation, current Auth/MFA policy pinning,
+durable source cleanup/completion, shipping/native routes
 and physical-device recovery still require further verification.

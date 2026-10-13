@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
+import {createFamilyAttachmentInventoryConsent} from '../../lib/family-attachment-inventory-consent.mjs';
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
@@ -12,7 +13,10 @@ import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
- * key. Complete-inventory authorization/current MFA remain injected. No shipping
+ * key. Complete-inventory consents now use verified real bearers, password AMR
+ * timestamps and locked live GoTrue sessions. Project MFA policy is fixed to the
+ * disposable no-factor configuration; shipping policy/factor pins remain open.
+ * No shipping
  * route, new production grant, source cleanup or whole-account completion proof.
  * Runs last: its global private review fences must not change preceding cases.
  */
@@ -40,6 +44,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   // Journal/quota were installed by the earlier awaited actual quota fixture.
   for(const name of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.query(readFileSync('tests/fixtures/handoff-controller-compatibility/'+name,'utf8'));
   await db.query(readFileSync('tests/fixtures/family-attachment-activation.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
   const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner.user,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequestID,scopeID:owner.epoch}]};
   await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner.user,controllerScope,nativeLease]);
   await db.query('select maintenance_private.freeze_household_scope($1,$2)',[controllerScope,nativeLease]);
@@ -66,8 +71,51 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }
   const scope={requestID:controllerScope.requestID,homeID,userID:owner.user,ownerEpoch:owner.epoch,nativeRequestID,nativeLease,controllerScope};
   const plan={requestID:scope.requestID,homeID,ownerID:owner.user,ownerEpoch:owner.epoch,recipientID:receiver.user,recipientEpoch:receiver.epoch,snapshotDigest:consentPlan.familySnapshotDigest,files:source.map(({id,user})=>({id,mime:'image/png',size:bytes.length,sha256:sha,source:{userID:user.user,epoch:user.epoch,path:`${user.user}/${user.epoch}/${id}.png`}}))};
-  const provider=()=>createFamilyAttachmentStatus({transaction,authorize:async()=>true}); // inventory/MFA injection remains explicit
-  const journal=createFamilyAttachmentJournal({transaction,authorize:async()=>true});
+  const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+  async function originalInventory(tx){
+   const members=(await tx.query('select user_id from public.home_members where "homeId"=$1 order by user_id for update',[homeID])).rows;
+   const products=(await tx.query('select id from public.products where "homeId"=$1 order by id for update',[homeID])).rows;
+   const files=(await tx.query("select f.* from maintenance_private.product_attachments f join public.products p on p.id=f.product_id where p.\"homeId\"=$1 and f.state<>'removed' order by f.id for update of f",[homeID])).rows;
+   const writes=(await tx.query("select w.* from maintenance_private.attachment_write_attempts w join maintenance_private.product_attachments f on f.id=w.attachment_id join public.products p on p.id=f.product_id where p.\"homeId\"=$1 and f.state<>'removed' order by w.attachment_id for update of w",[homeID])).rows;
+   return JSON.parse(JSON.stringify({members,products,files,writes}));
+  }
+  async function liveActor(tx,c,signal){
+   signal.throwIfAborted();
+   // Real session/enrollment locks. This fixture has no MFA factors and refuses
+   // any verified factor; it is not a production policy/predicate-lock adapter.
+   const row=(await tx.query("select s.aal::text as aal,public.read_maintenance_explicit_enrollment(s.user_id,s.id) as epoch,(s.not_after is null or s.not_after>clock_timestamp()) and s.created_at<=clock_timestamp() as current from auth.sessions s where s.id=$1 and s.user_id=$2 for update of s",[c.sessionID,c.actorID])).rows[0];
+   const enrollment=(await tx.query('select e.epoch_id from maintenance_private.app_epochs e join maintenance_private.account_access a on a.user_id=e.user_id join maintenance_private.app_session_epochs b on b.user_id=e.user_id and b.epoch_id=e.epoch_id where e.user_id=$1 and b.session_id=$2 and e.enabled and a.enabled for share of e,a,b',[c.actorID,c.sessionID])).rows;
+   const factors=(await tx.query("select id from auth.mfa_factors where user_id=$1 and status::text='verified' for share",[c.actorID])).rows;
+   signal.throwIfAborted();return !!row&&row.current===true&&row.aal===c.aal&&row.epoch===c.epochID&&enrollment.length===1&&enrollment[0].epoch_id===c.epochID&&factors.length===0;
+  }
+  const inventoryConsent=createFamilyAttachmentInventoryConsent({key:randomBytes(32),store:{
+   transaction,target:async(tx,request,home,actor)=>{assert.equal(request,scope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));return {scope,plan,inventory:await originalInventory(tx)};},
+   records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,
+   record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
+  },verifyIdentity:async(token,tx,signal)=>{
+   // Decode ONLY after Auth verified this exact bearer. Recent authentication
+   // comes from signed password AMR, never Date.now()/getUser completion time.
+   const verified=await admin.auth.getUser(token);signal.throwIfAborted();
+   if(verified.error||!verified.data.user)return null;
+   const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString('utf8'));
+   const passwords=Array.isArray(claims.amr)?claims.amr.filter(c=>c.method==='password'&&Number.isSafeInteger(c.timestamp)):[];
+   if(claims.sub!==verified.data.user.id||!uuid(claims.session_id)||claims.aal!=='aal1'||passwords.length!==1)return null;
+   const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
+   if(!Number.isSafeInteger(claims.exp)||claims.exp*1000<=clock)return null;
+   const actor={actorID:claims.sub,epochID:claims.sub===owner.user?owner.epoch:claims.sub===receiver.user?receiver.epoch:null,sessionID:claims.session_id,aal:claims.aal};
+   if(!actor.epochID||!await liveActor(tx,actor,signal))return null;
+   return {userID:actor.actorID,...actor,authenticatedAt:passwords[0].timestamp*1000,checkedAt:clock};
+  },verifyActor:liveActor,currentAuthority:async(tx,s,p,i,d,signal)=>{
+   signal.throwIfAborted();
+   const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests n join maintenance_private.household_stop_bindings b on b.user_id=n.user_id join maintenance_private.household_family_holds h on h.principal=n.user_id where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4 and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token and b.scope=$5::jsonb and b.state='processing' and b.lease_until>clock_timestamp() and h.home_id=$6 and h.scope=b.scope) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,JSON.stringify(s.controllerScope),s.homeID])).rows[0];
+   signal.throwIfAborted();return row.current===true;
+  }});
+  for(const actor of [owner,receiver]){
+   const session=await actor.client.auth.getSession();assert.equal(session.error,null);
+   assert.equal((await inventoryConsent.issue({requestID:scope.requestID,homeID,accessToken:session.data.session.access_token,confirmation:'写真・保証書の一覧と受取先を確認して引き継ぎに同意する',signal:AbortSignal.timeout(10000)})).status,'accepted');
+  }
+  const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
+  const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
   let status=provider(),preparations=0,activations=0,cleanupCalls=0;
   const storage=createFamilyAttachmentStoragePorts({clientForSignal:signal=>createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(signal)}}),guard:async(s,p,f,operation,signal)=>{
    if(operation==='cleanup'){cleanupCalls++;return false;} // no source erasure in this fixture
@@ -76,7 +124,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const ports={...storage,plan:async()=>plan,guard:async(s,signal)=>{await status(s,plan,signal);return true;},status:(...args)=>status(...args),
    prepare:async(...args)=>{preparations++;await journal.prepare(...args);throw Error('Successful reservation reply lost');},
    activate:async(s,p,digest,proof,signal)=>{
-    activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async()=>true});
+    activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:inventoryConsent.authorizeActivation});
     await transaction(tx=>createHouseholdHandoffPort(key,activation)(controllerScope,nativeLease,homeID,tx));
     throw Error('Successful activation reply lost');
    },finish:async()=>{throw Error('Whole-account completion not implemented');}
@@ -91,6 +139,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.deepEqual((await db.query('select maintenance_private.household_family_snapshot($1) as value',[homeID])).rows[0].value,saved);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts where request_id=$1',[scope.requestID])).rows[0].n,1);
   assert.equal((await db.query('select state from maintenance_private.family_attachment_quota where request_id=$1',[scope.requestID])).rows[0].state,'consumed');
+  const signedContext=(await db.query('select inventory_approval from maintenance_private.family_attachment_activation_contexts where request_id=$1',[scope.requestID])).rows;
+  assert.equal(signedContext.length,1);assert.equal(signedContext[0].inventory_approval.consents.length,2);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents where request_id=$1',[scope.requestID])).rows[0].n,2);
   for(const path of [plan.files[0].source.path,plan.files[1].source.path,`${receiver.user}/${receiver.epoch}/${ownFile}.png`]){
    const result=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(result.error,null);assert.deepEqual(Buffer.from(await result.data.arrayBuffer()),bytes);
   }
@@ -118,8 +169,8 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const session=await actor.client.auth.getSession();assert.equal(session.error,null);
    for(const id of [ownFile,memberFile])await refused(await downloadWithToken(session.data.session.access_token,id));
   }
-  await db.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where home_id=$1 and actor_id=$2',[homeID,receiver.user]);
-  await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Retained family consent/);
+  await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
+  await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[0].source.path)).error,null);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
