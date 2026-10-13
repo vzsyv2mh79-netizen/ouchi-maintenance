@@ -1,0 +1,27 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Prepared immutable Keychain vault plus two-process smoke test; app source/verification registration only, no live native flow or HTTP endpoint.",
+  "custody": "Exact canonical accountID/epochID/submissionID only, synchronizable=false, requested WhenUnlockedThisDeviceOnly. Save requires exact readback; same-nonce foreign scope rejected. References filtered by account AND epoch; unknown references are retained, no automatic renewal or logout cleanup. Explicit removal affects only a matching local reference, never cancels a remote request.",
+  "capacity": "At most32 records in ordinary serialized app use; admission check fails closed on unavailable/overfull inventory. This is not a cross-process atomic quota. No automatic oldest-record purge.",
+  "verified": {
+    "freshSwiftCoreCompilation": "passed",
+    "twoProcesses": "passed",
+    "macOSKeychainSaveRestore": "passed",
+    "immutableRetry": "passed",
+    "foreignScopeRefusal": "passed",
+    "epochFiltering": "passed",
+    "exactPayload": "passed",
+    "successfulRunSyntheticCleanup": "passed",
+    "iOSProtectionAttribute": "not verified on macOS",
+    "lockedDevice": "not verified",
+    "firstAttempt": "Restore reached scoped reads but failed iOS-only attribute assertion on legacy macOS Keychain; test now retains iOS assertion and explicitly marks macOS limitation.",
+    "firstAttemptFixtureCleanup": "Unconfirmed; dedicated recovery inspection was stopped. One nonpersonal synthetic reference may remain."
+  },
+  "remaining": [
+    "Protected native flow wiring and restart reference selection UI",
+    "iOS protection attributes/locked-device behavior",
+    "Actual authenticated route, classification/erasure and finite retention",
+    "Actual device, App Store purchase/submission validation"
+  ]
+}

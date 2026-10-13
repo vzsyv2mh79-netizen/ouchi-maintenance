@@ -34,18 +34,19 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     for test in tests:
         executable = build / test.stem
         sources = [test]
+        if test.stem == 'AccountClosureReviewVaultRestartSmoke': sources.append(root / 'OuchiMaintenance' / 'AccountClosureReviewVault.swift')
         if test.stem in ('SnapshotStorageSmoke', 'AccountDeletionLocalCleanupSmoke'): sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
         if test.stem in ('DeletionReceiptVaultSmoke', 'DeletionReceiptVaultRestartSmoke'): sources.append(root / 'OuchiMaintenance' / 'DeletionReadCredentialVault.swift')
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
         run(common + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
-        if test.stem == 'DeletionReceiptVaultRestartSmoke':
+        if test.stem in ('DeletionReceiptVaultRestartSmoke', 'AccountClosureReviewVaultRestartSmoke'):
             marker = build / 'receipt-restart-marker.json'
             run([executable, 'save', marker])
             run([executable, 'restore', marker])
             assert not marker.exists()
         else:
             run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
-    typechecked = ['DeletionReadCredentialVault.swift', 'KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
+    typechecked = ['AccountClosureReviewVault.swift', 'DeletionReadCredentialVault.swift', 'KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
     run(common + ['-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])
