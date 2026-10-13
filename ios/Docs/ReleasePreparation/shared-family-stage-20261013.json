@@ -9,21 +9,22 @@
     "Requires each household orchestrator to report exact completed home; then rechecks frozen coverage and all durable completion receipts under a private pinned transaction.",
     "Mandatory verifyOtherApps independently checks all other app family obligations before any global handoff-family stage receipt.",
     "Persists and reads back the exact protocol-v2 stage/apps/inventory/coverage digest, with immutable before-COMMIT controller/coverage/completion checks.",
-    "Cannot perform app erasure, Auth erasure, post-Auth verification or complete. Those existing shared protocol stages remain mandatory."
+    "Cannot perform app erasure, Auth erasure, post-Auth verification or complete. Those existing shared protocol stages remain mandatory.",
+    "Immutable family coverage digest excludes native/root execution lease tokens. Current leases remain independently verified; an exact existing stage receipt is read before record, preventing another write after verified lease rebind."
   ],
   "localEvidence": {
     "syntheticContractCases": {
-      "passed": 9,
+      "passed": 10,
       "failed": 0,
       "skipped": 0
     },
     "lint": "passed",
     "typecheck": "passed",
     "fullRegression": {
-      "passed": 711,
+      "passed": 712,
       "failed": 0,
       "skipped": 0,
-      "log": "/private/tmp/ouchi-shared-family-stage-regression-20261013.log"
+      "log": "/private/tmp/ouchi-shared-family-rebind-regression-20261013.log"
     }
   },
   "evidenceLimit": "Contract tests use synthetic controller store/transactions and family ports. They prove gating and rollback/retry behavior, not actual controller SQL/coordinator deployment or other-app completion.",
@@ -47,5 +48,6 @@
     "Native real device, actual Apple Sandbox/TestFlight and submission; owner payment held."
   ],
   "sourceManifest": "Updated consent fixture re-export/current canonical SHA while retaining prior source-copy SHA.",
-  "safety": "No production migration/grant/credentials/scheduler/endpoint/deletion/billing/paid infrastructure enabled."
+  "safety": "No production migration/grant/credentials/scheduler/endpoint/deletion/billing/paid infrastructure enabled.",
+  "recoveryEvidence": "Synthetic committed response-loss -> new root/native leases -> same receipt, one record write, current-authority loss still refused. Actual SQL/coordinator rebind and historical scope mapping are not yet proven."
 }
