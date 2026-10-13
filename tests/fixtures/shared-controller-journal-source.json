@@ -1,0 +1,6 @@
+{
+  "sha256": "ee0a12bbabadc0bd9a3d26cfa6fe0dbcb22857f93715e374ba9e653d0e10c9b2",
+  "copiedFor": "Disposable composition against existing coordinator table; source unchanged; no production migration or grant.",
+  "sourceFixturePath": "ios/Backend/tests/fixtures/shared-deletion-journal.sql",
+  "sourceProject": "Sibling Kakei backend coordinator review fixture"
+}

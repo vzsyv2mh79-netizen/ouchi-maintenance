@@ -6,6 +6,8 @@ import {createFamilyAttachmentInventoryConsent} from '../../lib/family-attachmen
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentStatus} from '../../lib/family-attachment-status.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
+import {createSharedFamilyStageStore} from '../../lib/shared-family-stage-store.mjs';
+import {sharedFamilyCoverageDigest} from '../../lib/shared-family-handoff-stage.mjs';
 import {createFamilyAttachmentCompletion} from '../../lib/family-attachment-completion.mjs';
 import {createFamilyAttachmentStoragePorts} from '../../lib/family-attachment-storage.mjs';
 import {handoffFamilyAttachments,normalizeFamilyAttachmentPlan} from '../../lib/family-attachment-handoff.mjs';
@@ -372,6 +374,38 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal(await historical(),true);
   assert.equal((await completionProvider().status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(finishCalls,1);
+  // All remote copy/removal/GoTrue work above is independently committed.
+  // This final controller SQL checkpoint never performs remote side effects.
+  await db.query(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
+  const fixedController={...controllerScope};delete fixedController.leaseToken;
+  await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '2 minutes',$5)",[controllerScope.requestID,controllerScope.userID,fixedController,controllerScope.leaseToken,{prepare:{durable:true,stage:'prepare',...fixedController}}]);
+  const frozenTargets=[{scope,plan:normalizeFamilyAttachmentPlan(plan)}],coverageDigest=sharedFamilyCoverageDigest(frozenTargets,controllerScope);
+  const checkpoint=createSharedFamilyStageStore({verifyReadAuthority:(tx,s,signal)=>{assert.deepEqual(s,controllerScope);return controllerCurrent(tx,scope,normalizeFamilyAttachmentPlan(plan),signal);},loadValidatedTargets:async(tx,s,digest,signal)=>{
+   assert.deepEqual(s.apps,controllerScope.apps);assert.equal(s.apps.length,1); // no unverified other app in this isolated fixture
+   assert.equal(digest,coverageDigest);assert.equal(await committedHousehold(tx,scope,signal),true);
+   return frozenTargets;
+  }});
+  const failedSignal=AbortSignal.timeout(10000);
+  await assert.rejects(transaction(async tx=>{
+   await checkpoint.record(tx,controllerScope,coverageDigest,failedSignal);
+   await tx.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[controllerScope.requestID]);
+  },failedSignal),/checkpoint lease|controller family checkpoint/i);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,0);
+  assert.equal((await db.query("select receipts ? 'handoff-family' as present from private.kb_shared_deletion_journal where request_id=$1",[controllerScope.requestID])).rows[0].present,false);
+  // Outer checkpoint failure cannot roll back already-committed family cleanup.
+  assert.equal((await completionProvider().status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
+  for(const f of relocated){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.data,null);assert.equal(missing.error?.code,'NoSuchKey');}
+  for(const f of normalizeFamilyAttachmentPlan(plan).files){const kept=await admin.storage.from('ouchi-product-attachments').download(f.destination.path);assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);}
+  const retrySignal=AbortSignal.timeout(10000);
+  await transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,retrySignal),retrySignal);
+  const readSignal=AbortSignal.timeout(10000);
+  const globalReceipt=await transaction(tx=>checkpoint.read(tx,controllerScope,readSignal),readSignal);
+  assert.equal(globalReceipt.stage,'handoff-family');assert.equal(globalReceipt.familyCoverageDigest,coverageDigest);
+  const againSignal=AbortSignal.timeout(10000);await transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,againSignal),againSignal);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,1);
+  assert.equal(finishCalls,1);assert.equal(removedSourcePaths.length,2);
+  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[nativeRequestID])).rows[0].state,'running');
   for(const id of [ownFile,memberFile,secondOwnFile])await refused(await downloadWithToken(receiverToken,id));
   // Logout must not remove records, bytes or the GoTrue user itself.
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);

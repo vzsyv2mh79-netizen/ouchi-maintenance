@@ -7,6 +7,8 @@ import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs'
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs';
+import {sharedFamilyCoverageDigest} from '../lib/shared-family-handoff-stage.mjs';
 import {StorageApiError} from '@supabase/supabase-js';
 import {createFamilyAttachmentCompletion} from '../lib/family-attachment-completion.mjs';
 import {createFamilyAttachmentStoragePorts} from '../lib/family-attachment-storage.mjs';
@@ -455,5 +457,57 @@ test('client JSON storage flags, query-only transactions, cancellation and read-
   await c.s.f.db.exec('set role service_role');
   await assert.rejects(c.s.f.db.exec('select * from maintenance_private.family_attachment_completion_receipts'),/permission denied/);
   await c.s.f.db.exec('reset role');
+ }finally{await c.s.f.db.close();}
+});
+
+
+async function checkpointSetup(){
+ const c=await completionSetup();c.clean();await c.finish();
+ const s=c.s.f.scope.controllerScope;
+ await c.s.f.db.exec(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
+ await c.s.f.db.exec(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
+ const fixed={...s};delete fixed.leaseToken;
+ await c.s.f.db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '2 minutes',$5)",[s.requestID,s.userID,fixed,s.leaseToken,{prepare:{durable:true,stage:'prepare',...fixed}}]);
+ const list=[{scope:c.s.f.scope,plan:c.plan}],coverageDigest=sharedFamilyCoverageDigest(list,s);
+ const store=createSharedFamilyStageStore({verifyReadAuthority:async()=>true,loadValidatedTargets:async(tx,scope)=>{
+  assert.deepEqual(scope.apps,s.apps); // only maintenance exists in this fixture
+  assert.equal(scope.apps.length,1);
+  assert.equal(await c.options.verifyCommittedConsent(tx,c.s.f.scope,c.signal()),true);
+  return list;
+ }});
+ const record=(tx,scope=s)=>store.record(tx,scope,coverageDigest,c.signal());
+ const read=scope=>c.s.transaction(tx=>store.read(tx,scope??s,c.signal()));
+ return {...c,root:s,list,coverageDigest,store,record,read};
+}
+
+test('actual private controller checkpoint reads committed family completion and survives root lease recovery with one context',async()=>{
+ const c=await checkpointSetup();try{
+  assert.equal(await c.read(),null);await c.s.transaction(tx=>c.record(tx));
+  const first=await c.read();assert.equal(first.stage,'handoff-family');assert.equal(first.familyCoverageDigest,c.coverageDigest);
+  const recovered={...c.root,leaseToken:oe};
+  await c.s.f.db.query('update private.kb_shared_deletion_journal set lease_token=$1 where request_id=$2',[recovered.leaseToken,c.root.requestID]);
+  await c.s.transaction(tx=>c.record(tx,recovered));assert.deepEqual(await c.read(recovered),first);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,1);
+  await assert.rejects(c.s.f.db.query("update private.kb_shared_deletion_journal set receipts=receipts-'handoff-family' where request_id=$1",[c.root.requestID]),/Immutable controller family/);
+ }finally{await c.s.f.db.close();}
+});
+
+for(const fault of ['rootLeaseExpired','missingPrepare','wrongRootLease','unplannedFamilyHome','contextExpired'])test(`controller checkpoint SQL rejects ${fault} before committing a global receipt`,async()=>{
+ const c=await checkpointSetup();try{
+  const txrun=(cb)=>c.s.transaction(tx=>cb({beforeCommit:()=>{},query:async(sql,args)=>{
+   const result=await tx.query(sql,args);
+   if(sql.startsWith('update private.kb_shared_deletion_journal set receipts=receipts||')){
+    if(fault==='rootLeaseExpired')await tx.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[c.root.requestID]);
+    if(fault==='missingPrepare')await tx.query("update private.kb_shared_deletion_journal set receipts=receipts-'prepare' where request_id=$1",[c.root.requestID]);
+    if(fault==='wrongRootLease')await tx.query('update private.kb_shared_deletion_journal set lease_token=$1 where request_id=$2',[oe,c.root.requestID]);
+    if(fault==='contextExpired')await tx.query('select pg_sleep(5.1)');
+    if(fault==='unplannedFamilyHome')await tx.query('insert into maintenance_private.household_handoff_plans select $1,owner_id,successor_id,scope,plan,plan_digest,snapshot from maintenance_private.household_handoff_plans limit 1',[os]);
+   }
+   return result;
+  }}));
+  await assert.rejects(txrun(tx=>c.record(tx)),/controller family checkpoint|family coverage/i);
+  assert.equal(await c.read(),null);
+  assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,0);
+  await c.s.transaction(tx=>c.record(tx));assert.equal((await c.read()).durable,true);
  }finally{await c.s.f.db.close();}
 });

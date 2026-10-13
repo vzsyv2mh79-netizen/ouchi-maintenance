@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {connectSharedFamilyStage} from '../lib/shared-family-stage-store.mjs';
 import {createSharedFamilyHandoffStage} from '../lib/shared-family-handoff-stage.mjs';
 import {normalizeFamilyAttachmentPlan} from '../lib/family-attachment-handoff.mjs';
 import {runSharedDeletion} from '../lib/shared-deletion-protocol.mjs';
@@ -62,4 +63,18 @@ test('lost global stage reply reconciles the same frozen coverage after verified
  f.controller={...root,leaseToken:id(21)};
  assert.deepEqual(await f.run(),original);assert.equal(f.writes,1);assert.equal(f.finished.size,2);
  f.current=false;assert.equal(await f.run(),null);assert.equal(f.writes,1);
+});
+
+
+test('family bridge keeps external handoff outside legacy perform transaction and preserves later refusal gates',async()=>{
+ let inside=false,familyCalls=0,legacyFamilyCalls=0;const receipts=new Map();
+ const makeReceipt=stage=>({durable:true,protocolVersion:2,kind:root.kind,stage,requestID:root.requestID,userID:root.userID,inventoryDigest:root.inventoryDigest,apps:root.apps});
+ const journal={readReceipt:async(s,stage)=>receipts.get(stage)??null,verifyCoverage:async()=>true,leaseCurrent:async()=>true,perform:async(s,stage)=>{
+  inside=true;try{if(stage==='handoff-family'){legacyFamilyCalls++;throw Error('Unsafe outer family transaction');}if(stage==='prepare'){const r=makeReceipt(stage);receipts.set(stage,r);return r;}return null;}finally{inside=false;}
+ }};
+ const signal=new AbortController().signal;
+ const adapters=connectSharedFamilyStage({journal,signal,readFamilyReceipt:async()=>receipts.get('handoff-family')??null,familyStage:async()=>{assert.equal(inside,false);familyCalls++;const r=makeReceipt('handoff-family');receipts.set('handoff-family',r);return r;}});
+ assert.deepEqual(await runSharedDeletion(root,adapters,signal),{state:'pending',stage:'verify-family-before'});
+ assert.equal(familyCalls,1);assert.equal(legacyFamilyCalls,0);
+ assert.deepEqual(await runSharedDeletion(root,adapters,signal),{state:'pending',stage:'verify-family-before'});assert.equal(familyCalls,1);
 });
