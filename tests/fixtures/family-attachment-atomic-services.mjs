@@ -11,6 +11,7 @@ import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs'
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
 import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller-compatibility/handoff-consent.mjs';
 import {syntheticTOTP} from './home-handoff-mfa.mjs';
+import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -33,7 +34,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
  await db.connect();
  try{
   const owner=await account(),receiver=await account(),unrelated=await account();
-  const totpTimes=new Map();
+  const totpTimes=new Map(),totpFactors=new Map();
   for(const actor of [owner,receiver]){
    const enrolled=await actor.client.auth.mfa.enroll({factorType:'totp',friendlyName:'Synthetic atomic handoff authenticator'});
    assert.equal(enrolled.error,null);assert.equal(enrolled.data.type,'totp');
@@ -44,6 +45,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    assert.equal(claims.sub,actor.user);assert.equal(claims.session_id,actor.session);assert.equal(claims.aal,'aal2');
    const amr=claims.amr.filter(value=>value.method==='totp');assert.equal(amr.length,1);
    totpTimes.set(actor.user,amr[0].timestamp*1000);
+   totpFactors.set(actor.user,enrolled.data.id);
    assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[actor.session])).rows[0].aal,'aal2');
   }
   const homeID=randomUUID(),productID=randomUUID(),taskID=randomUUID(),ownFile=randomUUID(),memberFile=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
@@ -70,9 +72,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const consentPlan={protocolVersion:2,requestID:controllerScope.requestID,userID:owner.user,inventoryDigest:controllerScope.inventoryDigest,appRequestID:nativeRequestID,appScopeID:owner.epoch,householdID:homeID,successorID:receiver.user,memberIDs:[owner.user,receiver.user],familyRecordIDs:[productID],familySnapshotDigest:snapshotDigest(saved)};
   await db.query('insert into maintenance_private.household_handoff_plans values($1,$2,$3,$4,$5,$6,$7)',[homeID,owner.user,receiver.user,controllerScope,consentPlan,handoffPlanDigest(controllerScope,consentPlan),saved]);
   await db.query('insert into maintenance_private.household_family_holds values($1,$2,$3)',[homeID,owner.user,controllerScope]);
-  const transaction=async callback=>{
+  const transaction=async(callback,signal=AbortSignal.timeout(10000))=>{
    await db.query('begin');
-   try{await db.query("set local statement_timeout='4500ms'");const result=await callback(db);await db.query('commit');return result;}
+   try{await db.query("set local statement_timeout='4500ms'");const result=await runWithTransactionCommitChecks(db,signal,callback);await db.query('commit');return result;}
    catch(error){await db.query('rollback');throw error;}
   };
   const key=randomBytes(32);
@@ -156,7 +158,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
   const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
-  let status=provider(),preparations=0,activations=0,cleanupCalls=0;
+  let status=provider(),preparations=0,activations=0,cleanupCalls=0,tamperNextActivation=true,lastActivationFailure=null;
   const storage=createFamilyAttachmentStoragePorts({clientForSignal:signal=>createClient(origin,service,{...options,global:{fetch:createAttachmentFetch(signal)}}),guard:async(s,p,f,operation,signal)=>{
    if(operation==='cleanup'){cleanupCalls++;return false;} // no source erasure in this fixture
    const current=await status(s,p,signal);return current.state==='prepared'||current.state==='activated';
@@ -165,16 +167,33 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    prepare:async(...args)=>{preparations++;await journal.prepare(...args);throw Error('Successful reservation reply lost');},
    activate:async(s,p,digest,proof,signal)=>{
     activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:inventoryConsent.authorizeActivation});
-    await transaction(tx=>createHouseholdHandoffPort(key,activation)(controllerScope,nativeLease,homeID,tx));
+    try{await transaction(async tx=>{
+     await createHouseholdHandoffPort(key,activation)(controllerScope,nativeLease,homeID,tx);
+     if(tamperNextActivation){
+      tamperNextActivation=false;
+      // The transfer and receipts have been written, but COMMIT has not run.
+      // Changing a pinned factor in this same transaction must invalidate its
+      // signed Auth-state snapshot and roll back both the factor and transfer.
+      assert.equal((await tx.query('update auth.mfa_factors set friendly_name=$1 where id=$2 and user_id=$3 returning id',['Synthetic late factor mutation',totpFactors.get(receiver.user),receiver.user])).rowCount,1);
+     }
+    },signal);}catch(error){lastActivationFailure=error;throw error;}
     throw Error('Successful activation reply lost');
    },finish:async()=>{throw Error('Whole-account completion not implemented');}
   };
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'absent');
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
-  assert.equal(preparations,1);assert.equal(activations,1);assert.ok(cleanupCalls>0);
+  assert.equal(preparations,1);assert.equal(activations,1);assert.equal(cleanupCalls,0);
+  assert.equal(lastActivationFailure?.code,'CURRENT_TRANSACTION_VERIFICATION_REQUIRED');
+  assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'prepared');
+  assert.equal((await db.query('select owner_id from public.homes where id=$1',[homeID])).rows[0].owner_id,owner.user);
+  assert.equal((await db.query('select friendly_name from auth.mfa_factors where id=$1',[totpFactors.get(receiver.user)])).rows[0].friendly_name,'Synthetic atomic handoff authenticator');
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts where request_id=$1',[scope.requestID])).rows[0].n,0);
+  // Retry from the original saved consent/inventory after the failed transaction.
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
+  assert.equal(preparations,1);assert.equal(activations,2);assert.ok(cleanupCalls>0);
   status=provider();assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
-  assert.equal(preparations,1);assert.equal(activations,1);
+  assert.equal(preparations,1);assert.equal(activations,2);
   assert.equal((await db.query('select owner_id from public.homes where id=$1',[homeID])).rows[0].owner_id,receiver.user);
   assert.deepEqual((await db.query('select maintenance_private.household_family_snapshot($1) as value',[homeID])).rows[0].value,saved);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts where request_id=$1',[scope.requestID])).rows[0].n,1);
@@ -219,7 +238,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
   await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
-  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,1);
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,2);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[0].source.path)).error,null);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
   const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);

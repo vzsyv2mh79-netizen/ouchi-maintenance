@@ -7,6 +7,7 @@ import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs'
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
 async function setup({activation=false,commitFault=null,memberOnly=false}={}){
@@ -19,7 +20,7 @@ async function setup({activation=false,commitFault=null,memberOnly=false}={}){
   if(sql.includes('as consent_now'))return {rows:[{consent_now:Number(result.rows[0].consent_now)+offset}]};
   return result;
  }});
- const transaction=cb=>f.db.transaction(tx=>cb(adapt(tx)));
+ const transaction=(cb,signal=AbortSignal.timeout(10000))=>f.db.transaction(tx=>runWithTransactionCommitChecks(adapt(tx),signal,cb));
  async function inventory(tx){
   const members=(await tx.query('select user_id from public.home_members where "homeId"=$1 order by user_id for update',[f.scope.homeID])).rows;
   const products=(await tx.query('select id from public.products where "homeId"=$1 order by id for update',[f.scope.homeID])).rows;
@@ -147,11 +148,28 @@ for(const memberOnly of [false,true])test(`late inventory revocation rolls atomi
 test('boolean authorization or a prior transaction approval cannot authorize atomic activation',async()=>{
  const s=await setup();try{
   await s.issue(owner);await s.issue(recipient);
+  assert.equal(await s.transaction(tx=>s.provider.authorizeActivation({query:tx.query},s.f.scope,s.f.plan,s.original,digest(s.original),new AbortController().signal)),false,'A query-only adapter cannot omit final verification');
   await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
   assert.equal(await s.transaction(tx=>s.provider.authorizeActivation(tx,s.f.scope,s.f.plan,s.original,digest(s.original),new AbortController().signal)),true);
   assert.deepEqual(await s.f.run(),{state:'pending'});
   assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,owner);
   assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_approvals')).rows[0].n,1);
+  assert.equal(s.f.removals,0);
+ }finally{await s.f.db.close();}
+});
+
+test('session loss after the final receipt write rejects the whole activation transaction',async()=>{
+ const s=await setup({activation:true,commitFault:'inventorySessionLost'});try{
+  await s.issue(owner);await s.issue(recipient);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
+  const before=(await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows;
+  assert.deepEqual(await s.f.run(),{state:'pending'});
+  assert.equal(s.f.lateAuthReceiptWritten,true);
+  assert.equal(s.f.activationError?.code,'CURRENT_TRANSACTION_VERIFICATION_REQUIRED');
+  assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,owner);
+  assert.deepEqual((await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows,before);
+  assert.equal((await s.f.db.query('select user_id from auth.sessions where id=$1',[rs])).rows[0].user_id,recipient);
+  for(const table of ['family_attachment_activation_contexts','family_attachment_activation_receipts','household_handoff_receipts'])assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.'+table)).rows[0].n,0);
   assert.equal(s.f.removals,0);
  }finally{await s.f.db.close();}
 });

@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {seedHomeHandoffFullSchemaFixture} from './home-handoff-full-schema.mjs';
-import {owner,recipient,home,product,oe,re} from './home-handoff-identifiers.mjs';
+import {owner,recipient,home,product,oe,re,rs} from './home-handoff-identifiers.mjs';
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
 import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller-compatibility/handoff-consent.mjs';
 import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal.mjs';
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
+import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
 export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null}={}){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
@@ -50,13 +51,16 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
   writeDestination:async(s,p,f)=>{objects.set(f.destination.path,objects.get(f.source.path));},
   activate:async(s,p,d,proof,signal)=>{
    const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async(...args)=>(++checks===1||postAuthority)&&await (activationAuthorize??inventoryAuthorize)(...args)});
-   try{await db.transaction(tx=>{
-    const pinned=adapter(tx);
+   try{await db.transaction(raw=>runWithTransactionCommitChecks(adapter(raw),signal,pinned=>{
     // Fault injection: a lying adapter claims the receipt was inserted. The DB
     // deferred group check must still refuse COMMIT using actual persisted rows.
-    const guarded={query:async(sql,args)=>{
+    const guarded={
+     // Deliberately faulty backend for the existing SQL-deadline witness only.
+     beforeCommit:commitFault==='recentAuthenticationExpired'?()=>{}:pinned.beforeCommit,
+     query:async(sql,args)=>{
      if(omitReceipt&&sql.startsWith('insert into maintenance_private.family_attachment_activation_receipts'))return {rows:[],rowCount:1};
      if(commitFault&&sql.startsWith('insert into maintenance_private.household_handoff_receipts')){
+      if(commitFault==='inventorySessionLost')await pinned.query('delete from auth.sessions where id=$1',[rs]);
       if(commitFault==='recentAuthenticationExpired'){
        const row=(await pinned.query('select extract(epoch from(expires_at-clock_timestamp()))*1000 as remaining from maintenance_private.family_attachment_inventory_approvals where transaction_id=txid_current()')).rows[0];
        lateAuthWindow=Number(row?.remaining);
@@ -68,11 +72,11 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
       if(commitFault==='revokedConsent')await pinned.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where home_id=$1 and actor_id=$2',[home,recipient]);
      }
      const result=await pinned.query(sql,args);
-     if(commitFault==='recentAuthenticationExpired'&&sql.startsWith('insert into maintenance_private.household_handoff_receipts'))lateAuthReceiptWritten=true;
+     if(['recentAuthenticationExpired','inventorySessionLost'].includes(commitFault)&&sql.startsWith('insert into maintenance_private.household_handoff_receipts'))lateAuthReceiptWritten=true;
      return result;
     }};
     return createHouseholdHandoffPort(key,activation)(controllerScope,nativeLease,home,guarded);
-   });}catch(error){activationError=error;throw error;}
+   }));}catch(error){activationError=error;throw error;}
   },
   removeSource:async()=>{removals++;throw Error('Cleanup intentionally not implemented in this activation fixture');},
   sourceAbsent:async()=>false,finish:async()=>{throw Error('Activation is not whole-account completion');}
