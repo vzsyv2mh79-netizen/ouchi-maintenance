@@ -22,6 +22,7 @@ import Darwin
     @State private var flow: AccountClosureReviewFlow?
     @State private var receipt: AccountClosureReviewReceipt?
     @State private var password = ""
+    @FocusState private var passwordFocused: Bool
     @State private var consent = false
     @State private var message: String?
     @State private var loaded = false
@@ -33,7 +34,16 @@ import Darwin
     private var context: Context { .init(accountID: accountID, epochID: epochID, revision: revision) }
     @State private var active: Context?
     private var ready: Bool { available && !processingExplanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var requestHint: String? {
+        if !loaded { return "保存した依頼の読み込みを確認してください。" }
+        if selected == nil && !references.isEmpty { return "先に保存した依頼の状況を確認してください。" }
+        if receipt?.state == .reviewRequired && flow?.resultUnconfirmed == false { return "この依頼は受付済みです。新しい依頼を送る前に状況を確認してください。" }
+        if password.isEmpty { return "現在のパスワードを入力してください。" }
+        if !consent { return "受付と削除完了が別であることを確認し、確認欄を選んでください。" }
+        return nil
+    }
     var body: some View {
+        ScrollViewReader { proxy in
         Form {
             Section("退会を依頼する前に") {
                 Text("依頼の受付だけでは、アカウントや記録の削除は完了しません。家族の回答がなくても依頼できます。")
@@ -44,40 +54,59 @@ import Darwin
                 if !ready { Text("現在、退会依頼の送信・オンライン確認は準備中です。") }
             }
             Section("この端末に保存した依頼") {
+                if loaded { Text("保存された依頼：\(references.count)件").accessibilityIdentifier("closure-review.reference-count") }
                 if loaded && references.isEmpty { Text("保存した依頼はありません。サーバー側の退会状況を示すものではありません。") }
                 ForEach(references, id: \.submissionID) { reference in
                     VStack(alignment: .leading, spacing: 8) {
                         Text("依頼番号：" + String(reference.submissionID.uuidString.suffix(8)))
                         Button("この依頼を確認") { check(reference) }
+                            .accessibilityIdentifier("closure-review.check." + reference.submissionID.uuidString.lowercased())
                             .disabled(busy || !ready)
                     }
                 }
             }
-            if selected != nil {
+            if let selected {
                 Section("選択した依頼の状況") {
+                    Text("選択した依頼：" + String(selected.submissionID.uuidString.suffix(8)))
+                        .accessibilityIdentifier("closure-review.selected")
+                        .id("closure-review.result")
                     if let receipt {
                         Text(receipt.state == .cancelled ? "この退会依頼は取り消されています。" : "退会依頼の受付を確認しました。削除処理はまだ完了していません。")
+                            .accessibilityIdentifier("closure-review.status")
                     }
                     if flow?.resultUnconfirmed == true { Text("最新の状況は未確認です。通信できる状態で、この依頼を再確認してください。") }
                     if receipt?.state == .reviewRequired && flow?.resultUnconfirmed == false {
                         Button("この退会依頼を取り消す") { confirmCancel = true }.disabled(busy || !ready)
+                            .accessibilityIdentifier("closure-review.cancel")
                     }
                 }
             }
             Section("本人確認して依頼") {
                 SecureField("現在のパスワード", text: $password)
+                    .focused($passwordFocused)
+                    .accessibilityIdentifier("closure-review.password")
                     .textContentType(.password).autocorrectionDisabled()
                     .disabled(busy || !ready)
                 Toggle("受付と削除完了が別であることを確認しました", isOn: $consent)
+                    .accessibilityIdentifier("closure-review.consent")
                     .disabled(busy || !ready)
+                if ready, let requestHint { Text(requestHint).font(.footnote).accessibilityIdentifier("closure-review.request-hint") }
                 Button(receipt?.state == .cancelled ? "新しい退会依頼を送る" : "退会を依頼する", role: .destructive) { confirmRequest = true }
+                    .accessibilityIdentifier("closure-review.submit")
                     .disabled(busy || !ready || !loaded || !consent || password.isEmpty || (selected == nil && !references.isEmpty) || (receipt?.state == .reviewRequired && flow?.resultUnconfirmed == false))
             }
-            if let message { Section("確認結果") { Text(message) } }
+            if let message { Section("確認結果") { Text(message).id("closure-review.message") } }
             if busy { Section { ProgressView("依頼の状況を確認しています") } }
         }
         .navigationTitle("退会の依頼")
         .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("入力を完了") { passwordFocused = false }
+                    .accessibilityIdentifier("closure-review.keyboard-done")
+            }
+        }
         .confirmationDialog("退会を依頼しますか？", isPresented: $confirmRequest, titleVisibility: .visible) {
             Button("退会を依頼", role: .destructive) { send() }
             Button("戻る", role: .cancel) {}
@@ -89,6 +118,7 @@ import Darwin
         .task(id: context) {
             operation?.cancel(); operation = nil; active = context
             references = []; selected = nil; receipt = nil; password = ""; consent = false; busy = false; loaded = false; message = nil
+            passwordFocused = false
             confirmRequest = false; confirmCancel = false
             let next = AccountClosureReviewFlow(api: api, persist: { try vault.prepare($0) })
             next.bind(accountID: accountID, epochID: epochID, revision: revision); flow = next
@@ -97,8 +127,16 @@ import Darwin
         }
         .onDisappear {
             operation?.cancel(); operation = nil; active = nil; password = ""; consent = false
+            passwordFocused = false
             flow?.bind(accountID: nil, epochID: nil, revision: nil)
             selected = nil; receipt = nil; busy = false
+        }
+        .onChange(of: receipt) { _, value in
+            if value != nil { withAnimation { proxy.scrollTo("closure-review.result", anchor: .top) } }
+        }
+        .onChange(of: message) { _, value in
+            if value != nil { withAnimation { proxy.scrollTo("closure-review.message", anchor: .top) } }
+        }
         }
     }
     private func check(_ reference: AccountClosureReviewBinding) {
@@ -110,6 +148,7 @@ import Darwin
     private func send() {
         guard consent, !password.isEmpty, let flow else { return }
         let entered = password; password = ""; consent = false
+        passwordFocused = false
         run { bearer in
             if flow.binding == nil || (flow.receipt?.state == .cancelled && !flow.resultUnconfirmed) {
                 return try await flow.startNew(password: entered, token: bearer)
@@ -180,7 +219,12 @@ private actor ClosureReviewPreviewServer {
             if let api {
                 AccountClosureReviewView(accountID: account, epochID: epoch, revision: revision, available: true,
                     processingExplanation: "確認用データです。実際の退会・削除は行いません。", token: { "synthetic-closure-preview" }, vault: vault, api: api)
-                    .safeAreaInset(edge: .top) { Text("確認用サンプル・通信なし").font(.caption).padding(8) }
+                    .safeAreaInset(edge: .top) {
+                        Text("確認用サンプル・通信なし").font(.caption)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(8)
+                            .frame(maxWidth: .infinity).background(.background)
+                            .accessibilityIdentifier("closure-review.sample")
+                    }
             } else { Text(message ?? "確認用の依頼を準備しています") }
         }
         .task {

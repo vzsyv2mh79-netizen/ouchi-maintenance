@@ -1,0 +1,63 @@
+{
+  "productionNavigationEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Prepared closure review UI and isolated synthetic operation test; no shipping Auth HTTP endpoint or account erasure.",
+  "changes": [
+    "Show selected submission and actual protected-reference count",
+    "Explicit keyboard-done control and focus reset after identity change/disappearance/submission",
+    "Explain disabled request prerequisites without exposing password",
+    "Scroll to confirmed result/error; opaque, size-bounded diagnostic-only preview banner (form remains AX5)"
+  ],
+  "verified": {
+    "sourceDigest": "6ce7d23a17e5e5c060c9bd5566ea467ef7c29b44",
+    "testSourceSHA256": "2b8b5364c7c055019b7f917d6cf8a87e5dc24815b188a3a88dabc6e2d849fdea",
+    "device": "iPhone 17e",
+    "runtime": "iOS27.0 (24A434)",
+    "appearance": "dark",
+    "textSize": "AX5",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 84.118,
+    "assertions": [
+      "Original protected reference selected/read: review_required, not deletion completed",
+      "Cancel confirmation returns cancelled for original submission",
+      "Software keyboard opens, input retained, explicit Done hides it",
+      "Visible switch thumb changes confirmation 0→1; request fully reachable/enabled",
+      "Explicit confirmed submission yields a fresh selected reference and review_required receipt",
+      "Protected references count3 retains original two references alongside new one"
+    ],
+    "pngsVisuallyInspected": 5,
+    "ownedSimulatorRemoved": true
+  },
+  "runtimeWarnings": [
+    {
+      "message": "Invalid frame dimension (negative or non-finite).",
+      "status": "unresolved; reported during swipe after first confirmed result; no cause established or suppression"
+    }
+  ],
+  "priorAttempts": [
+    {
+      "result": "0pass/1fail",
+      "reason": "Waited for off-screen lazy status before scrolling; post-run diagnostic collection interrupted after failure, result and owned cleanup verified"
+    },
+    {
+      "result": "0pass/1fail",
+      "reason": "Cannot reach submit with keyboard open; actual read/cancel succeeded"
+    },
+    {
+      "result": "0pass/1fail",
+      "reason": "Input Done succeeded; request disabled after whole-switch label tap; subsequent test verifies thumb and 0→1 explicitly"
+    },
+    {
+      "result": "0pass/1fail",
+      "reason": "Fresh request result was above viewport, one-directional search did not find it; video showed confirmed receipt hint, no erasure inferred"
+    }
+  ],
+  "remaining": [
+    "Resolve runtime layout warning and complete normal/light/small-screen/full accessibility/VoiceOver/device checks",
+    "Actual trusted HTTP/native shipping wiring and personal/shared content classification/erasure",
+    "Finite retention/disclosure and final App Store purchase/submission validation"
+  ],
+  "runnerSafety": "Copies sources into temporary work; does not copy live xcconfig; synthetic Supabase values, disabled live gates, dedicated Simulator bundle, local ad-hoc signing only; verbose system diagnostics disabled, owned simulator deleted."
+}
