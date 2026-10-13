@@ -131,3 +131,42 @@ export function createHomeHandoffInventoryIdentityVerifier(options:Parameters<ty
   return Object.freeze({...final,aal:claims.aal as 'aal1'|'aal2',authenticatedAt:recent[0].timestamp*1000,checkedAt});
  };
 }
+
+type InventoryActorClaim={purpose:string;bindingDigest:string;actorID:string;sessionID:string;epochID:string;aal:'aal1'|'aal2';authenticatedAt:number;checkedAt:number;acceptedAt:number;expiresAt:number};
+/** Backend callback ONLY for claims already signature/binding-verified by the
+ * private inventory-consent provider. This does not verify a signature itself,
+ * grant household rights, create an endpoint, or accept client-supplied claims.
+ * Keep the pinned transaction through COMMIT; lock multiple actors consistently.
+ * Exact factor-set snapshot binding remains a separate release gate.
+ */
+export function createHomeHandoffInventoryActorVerifier({policyReader,projectID}:{policyReader:Reader;projectID:string}) {
+ if(typeof policyReader!=='function'||typeof policyReader.isCurrent!=='function'||!/^[a-z]{20}$/.test(projectID))throw Error('Current inventory actor provider required');
+ const uuid=(value:unknown)=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)&&value!=='00000000-0000-0000-0000-000000000000';
+ return async(tx:Transaction,c:InventoryActorClaim,signal:AbortSignal=tx?.signal)=>{
+  try{
+   if(!(signal instanceof AbortSignal)||tx?.signal!==signal||typeof tx.query!=='function'
+    ||c?.purpose!=='OuchiMaintenance/family-attachment-inventory/v1'||!/^[0-9a-f]{64}$/.test(c.bindingDigest)
+    ||![c.actorID,c.sessionID,c.epochID].every(uuid)||!['aal1','aal2'].includes(c.aal))return false;
+   const query=async(sql:string,args:unknown[])=>{signal.throwIfAborted();const result=await tx.query(sql,args);signal.throwIfAborted();return result;};
+   const policy=await policyReader(signal);signal.throwIfAborted();
+   if(!policy||policy.projectID!==projectID||!policyReader.isCurrent(policy)||policy.singleSession!==false)return false;
+   const constraints=await query(HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,[]);
+   if(constraints.rows.length!==1||constraints.rows[0].supported!==true)return false;
+   const user=await query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[c.actorID]);if(user.rows.length!==1||user.rows[0].id!==c.actorID)return false;
+   const session=await query(HOME_HANDOFF_AUTH_SESSION_PIN_SQL,[c.sessionID,c.actorID]);if(session.rows.length!==1||session.rows[0].id!==c.sessionID)return false;
+   await query(HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,[c.actorID]);
+   const enrollment=await query(HOME_HANDOFF_ENROLLMENT_PIN_SQL,[c.actorID,c.sessionID]);
+   if(enrollment.rows.length!==1||enrollment.rows[0].epoch_id!==c.epochID||!policyReader.isCurrent(policy))return false;
+   const result=await query(HOME_HANDOFF_SESSION_POLICY_SQL,[c.sessionID,c.actorID,policy.timeboxSeconds,policy.inactivitySeconds]);
+   if(result.rows.length!==1||!policyReader.isCurrent(policy))return false;
+   const row=result.rows[0],now=Math.floor(Number(row.verified_at));
+   if(!Number.isSafeInteger(now)||now<=0||row.session_current!==true||row.epoch_id!==c.epochID||row.session_aal!==c.aal||typeof row.has_verified_factor!=='boolean')return false;
+   if(row.has_verified_factor&&(c.aal!=='aal2'||policy.totpVerify!==true))return false;
+   if(![c.authenticatedAt,c.checkedAt,c.acceptedAt,c.expiresAt].every(v=>Number.isSafeInteger(v)&&v>0)
+    ||c.authenticatedAt>c.checkedAt||c.checkedAt>c.acceptedAt||c.acceptedAt>now
+    ||c.authenticatedAt<now-600000||c.checkedAt<c.acceptedAt-60000
+    ||c.expiresAt!==c.acceptedAt+900000||c.expiresAt<=now)return false;
+   signal.throwIfAborted();return policyReader.isCurrent(policy);
+  }catch{return false;}
+ };
+}

@@ -81,3 +81,23 @@ yet substituted into the actual-service composition and does not supply the
 separate signed-claim worker `verifyActor` provider. Real Auth concurrency/factor
 insertion and cancellation need actual-service evidence. Policy acquisition,
 credentials, least-privilege grant and a production route are not enabled.
+
+
+## Prepared current-actor worker callback
+
+`createHomeHandoffInventoryActorVerifier` is a backend callback for claims already
+HMAC/signature/binding-verified by the private inventory-consent provider. It does
+not accept client flags as authorization and does not verify signatures itself.
+It pins the current Auth user, exact session, all factors and enabled enrollment,
+then applies the same current session-policy query and verifies assurance/epoch,
+original timestamps and current recent-authentication age. Schema/policy failure,
+unsupported signal, lost session/enrollment or cancellation returns refusal.
+
+The prepared actual-service fixture now uses this callback for issuer readback,
+journal/status and atomic activation, replacing the old no-factor worker stub.
+The TOTP fixture also checks a verified identity's worker predicate, disabled TOTP
+policy and logout refusal. These new cases need same-head CI evidence. Exact
+factor-set/state snapshot binding to the signed consent remains an explicit
+release gate: pins/current AAL alone do not prove that the factor set is unchanged
+since issuance. Production current-policy acquisition, native explicit consent
+UI and least-privilege routes remain disabled.

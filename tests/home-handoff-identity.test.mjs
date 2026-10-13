@@ -6,7 +6,7 @@ import {createHomeHandoffPolicyReader} from '../lib/home-handoff-policy.mjs';
 import {HomeHandoffAdditionalVerificationRequired} from '../lib/home-handoff-handler.mjs';
 const compile=file=>ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const url=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
-const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL}=await import(url(compile('lib/home-handoff-identity.ts').replace("'./verified-app-session'",JSON.stringify(url(compile('lib/verified-app-session.ts')))).replace("'./home-handoff-handler.mjs'",JSON.stringify(import.meta.resolve('../lib/home-handoff-handler.mjs')))));
+const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,HOME_HANDOFF_AUTH_USER_PIN_SQL,HOME_HANDOFF_AUTH_SESSION_PIN_SQL,HOME_HANDOFF_AUTH_FACTOR_PIN_SQL,HOME_HANDOFF_ENROLLMENT_PIN_SQL}=await import(url(compile('lib/home-handoff-identity.ts').replace("'./verified-app-session'",JSON.stringify(url(compile('lib/verified-app-session.ts')))).replace("'./home-handoff-handler.mjs'",JSON.stringify(import.meta.resolve('../lib/home-handoff-handler.mjs')))));
 const user='11111111-1111-4111-8111-111111111111',session='22222222-2222-4222-8222-222222222222',epoch='33333333-3333-4333-8333-333333333333',projectID='abcdefghijklmnopqrst';
 const token=claims=>'e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,exp:4102444800,...claims})).toString('base64url')+'.c2ln';
 function fixture({claims={aal:'aal2'},row={},onQuery=()=>{},authUser=user}={}) {
@@ -100,4 +100,33 @@ test('session authority lost after pinning is rechecked before inventory identit
  const query=f.tx.query;let reads=0;
  f.tx.query=async(sql,args)=>{const result=await query(sql,args);if(sql.includes('as session_current')&&++reads===2)result.rows[0].session_current=false;return result;};
  assert.equal(await f.verify(f.bearer,f.tx),null);
+});
+
+
+function actorClaim(overrides={}){
+ const now=Date.now();return {purpose:'OuchiMaintenance/family-attachment-inventory/v1',bindingDigest:'a'.repeat(64),actorID:user,sessionID:session,epochID:epoch,aal:'aal1',authenticatedAt:now-10000,checkedAt:now-1000,acceptedAt:now-500,expiresAt:now-500+900000,...overrides};
+}
+test('signed-claim worker callback pins current session/factors/enrollment and never substitutes getUser freshness',async()=>{
+ const f=pinned();const verify=createHomeHandoffInventoryActorVerifier(f.options);
+ assert.equal(await verify(f.tx,actorClaim(),f.tx.signal),true);
+ assert.deepEqual(f.calls,['constraints','user-lock','session-lock','factor-lock','enrollment-lock','sql']);
+});
+test('worker refuses stale authentication, foreign enrollment, invalid scope/purpose and expired claims',async()=>{
+ for(const change of [{authenticatedAt:Date.now()-600001},{epochID:user},{sessionID:'invalid'},{aal:'aal2'},{purpose:'client-flag'},{bindingDigest:'x'},{checkedAt:Date.now()+60000},{expiresAt:Date.now()-1}]){
+  const f=pinned();assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim(change),f.tx.signal),false);
+ }
+});
+test('worker checks current assurance, authority after locking and current policy deadline',async()=>{
+ const f=pinned({row:{has_verified_factor:true,session_aal:'aal2'}});const verify=createHomeHandoffInventoryActorVerifier(f.options);
+ assert.equal(await verify(f.tx,actorClaim(),f.tx.signal),false);
+ assert.equal(await verify(f.tx,actorClaim({aal:'aal2'}),f.tx.signal),true);
+ const expired=pinned();const query=expired.tx.query;
+ expired.tx.query=async(sql,args)=>{const result=await query(sql,args);if(sql.includes('as session_current'))result.rows[0].session_current=false;return result;};
+ assert.equal(await createHomeHandoffInventoryActorVerifier(expired.options)(expired.tx,actorClaim(),expired.tx.signal),false);
+});
+test('worker refuses unsupported schema, a mismatched signal and cancellation during locking',async()=>{
+ const unsupported=pinned({supported:false});assert.equal(await createHomeHandoffInventoryActorVerifier(unsupported.options)(unsupported.tx,actorClaim(),unsupported.tx.signal),false);
+ const f=pinned();assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim(),new AbortController().signal),false);
+ const c=new AbortController();const query=f.tx.query;f.tx.signal=c.signal;f.tx.query=async(sql,args)=>{const result=await query(sql,args);if(sql===HOME_HANDOFF_AUTH_USER_PIN_SQL)c.abort();return result;};
+ assert.equal(await createHomeHandoffInventoryActorVerifier(f.options)(f.tx,actorClaim(),c.signal),false);
 });

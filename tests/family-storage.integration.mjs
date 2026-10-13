@@ -20,7 +20,7 @@ function serverModule(name) {
 }
 const {readAttachmentResponse} = await import(serverModule('attachment-read-handler'));
 const {createAttachmentFetch} = await import(serverModule('attachment-fetch'));
-const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier} = await import(serverModule('home-handoff-identity'));
+const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier} = await import(serverModule('home-handoff-identity'));
 
 // Explicit opt-in, disposable local containers only. No configurable remote URL.
 const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci', '-f', 'tests/fixtures/auth/compose.yml', 'exec', '-T', 'db', 'psql', '-U', 'postgres', '-d', 'auth_test', '-v', 'ON_ERROR_STOP=1', '-At'], {input, encoding:'utf8', timeout:10000, stdio:['pipe','pipe','pipe']}).trim();
@@ -142,7 +142,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const transferIdentity = {target_user:transferOwner.user,verified_session:transferOwner.session,expected_epoch:transferOwner.epoch};
   const successorIdentity = {target_user:successor.user,verified_session:successor.session,expected_epoch:successor.epoch};
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
-  await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier});
+  await verifyDisposableHandoffMFA({account,sql,origin,options,createAttachmentFetch,createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier});
   await verifyDisposableFamilyAttachmentStorage({account,admin,origin,service,options,bytes,createAttachmentFetch});
   await verifyDisposableFamilyAttachmentJournal({account,origin,bytes});
   const issued = ok(await admin.rpc('request_maintenance_home_handoff',{target_request:transferRequest,target_home:transferHome,...transferIdentity,target_recipient:successor.user}));
@@ -185,7 +185,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   // Runs LAST: composed private review fences must not alter preceding cases.
-  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier});
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });

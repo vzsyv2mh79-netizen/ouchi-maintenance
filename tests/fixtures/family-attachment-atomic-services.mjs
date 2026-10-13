@@ -16,15 +16,16 @@ import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller
  * key. Complete-inventory consents now use verified real bearers, password AMR
  * timestamps using the prepared pinned issuer adapter. Its separate scratch
  * account exercises actual session/factor/enrollment contention and rollback.
- * Project policy and worker verifyActor remain disposable no-factor providers;
- * shipping policy/worker predicate pins remain open.
+ * Issuer and worker use the prepared current-session/factor/enrollment pins;
+ * project policy remains explicitly injected and exact factor-set snapshot
+ * binding/current production policy remain open.
  * No shipping
  * route, new production grant, source cleanup or whole-account completion proof.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
- assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');
+ assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
  const db=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
  await db.connect();
@@ -117,20 +118,12 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const writes=(await tx.query("select w.* from maintenance_private.attachment_write_attempts w join maintenance_private.product_attachments f on f.id=w.attachment_id join public.products p on p.id=f.product_id where p.\"homeId\"=$1 and f.state<>'removed' order by w.attachment_id for update of w",[homeID])).rows;
    return JSON.parse(JSON.stringify({members,products,files,writes}));
   }
-  async function liveActor(tx,c,signal){
-   signal.throwIfAborted();
-   // Real session/enrollment locks. This fixture has no MFA factors and refuses
-   // any verified factor; it is not a production policy/predicate-lock adapter.
-   const row=(await tx.query("select s.aal::text as aal,public.read_maintenance_explicit_enrollment(s.user_id,s.id) as epoch,(s.not_after is null or s.not_after>clock_timestamp()) and s.created_at<=clock_timestamp() as current from auth.sessions s where s.id=$1 and s.user_id=$2 for update of s",[c.sessionID,c.actorID])).rows[0];
-   const enrollment=(await tx.query('select e.epoch_id from maintenance_private.app_epochs e join maintenance_private.account_access a on a.user_id=e.user_id join maintenance_private.app_session_epochs b on b.user_id=e.user_id and b.epoch_id=e.epoch_id where e.user_id=$1 and b.session_id=$2 and e.enabled and a.enabled for share of e,a,b',[c.actorID,c.sessionID])).rows;
-   const factors=(await tx.query("select id from auth.mfa_factors where user_id=$1 and status::text='verified' for share",[c.actorID])).rows;
-   signal.throwIfAborted();return !!row&&row.current===true&&row.aal===c.aal&&row.epoch===c.epochID&&enrollment.length===1&&enrollment[0].epoch_id===c.epochID&&factors.length===0;
-  }
+  const actorVerifier=createHomeHandoffInventoryActorVerifier({projectID,policyReader});
   const inventoryConsent=createFamilyAttachmentInventoryConsent({key:randomBytes(32),store:{
    transaction,target:async(tx,request,home,actor)=>{assert.equal(request,scope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));return {scope,plan,inventory:await originalInventory(tx)};},
    records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,
    record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
-  },verifyIdentity:(token,tx,signal)=>identity(token,{signal,query:(sql,args)=>tx.query(sql,args)}),verifyActor:liveActor,currentAuthority:async(tx,s,p,i,d,signal)=>{
+  },verifyIdentity:(token,tx,signal)=>identity(token,{signal,query:(sql,args)=>tx.query(sql,args)}),verifyActor:(tx,claims,signal)=>actorVerifier({signal,query:(sql,args)=>tx.query(sql,args)},claims,signal),currentAuthority:async(tx,s,p,i,d,signal)=>{
    signal.throwIfAborted();
    const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests n join maintenance_private.household_stop_bindings b on b.user_id=n.user_id join maintenance_private.household_family_holds h on h.principal=n.user_id where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4 and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token and b.scope=$5::jsonb and b.state='processing' and b.lease_until>clock_timestamp() and h.home_id=$6 and h.scope=b.scope) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,JSON.stringify(s.controllerScope),s.homeID])).rows[0];
    signal.throwIfAborted();return row.current===true;
