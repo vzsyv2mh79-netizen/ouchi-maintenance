@@ -18,6 +18,8 @@ import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdCon
 import {syntheticTOTP} from './home-handoff-mfa.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 import {verifyDisposableClosureReviewHTTP} from './closure-review-http.mjs';
+import {createHomeHandoffAuthVersionReader} from '../../lib/home-handoff-auth-version.mjs';
+import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -151,8 +153,24 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   // Explicit disposable policy, not live Management acquisition. The production
   // issuer adapter itself verifies/pins actual Auth rows and recent signed AMR.
   const projectID='abcdefghijklmnopqrst';
-  const policy=Object.freeze({projectID,singleSession:false,timeboxSeconds:null,inactivitySeconds:null,allowLowAALSeconds:null,totpVerify:true,phoneVerify:false,webAuthnVerify:false});
-  const policyReader=Object.assign(async()=>policy,{isCurrent:value=>value===policy});
+  const authVersionReader=createHomeHandoffAuthVersionReader({projectID,publishableKey:'sb_publishable_disposable_only',fetcher:async(url,init)=>{
+   assert.equal(url,'https://'+projectID+'.supabase.co/auth/v1/health');assert.equal(init.method,'GET');
+   const target=origin+'/auth/v1/health';
+   const response=await createAttachmentFetch(init.signal,5000,8192)(target,{...init,cache:'no-store'});
+   // createAttachmentFetch bounds the fixed local target and refuses redirects;
+   // its buffered Response intentionally does not preserve response.url.
+   assert.equal(response.status,200);
+   // Re-envelope the actual local health bytes for the exact disposable alias.
+   return new Response(await response.arrayBuffer(),{status:response.status,headers:response.headers});
+  }});
+  const policyReader=createStrictHomeHandoffPolicyReader({projectID,accessToken:'synthetic_config_read_only',authVersionReader,fetcher:async(url,init)=>{
+   assert.equal(url,'https://api.supabase.com/v1/projects/'+projectID+'/config/auth');assert.equal(init.method,'GET');
+   // Explicit disposable config fixture, not a live Management credential/read.
+   return Response.json({sessions_timebox:null,sessions_inactivity_timeout:null,sessions_single_per_user:false,mfa_totp_verify_enabled:true,mfa_phone_verify_enabled:false,mfa_web_authn_verify_enabled:false});
+  }});
+  const checkedPolicy=await policyReader(AbortSignal.timeout(5000));
+  assert.equal(checkedPolicy.assuranceMode,'highest-current-aal/v1');assert.equal('allowLowAALSeconds' in checkedPolicy,false);
+  console.log('strict Auth policy: actual GoTrue health + explicit disposable config; highest-current AAL, no fabricated low-AAL default');
   const identity=createHomeHandoffInventoryIdentityVerifier({projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)});
   // A separate real account proves row/factor-insertion fences and cancellation
   // without revoking the two people needed by the complete Storage handoff.

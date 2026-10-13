@@ -4,7 +4,7 @@ import {HomeHandoffAdditionalVerificationRequired} from './home-handoff-handler.
 
 // Prepared same-transaction identity check. This does not create a connection,
 // grant Auth access, enable a route, or authorize ownership changes on its own.
-type Policy={projectID:string;singleSession:boolean;timeboxSeconds:number|null;inactivitySeconds:number|null;allowLowAALSeconds:number|null;totpVerify:boolean;phoneVerify:boolean;webAuthnVerify:boolean};
+type Policy={projectID:string;singleSession:boolean;timeboxSeconds:number|null;inactivitySeconds:number|null;allowLowAALSeconds?:number|null;assuranceMode?:'highest-current-aal/v1';totpVerify:boolean;phoneVerify:boolean;webAuthnVerify:boolean};
 type Reader=((signal:AbortSignal)=>Promise<Policy|null>) & {isCurrent:(policy:Policy)=>boolean};
 type Transaction={signal:AbortSignal;query:(sql:string,args:unknown[])=>Promise<{rows:Record<string,unknown>[]}>};
 type AuthResult={data:{user:{id:string}|null};error:unknown};
@@ -32,7 +32,8 @@ export function createHomeHandoffIdentityVerifier({getUser,policyReader,projectI
   if(!(tx?.signal instanceof AbortSignal)||typeof tx.query!=='function')throw Error('Pinned transaction required');
   const signal=tx.signal;signal.throwIfAborted();
   const policy=await policyReader(signal);signal.throwIfAborted();
-  if(!policy||policy.projectID!==projectID||!policyReader.isCurrent(policy)||policy.singleSession!==false)throw Error('Current Auth policy unavailable');
+  if(!policy||policy.projectID!==projectID||!policyReader.isCurrent(policy)||policy.singleSession!==false
+   ||(policy.assuranceMode!==undefined&&policy.assuranceMode!=='highest-current-aal/v1'))throw Error('Current Auth policy unavailable');
   const authenticated=await getUser(bearer,signal);signal.throwIfAborted();
   if(!policyReader.isCurrent(policy))throw Error('Current Auth policy expired');
   if(authenticated.error||!authenticated.data.user)return null;
@@ -164,7 +165,8 @@ export function createHomeHandoffInventoryActorVerifier({policyReader,projectID}
     ||![c.actorID,c.sessionID,c.epochID].every(uuid)||!['aal1','aal2'].includes(c.aal))return false;
    const query=async(sql:string,args:unknown[])=>{signal.throwIfAborted();const result=await tx.query(sql,args);signal.throwIfAborted();return result;};
    const policy=await policyReader(signal);signal.throwIfAborted();
-   if(!policy||policy.projectID!==projectID||!policyReader.isCurrent(policy)||policy.singleSession!==false)return false;
+   if(!policy||policy.projectID!==projectID||!policyReader.isCurrent(policy)||policy.singleSession!==false
+    ||(policy.assuranceMode!==undefined&&policy.assuranceMode!=='highest-current-aal/v1'))return false;
    const constraints=await query(HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,[]);
    if(constraints.rows.length!==1||constraints.rows[0].supported!==true)return false;
    const user=await query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[c.actorID]);if(user.rows.length!==1||user.rows[0].id!==c.actorID)return false;

@@ -1,0 +1,29 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "problem": "Existing handoff policy acquisition demanded an independent low-AAL grace value, although its identity/actor consumers already require current highest assurance and never use that duration.",
+  "proofScope": {
+    "reviewedVersions": ["v2.196.0", "v2.197.0"],
+    "highestPossibleAAL": "Reviewed User.HighestPossibleAAL returns AAL2 with any verified factor, otherwise AAL1.",
+    "validityCondition": "Reviewed Session.CheckValidity applies low-AAL grace only when current session assurance is below the user's highest possible assurance.",
+    "existingConsumers": "Exact signed JWT/current-session AAL equality; any verified factor requires both AAL2. Only AAL1/AAL2 accepted. Thus the below-highest predicate is false for every accepted identity, independent of grace duration.",
+    "limits": "Purpose-specific highest-current mode only; not valid for a consumer allowing below-highest sessions, unreviewed versions or unpinned factor/session state. Existing password/TOTP and single-session limitations remain."
+  },
+  "implementation": {
+    "reader": "createStrictHomeHandoffPolicyReader",
+    "inputs": "Issuer-owned current Auth version record + explicit approved Management Auth Config Read credential; fixed project HTTPS endpoint, bounded parse/deadline and original timestamp custody",
+    "output": "Immutable assuranceMode=highest-current-aal/v1; no allowLowAALSeconds field is fabricated or interpreted as disabled",
+    "retainedChecks": "Management-provided timebox, inactivity, single-session and MFA verification settings remain required. Legacy evidence-based reader retains its missing/disabled distinction. Unsupported assurance modes are refused before Auth."
+  },
+  "localVerification": {"relatedTests": 37, "failed": 0, "skipped": 0, "targetedLint": "passed", "typecheck": "passed", "providers": "Synthetic HTTP/config and SQL rows; not live Management settings"},
+  "disposableIntegration": "Family fixture uses actual local GoTrue health/version through bounded fixed alias, new strict reader and explicit disposable config, then existing real Auth/TOTP/SQL/private Storage verifiers. CI result remains unconfirmed at preparation.",
+  "sources": [
+    "https://raw.githubusercontent.com/supabase/auth/v2.196.0/internal/models/user.go",
+    "https://raw.githubusercontent.com/supabase/auth/v2.196.0/internal/models/sessions.go",
+    "https://raw.githubusercontent.com/supabase/auth/v2.197.0/internal/models/user.go",
+    "https://raw.githubusercontent.com/supabase/auth/v2.197.0/internal/models/sessions.go",
+    "https://supabase.com/docs/reference/api/v1-get-auth-service-config"
+  ],
+  "remaining": ["Approved production Management Auth Config Read credential and real config acquisition", "Same pinned transaction through sensitive mutation and final rechecks", "Shipping native/HTTP integration and actual erasure", "Physical-device/Apple purchase and App Store verification"],
+  "liveChanges": "None: public health read only; no user sign-in, settings mutation, token creation, billing or migration. Public-key temporary input removed; no key or raw Auth config is published."
+}
