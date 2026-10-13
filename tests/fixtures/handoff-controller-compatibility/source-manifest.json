@@ -24,9 +24,15 @@
     },
     "handoff-consent.mjs": {
       "sourceSHA256": "685b0eb47edba4cf2dcca2c0b4a5731ef3c78696abdfd2b3998aa8e024b6000e",
-      "copySHA256": "db5a89a7cd1d667dbc9c271aecf4d69337abbbbd0bb8c85463318e871f704082",
-      "importChange": "use equivalent existing root protocol normalizer",
-      "purpose": "composition fixture only; no shipping provider or credential"
+      "copySHA256": "ebde10d350b71bd15f08d41c5270058ec136fe830c265b14230955129e645c40",
+      "importChange": "Re-export canonical backend implementation; previous source copy remains recorded.",
+      "purpose": "composition fixture only; no shipping provider or credential",
+      "previousCopySHA256": "db5a89a7cd1d667dbc9c271aecf4d69337abbbbd0bb8c85463318e871f704082",
+      "canonicalImplementation": {
+        "path": "lib/home-handoff-consent.mjs",
+        "sha256": "41b10638cc4a9893101de3cd1ae20b68163292d1a2f3f2f09fda658bd83480be",
+        "scope": "Original v1 semantics moved unchanged; new historical composed verifier is separately tested. No shipping provider, endpoint or key provisioning."
+      }
     }
   },
   "originalSourceFiles": {

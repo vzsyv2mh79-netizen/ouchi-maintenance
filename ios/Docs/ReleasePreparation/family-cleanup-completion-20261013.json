@@ -42,7 +42,16 @@
     "Completion remains readable after actual inventory consent revocation and receiver logout while live access remains refused.",
     "Native retirement job stays running and Auth users remain; whole-account completion is not claimed."
   ],
-  "actualNewServiceResult": "pending exact-head CI; Docker unavailable locally",
+  "actualNewServiceResult": {
+    "head": "d865d0c659254ae9b218e766ec59eb6e11d7ab76",
+    "run": 38388842073,
+    "job": 115267266130,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawLogAndDedicatedCleanupChecked": true,
+    "scope": "Actual disposable PostgreSQL/GoTrue/Storage family completion after lost reply; no whole-account completion."
+  },
   "previousHead": {
     "head": "cba71bc62bdf593e17715d4d4773d1dd366c194f",
     "allFiveChecks": "success",
@@ -54,7 +63,6 @@
     "rawLogsAndDedicatedCleanupChecked": true
   },
   "remaining": [
-    "Actual new completion-provider PostgreSQL/GoTrue/Storage CI.",
     "Shipping authenticated coordinator/read recovery API, real effective Auth policy, least-privilege database and Storage credentials.",
     "All writers and outstanding external namespace capabilities must be fenced; finite read observations cannot fence a privileged external writer.",
     "Maximum-size/capacity/latency behavior and global storage accounting including source copies.",

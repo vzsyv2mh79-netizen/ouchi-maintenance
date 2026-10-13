@@ -1,0 +1,51 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Prepared handoff-family stage adapter for runSharedDeletion; not whole-account completion.",
+  "implementation": [
+    "Loads bounded frozen targets from a mandatory private controller-inventory provider; no client target arrays or empty-coverage shortcut.",
+    "Validates exact controller request/user/inventory, home and ouchi native request/epoch binding, unique homes and canonical plans.",
+    "Requires each household orchestrator to report exact completed home; then rechecks frozen coverage and all durable completion receipts under a private pinned transaction.",
+    "Mandatory verifyOtherApps independently checks all other app family obligations before any global handoff-family stage receipt.",
+    "Persists and reads back the exact protocol-v2 stage/apps/inventory/coverage digest, with immutable before-COMMIT controller/coverage/completion checks.",
+    "Cannot perform app erasure, Auth erasure, post-Auth verification or complete. Those existing shared protocol stages remain mandatory."
+  ],
+  "localEvidence": {
+    "syntheticContractCases": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "fullRegression": {
+      "passed": 711,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-shared-family-stage-regression-20261013.log"
+    }
+  },
+  "evidenceLimit": "Contract tests use synthetic controller store/transactions and family ports. They prove gating and rollback/retry behavior, not actual controller SQL/coordinator deployment or other-app completion.",
+  "previousHeadActualEvidence": {
+    "head": "d865d0c659254ae9b218e766ec59eb6e11d7ab76",
+    "familyRun": 38388842073,
+    "familyJob": 115267266130,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawLogAndDedicatedVolumeCleanupChecked": true,
+    "scope": "Actual family Storage cleanup and immutable completion receipt; native request remains running and Auth users remain."
+  },
+  "remaining": [
+    "Private frozen controller inventory and complete all-app family coverage implementation.",
+    "Controller SQL stage store with independent deferred COMMIT lease/cancellation/completion checks.",
+    "Actual shared controller -> new family stage -> app-specific erasure/verification composition.",
+    "Authenticated shipping coordinator/read recovery, effective Auth policy and least privilege.",
+    "Maximum roster/capacity/latency and finite evidence retention.",
+    "Other app verification, final shared Auth retirement, post-Auth readbacks.",
+    "Native real device, actual Apple Sandbox/TestFlight and submission; owner payment held."
+  ],
+  "sourceManifest": "Updated consent fixture re-export/current canonical SHA while retaining prior source-copy SHA.",
+  "safety": "No production migration/grant/credentials/scheduler/endpoint/deletion/billing/paid infrastructure enabled."
+}
