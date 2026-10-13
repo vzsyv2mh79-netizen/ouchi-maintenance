@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {createHandoffConsentStore} from './lib/handoff-consent-store.mjs';
-import {createHandoffConsentIssuer,createSignedHandoffConsentVerifier} from './lib/handoff-consent.mjs';
-import {createKakeiFamilyTransfer} from './lib/kakei-family-transfer.mjs';
-import {createKakeiFamilyCompletion} from './lib/kakei-family-completion.mjs';
+import {createAuthBoundHandoffConsentIssuer} from './lib/handoff-consent-auth-state.mjs';
+import {createAuthBoundKakeiFamilyCompletion} from './lib/kakei-family-auth-bound-completion.mjs';
 import {createKakeiWriteFence} from './lib/kakei-write-fence.mjs';
 import {captureKakeiFamilySnapshot,kakeiFamilyPlanDigests} from './lib/kakei-family-snapshot.mjs';
 import {bindKakeiCommittedFamilyVerifier} from '../../../lib/kakei-retained-family-verifier.mjs';
@@ -40,15 +39,16 @@ export async function prepareActualKakeiFamily({db,transaction,root,owner,receiv
  const plan={protocolVersion:2,requestID:root.requestID,userID:root.userID,inventoryDigest:root.inventoryDigest,appRequestID:app.requestID,appScopeID:app.scopeID,householdID:household,successorID:receiver.user,memberIDs:[owner.user,receiver.user],familyRecordIDs:[record]};
  Object.assign(plan,kakeiFamilyPlanDigests(await captureKakeiFamilySnapshot(root,household,db),root,plan));
  await db.query('insert into private.kb_shared_handoff_plans values($1,$2,$3)',[root.requestID,household,plan]);
- const key=randomBytes(32),store=createHandoffConsentStore({transaction});
- const issuer=createHandoffConsentIssuer({key,store,verifyIdentity:async(token,tx)=>{
+ const key=randomBytes(32),store=createHandoffConsentStore({transaction}),bearers=new Map();
+ const issuer=createAuthBoundHandoffConsentIssuer({key,store,verifyIdentity:async(token,tx)=>{
   for(const id of [owner.user,receiver.user].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);
   await tx.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);
   await tx.query('select household_id from private.kb_shared_handoff_plans where request_id=$1 order by household_id for update',[root.requestID]);
   await captureKakeiFamilySnapshot(root,household,tx);
   const verified=await identity(token,{signal:AbortSignal.timeout(10000),query:(sql,args)=>tx.query(sql,args)});
   assert.equal(verified.aal,'aal2');assert.equal(verified.authenticatedAt,totpTimes.get(verified.userID));
-  return {userID:verified.userID,authVerifiedAt:verified.authenticatedAt};
+  bearers.set(verified.userID,token);
+  return {userID:verified.userID,authVerifiedAt:verified.authenticatedAt,authStateDigest:verified.authStateDigest};
  }});
  for(const actor of [owner,receiver]){const s=await actor.client.auth.getSession();assert.equal(s.error,null);assert.equal((await issuer({requestID:root.requestID,householdID:household,accessToken:s.data.session.access_token,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');}
  for(const r of (await db.query('select actor_id,token from private.kb_shared_handoff_proofs')).rows){const c=JSON.parse(Buffer.from(r.token.split('.')[0],'base64url'));assert.equal(c.authVerifiedAt,totpTimes.get(r.actor_id));}
@@ -56,11 +56,27 @@ export async function prepareActualKakeiFamily({db,transaction,root,owner,receiv
  await db.query("update private.kb_shared_deletion_journal set status='processing',lease_token=$2,lease_until=clock_timestamp()+interval '2 minutes' where request_id=$1",[root.requestID,root.leaseToken]);
  const fence=createKakeiWriteFence({loadHouseholds:async(s,tx)=>(await tx.query('select distinct household_id from public.kb_household_members where user_id=$1',[s.userID])).rows.map(r=>r.household_id)});
  await transaction(async tx=>{assert.equal(await fence.prepare(root,tx),true);await tx.query('update private.kb_shared_deletion_journal set receipts=$2 where request_id=$1',[root.requestID,{prepare:{durable:true,stage:'prepare',...fixed}}]);});
- const signed=createSignedHandoffConsentVerifier({key,loadRecords:store.loadRecords}),transfer=createKakeiFamilyTransfer({verifyConsents:signed,writeFences:fence.current});
- const completed=createKakeiFamilyCompletion({key,transfer,loadRecords:store.loadRecords,verifyReadAuthority:(s,tx)=>fence.current(s,tx),writeFences:fence.current});
+ // Original exact fixture bearers are retained only in memory. No JWT or key
+ // is persisted into source/receipt metadata. The reader revalidates real
+ // GoTrue identity plus current pinned DB Auth state; client claims are never
+ // used as a current-state authority. Production policy remains injected.
+ const verifyAuthState=async(s,p,actorID,tx)=>{
+  assert.equal(s.requestID,root.requestID);assert.equal(p.householdID,household);
+  const token=bearers.get(actorID);if(!token)return null;
+  const current=await identity(token,{signal:tx.signal,query:(sql,args)=>tx.query(sql,args)});
+  if(!current||current.userID!==actorID||current.aal!=='aal2')return null;
+  return {userID:current.userID,authVerifiedAt:current.authenticatedAt,authStateDigest:current.authStateDigest};
+ };
+ const completed=createAuthBoundKakeiFamilyCompletion({key,loadRecords:store.loadRecords,verifyAuthState,verifyReadAuthority:(s,tx)=>fence.current(s,tx),writeFences:fence.current});
  const verify=bindKakeiCommittedFamilyVerifier({completion:completed,verifyWriteFences:(tx,s)=>fence.current(s,tx),verifyFrozenCoverage:async(tx,s,plans)=>{
   const rows=(await tx.query('select plan from private.kb_shared_handoff_plans where request_id=$1 order by household_id for update',[s.requestID])).rows;
   return plans.length===1&&rows.length===1&&digest(plans[0])===digest(plan)&&digest(rows[0].plan)===digest(plan);
  }});
- return {plan,verify,completed,async finish(){const signal=AbortSignal.timeout(15000);return transaction(tx=>completed.complete(root,plan,tx),signal);},async read(){const signal=AbortSignal.timeout(10000);return transaction(tx=>completed.read(root,plan,tx),signal);}};
+ return {plan,verify,completed,async finish({afterCompletion=async()=>{}}={}){const signal=AbortSignal.timeout(15000);return transaction(async tx=>{
+  for(const id of [owner.user,receiver.user].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);
+  await tx.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);
+  await tx.query('select household_id from private.kb_shared_handoff_plans where request_id=$1 order by household_id for update',[root.requestID]);
+  await captureKakeiFamilySnapshot(root,household,tx);
+  const result=await completed.complete(root,plan,tx);await afterCompletion(tx);return result;
+ },signal);},async read(){const signal=AbortSignal.timeout(10000);return transaction(tx=>completed.read(root,plan,tx),signal);}};
 }

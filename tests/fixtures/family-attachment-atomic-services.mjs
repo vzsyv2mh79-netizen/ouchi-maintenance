@@ -25,12 +25,12 @@ import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-check
  * timestamps and the worker verifies the same AAL2/factor state. Its scratch
  * account exercises actual session/factor/enrollment contention and rollback.
  * Issuer and worker use the prepared current-session/factor/enrollment pins;
- * project policy remains explicitly injected and exact factor-set snapshot
- * binding/current production policy remain open.
+ * project policy remains explicitly injected; current production policy is open.
+ * Both-app v2 proofs bind exact factor/session state and recheck before COMMIT.
  * No shipping
  * route, new production grant or whole-account completion proof. Source cleanup
  * is exercised only against synthetic objects in the disposable test instance;
- * durable family completion is deliberately still pending.
+ * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
 export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier}){
@@ -336,6 +336,11 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await db.query('select aal::text from auth.sessions where id=$1',[receiver.session])).rows[0].aal,'aal2');
   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents where request_id=$1 and revoked_at is not null',[scope.requestID])).rows[0].n,0);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory consent/);
+  // Kakei v2 must also refuse NEW transfer after actual factor enrollment,
+  // despite the original bearer/session still being AAL2.
+  await assert.rejects(budget.finish(),/Handoff authorization unconfirmed/);
+  assert.equal(await budget.read(),null);
+  assert.equal((await db.query('select owner_id from public.kb_households where id=$1',[budget.plan.householdID])).rows[0].owner_id,owner.user);
   cleanupEnabled=true;
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
   assert.equal(removedSourcePaths.length,1);
@@ -373,10 +378,6 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[1].source.path)).error,null);
   assert.equal(removedSourcePaths.length,2);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
-  const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
-  assert.equal(await historical(),true);
-  assert.equal((await completionProvider().status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
-  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(finishCalls,1);
   // All remote copy/removal/GoTrue work above is independently committed.
   // This final controller SQL checkpoint never performs remote side effects.
   await db.query(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
@@ -393,12 +394,30 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   await assert.rejects(transaction(tx=>checkpoint.record(tx,controllerScope,coverageDigest,unsignedSignal),unsignedSignal));
   assert.equal((await db.query("select receipts ? 'handoff-family' as present from private.kb_shared_deletion_journal where request_id=$1",[controllerScope.requestID])).rows[0].present,false);
   assert.equal(await budget.read(),null);
+  // A factor change inside the successful transfer transaction must still
+  // fail its current-auth COMMIT check; all transfer/context/receipt effects
+  // and this synthetic Auth mutation roll back together.
+  await assert.rejects(budget.finish({afterCompletion:async tx=>{
+   assert.equal((await tx.query('update auth.mfa_factors set friendly_name=$1 where id=$2 and user_id=$3 returning id',['Synthetic Kakei late factor mutation',totpFactors.get(receiver.user),receiver.user])).rowCount,1);
+  }}),/Current transaction verification required before COMMIT/);
+  assert.equal(await budget.read(),null);
+  assert.equal((await db.query('select owner_id from public.kb_households where id=$1',[budget.plan.householdID])).rows[0].owner_id,owner.user);
+  assert.equal((await db.query('select count(*)::int n from private.kb_shared_family_completion_contexts')).rows[0].n,0);
+  assert.equal((await db.query('select friendly_name from auth.mfa_factors where id=$1',[totpFactors.get(receiver.user)])).rows[0].friendly_name,'Synthetic atomic handoff authenticator');
   // Kakei transfer + signed completion commit in their own dedicated SQL tx.
-  // No Storage/GoTrue mutation belongs inside this budget transaction.
+  // No Storage/GoTrue mutation belongs inside this budget transaction;
+  // bounded GoTrue identity reads plus current DB Auth pins are mandatory.
   await assert.rejects((async()=>{await budget.finish();throw Error('Committed Kakei completion reply lost');})(),/reply lost/);
   const signedBudget=await budget.read();assert.equal(signedBudget.durable,true);
   await db.query('update private.kb_shared_handoff_proofs set revoked_at=clock_timestamp() where request_id=$1 and actor_id=$2',[controllerScope.requestID,receiver.user]);
   assert.deepEqual(await budget.read(),signedBudget);
+  const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
+  assert.equal(await historical(),true);
+  assert.equal((await completionProvider().status(scope,plan,AbortSignal.timeout(10000))).state,'complete');
+  assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'complete',homeID});assert.equal(finishCalls,1);
+  assert.deepEqual(await budget.read(),signedBudget);
+  // A completed fact remains readable after logout; it does not create any
+  // new transfer authority. Revocation above must never erase that fact.
   const failedSignal=AbortSignal.timeout(10000);
   await assert.rejects(transaction(async tx=>{
    await checkpoint.record(tx,controllerScope,coverageDigest,failedSignal);

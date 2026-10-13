@@ -10,9 +10,10 @@ const same=(a,b)=>kakeiFamilySnapshotDigest(a)===kakeiFamilySnapshotDigest(b);
  * beforeCommit must execute callbacks inside that transaction before COMMIT.
  * Historical verification requires current read authority but never authorizes
  * another transfer. It keeps original signed evidence after later revocation. */
-export function createKakeiFamilyCompletion({key,transfer,loadRecords,verifyReadAuthority,writeFences}){
+export function createKakeiFamilyCompletion({key,transfer,loadRecords,verifyReadAuthority,writeFences,verifyEvidenceAt,verifyConsentsAtCommit=async()=>true}){
  if([transfer,loadRecords,verifyReadAuthority,writeFences].some(f=>typeof f!=='function'))throw Error('Complete protected family completion ports required');
- const signed=createHandoffConsentEvidenceVerifier({key});
+ if((verifyEvidenceAt!==undefined&&typeof verifyEvidenceAt!=='function')||typeof verifyConsentsAtCommit!=='function')throw Error('Trusted completion consent verifiers required');
+ const signed=verifyEvidenceAt??createHandoffConsentEvidenceVerifier({key});
  async function pinnedPlan(tx,s,p){
   const row=(await tx.query('select plan from private.kb_shared_handoff_plans where request_id=$1 and household_id=$2 for update',[s.requestID,p.householdID])).rows[0];
   if(!row||handoffPlanDigest(s,row.plan)!==handoffPlanDigest(s,p))throw Error('Exact immutable family plan required');
@@ -52,7 +53,7 @@ export function createKakeiFamilyCompletion({key,transfer,loadRecords,verifyRead
   await tx.query('insert into private.kb_shared_family_completions select * from private.kb_shared_family_completion_contexts where token=$1',[token]);
   tx.beforeCommit('kakei-family-completion:'+token,async()=>{
    await requireDeletionPrerequisites(tx,s,'handoff-family');
-   return await writeFences(s,tx)===true&&same(await loadRecords(s,p,tx),proofs)&&signed(s,p,proofs,Date.now())&&(await read(s,p,tx))!==null;
+   return await writeFences(s,tx)===true&&await verifyConsentsAtCommit(s,p,tx)===true&&same(await loadRecords(s,p,tx),proofs)&&signed(s,p,proofs,Date.now())&&(await read(s,p,tx))!==null;
   });
   return read(s,p,tx);
  }

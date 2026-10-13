@@ -1,0 +1,67 @@
+{
+  "status": "prepared_current_auth_v2_actual_service_ci_pending",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "legacyServiceEvidence": {
+    "head": "738c026aa968e0d893a222c307c886a518beea6c",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Actual v1 family completion composition; no post-consent Kakei Auth binding claim"
+  },
+  "newScope": [
+    "Separate Kakei v2 HMAC domain binds each actual AAL2 identity Auth-state digest and signed TOTP AMR time. No v1 promotion/renewal.",
+    "Original exact in-memory bearers reverified using bounded real GoTrue reads plus current user/session/factor/enrollment pins before transfer and during COMMIT callback.",
+    "Actual additional factor enrollment must refuse new transfer while original session stays AAL2.",
+    "Same-transaction factor mutation after otherwise successful completion must fail COMMIT and roll back owner/member/context/receipt/mutation.",
+    "Original family completion is committed before receiver logout; original signed evidence remains readable after logout/proof revocation, never a new mutation authorization.",
+    "Sorted participant locks followed by controller/plan/full family snapshot pins precede Auth reads."
+  ],
+  "localEvidence": {
+    "syntheticV2ContractPassed": 3,
+    "syntheticV2ContractFailed": 0,
+    "syntheticV2ContractSkipped": 0,
+    "regression": {
+      "firstRun": {
+        "tests": 741,
+        "passed": 740,
+        "failed": 1,
+        "skipped": 0,
+        "durationMs": 1210379.764584,
+        "failure": "member-only durable activation readback returned prepared rather than activated",
+        "cause": "unproven; whole-run load suspected, no exception captured in original assertion"
+      },
+      "isolatedRerun": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 3914.35325
+      },
+      "nextRun": {
+        "allCasesRetained": true,
+        "testConcurrency": 2,
+        "status": "running"
+      },
+      "diagnosticChange": "Assert underlying activationError is absent before asserting durable activated status; no production deadline/guard changed.",
+      "publication": "Draft-only candidate publication while complete bounded run remains live; not a full regression-success claim. Exact-head CI is required."
+    },
+    "lint": "passed",
+    "syntax": "passed"
+  },
+  "remaining": [
+    "Exact-head real service result and raw logs",
+    "Fresh trusted production policy acquisition; injected fixture policy is not live policy",
+    "All app enrollment/frozen roster/all writers/namespace capability coverage",
+    "Lease rebind, all app erase/verify, final shared Auth retirement and independent post-Auth verification",
+    "Least privilege, shipped routes/UI, finite proof/snapshot retention",
+    "Physical device/IAP Sandbox/TestFlight/final screenshot/submission; owner payment held"
+  ],
+  "copiedSource": "16 fixed sources with SHA256/Git blob values; sibling source read-only. Contract tests adapt only imports; identities in them are synthetic.",
+  "adaptedTestProvenance": {
+    "source": "tests/handoff-consent-auth-state.test.mjs",
+    "sourceSHA256": "56dab52bae5a1c00db79e7c58bde16a2fa2fdbfa5d95218a309202ea66413351",
+    "local": "tests/kakei-auth-bound-consent.test.mjs",
+    "localSHA256": "a25407f423ceae7f96910c125524d11aaff7bc3ee35f6cad27b83263378b51bf",
+    "changes": "Only fixture import paths and two explanatory header comments"
+  }
+}

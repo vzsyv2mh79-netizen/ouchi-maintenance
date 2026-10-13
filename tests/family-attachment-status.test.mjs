@@ -93,6 +93,7 @@ test('readback does not require an expired write context and does not grant a ne
 test('member-only durable activation readback requires both receipts despite no receiver quota rows',async()=>{
  const f=await fixture({memberOnly:true});try{
   assert.equal((await read(f)).state,'prepared');await f.run();
+  assert.equal(f.activationError?.message??null,null,'Activation must commit before durable readback is asserted');
   assert.equal((await read(f)).state,'activated');
   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.family_attachment_quota')).rows[0].n,0);
  }finally{await f.db.close();}
