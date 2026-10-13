@@ -247,3 +247,61 @@ test('actor hint cannot replace pinned identity; inventory coordination precedes
   assert.throws(()=>createFamilyAttachmentInventoryConsent({...s.options,identifyActor:undefined}),/Trusted signed inventory provider/);
  }finally{await s.f.db.close();}
 });
+
+
+test('historical activation confirmation requires committed signed evidence and survives later logout, expiry and consent revocation',async()=>{
+ const s=await setup({activation:true});try{
+  const read=signal=>s.transaction(tx=>s.provider.authorizeCommittedActivation(tx,s.f.scope,signal??new AbortController().signal));
+  assert.equal(await read(),false);
+  for(const actor of [owner,recipient])assert.equal((await s.issue(actor)).status,'accepted');
+  assert.equal(await read(),false); // signatures alone are not committed activation
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
+  assert.equal(await read(),true);
+  s.offset=900001;
+  assert.equal(await s.authorize(),false);assert.equal(await read(),true);
+  s.offset=0;s.live=false;
+  await s.f.db.query('delete from auth.sessions where id=$1',[rs]);
+  await s.f.db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);
+  assert.equal(await s.authorize(),false); // no live mutation authority revived
+  assert.equal(await read(),true);
+  const controller=new AbortController();controller.abort();assert.equal(await read(controller.signal),false);
+  const wrong=createFamilyAttachmentInventoryConsent({...s.options,key:randomBytes(32)});
+  assert.equal(await s.transaction(tx=>wrong.authorizeCommittedActivation(tx,s.f.scope,new AbortController().signal)),false);
+  assert.equal(await s.transaction(tx=>s.provider.authorizeCommittedActivation(tx,{...s.f.scope,ownerEpoch:re},new AbortController().signal)),false);
+ }finally{await s.f.db.close();}
+});
+
+for(const fault of ['receiptToken','approvalToken','futureActivation','expiredAtActivation','wrongApprovalScope','foreignDestinationDigest','corruptCapturedSignature','expiredCapturedConsent','staleCapturedAuthentication'])test(`historical activation confirmation refuses ${fault} in loaded evidence`,async()=>{
+ const s=await setup({activation:true});try{
+  for(const actor of [owner,recipient])await s.issue(actor);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
+  const result=await s.transaction(tx=>s.provider.authorizeCommittedActivation({query:async(sql,args)=>{
+   const r=await tx.query(sql,args);
+   if(!sql.startsWith('select to_jsonb(j)'))return r;
+   const rows=structuredClone(r.rows);
+   for(const row of rows){
+    if(fault==='receiptToken')row.receipt.activation_token=os;
+    if(fault==='approvalToken')row.approval.consents[0].token+='x';
+    if(fault==='futureActivation')row.receipt.activated_at='2999-01-01T00:00:00.000Z';
+    if(fault==='expiredAtActivation')row.receipt.activated_at=row.approval.expires_at;
+    if(fault==='wrongApprovalScope')row.approval.scope.nativeLease=os;
+    if(fault==='foreignDestinationDigest')row.context.expected_inventory_digest=row.receipt.expected_inventory_digest='f'.repeat(64);
+    if(fault==='corruptCapturedSignature'){
+     row.approval.consents[0].token+='x';row.context.inventory_approval=structuredClone(row.approval);
+    }
+    if(['expiredCapturedConsent','staleCapturedAuthentication'].includes(fault)){
+     const record=row.approval.consents[0],claim=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url').toString('utf8'));
+     claim.acceptedAt=Date.parse(row.receipt.activated_at)-(fault==='expiredCapturedConsent'?900001:599001);
+     claim.authenticatedAt=claim.acceptedAt-10000;claim.checkedAt=claim.acceptedAt;claim.expiresAt=claim.acceptedAt+900000;
+     const body=Buffer.from(JSON.stringify(claim)).toString('base64url');
+     record.token=body+'.'+createHmac('sha256',s.options.key).update('OuchiMaintenance/family-attachment-inventory/v2\n'+body).digest('base64url');
+     row.context.inventory_approval=structuredClone(row.approval);
+    }
+
+   }
+   return {...r,rows};
+  }},s.f.scope,new AbortController().signal));
+  assert.equal(result,false);
+  assert.equal(await s.transaction(tx=>s.provider.authorizeCommittedActivation(tx,s.f.scope,new AbortController().signal)),true);
+ }finally{await s.f.db.close();}
+});

@@ -1,0 +1,47 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "purpose": "Verify the historical committed activation fact after live consent/session expiry without reviving live mutation authority.",
+  "implementation": [
+    "Backend closure loads journal, exact receipt-linked immutable activation context, captured inventory approval, household receipt and plan from its private pinned database transaction.",
+    "Recomputes original binding and exact destination inventory; checks scope, epochs, plan, inventory and transaction linkage.",
+    "Verifies both captured HMAC signatures, distinct owner/recipient, consent expiry and recent authentication at database-recorded activation time.",
+    "Requires activation time before captured SQL deadlines and no future timestamp. No client-provided receipt or consent arrays.",
+    "Does not call current Auth/MFA verifiers for historical facts. New transfer/source deletion continues to require existing current authority and consent checks."
+  ],
+  "localEvidence": {
+    "relatedSuite": {
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalStagedHistoryCases": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "wholeRegression": {
+      "passed": 685,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-historical-regression-20261013.log"
+    }
+  },
+  "actualServiceAssertionsPrepared": [
+    "No historical activation for absent or rolled-back transfer.",
+    "Historical activation confirmed after committed transfer.",
+    "Historical fact retained after actual consent revocation and receiver logout while live access is refused."
+  ],
+  "actualServiceResult": "pending exact-head CI; Docker not available locally",
+  "remaining": [
+    "Historical family confirmation is not a completion receipt.",
+    "Historical household consent verification is separate from this inventory-consent provider.",
+    "Source absence and retained destination integrity must be verified separately before recording cleanup complete.",
+    "Current controller scope, cancellation, lease/freeze and all app completion remain required before final Auth retirement.",
+    "Finite proof retention, least privilege shipping provider and native/server connection."
+  ],
+  "scope": "No endpoint, key provisioning, production migration, role grant, contract, real billing or production data deletion."
+}

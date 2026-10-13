@@ -177,6 +177,9 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    assert.equal(claims.authenticatedAt,totpTimes.get(record.actor_id));
   }
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
+  // Historical committed fact is separate from current mutation authority.
+  const historical=async()=>{const signal=AbortSignal.timeout(10000);return transaction(tx=>inventoryConsent.authorizeCommittedActivation(tx,scope,signal),signal);};
+
   const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
   let status=provider(),preparations=0,activations=0,cleanupCalls=0,tamperNextActivation=true,lastActivationFailure=null,cleanupEnabled=false,finishCalls=0;
   const removedSourcePaths=[];
@@ -206,9 +209,11 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    },finish:async()=>{finishCalls++;throw Error('Durable family completion and whole-account completion not implemented');}
   };
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'absent');
+  assert.equal(await historical(),false);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
   assert.equal(preparations,1);assert.equal(activations,1);assert.equal(cleanupCalls,0);
   assert.equal(lastActivationFailure?.code,'CURRENT_TRANSACTION_VERIFICATION_REQUIRED');
+  assert.equal(await historical(),false);
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'prepared');
   assert.equal((await db.query('select owner_id from public.homes where id=$1',[homeID])).rows[0].owner_id,owner.user);
   assert.equal((await db.query('select friendly_name from auth.mfa_factors where id=$1',[totpFactors.get(receiver.user)])).rows[0].friendly_name,'Synthetic atomic handoff authenticator');
@@ -217,6 +222,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
   assert.equal(preparations,1);assert.equal(activations,2);assert.ok(cleanupCalls>0);
   status=provider();assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
+  assert.equal(await historical(),true);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});
   assert.equal(preparations,1);assert.equal(activations,2);
   assert.equal((await db.query('select owner_id from public.homes where id=$1',[homeID])).rows[0].owner_id,receiver.user);
@@ -300,11 +306,13 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await status(scope,plan,AbortSignal.timeout(10000))).state,'activated');
   await db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Signed readback inventory/);
+  assert.equal(await historical(),true);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,2);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[1].source.path)).error,null);
   assert.equal(removedSourcePaths.length,2);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
   const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
+  assert.equal(await historical(),true);
   for(const id of [ownFile,memberFile,secondOwnFile])await refused(await downloadWithToken(receiverToken,id));
   // Logout must not remove records, bytes or the GoTrue user itself.
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
