@@ -23,6 +23,7 @@ const {createAttachmentFetch} = await import(serverModule('attachment-fetch'));
 const {createHomeHandoffIdentityVerifier,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier} = await import(serverModule('home-handoff-identity'));
 const {sessionAfterAuthVerification}=await import(serverModule('verified-app-session'));
 const {createAccountClosureReviewTransactionPort}=await import(serverModule('account-closure-review-transaction'));
+const {createAccountClosureReviewServer}=await import(serverModule('account-closure-review-server'));
 
 // Explicit opt-in, disposable local containers only. No configurable remote URL.
 const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci', '-f', 'tests/fixtures/auth/compose.yml', 'exec', '-T', 'db', 'psql', '-U', 'postgres', '-d', 'auth_test', '-v', 'ON_ERROR_STOP=1', '-At'], {input, encoding:'utf8', timeout:10000, stdio:['pipe','pipe','pipe']}).trim();
@@ -187,7 +188,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   // Runs LAST: composed private review fences must not alter preceding cases.
-  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort});
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });

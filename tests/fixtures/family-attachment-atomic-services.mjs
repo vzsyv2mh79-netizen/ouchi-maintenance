@@ -37,7 +37,7 @@ import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STAT
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -140,11 +140,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const reviewWitness=authenticate=>createAccountClosureReviewReauthentication({identity:{userID:owner.user,sessionID:owner.session,epochID:owner.epoch,email:owner.email},authenticate,readAuthState:async(userID,signal)=>{
     signal.throwIfAborted();const result=await db.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);signal.throwIfAborted();return result.rows[0]?.reauthentication_state;
    }});
-  const reviewPortForBearer=(bearer,authenticate)=>{
-   const witness=reviewWitness(authenticate);
-   return {reauthenticate:witness.reauthenticate,port:createAccountClosureReviewTransactionPort({bearer,identityOptions:reviewIdentityOptions,transactions:reviewTransactions,verifyReauthentication:witness.verify})};
-  };
-  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer:reviewPortForBearer});
+  const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:authenticate=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:reviewTransactions,authenticate})});
   const originalReviewSessions=(await db.query('select id::text from auth.sessions where user_id=$1 order by id',[owner.user])).rows;
   // Read actual GoTrue each time, then inject a refusal only at the final check.
   // PostgreSQL must roll back the intake that its real review SQL just inserted.

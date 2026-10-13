@@ -10,7 +10,7 @@ import {createAccountClosureReviewRPC} from '../../lib/account-closure-review-rp
  * Existing fixture owns explicit Auth policy and synthetic accounts. This does
  * not provide production effective-policy acquisition, shipping routes or erasure.
  */
-export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer}) {
+export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,portForBearer,handlerFactory}) {
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');
  assert.equal(origin,'http://127.0.0.1:54321');
  const original=(await actor.client.auth.getSession()).data.session.access_token;
@@ -34,6 +34,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
     temporaryCleanups++;
    }
  };
+ const composedHandler=handlerFactory?handlerFactory(reauthenticate):null;
  const handlerForBearer=bearer=>{
   const providers=portForBearer?portForBearer(bearer,reauthenticate):{port:createAccountClosureReviewRPC({client:admin}),reauthenticate};
   return createAccountClosureReviewHandler({
@@ -61,7 +62,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
   try {
    const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,
     body:Readable.toWeb(req),duplex:'half',signal:abort.signal});
-   const response=await handlerForBearer(request.headers.get('authorization')?.slice(7)??'synthetic-invalid-token')(request,action);
+   const response=await (composedHandler??handlerForBearer(request.headers.get('authorization')?.slice(7)??'synthetic-invalid-token'))(request,action);
    if(action==='request'&&dropReply&&response.status===202){
     dropReply=false;acceptedDroppedReply=true;
     await response.arrayBuffer();res.destroy();return;
@@ -78,7 +79,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
   body:JSON.stringify({expectedEpochID:actor.epoch,submissionID:submission,...extra}),signal:AbortSignal.timeout(10000),redirect:'error'});
  const input={confirmation:'REQUEST_OUCHI_ACCOUNT_DELETION',password:actor.password};
  try {
-  if(!portForBearer){
+  if(!portForBearer&&!handlerFactory){
   await db.query("notify pgrst,'reload schema'");
   let ready=false;
   for(let attempt=0;attempt<20;attempt++){
@@ -107,7 +108,7 @@ export async function verifyDisposableClosureReviewHTTP({db,actor,admin,origin,o
   assert.deepEqual((await db.query('select id::text from auth.sessions where user_id=$1 order by id',[actor.user])).rows,baselineSessions,'Temporary Auth sessions must be removed and original session retained');
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1 and app_epoch_id=$2 and submission_id=$3',[actor.user,actor.epoch,submission])).rows[0].n,1);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[actor.user,actor.epoch])).rows[0].n,0);
-  console.log(portForBearer?'closure-review actual HTTP/Auth/pinned transaction: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job':'closure-review actual HTTP/Auth/RPC: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job');
+  console.log(handlerFactory?'closure-review actual HTTP/Auth/server composition: verified dynamic identity, bound reauthentication, accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job':portForBearer?'closure-review actual HTTP/Auth/pinned transaction: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job':'closure-review actual HTTP/Auth/RPC: accepted lost reply, reread, cancel, nonce replay, temporary-session cleanup; no deletion job');
   return {reauthenticate};
  }finally{
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
