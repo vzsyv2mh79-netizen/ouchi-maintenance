@@ -67,6 +67,37 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    await db.query("insert into maintenance_private.attachment_write_attempts(attachment_id,attempt_id,uploader_id,owner_id,app_epoch_id,state,settled_at) values($1,$2,$3,$4,$5,'settled',clock_timestamp())",[id,randomUUID(),user.user,owner.user,user.epoch]);
    const upload=await admin.storage.from('ouchi-product-attachments').upload(`${user.user}/${user.epoch}/${id}.png`,bytes,{contentType:'image/png',upsert:false});assert.equal(upload.error,null);
   }
+  // Review intake precedes any real deletion job or family handoff. The
+  // actor is an actual fresh GoTrue/TOTP identity; no app closure is performed.
+  await db.query(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));
+  const reviewSession=await owner.client.auth.getSession();assert.equal(reviewSession.error,null);
+  const reviewAuth=await createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(AbortSignal.timeout(5000),5000,65536)}}).auth.getUser(reviewSession.data.session.access_token);
+  assert.equal(reviewAuth.error,null);assert.equal(reviewAuth.data.user.id,owner.user);
+  const reviewClaims=JSON.parse(Buffer.from(reviewSession.data.session.access_token.split('.')[1],'base64url'));assert.equal(reviewClaims.session_id,owner.session);assert.equal(reviewClaims.aal,'aal2');
+  const reviewSnapshot=async()=>(await db.query(`select jsonb_build_object(
+   'homes',(select jsonb_agg(to_jsonb(h) order by h.id) from public.homes h where h.id=$1),
+   'members',(select jsonb_agg(to_jsonb(m) order by m.user_id) from public.home_members m where m."homeId"=$1),
+   'products',(select jsonb_agg(to_jsonb(p) order by p.id) from public.products p where p."homeId"=$1),
+   'tasks',(select jsonb_agg(to_jsonb(t) order by t.id) from public.maintenance_tasks t where t."productId"=$2),
+   'files',(select jsonb_agg(to_jsonb(f) order by f.id) from maintenance_private.product_attachments f where f.product_id=$2),
+   'access',(select to_jsonb(a) from maintenance_private.account_access a where a.user_id=$3)
+  ) as value`,[homeID,productID,owner.user])).rows[0].value;
+  const originalReviewFamily=await reviewSnapshot();
+  await db.query('update maintenance_private.account_closure_review_policy set enabled=true');
+  let reviewReceipt;
+  try{
+   await db.query('set role service_role');
+   reviewReceipt=(await db.query('select public.request_maintenance_closure_review($1,$2,$3) as value',[owner.user,owner.session,owner.epoch])).rows[0].value;
+   assert.equal(reviewReceipt.state,'review_required');assert.equal(reviewReceipt.kind,'app-closure-review/v1');assert.equal(reviewReceipt.epochID,owner.epoch);assert.equal(reviewReceipt.requestID,undefined);
+   // Deliberately lose only the reply: reconcile the exact durable intake ID.
+   await assert.rejects((async()=>{await db.query('select public.request_maintenance_closure_review($1,$2,$3)',[owner.user,owner.session,owner.epoch]);throw Error('Review intake reply lost');})(),/reply lost/);
+   assert.deepEqual((await db.query('select public.read_maintenance_closure_review($1,$2,$3) as value',[owner.user,owner.session,owner.epoch])).rows[0].value,reviewReceipt);
+   await assert.rejects(db.query('select public.read_maintenance_closure_review($1,$2,$3)',[owner.user,receiver.session,owner.epoch]),/Current app session required/);
+  }finally{await db.query('reset role');}
+  assert.deepEqual(await reviewSnapshot(),originalReviewFamily);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner.user])).rows[0].n,1);
+  assert.equal((await db.query('select count(*)::int n from maintenance_private.account_deletion_requests where user_id=$1 and app_epoch_id=$2',[owner.user,owner.epoch])).rows[0].n,0);
+  await db.query('update maintenance_private.account_closure_review_policy set enabled=false');
   await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequestID,owner.user,owner.epoch,nativeLease]);
   // Journal/quota were installed by the earlier awaited actual quota fixture.
   for(const name of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.query(readFileSync('tests/fixtures/handoff-controller-compatibility/'+name,'utf8'));
