@@ -29,6 +29,20 @@ import XCTest
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testKeyboardToolbarWarningDiagnostic() {
+        let app = launch()
+        let check = app.buttons["closure-review.check." + original]
+        reach(check, in: app); check.tap()
+        let status = app.staticTexts["closure-review.status"]
+        reach(status, in: app); XCTAssertEqual(status.label, "退会依頼の受付を確認しました。削除処理はまだ完了していません。")
+        let cancel = app.buttons["closure-review.cancel"]
+        reach(cancel, in: app); capture(app, "diagnostic-before-cancel-ax5"); cancel.tap()
+        app.buttons["依頼を取り消す"].tap()
+        reach(status, in: app); XCTAssertEqual(status.label, "この退会依頼は取り消されています。")
+        let password = app.secureTextFields["closure-review.password"]
+        reach(password, in: app); capture(app, "diagnostic-password-visible-ax5")
+        app.terminate()
+    }
     func testProtectedReferenceReadCancelAndExplicitNewSubmission() {
         let app = launch()
         let check = app.buttons["closure-review.check." + original]

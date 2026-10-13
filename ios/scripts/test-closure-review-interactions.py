@@ -16,8 +16,11 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['closure-review'], default='closure-review')
+parser.add_argument('--test', choices=['closure-review', 'keyboard-toolbar-probe'], default='closure-review')
+parser.add_argument('--omit-input-accessory', '--omit-keyboard-toolbar', dest='omit_keyboard_toolbar', action='store_true', help='Diagnostic temporary copy only; requires keyboard-toolbar-probe')
 args = parser.parse_args()
+if args.omit_keyboard_toolbar and args.test != 'keyboard-toolbar-probe':
+    raise SystemExit('Toolbar removal is diagnostic only; never use it for the full operation test.')
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
 if output.exists():
@@ -36,6 +39,10 @@ manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_si
             'scope': ['actual protected custody, selected-reference read, cancellation and explicit fresh submission on AX5 preview'],
             'notVerified': ['real Auth HTTP', 'actual account erasure', 'VoiceOver', 'physical locked device', 'purchases', 'distribution signing']}
 manifest['testSourceSHA256'] = hashlib.sha256((root / 'UITests/AccountClosureReviewInteractionTests.swift').read_bytes()).hexdigest()
+manifest['selectedTest'] = args.test
+manifest['temporaryToolbarProjection'] = args.omit_keyboard_toolbar
+if args.test == 'keyboard-toolbar-probe':
+    manifest['scope'] = ['Diagnostic read/cancel and scroll to password section only; no full request/keyboard-flow completion claim']
 device = None
 
 def run(*command, **kwargs):
@@ -47,6 +54,16 @@ try:
         for directory in ['OuchiMaintenance', 'OuchiCore', 'Tests', 'UITests', 'OuchiMaintenance.xcodeproj']:
             shutil.copytree(root / directory, work / directory)
         shutil.copy2(root / 'Package.swift', work / 'Package.swift')
+        if args.omit_keyboard_toolbar:
+            view = work / 'OuchiMaintenance/AccountClosureReviewView.swift'
+            code = view.read_text()
+            marker = '        .toolbar {' if '        .toolbar {' in code else '        .safeAreaInset(edge: .bottom) {'
+            start = code.index(marker)
+            end = code.index('        .confirmationDialog(', start)
+            code = code[:start] + code[end:]
+            view.write_text(code)
+            manifest['derivedViewSHA256'] = hashlib.sha256(code.encode()).hexdigest()
+            manifest['removedInputAccessoryKind'] = marker.strip()
         (work / 'Config').mkdir()
         # Do not copy Local.xcconfig or read live credentials into the test build.
         (work / 'Config/Shared.xcconfig').write_text('''PRODUCT_BUNDLE_IDENTIFIER = dev.ouchi.review.closure
@@ -128,7 +145,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', '600',
                 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-',
-                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/testProtectedReferenceReadCancelAndExplicitNewSubmission',
+                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + ('testKeyboardToolbarWarningDiagnostic' if args.test == 'keyboard-toolbar-probe' else 'testProtectedReferenceReadCancelAndExplicitNewSubmission'),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

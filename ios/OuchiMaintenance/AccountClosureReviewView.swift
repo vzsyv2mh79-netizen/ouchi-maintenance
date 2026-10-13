@@ -100,11 +100,14 @@ import Darwin
         }
         .navigationTitle("退会の依頼")
         .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
+        .safeAreaInset(edge: .bottom) {
+            if passwordFocused {
+            HStack {
                 Spacer()
                 Button("入力を完了") { passwordFocused = false }
                     .accessibilityIdentifier("closure-review.keyboard-done")
+            }
+            .padding(8).background(.background)
             }
         }
         .confirmationDialog("退会を依頼しますか？", isPresented: $confirmRequest, titleVisibility: .visible) {
