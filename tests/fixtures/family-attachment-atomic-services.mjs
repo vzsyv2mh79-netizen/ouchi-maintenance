@@ -37,7 +37,7 @@ import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STAT
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewTransactions}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -137,11 +137,23 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    }catch(error){await db.query('rollback');throw error;}
   }};
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
+  await db.query(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));
+  // Disposable LOGIN only: unlike SET ROLE on an administrator session, this
+  // connection cannot regain administrator privileges after a query error.
+  await db.query("create role ouchi_closure_review_ci_login login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-private-review-ci-only'");
+  await db.query('grant ouchi_closure_review_executor to ouchi_closure_review_ci_login');
+  const restrictedProbe=new Client({host:'127.0.0.1',port:54323,user:'ouchi_closure_review_ci_login',password:'synthetic-private-review-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
+  await restrictedProbe.connect();
+  try{
+   await restrictedProbe.query('set role ouchi_closure_review_executor');
+   for(const sql of ['select encrypted_password from auth.users','update auth.users set encrypted_password=encrypted_password','delete from auth.sessions','select * from public.products','delete from public.homes','update maintenance_private.account_closure_review_policy set enabled=true','select public.erase_maintenance_data()','set role postgres'])await assert.rejects(restrictedProbe.query(sql),/permission denied/);
+   const flags=(await restrictedProbe.query("select rolcanlogin,rolsuper,rolcreaterole,rolcreatedb,rolbypassrls from pg_roles where rolname=session_user")).rows[0];
+   assert.deepEqual(flags,{rolcanlogin:true,rolsuper:false,rolcreaterole:false,rolcreatedb:false,rolbypassrls:false});
+  }finally{await restrictedProbe.end();}
   const reviewApplicationName='ouchi-review-'+randomUUID(),reviewSQL=[];
-  const dedicatedReviewTransactions=createAccountClosureReviewTransactions({connect:async({signal})=>{
-   // Disposable administrator credential only. Production requires separately
-   // provisioned minimum database grants; an SQL allowlist is not that proof.
-   const client=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',application_name:reviewApplicationName,connectionTimeoutMillis:3000,query_timeout:5000});
+  const dedicatedReviewTransactions=createAccountClosureReviewPrivateTransactions({connect:async({signal})=>{
+   // Synthetic restricted credentials, never production configuration.
+   const client=new Client({host:'127.0.0.1',port:54323,user:'ouchi_closure_review_ci_login',password:'synthetic-private-review-ci-only',database:'auth_test',application_name:reviewApplicationName,connectionTimeoutMillis:3000,query_timeout:5000});
    client.on('error',()=>{});let closing;
    const abort=()=>{closing??=client.end();};signal.addEventListener('abort',abort,{once:true});
    try{signal.throwIfAborted();await client.connect();signal.throwIfAborted();}
@@ -182,7 +194,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    await new Promise(resolve=>setTimeout(resolve,20));
   }
   assert.equal(reviewConnectionsClosed,true);
-  console.log('closure-review actual PostgreSQL transport: dedicated connections closed; cancellation interrupts observed Auth row-lock wait without COMMIT or queued rollback');
+  console.log('closure-review actual PostgreSQL transport: restricted LOGIN, private helpers and masked credential/factor state; raw Auth/family edits, policy enable and administrator role denied; dedicated connections closed; cancellation interrupts observed Auth row-lock wait without COMMIT or queued rollback');
   const originalReviewSessions=(await db.query('select id::text from auth.sessions where user_id=$1 order by id',[owner.user])).rows;
   // Read actual GoTrue each time, then inject a refusal only at the final check.
   // PostgreSQL must roll back the intake that its real review SQL just inserted.
