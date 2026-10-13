@@ -137,10 +137,28 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   }
   const actorVerifier=createHomeHandoffInventoryActorVerifier({projectID,policyReader});
   const inventoryConsent=createFamilyAttachmentInventoryConsent({key:randomBytes(32),store:{
-   transaction,target:async(tx,request,home,actor)=>{assert.equal(request,scope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));return {scope,plan,inventory:await originalInventory(tx)};},
+   transaction,target:async(tx,request,home,actor)=>{
+    assert.equal(request,scope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));
+    for(const id of [...new Set([plan.ownerID,plan.recipientID,...plan.files.map(file=>file.source.userID)])].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);
+    return {scope,plan,inventory:await originalInventory(tx)};
+   },
    records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,
    record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
-  },verifyIdentity:(token,tx,signal)=>identity(token,{signal,query:(sql,args)=>tx.query(sql,args)}),verifyActor:(tx,claims,signal)=>actorVerifier({signal,query:(sql,args)=>tx.query(sql,args)},claims,signal),currentAuthority:async(tx,s,p,i,d,signal)=>{
+  },identifyActor:async(token,signal)=>{
+   const result=await createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token);
+   assert.equal(result.error,null);return result.data.user.id;
+  },verifyIdentity:async(token,tx,signal)=>{
+   // Before taking any Auth row pins, both participant coordination locks must
+   // already be held. Another physical connection proves this order, rather
+   // than inferring it from the prepared adapter's source.
+   const probe=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:3000});
+   await probe.connect();
+   try{
+    await probe.query("set lock_timeout='200ms'");
+    for(const id of [owner.user,receiver.user])await assert.rejects(probe.query('select pg_advisory_xact_lock(hashtext($1))',[id]),error=>error.code==='55P03');
+   }finally{await probe.end();}
+   return identity(token,{signal,query:(sql,args)=>tx.query(sql,args)});
+  },verifyActor:(tx,claims,signal)=>actorVerifier({signal,query:(sql,args)=>tx.query(sql,args)},claims,signal),currentAuthority:async(tx,s,p,i,d,signal)=>{
    signal.throwIfAborted();
    const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests n join maintenance_private.household_stop_bindings b on b.user_id=n.user_id join maintenance_private.household_family_holds h on h.principal=n.user_id where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4 and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token and b.scope=$5::jsonb and b.state='processing' and b.lease_until>clock_timestamp() and h.home_id=$6 and h.scope=b.scope) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,JSON.stringify(s.controllerScope),s.homeID])).rows[0];
    signal.throwIfAborted();return row.current===true;

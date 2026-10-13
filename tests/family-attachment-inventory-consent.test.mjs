@@ -28,11 +28,14 @@ async function setup({activation=false,commitFault=null,memberOnly=false}={}){
   const writes=(await tx.query('select a.* from maintenance_private.attachment_write_attempts a join maintenance_private.product_attachments f on f.id=a.attachment_id join public.products p on p.id=f.product_id where p."homeId"=$1 order by a.attachment_id for update of a',[f.scope.homeID])).rows;
   return JSON.parse(JSON.stringify({members,products,files,writes}));
  }
- const store={transaction,target:async tx=>({scope:f.scope,plan:f.plan,inventory:await inventory(tx)}),
+ const store={transaction,target:async tx=>{
+  for(const id of [...new Set([owner,recipient,...f.plan.files.map(file=>file.source.userID)])].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);
+  return {scope:f.scope,plan:f.plan,inventory:await inventory(tx)};
+ },
   records:async(tx,s)=>transform((await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows),
   record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
  };
- const options={key,store,verifyIdentity:async(actor,tx)=>{
+ const options={key,store,identifyActor:async actor=>[owner,recipient].includes(actor)?actor:null,verifyIdentity:async(actor,tx)=>{
   if(![owner,recipient].includes(actor))return null;
   const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
   return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authStateDigest:'a'.repeat(64),authenticatedAt:clock-10000,checkedAt:clock});
@@ -227,5 +230,20 @@ test('v2 requires pinned Auth state and cannot reinterpret a legacy v1 consent',
    return {...r,token:body+'.'+sig};
   });
   assert.equal(await s.authorize(),false);
+ }finally{await s.f.db.close();}
+});
+
+
+test('actor hint cannot replace pinned identity; inventory coordination precedes Auth row verification',async()=>{
+ const s=await setup();try{
+  const events=[];
+  const provider=createFamilyAttachmentInventoryConsent({...s.options,
+   identifyActor:async(...args)=>{events.push('identify');return s.options.identifyActor(...args);},
+   store:{...s.options.store,target:async(...args)=>{events.push('target');return s.options.store.target(...args);}},
+   verifyIdentity:async(...args)=>{events.push('pin');assert.deepEqual(events,['identify','target','pin']);return {...await s.options.verifyIdentity(...args),userID:recipient,epochID:re,sessionID:rs};}
+  });
+  assert.deepEqual(await provider.issue({requestID:s.f.scope.requestID,homeID:s.f.scope.homeID,accessToken:owner,confirmation,signal:AbortSignal.timeout(10000)}),{status:'unconfirmed'});
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,0);
+  assert.throws(()=>createFamilyAttachmentInventoryConsent({...s.options,identifyActor:undefined}),/Trusted signed inventory provider/);
  }finally{await s.f.db.close();}
 });
