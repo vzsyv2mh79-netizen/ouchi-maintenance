@@ -19,7 +19,8 @@
     "supportURL": null,
     "privacyPolicyURL": null,
     "reviewContact": null,
-    "demoAccount": null
+    "demoAccount": null,
+    "copyright": null
   },
   "releaseGates": [
     "paid Apple membership and Team confirmed",
@@ -96,6 +97,8 @@
       "utf8Bytes": 1412
     }
   },
-  "version": "2026-10-12",
-  "screenshots": "5 designed templates; no real screenshots or submission PNGs yet"
+  "version": "2026-10-13",
+  "screenshots": "Five design templates and twenty reviewed opaque sample JPEGs exist; samples use an older UI source. Family detail and final submitted-build screenshots remain.",
+  "textSpecificationCheckedAt": "2026-10-13",
+  "fieldChecker": "ios/scripts/verify-listing-draft.py"
 }

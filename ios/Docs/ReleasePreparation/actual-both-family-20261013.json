@@ -1,5 +1,5 @@
 {
-  "status": "prepared_exact_head_actual_service_ci_pending",
+  "status": "actual_both_family_services_passed_auth_v1_gap_not_release_complete",
   "productionEnabled": false,
   "realBillingEnabled": false,
   "scope": "Disposable common GoTrue + PostgreSQL + private Storage and both app family checkpoint; not all-account retirement.",
@@ -22,10 +22,23 @@
     "lint": "passed",
     "syntax": "passed"
   },
-  "actualServiceResult": "Pending exact-head CI; local Docker unavailable; regular unit tests cannot stand in for this proof.",
+  "actualServiceResult": {
+    "head": "738c026aa968e0d893a222c307c886a518beea6c",
+    "workflow": 38405370107,
+    "job": 115323473076,
+    "status": "success",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawJobLogsInspected": true,
+    "enclosingFixtureAwaitedAtExactHead": true,
+    "durationMs": 30173.237858,
+    "disposableContainersAndAttachmentVolumeRemoved": true,
+    "scope": "Actual common GoTrue AAL2 issuer, PostgreSQL Kakei v1 signed completion + six financial table fences, Ouchi signed file/family completion, and two-app global checkpoint. Not worker current-auth v2 proof or whole-account retirement."
+  },
   "copiedSource": "Kakei completion/consent/journal/transfer/snapshot/fence sources fixed unchanged with 14 SHA entries in source-manifest.json. Sibling originals read-only.",
   "remaining": [
-    "Actual service run and raw logs for this exact composition.",
+    "Current post-consent Kakei Auth binding, then repeat actual composition with that reviewed protocol.",
     "Kakei v1 signed proof does not persist authStateDigest. Actual AAL2 issuer pins do not prove post-consent factor/session changes are rejected at worker/COMMIT; cross-app Auth binding requires a reviewed versioned durable protocol before shipping.",
     "Independent full frozen inventory/real Kakei app enrollment/all schema and writers/external namespace capabilities.",
     "Formal current root/native rebind and all app erase/verify/final shared Auth/post-Auth proof.",
