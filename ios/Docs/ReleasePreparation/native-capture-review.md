@@ -70,3 +70,19 @@ Pro simulator. Debug build succeeded; all ten JPEGs were visually inspected
 and independently measured as 1206 × 2622 without alpha. The current-source
 feature gates were checked as disabled before building. Family detail, large
 text/physical accessibility and final signed-build submission assets remain.
+
+## Large-text initial viewports — 2026-10-13
+
+The script now accepts `--text-sizes large accessibility-extra-large
+accessibility-extra-extra-extra-large`. It sets the content size on its own
+created simulator only and stores captures under appearance/text-size directories.
+AX3 and AX5 initial viewports were captured for all five tabs in light appearance
+on an isolated iPhone. All ten images were visually inspected and measured as
+1206 × 2622 opaque JPEG. Visible home names, product/task labels and settings
+labels wrap; accessibility-size navigation titles are inline.
+
+This is partial accessibility evidence. Long cards extend below the viewport.
+The screenshots do not prove scrolling to those controls, activation, VoiceOver
+focus/reading order, keyboard handling, dark-mode large text or physical-device
+behavior. No accessibility requirement is marked complete from these captures.
+Shipping Swift sources were not changed by this capture-tool update.

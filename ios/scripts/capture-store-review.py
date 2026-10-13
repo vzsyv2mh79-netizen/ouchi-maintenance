@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--device', choices=['iphone', 'ipad'], default='iphone')
 parser.add_argument('--appearances', nargs='+', choices=['light', 'dark'], default=['light'])
+parser.add_argument('--text-sizes', nargs='+', choices=['large', 'accessibility-extra-large', 'accessibility-extra-extra-extra-large'], default=['large'])
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
@@ -32,7 +33,7 @@ def run(*command, **kwargs):
     return subprocess.run([str(v) for v in command], cwd=root, check=True, **kwargs)
 
 manifest = {'status': 'native_sample_review_not_submission_images', 'sourceDigest': source_hash,
-            'bundle': bundle, 'device': args.device, 'appearances': args.appearances, 'imageFormat': 'jpeg', 'syntheticDataOnly': True, 'releaseBuild': False,
+            'bundle': bundle, 'device': args.device, 'appearances': args.appearances, 'imageFormat': 'jpeg', 'textSizes': args.text_sizes, 'syntheticDataOnly': True, 'releaseBuild': False,
             'officialSpecifications': 'https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/',
             'remaining': ['Visual review', 'Family sharing detail capture', 'Final signed release build captures',
                           'Required iPad capture if iPad support retained'], 'captures': []}
@@ -68,6 +69,7 @@ try:
         device = subprocess.check_output(['xcrun', 'simctl', 'create', 'おうちメンテ紹介画面サンプル',
             {'iphone': 'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro',
              'ipad': 'com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB'}[args.device], args.runtime], text=True).strip()
+        manifest['simulatorUDID'] = device
         run('xcrun', 'simctl', 'boot', device)
         run('xcrun', 'simctl', 'bootstatus', device, '-b')
         run('xcrun', 'simctl', 'install', device, app)
@@ -77,20 +79,24 @@ try:
             appearance_output = output / appearance
             appearance_output.mkdir()
             run('xcrun', 'simctl', 'ui', device, 'appearance', appearance)
-            for tab, name in enumerate(['home', 'care', 'products', 'history', 'settings']):
-                if ready.exists(): ready.unlink()
-                env = dict(os.environ, SIMCTL_CHILD_OUCHI_REVIEW_CAPTURE_TAB=str(tab))
-                run('xcrun', 'simctl', 'launch', device, bundle, '-AppleLanguages', '(ja)', '-AppleLocale', 'ja_JP', env=env)
-                deadline = time.monotonic() + 45
-                while not ready.exists() or ready.read_text() != str(tab):
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError('Sample did not confirm loaded household; no screenshot accepted.')
-                    time.sleep(0.2)
-                time.sleep(2)
-                path = appearance_output / (name + '-native.jpg')
-                run('xcrun', 'simctl', 'io', device, 'screenshot', '--type=jpeg', path)
-                manifest['captures'].append({'tab': tab, 'appearance': appearance, 'file': str(path.relative_to(output)), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
-                run('xcrun', 'simctl', 'terminate', device, bundle)
+            for text_size in args.text_sizes:
+                size_output = appearance_output / text_size
+                size_output.mkdir()
+                run('xcrun', 'simctl', 'ui', device, 'content_size', text_size)
+                for tab, name in enumerate(['home', 'care', 'products', 'history', 'settings']):
+                    if ready.exists(): ready.unlink()
+                    env = dict(os.environ, SIMCTL_CHILD_OUCHI_REVIEW_CAPTURE_TAB=str(tab))
+                    run('xcrun', 'simctl', 'launch', device, bundle, '-AppleLanguages', '(ja)', '-AppleLocale', 'ja_JP', env=env)
+                    deadline = time.monotonic() + 45
+                    while not ready.exists() or ready.read_text() != str(tab):
+                        if time.monotonic() >= deadline:
+                            raise RuntimeError('Sample did not confirm loaded household; no screenshot accepted.')
+                        time.sleep(0.2)
+                    time.sleep(2)
+                    path = size_output / (name + '-native.jpg')
+                    run('xcrun', 'simctl', 'io', device, 'screenshot', '--type=jpeg', path)
+                    manifest['captures'].append({'tab': tab, 'appearance': appearance, 'textSize': text_size, 'file': str(path.relative_to(output)), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+                    run('xcrun', 'simctl', 'terminate', device, bundle)
         completed = True
 finally:
     if device:

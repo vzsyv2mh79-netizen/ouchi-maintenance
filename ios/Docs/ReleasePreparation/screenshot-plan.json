@@ -202,5 +202,24 @@
     "imageFormat": "jpeg",
     "containsAlphaChannel": false,
     "isSubmissionApproved": false
+  },
+  "largeTextReview": {
+    "status": "initial_large_text_viewports_reviewed_not_full_accessibility_validation",
+    "device": "iPhone 18 Pro",
+    "sizes": [
+      "AX3",
+      "AX5"
+    ],
+    "appearance": "light",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "reviewedInitialViewports": 10,
+    "remaining": [
+      "Scroll to offscreen controls and activate them",
+      "VoiceOver focus/reading order",
+      "Keyboard and input forms",
+      "Physical iPhone verification",
+      "Family detail",
+      "Final signed release build"
+    ]
   }
 }
