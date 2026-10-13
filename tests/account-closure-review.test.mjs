@@ -5,8 +5,9 @@ import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-sch
 import {owner,recipient,oe,os,rs} from './fixtures/home-handoff-identifiers.mjs';
 import {createAccountClosureReviewRPC} from '../lib/account-closure-review-rpc.mjs';
 const sql=readFileSync('tests/fixtures/account-closure-review.sql','utf8');
-const args=[owner,os,oe];
-const call=(db,verb='request',values=args)=>db.query(`select public.${verb==='request'?'request':'read'}_maintenance_closure_review($1,$2,$3) as value`,values);
+const submission='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const args=[owner,os,oe,submission];
+const call=(db,verb='request',values=args)=>db.query(`select public.${verb}_maintenance_closure_review($1,$2,$3,$4) as value`,values);
 async function fixture(){const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');await db.exec(sql);return db;}
 async function family(db){
  const result={};for(const table of ['homes','home_members','products','maintenance_tasks','maintenance_history'])result[table]=(await db.query(`select to_jsonb(t) as value from public.${table} t order by to_jsonb(t)::text`)).rows;
@@ -19,7 +20,7 @@ test('shared owner can durably initiate review without family consent, closing a
   const before=await family(db);
   await db.exec('set role service_role');await assert.rejects(call(db),/Review intake unavailable/);
   await db.exec('reset role;update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
-  const first=(await call(db)).rows[0].value;assert.equal(first.kind,'app-closure-review/v1');assert.equal(first.state,'review_required');assert.equal(first.epochID,oe);assert.ok(first.reviewRequestID);assert.equal(first.requestID,undefined);
+  const first=(await call(db)).rows[0].value;assert.equal(first.kind,'app-closure-review/v2');assert.equal(first.state,'review_required');assert.equal(first.epochID,oe);assert.ok(first.reviewRequestID);assert.equal(first.requestID,undefined);
   const stored=(await db.query('select review_request_id,requested_at from maintenance_private.account_closure_reviews')).rows[0];
   assert.deepEqual((await call(db)).rows[0].value,first);assert.deepEqual((await call(db,'read')).rows[0].value,first);
   await db.exec('reset role;update maintenance_private.account_closure_review_policy set enabled=false;set role service_role');
@@ -31,7 +32,7 @@ test('shared owner can durably initiate review without family consent, closing a
 test('review scope cannot substitute another member, epoch, expired session, browser role or change its enabling policy',async()=>{
  const db=await fixture();try{
   await db.exec('update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
-  for(const values of [[owner,rs,oe],[recipient,os,oe],[owner,os,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'],[null,os,oe]])await assert.rejects(call(db,'request',values),/Current app session required|Invalid review identity/);
+  for(const values of [[owner,rs,oe],[recipient,os,oe],[owner,os,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'],[null,os,oe]])await assert.rejects(call(db,'request',[...values,submission]),/Current app session required|Invalid review identity/);
   await assert.rejects(db.query('update maintenance_private.account_closure_review_policy set enabled=false'),/permission denied/);
   for(const role of ['anon','authenticated']){
    await db.exec('reset role;set role '+role);await assert.rejects(call(db),/permission denied/);await assert.rejects(db.query('select * from maintenance_private.account_closure_reviews'),/permission denied/);
@@ -47,36 +48,60 @@ test('a real deletion job supersedes review intake and is never reported as revi
   // Disposable authoritative race witness: an independent reviewed dispatcher
   // has persisted a real job. This does not implement that dispatcher.
   await db.query('insert into maintenance_private.account_deletion_requests(user_id,app_epoch_id) values($1,$2)',[owner,oe]);
-  await assert.rejects(call(db),/Deletion already requested/);await assert.rejects(call(db,'read'),/Deletion already requested/);
+  await assert.rejects(call(db),/Deletion already requested/);await assert.rejects(call(db,'read'),/Deletion already requested/);await assert.rejects(call(db,'cancel'),/Deletion already requested/);
   await db.exec('reset role');assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews')).rows[0].n,1);
  }finally{await db.close();}
 });
 test('RPC intake uses exact verified scopes, bounded non-retrying transport and distinct truthful review receipts',async()=>{
- const scope={userID:owner,sessionID:os,epochID:oe},signal=new AbortController().signal,calls=[];
- let data={kind:'app-closure-review/v1',state:'review_required',reviewRequestID:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',epochID:oe};
- const port=createAccountClosureReviewRPC({client:{rpc(name,args){calls.push(name);assert.deepEqual(args,{target_user:owner,verified_session:os,expected_epoch:oe});return{retry(value){assert.equal(value,false);return this;},abortSignal(value){assert.ok(value instanceof AbortSignal);assert.equal(value.aborted,false);return Promise.resolve({data,error:null});}};}}});
+ const scope={userID:owner,sessionID:os,epochID:oe,submissionID:submission},signal=new AbortController().signal,calls=[];
+ let data={kind:'app-closure-review/v2',state:'review_required',reviewRequestID:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',epochID:oe,submissionID:submission};
+ const port=createAccountClosureReviewRPC({client:{rpc(name,args){calls.push(name);assert.deepEqual(args,{target_user:owner,verified_session:os,expected_epoch:oe,expected_submission:submission});return{retry(value){assert.equal(value,false);return this;},abortSignal(value){assert.ok(value instanceof AbortSignal);assert.equal(value.aborted,false);return Promise.resolve({data,error:null});}};}}});
  const first=await port.request(scope,signal);assert.equal(Object.isFrozen(first),true);assert.equal(first.requestID,undefined);assert.deepEqual(await port.read(scope,signal),first);
  data=null;assert.equal(await port.read(scope,signal),null);await assert.rejects(port.request(scope,signal),/unconfirmed/);
- for(const patch of [{state:'complete'},{epochID:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},{requestID:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'}]){data={...first,...patch};await assert.rejects(port.request(scope,signal),/unconfirmed/);}
+ data={...first,state:'cancelled'};assert.deepEqual(await port.cancel(scope,signal),data);
+ for(const patch of [{kind:'app-closure-review/v1'},{submissionID:'ffffffff-ffff-4fff-8fff-ffffffffffff'},{state:'complete'},{epochID:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},{requestID:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'}]){data={...first,...patch};await assert.rejects(port.request(scope,signal),/unconfirmed/);}
  const before=calls.length;await assert.rejects(port.request({...scope,userID:'client-flag'},signal),/scope required/);
  const cancelled=new AbortController();cancelled.abort();await assert.rejects(port.request(scope,cancelled.signal));assert.equal(calls.length,before);
 });
 test('a late response cannot acknowledge a changed identity and no automatic retry is dispatched',async()=>{
- const scope={userID:owner,sessionID:os,epochID:oe};let resolve,calls=0;
+ const scope={userID:owner,sessionID:os,epochID:oe,submissionID:submission};let resolve,calls=0;
  const port=createAccountClosureReviewRPC({client:{rpc(name,args){calls++;assert.equal(args.target_user,owner);return{retry(){return this;},abortSignal(){return new Promise(done=>{resolve=done;});}};}}});
  const pending=port.request(scope,new AbortController().signal);scope.userID=recipient;
- resolve({data:{kind:'app-closure-review/v1',state:'review_required',reviewRequestID:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',epochID:oe},error:null});
+ resolve({data:{kind:'app-closure-review/v2',state:'review_required',reviewRequestID:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',epochID:oe,submissionID:submission},error:null});
  await assert.rejects(pending,/identity changed/);assert.equal(calls,1);
 });
 test('deadline and caller cancellation bound an uncooperative RPC without confirming absence or completion',async()=>{
  for(const manual of [false,true]){
   const controller=new AbortController();let sdkSignal,calls=0,resolve;
   const port=createAccountClosureReviewRPC({timeoutMS:30,client:{rpc(){calls++;return{retry(){return this;},abortSignal(signal){sdkSignal=signal;return new Promise(done=>{resolve=done;});}};}}});
-  const pending=port.read({userID:owner,sessionID:os,epochID:oe},controller.signal);
+  const pending=port.read({userID:owner,sessionID:os,epochID:oe,submissionID:submission},controller.signal);
   if(manual)controller.abort();
   // Keep the test alive independently of AbortSignal.timeout's unref timer.
   const keepAlive=setTimeout(()=>{},200);
   try{await assert.rejects(pending);assert.equal(sdkSignal.aborted,true);assert.equal(calls,1);resolve({data:null,error:null});}
   finally{clearTimeout(keepAlive);}
  }
+});
+
+test('cancellation is durable, replay does not revive it and only a new submission can initiate again',async()=>{
+ const db=await fixture();try{
+  const before=await family(db);
+  await db.exec('update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
+  const first=(await call(db)).rows[0].value;
+  await assert.rejects(db.exec("update maintenance_private.account_closure_reviews set state='cancelled',cancelled_at=clock_timestamp()"),/Verified cancellation required/);
+  await assert.rejects(call(db,'cancel',[owner,rs,oe,submission]),/Current app session required/);
+  const cancelled=(await call(db,'cancel')).rows[0].value;
+  assert.equal(cancelled.state,'cancelled');assert.equal(cancelled.reviewRequestID,first.reviewRequestID);
+  const timestamp=(await db.query('select cancelled_at from maintenance_private.account_closure_reviews')).rows[0];
+  assert.deepEqual((await call(db,'cancel')).rows[0].value,cancelled);
+  assert.deepEqual((await call(db)).rows[0].value,cancelled);
+  assert.deepEqual((await call(db,'read')).rows[0].value,cancelled);
+  assert.deepEqual((await db.query('select cancelled_at from maintenance_private.account_closure_reviews')).rows[0],timestamp);
+  const fresh=[owner,os,oe,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'];
+  const second=(await call(db,'request',fresh)).rows[0].value;
+  assert.equal(second.state,'review_required');assert.notEqual(second.reviewRequestID,first.reviewRequestID);
+  await assert.rejects(call(db,'request',[owner,os,oe,'dddddddd-dddd-4ddd-8ddd-dddddddddddd']),/unique constraint/);
+  assert.equal((await call(db,'cancel',[owner,os,oe,'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'])).rows[0].value,null);
+  await db.exec('reset role');assert.deepEqual(await family(db),before);
+ }finally{await db.close();}
 });

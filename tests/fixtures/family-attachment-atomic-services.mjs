@@ -87,12 +87,19 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   let reviewReceipt;
   try{
    await db.query('set role service_role');
-   reviewReceipt=(await db.query('select public.request_maintenance_closure_review($1,$2,$3) as value',[owner.user,owner.session,owner.epoch])).rows[0].value;
-   assert.equal(reviewReceipt.state,'review_required');assert.equal(reviewReceipt.kind,'app-closure-review/v1');assert.equal(reviewReceipt.epochID,owner.epoch);assert.equal(reviewReceipt.requestID,undefined);
+   reviewReceipt=(await db.query('select public.request_maintenance_closure_review($1,$2,$3,$4) as value',[owner.user,owner.session,owner.epoch,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'])).rows[0].value;
+   assert.equal(reviewReceipt.state,'review_required');assert.equal(reviewReceipt.kind,'app-closure-review/v2');assert.equal(reviewReceipt.epochID,owner.epoch);assert.equal(reviewReceipt.requestID,undefined);
    // Deliberately lose only the reply: reconcile the exact durable intake ID.
-   await assert.rejects((async()=>{await db.query('select public.request_maintenance_closure_review($1,$2,$3)',[owner.user,owner.session,owner.epoch]);throw Error('Review intake reply lost');})(),/reply lost/);
-   assert.deepEqual((await db.query('select public.read_maintenance_closure_review($1,$2,$3) as value',[owner.user,owner.session,owner.epoch])).rows[0].value,reviewReceipt);
-   await assert.rejects(db.query('select public.read_maintenance_closure_review($1,$2,$3)',[owner.user,receiver.session,owner.epoch]),/Current app session required/);
+   await assert.rejects((async()=>{await db.query('select public.request_maintenance_closure_review($1,$2,$3,$4)',[owner.user,owner.session,owner.epoch,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']);throw Error('Review intake reply lost');})(),/reply lost/);
+   assert.deepEqual((await db.query('select public.read_maintenance_closure_review($1,$2,$3,$4) as value',[owner.user,owner.session,owner.epoch,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'])).rows[0].value,reviewReceipt);
+   await assert.rejects(db.query('select public.read_maintenance_closure_review($1,$2,$3,$4)',[owner.user,receiver.session,owner.epoch,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']),/Current app session required/);
+   const cancelArgs=[owner.user,owner.session,owner.epoch,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'];
+   const cancelled=(await db.query('select public.cancel_maintenance_closure_review($1,$2,$3,$4) as value',cancelArgs)).rows[0].value;
+   assert.equal(cancelled.state,'cancelled');assert.equal(cancelled.reviewRequestID,reviewReceipt.reviewRequestID);
+   // Lose a cancellation acknowledgement; neither retry nor intake replay revives it.
+   assert.deepEqual((await db.query('select public.cancel_maintenance_closure_review($1,$2,$3,$4) as value',cancelArgs)).rows[0].value,cancelled);
+   assert.deepEqual((await db.query('select public.request_maintenance_closure_review($1,$2,$3,$4) as value',cancelArgs)).rows[0].value,cancelled);
+   assert.deepEqual((await db.query('select public.read_maintenance_closure_review($1,$2,$3,$4) as value',cancelArgs)).rows[0].value,cancelled);
   }finally{await db.query('reset role');}
   assert.deepEqual(await reviewSnapshot(),originalReviewFamily);
   assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner.user])).rows[0].n,1);
