@@ -9,16 +9,19 @@ Info.plist and project configuration, not an unmodified remote commit.
 Run from the repository with a fresh output directory:
 
 ```
-python3 ios/scripts/capture-store-review.py --output /absolute/fresh/review-directory
+python3 ios/scripts/capture-store-review.py --device iphone --appearances light dark --output /absolute/fresh/iphone-review
+python3 ios/scripts/capture-store-review.py --device ipad --appearances light dark --output /absolute/fresh/ipad-review
 ```
 
-The script creates its own iPhone simulator, builds without signing, captures
+The script creates its own iPhone or 13-inch iPad simulator, builds without signing, captures
 five tab screens only after the in-memory household reports ready, and removes
 only that simulator in its cleanup. A bounded 45-second wait fails without
 accepting an image when sample loading cannot be confirmed. Existing
 simulators, accounts and display preferences are untouched. Outputs include
 source digest, image digests, build diagnostics and a review-only manifest.
-These are genuine native sample captures, **not submission-approved screenshots**.
+New captures are direct simulator JPEGs in separate appearance directories; no
+app pixels are fabricated or edited. These are genuine native sample captures,
+**not submission-approved screenshots**.
 
 Before submission, capture the signed final build, review personal-data absence,
 text clipping, current supported features, dimensions and alpha channels. The
@@ -49,3 +52,21 @@ a fresh per-launch sample-ready marker and succeeded for all five screens.
 Dimensions are 1206 × 2622. Native PNGs contain alpha channels, so submission
 format remains unproven. These are UI review assets, not final publication assets,
 and do not prove physical-device accessibility, family join or purchases.
+
+## 13-inch iPad and opaque format — 2026-10-13
+
+The updated capture script supports iPhone/13-inch iPad and light/dark variants,
+and directly captures JPEG. An unsigned Debug simulator build succeeded; all
+five real tab screens in each of the two appearances were visually reviewed.
+All ten files were independently inspected as 2064 × 2752 JPEG without alpha.
+No real household, payment or user device was used. This establishes review
+image format and sample iPad layout only; the final signed-build submission
+images, family detail, iPhone dark/opaque variants and accessibility remain.
+
+## iPhone light/dark opaque format — 2026-10-13
+
+The guarded capture script was run for both appearances on its own iPhone 18
+Pro simulator. Debug build succeeded; all ten JPEGs were visually inspected
+and independently measured as 1206 × 2622 without alpha. The current-source
+feature gates were checked as disabled before building. Family detail, large
+text/physical accessibility and final signed-build submission assets remain.
