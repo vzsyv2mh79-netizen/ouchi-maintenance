@@ -163,6 +163,28 @@ final class LargeTextInteractionTests: XCTestCase {
         app.terminate()
     }
 
+    // Diagnose the two reported findings without hiding or filtering any node.
+    // These focused categories do not replace the failed seven-category full audit.
+    func testVisibleTaskProductClipping() {
+        let app = launch(tab: 1, releaseLayout: true)
+        let product = app.staticTexts["空気清浄機（サンプル）"]
+        reach(product, in: app)
+        capture(app, name: "task-product-fully-visible")
+        do { try app.performAccessibilityAudit(for: .textClipped) }
+        catch { XCTFail("Visible task product clipping audit failed: \(error)") }
+        app.terminate()
+    }
+
+    func testVisibleNextDateContrast() {
+        let app = launch(tab: 1, releaseLayout: true)
+        let due = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次回 ")).firstMatch
+        reach(due, in: app)
+        capture(app, name: "task-next-date-fully-visible")
+        do { try app.performAccessibilityAudit(for: .contrast) }
+        catch { XCTFail("Visible next date contrast audit failed: \(error)") }
+        app.terminate()
+    }
+
     func testHomeSwitchKeepsRecordsInSelectedHome() {
         let app = launch(tab: 2, twoHomes: true)
         func selectHome(_ name: String) {

@@ -309,3 +309,18 @@ No UI test or simulator session from these runs is still active. All five CI
 workflows at published head021ee succeeded. Native job115148913599's unsigned
 Release/Debug builds and built Release SDK metadata steps were individually
 confirmed successful. This does not override the failed accessibility audit.
+
+Focused task diagnosis at unchanged app source18bbb6d completed: xcresult
+0 passed, 2 failed, 0 skipped. All six PNG attachments were reviewed and the
+helper confirms owned-simulator removal. Product-name Text is entirely visible
+and appears completely wrapped, yet textClipped is still reported for that node.
+Next date is entirely above the tab bar and appears black on white. Its contrast
+audit reports the task-name node above the viewport; the exported element crop
+shows the top status/title region and partially scrolled task text. The focused
+audit checks the entire screen for the selected category; it is not proof of a
+contrast defect in the fully visible next date. This changes the diagnosis: the
+contrast finding moves with occluded nodes rather than staying on the date. It
+does not dismiss findings, suppress any node, replace the failed full seven-
+category audit, or establish VoiceOver/physical-device approval. Artifacts:
+`output/ios-development/visible-task-metadata-diagnosis-20261013-ax5`.
+The new two focused tests and helper mode remain local pending PR publication.
