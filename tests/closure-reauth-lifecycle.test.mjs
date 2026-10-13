@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+import {seedClosureReauthenticationDatabase} from './fixtures/closure-reauth-database.mjs';
+import {owner,os,oe} from './fixtures/home-handoff-identifiers.mjs';
+const marker='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',temporary='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',requestID='cccccccc-cccc-4ccc-8ccc-cccccccccccc',lease='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const agent='OuchiMaintenance/closure-reauth/v1/'+marker;
+async function seed(db){await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:owner})]);await db.query('select maintenance_private.closure_reauth_register($1,$2,$3,$4)',[owner,os,oe,marker]);await db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[temporary,owner,agent]);}
+test('private worker recovers expired markers, purges aged metadata and restores caller context',async()=>{
+ const db=await seedClosureReauthenticationDatabase();try{
+  await seed(db);await db.query("update maintenance_private.closure_reauth_markers set expires_at=clock_timestamp()-interval '1 second'");
+  await db.exec('set role ouchi_closure_reauth_worker');
+  await assert.rejects(db.query('select * from auth.sessions'),/permission denied/);await assert.rejects(db.query('select * from maintenance_private.closure_reauth_markers'),/permission denied/);
+  assert.deepEqual((await db.query('select maintenance_private.closure_reauth_maintenance(1) as value')).rows[0].value,{closed:1,purged:0});
+  assert.equal(JSON.parse((await db.query("select current_setting('request.jwt.claims') as value")).rows[0].value).sub,owner);
+  await db.exec("reset role;update maintenance_private.closure_reauth_markers set closed_at=clock_timestamp()-interval '2 days';set role ouchi_closure_reauth_worker");
+  assert.deepEqual((await db.query('select maintenance_private.closure_reauth_maintenance(1) as value')).rows[0].value,{closed:0,purged:1});
+  await db.exec('reset role');assert.equal((await db.query('select count(*)::int n from auth.sessions where id=$1',[os])).rows[0].n,1);
+  await assert.rejects(db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[temporary,owner,agent]),/agent closed/);
+  for(const role of ['anon','authenticated','service_role','ouchi_closure_review_executor']){await db.exec('reset role;set role '+role);await assert.rejects(db.query('select maintenance_private.closure_reauth_maintenance(1)'),/permission denied/);}
+ }finally{await db.close();}
+});
+test('erasure requires matching live lease and retired enrollment; completion refuses retained markers',async()=>{
+ const db=await seedClosureReauthenticationDatabase();try{
+  await seed(db);await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes')",[requestID,owner,oe,lease]);
+  const args=[requestID,owner,oe,lease],erase=values=>db.query('select public.erase_maintenance_deletion_reauth_markers($1,$2,$3,$4) as value',values);
+  await assert.rejects(db.query("update maintenance_private.account_deletion_requests set state='complete',lease_token=null,lease_until=null where id=$1",[requestID]),/marker erasure required/);
+  await db.exec('set role service_role');assert.equal((await erase(args)).rows[0].value,false,'active enrollment cannot declare scope cleanup');
+  await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[owner]);
+  await db.exec('set role service_role');assert.equal((await erase([requestID,owner,oe,marker])).rows[0].value,false);assert.equal((await erase(args)).rows[0].value,true);
+  await db.exec('reset role');assert.equal((await db.query('select count(*)::int n from maintenance_private.closure_reauth_markers')).rows[0].n,0);
+  assert.equal((await db.query('select count(*)::int n from auth.sessions where id=$1',[temporary])).rows[0].n,0);assert.equal((await db.query('select count(*)::int n from auth.sessions where id=$1',[os])).rows[0].n,1);
+  await assert.rejects(db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[temporary,owner,agent]),/agent closed/);
+ }finally{await db.close();}
+});
+const compile=name=>ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+const dataURL=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
+const {withClosureReauthenticationErasure}=await import(dataURL(compile('closure-reauth-erasure')));
+const {createClosureReauthenticationMaintenance}=await import(dataURL(compile('closure-reauth-maintenance').replace("'./deletion-receipt-transactions.mjs'",JSON.stringify(import.meta.resolve('../lib/deletion-receipt-transactions.mjs')))));
+test('maintenance stays disabled without acquisition and rejects unbounded batches before connecting',async()=>{
+ let connects=0;const run=createClosureReauthenticationMaintenance({connect:async()=>{connects++;throw Error('not configured');}});
+ assert.deepEqual(await run(new AbortController().signal),{state:'disabled'});
+ for(const batch of [0,101,1.5,null])await assert.rejects(run(new AbortController().signal,batch),/Bounded cleanup/);
+ assert.equal(connects,0);
+});
+test('record erasure and resumed completion both require durable marker cleanup acknowledgement',async()=>{
+ const events=[],scope={requestID,userID:owner,epochID:oe,leaseToken:lease};let allowed=false;
+ const deps={eraseRecords:async()=>{events.push('records');return true;},markComplete:async()=>{events.push('complete');return true;}};
+ const wrapped=withClosureReauthenticationErasure(deps,{rpc:async(name,args)=>{assert.equal(name,'erase_maintenance_deletion_reauth_markers');assert.deepEqual(args,{target_request:requestID,target_user:owner,target_epoch:oe,target_lease:lease});events.push('markers');return {data:allowed,error:null};}});
+ assert.equal(await wrapped.eraseRecords(scope),false);assert.equal(await wrapped.markComplete(scope),false);assert.deepEqual(events,['markers','markers']);
+ allowed=true;assert.equal(await wrapped.eraseRecords(scope),true);assert.equal(await wrapped.markComplete(scope),true);assert.deepEqual(events.slice(-4),['markers','records','markers','complete']);
+});

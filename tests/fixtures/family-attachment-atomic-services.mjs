@@ -23,6 +23,7 @@ import {createStrictHomeHandoffPolicyReader} from '../../lib/home-handoff-policy
 import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STATE_SQL} from '../../lib/account-closure-review-reauthentication.mjs';
 import {verifyDisposableReauthenticationResponseLoss} from './closure-reauth-response-loss.mjs';
 import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer} from './closure-reauth-producer-services.mjs';
+import {verifyDisposableClosureReauthLifecycle} from './closure-reauth-lifecycle-services.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -39,7 +40,7 @@ import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer}
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -142,6 +143,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
   await db.query(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));
   await db.query(readFileSync('tests/fixtures/closure-reauth-markers.sql','utf8'));
+  await db.query(readFileSync('tests/fixtures/closure-reauth-lifecycle.sql','utf8'));
   // Disposable LOGIN only: unlike SET ROLE on an administrator session, this
   // connection cannot regain administrator privileges after a query error.
   await db.query("create role ouchi_closure_review_ci_login login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-private-review-ci-only'");
@@ -165,6 +167,15 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    finally{signal.removeEventListener('abort',abort);}
    return {query:(sql,args)=>{reviewSQL.push(sql);return client.query(sql,args);},abort,close:async()=>{abort();await closing;}};
   }});
+  await db.query("create role ouchi_closure_reauth_ci_worker login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-reauth-worker-ci-only'");
+  await db.query('grant ouchi_closure_reauth_worker to ouchi_closure_reauth_ci_worker');
+  const maintenance=createClosureReauthenticationMaintenance({enabled:true,connect:async({signal})=>{
+   const client=new Client({host:'127.0.0.1',port:54323,user:'ouchi_closure_reauth_ci_worker',password:'synthetic-reauth-worker-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
+   client.on('error',()=>{});let closing;const abort=()=>{closing??=client.end();};signal.addEventListener('abort',abort,{once:true});
+   try{signal.throwIfAborted();await client.connect();signal.throwIfAborted();}catch(error){abort();await closing.catch(()=>{});throw error;}finally{signal.removeEventListener('abort',abort);}
+   return {query:(sql,args)=>client.query(sql,args),abort,close:async()=>{abort();await closing;}};
+  }});
+  await verifyDisposableClosureReauthLifecycle({db,actor:await account(),origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions,maintenance});
   const reviewWitness=authenticate=>createAccountClosureReviewReauthentication({identity:{userID:owner.user,sessionID:owner.session,epochID:owner.epoch,email:owner.email},authenticate,readAuthState:async(userID,signal)=>{
     signal.throwIfAborted();const result=await db.query(CLOSURE_REAUTHENTICATION_STATE_SQL,[userID]);signal.throwIfAborted();return result.rows[0]?.reauthentication_state;
    }});
