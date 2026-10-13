@@ -1,12 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {randomBytes,createHmac,createHash} from 'node:crypto';
+import {randomBytes,createHmac,createHash,randomUUID} from 'node:crypto';
 import {createFamilyAttachmentInventoryConsent} from '../lib/family-attachment-inventory-consent.mjs';
 import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs';
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+import {bindKakeiCommittedFamilyVerifier} from '../lib/kakei-retained-family-verifier.mjs';
+import {createOtherAppFamilyVerifier} from '../lib/other-app-family-verifier.mjs';
+import {createKakeiFamilyCompletion} from './fixtures/kakei-completion/lib/kakei-family-completion.mjs';
+import {createKakeiFamilyTransfer} from './fixtures/kakei-completion/lib/kakei-family-transfer.mjs';
+import {createHandoffConsentStore} from './fixtures/kakei-completion/lib/handoff-consent-store.mjs';
+import {createHandoffConsentIssuer as createKakeiConsentIssuer,createSignedHandoffConsentVerifier as createKakeiConsentVerifier} from './fixtures/kakei-completion/lib/handoff-consent.mjs';
+import {captureKakeiFamilySnapshot,kakeiFamilyPlanDigests} from './fixtures/kakei-completion/lib/kakei-family-snapshot.mjs';
 import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs';
 import {sharedFamilyCoverageDigest} from '../lib/shared-family-handoff-stage.mjs';
 import {StorageApiError} from '@supabase/supabase-js';
@@ -17,8 +24,8 @@ import {createCommittedHouseholdConsentVerifier} from '../lib/home-handoff-conse
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
-async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false}={}){
- let provider;const f=await fixture({prepared:false,commitFault,memberOnly,inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
+async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false,includeKakei=false}={}){
+ let provider;const f=await fixture({prepared:false,commitFault,memberOnly,extraControllerApps:includeKakei?[{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()}]:[],inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
  const key=randomBytes(32);
@@ -368,8 +375,8 @@ for(const fault of ['forgedFamilySignature','wrongFamilyRole','foreignFamilySnap
 });
 
 
-async function completionSetup(){
- const s=await setup({activation:true,alignFamilyAuth:true});
+async function completionSetup({includeKakei=false}={}){
+ const s=await setup({activation:true,alignFamilyAuth:true,includeKakei});
  await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
  for(const actor of [owner,recipient])await s.issue(actor);
  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
@@ -510,4 +517,83 @@ for(const fault of ['rootLeaseExpired','missingPrepare','wrongRootLease','unplan
   assert.equal((await c.s.f.db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,0);
   await c.s.transaction(tx=>c.record(tx));assert.equal((await c.read()).durable,true);
  }finally{await c.s.f.db.close();}
+});
+
+
+async function bothFamilySetup(){
+ const c=await completionSetup({includeKakei:true}),db=c.s.f.db,root=c.s.f.scope.controllerScope;
+ await db.exec(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
+ await db.exec(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
+ const fixed={...root};delete fixed.leaseToken;
+ await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until) values($1,$2,$3,'requested',null,null)",[root.requestID,root.userID,fixed]);
+ await db.exec(readFileSync('tests/fixtures/kakei-completion/tests/fixtures/handoff-consent-store.sql','utf8'));
+ await db.exec(`create or replace function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create table private.kb_deletion_context(user_id uuid,transaction_id bigint);
+ create table public.kb_households(id uuid primary key,owner_id uuid,name text,invite_token uuid,created_at timestamptz default now(),updated_at timestamptz);
+ create table public.kb_household_members(household_id uuid,user_id uuid,role text,display_name text,joined_at timestamptz default now(),primary key(household_id,user_id));
+ create table public.kb_transactions(id uuid primary key,household_id uuid,created_by uuid,amount int);
+ alter table public.kb_households enable row level security;alter table public.kb_household_members enable row level security;alter table public.kb_transactions enable row level security;
+ revoke all on public.kb_households,public.kb_household_members,public.kb_transactions from public,anon,authenticated,service_role;
+ `);
+ await db.exec(readFileSync('tests/fixtures/kakei-completion/tests/fixtures/kakei-family-transfer.sql','utf8'));
+ await db.exec('create trigger kb_touch_household before update on public.kb_households for each row execute function private.kb_touch_household();create trigger kb_touch_member before update on public.kb_household_members for each row execute function private.kb_touch_member();');
+ await db.exec(readFileSync('tests/fixtures/kakei-completion/review/kakei-family-completion.sql','utf8'));
+ const household=randomUUID(),record=randomUUID(),app=root.apps.find(a=>a.app==='kakei');
+ await db.query('insert into public.kb_households(id,owner_id,name,invite_token) values($1,$2,$3,$4)',[household,root.userID,'Synthetic budget family',randomUUID()]);
+ for(const [user,role] of [[root.userID,'owner'],[recipient,'member']])await db.query('insert into public.kb_household_members(household_id,user_id,role,display_name) values($1,$2,$3,$4)',[household,user,role,'Synthetic '+role]);
+ await db.query('insert into public.kb_transactions values($1,$2,$3,200)',[record,household,recipient]);
+ const plan={protocolVersion:2,requestID:root.requestID,userID:root.userID,inventoryDigest:root.inventoryDigest,appRequestID:app.requestID,appScopeID:app.scopeID,householdID:household,successorID:recipient,memberIDs:[root.userID,recipient],familyRecordIDs:[record]};
+ Object.assign(plan,kakeiFamilyPlanDigests(await captureKakeiFamilySnapshot(root,household,db),root,plan));
+ await db.query('insert into private.kb_shared_handoff_plans values($1,$2,$3)',[root.requestID,household,plan]);
+ const key=randomBytes(32),proofStore=createHandoffConsentStore({transaction:cb=>c.s.transaction(cb)});
+ const issuer=createKakeiConsentIssuer({key,store:proofStore,verifyIdentity:async user=>({userID:user,authVerifiedAt:Date.now()})});
+ for(const actor of [root.userID,recipient])assert.equal((await issuer({requestID:root.requestID,householdID:household,accessToken:actor,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
+ await db.query("update private.kb_shared_deletion_journal set status='processing',lease_token=$2,lease_until=clock_timestamp()+interval '2 minutes',receipts=$3 where request_id=$1",[root.requestID,root.leaseToken,{prepare:{durable:true,stage:'prepare',...fixed}}]);
+ const verifyConsents=createKakeiConsentVerifier({key,loadRecords:proofStore.loadRecords}),fences=async()=>true; // explicit synthetic Kakei identity/fence, not shipping evidence
+ const transfer=createKakeiFamilyTransfer({verifyConsents,writeFences:fences});
+ const completed=createKakeiFamilyCompletion({key,transfer,loadRecords:proofStore.loadRecords,verifyReadAuthority:async()=>true,writeFences:fences});
+ const kakei=bindKakeiCommittedFamilyVerifier({completion:completed,verifyWriteFences:fences,verifyFrozenCoverage:async(tx,s,plans)=>plans.length===1&&digest(plans[0])===digest(plan)});
+ const other=createOtherAppFamilyVerifier({verifyControllerCoverage:async(tx,s)=>digest(s)===digest(root),verifiers:{kakei}});
+ const targets=[{scope:c.s.f.scope,plan:c.plan}],coverage=sharedFamilyCoverageDigest(targets,root);
+ const checkpoint=createSharedFamilyStageStore({verifyReadAuthority:async()=>true,loadValidatedTargets:async(tx,s,d)=>{
+  assert.equal(d,coverage);assert.equal(await c.options.verifyCommittedConsent(tx,c.s.f.scope,c.signal()),true);
+  if(await other(tx,s,c.signal())!==true)throw Error('Kakei committed family unconfirmed');return targets;
+ }});
+ return {...c,root,db,budgetPlan:plan,budgetTransfer:transfer,budgetCompletion:completed,other,checkpoint,targets,coverage,
+  globalRecord:()=>c.s.transaction(tx=>checkpoint.record(tx,root,coverage,c.signal())),globalRead:()=>c.s.transaction(tx=>checkpoint.read(tx,root,c.signal()))};
+}
+
+test('both-app checkpoint requires actual signed Kakei completion and independently committed maintenance cleanup',async()=>{
+ const c=await bothFamilySetup();try{
+  c.clean();await c.finish();
+  await assert.rejects(c.globalRecord(),/Kakei committed family unconfirmed/);assert.equal(await c.globalRead(),null);
+  await assert.rejects(c.s.transaction(async tx=>{await c.budgetTransfer(c.root,c.budgetPlan,tx);assert.equal(await c.other(tx,c.root,c.signal()),false);throw Error('Unsigned completion probe rollback');}),/probe rollback/);
+  assert.equal((await c.db.query('select owner_id from public.kb_households where id=$1',[c.budgetPlan.householdID])).rows[0].owner_id,c.root.userID);
+  await c.s.transaction(tx=>c.budgetCompletion.complete(c.root,c.budgetPlan,tx));
+  await c.db.query('update private.kb_shared_handoff_proofs set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);
+  await c.globalRecord();const saved=await c.globalRead();assert.equal(saved.stage,'handoff-family');assert.equal(saved.apps.length,2);
+  await c.globalRecord();assert.deepEqual(await c.globalRead(),saved);
+  assert.equal((await c.db.query('select count(*)::int n from private.kb_shared_family_completions')).rows[0].n,1);
+  assert.equal((await c.db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,1);
+  assert.equal((await c.db.query('select amount from public.kb_transactions')).rows[0].amount,200);
+  assert.equal((await c.status()).state,'complete');
+  assert.equal((await c.db.query('select state from maintenance_private.account_deletion_requests where id=$1',[c.s.f.scope.nativeRequestID])).rows[0].state,'running');
+ }finally{await c.db.close();}
+});
+
+for(const fault of ['retainedBudgetDrift','budgetReceiptMissing','budgetPlanScopeChanged','maintenanceSourcePresent'])test(`mixed checkpoint refuses ${fault} and keeps already committed family result`,async()=>{
+ const c=await bothFamilySetup();try{
+  if(fault!=='maintenanceSourcePresent'){c.clean();await c.finish();}
+  await c.s.transaction(tx=>c.budgetCompletion.complete(c.root,c.budgetPlan,tx));
+  if(fault==='retainedBudgetDrift')await c.db.exec('update public.kb_transactions set amount=201');
+  if(fault==='budgetPlanScopeChanged')await c.db.query('update private.kb_shared_handoff_plans set plan=$1',[{...c.budgetPlan,appScopeID:oe}]);
+  if(fault==='budgetReceiptMissing'){
+   await c.db.exec('alter table private.kb_shared_family_completions disable trigger immutable_kakei_family_completion');
+   await c.db.exec('delete from private.kb_shared_family_completions');
+   await c.db.exec('alter table private.kb_shared_family_completions enable trigger immutable_kakei_family_completion');
+  }
+  await assert.rejects(c.globalRecord());assert.equal(await c.globalRead(),null);
+  assert.equal((await c.db.query('select count(*)::int n from maintenance_private.shared_family_stage_contexts')).rows[0].n,0);
+  if(fault!=='maintenanceSourcePresent')assert.equal((await c.status()).state,'complete');
+ }finally{await c.db.close();}
 });

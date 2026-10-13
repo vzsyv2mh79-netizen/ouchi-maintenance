@@ -10,7 +10,7 @@ import {createFamilyAttachmentActivation} from '../../lib/family-attachment-acti
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
-export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null}={}){
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null,extraControllerApps=[]}={}){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
@@ -22,7 +22,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequest,owner,oe,nativeLease]);
  for(const name of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.exec(readFileSync('tests/fixtures/handoff-controller-compatibility/'+name,'utf8'));
  for(const name of ['journal','quota','activation'])await db.exec(readFileSync('tests/fixtures/family-attachment-'+name+'.sql','utf8'));
- const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequest,scopeID:oe}]};
+ const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequest,scopeID:oe},...extraControllerApps]};
  await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner,controllerScope,nativeLease]);
  await db.query('select maintenance_private.freeze_household_scope($1,$2)',[controllerScope,nativeLease]);
  const saved=(await db.query('select maintenance_private.household_family_snapshot($1) as value',[home])).rows[0].value;
