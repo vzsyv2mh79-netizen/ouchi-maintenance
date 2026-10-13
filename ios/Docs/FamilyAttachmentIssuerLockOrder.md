@@ -20,11 +20,17 @@ precedes pinned identity verification; substitution leaves no consent record.
 The prepared real GoTrue/Storage fixture additionally uses a second PostgreSQL
 connection with a 200ms lock timeout to attempt each participant coordination
 lock before the issuer takes Auth row pins. Both attempts must fail with 55P03.
-This test is awaiting disposable CI execution; it is not a local-service result.
+Disposable Family CI run 38349044342 / job 115137007217 succeeded at
+36195622869cd796a30a0d2af5dc3316157f42ca: 1 passed, 0 failed, 0 skipped.
+Execution logs, tested fixture and disposable cleanup were inspected. The new
+second-connection checks run before the real identity adapter takes Auth pins.
+This proves the prepared composition only, not all production controllers.
 
 Local focused suite: 21 passed, 0 failed, 0 skipped. Targeted lint and complete
 TypeScript checking passed. Whole suite: 667 passed, 0 failed, 0 skipped.
-New-head disposable-service CI results remain pending.
+All five new-head CI checks succeeded. Native job 115137007039 confirmed
+unsigned Release/Debug builds and built Release SDK metadata. Actual Apple
+purchases, signing and shipping activation remain unverified.
 
 Scope: these are private prepared providers and disposable fixtures. Production
 plan lookup must obtain immutable trusted participant identities and validate

@@ -126,6 +126,8 @@ final class LargeTextInteractionTests: XCTestCase {
         capture(app, name: "home-menu-open")
         home.tap()
         XCTAssertTrue(chooser.waitForExistence(timeout: 10))
+        XCTAssertEqual(chooser.label, "住まいを切り替える")
+        XCTAssertEqual(chooser.value as? String, "サンプルのわが家")
         XCTAssertTrue(app.navigationBars["おうちメンテ"].exists)
         capture(app, name: "home-menu-reselected")
         app.terminate()
@@ -171,7 +173,7 @@ final class LargeTextInteractionTests: XCTestCase {
             XCTAssertTrue(item.waitForExistence(timeout: 10))
             XCTAssertTrue(item.isHittable)
             item.tap()
-            let selected = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", name, "住まいを切り替える")).firstMatch
+            let selected = app.buttons.matching(NSPredicate(format: "label == %@ AND value == %@", "住まいを切り替える", name)).firstMatch
             XCTAssertTrue(selected.waitForExistence(timeout: 10))
         }
         selectHome("サンプルの別の住まい")

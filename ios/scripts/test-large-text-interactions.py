@@ -16,7 +16,7 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['all', 'editor', 'audit', 'home', 'memo', 'overdue', 'home-switch', 'theme'], default='all')
+parser.add_argument('--test', choices=['all', 'completion', 'editor', 'audit', 'home', 'memo', 'overdue', 'home-switch', 'theme'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -33,7 +33,8 @@ sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
 manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'all'],
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
-            'scope': (['theme toggle and relaunch retention on isolated sample; restore starting appearance'] if args.test == 'theme' else
+            'scope': (['complete actual sample task; exactly one history addition and next due date update'] if args.test == 'completion' else
+                      ['theme toggle and relaunch retention on isolated sample; restore starting appearance'] if args.test == 'theme' else
                       ['two synthetic homes: product/history filtering and return to original home; not cloud RLS verification'] if args.test == 'home-switch' else
                       ['seven unfiltered accessibility audit categories after scrolling overdue-count label entirely above tab bar'] if args.test == 'overdue' else
                       ['seven unfiltered accessibility audit categories after scrolling product memo entirely above tab bar'] if args.test == 'memo' else
@@ -129,7 +130,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
                 '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO',
-                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + {'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test]] if args.test != 'all' else []),
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + {'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test]] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

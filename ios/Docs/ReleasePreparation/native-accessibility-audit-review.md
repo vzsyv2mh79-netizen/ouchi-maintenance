@@ -176,3 +176,124 @@ at the same source digest. It does not approve device interactions, accessibilit
 final signed screenshots or submission. All five a49a699 CI workflows completed
 successfully; the Native job's Release build, built SDK metadata checks and Debug
 build steps were individually confirmed successful.
+
+An opaque adaptive system-background navigation-bar trial was built and audited
+at AX5/light on 2026-10-13. Artifact directory:
+`output/ios-development/opaque-navigation-memo-audit-20261013-ax5`.
+The xcresult summary reports 0 passed, 1 failed, 0 skipped. Three exported PNGs
+were reviewed. The visible memo is above the tab bar and the product title is
+black on an opaque white bar. The unfiltered audit reports a SwiftUI node
+identified by XCTest as `住まい`; its exported element crop instead shows the
+status-clock region. The `住まい` header is above the currently visible scrolled
+content. This disagreement is not treated as an approved false positive or
+suppressed finding. The trial remains local; it does not establish full-screen
+contrast compliance or eliminate the historical navigation-title finding.
+The helper finished with test failure. Its manifest confirms the owned simulator
+was removed; source digest is `8db946a7cb1b28d91af49dad84e5f9f387bc427b`.
+
+The same-source AX5/light five-initial-tab audit is running in
+`output/ios-development/opaque-navigation-full-audit-20261013-ax5`. This broader
+unfiltered pass is required to assess the candidate; no new shipping change
+has been published and the focused result remains failed.
+
+The opaque-bar five-tab AX5/light run finished at source digest
+`8db946a7cb1b28d91af49dad84e5f9f387bc427b`: xcresult 0 passed, 1 failed,
+0 skipped. Its test log reports two contrast failures. All five initial-view
+PNGs, both failure app screenshots and the exported element crop were reviewed
+(eight PNGs). The two app views show Home/Product text underneath the floating
+tab bar. This remains a failed unfiltered audit, not an approved false positive.
+The helper manifest confirms its owned simulator was removed.
+
+The initial captures also show the three-part home selector using most of the
+viewport at AX5. A subsequent local candidate presents only the selected home
+name with a down-chevron, using the same Menu for all text sizes. Its semantic
+accessibility label states the switch action and its value states the selected
+home; it does not hide text from the audit. Name wrapping and the 44pt minimum
+control height remain. The exact sample's five-tab AX5/light audit is now running
+at `output/ios-development/compact-home-menu-full-audit-20261013-ax5`.
+Results, menu operation, two-home filtering, dark appearance and VoiceOver
+remain unverified for this candidate. The opaque-bar and compact selector edits
+are local and have not been added to PR #167 or activated in production.
+
+The compact-selector two-home AX5/dark run completed at source digest
+`d872ee3f52011d96f89ca9e92a908763698778b4`: xcresult 1 passed, 0 failed,
+0 skipped. All three exported PNGs were reviewed and owned-simulator removal
+was confirmed in the helper manifest. The revised query checks the Menu action
+label and selected-home accessibility value, not a visually repeated name in
+the action label. Member-home products/history are empty and returning restores
+the owner-home sample record. This proves isolated UI filtering, not live RLS
+or VoiceOver. The AX5/light five-tab test log reports one text-clipping failure
+for the task's product label and one contrast failure for its next-date label;
+its result bundle is still finalizing. These findings are not suppressed.
+
+The compact-selector initial audit bundle finalized: 0 passed, 1 failed,
+0 skipped, and owned-simulator removal is confirmed. Both failure app views and
+both element crops were reviewed (the five initial screenshots remain to be
+reviewed). The product-name crop shows two complete-looking wrapped lines; the
+audit nevertheless reports text clipping, so it remains unresolved. The next-
+date crop intersects the floating tab bar, corroborating occlusion. No issue
+was suppressed. Dark two-home operation passes at the same source digest; this
+does not prove full accessibility or all forms. Both helpers have completed.
+
+The remaining five initial-view screenshots of the compact-selector audit were
+reviewed on 2026-10-13 (all nine exported PNGs now reviewed). The shorter selector
+leaves the date, overdue heading, product memo and history record more visible.
+The task product-name clipping and next-date contrast findings remain unresolved.
+A subsequent local candidate gives each task metadata Text its full vertical
+wrapping size without forcing horizontal overflow and fills available row width.
+The unfiltered five-tab AX5/light audit is running at
+`output/ios-development/wrapped-task-metadata-audit-20261013-ax5`.
+A new helper `completion` mode selects the existing meaningful UI test for the
+actual completion button, exact next due date and exactly one history addition;
+its AX5/light run is active at
+`output/ios-development/wrapped-task-completion-20261013-ax5`.
+The helper parses successfully (AST check without writing user cache files).
+No result or image has been approved for this newer metadata candidate yet.
+
+The explicit metadata wrapping trial completed at source digest
+`b9ac1e8829a3d0111667cd511edbbb647e33cc1a`. Initial audit xcresult:
+0 passed, 1 failed, 0 skipped, with the same two finding occurrences. Both failure
+app screenshots and both element crops were reviewed; the five initial captures
+remain to be reviewed. Product-name crop still appears fully wrapped while the
+audit reports clipping, and next-date crop is under the floating tab bar. No
+finding was dismissed or suppressed. Owned simulator removal is confirmed.
+
+The same-source completion run succeeded: 1 passed, 0 failed, 0 skipped; both
+completion-reachable and completion-history PNGs were reviewed and owned-device
+removal confirmed. The test executes the actual completion action and checks
+the exact 30-day next date and one history addition, not just source flags.
+It proves isolated in-memory sample interaction only. Artifacts:
+`output/ios-development/wrapped-task-completion-20261013-ax5` and
+`output/ios-development/wrapped-task-ui-evidence-20261013-b9ac.json`.
+The successful operation does not override the failed accessibility audit.
+Next: reassess task metadata row layout and visible element frames; do not repeat
+small fixed-size changes as though the audit passed. No simulator/test session
+is still active from these two runs. No shipping change was published.
+
+After unchanged clipping/contrast findings in the explicit-size trial, task
+metadata was restructured as independent List rows. This keeps each item
+independently measurable and scrollable instead of a single nested metadata
+VStack. All content, text-size scaling, source distinction and completion action
+remain. The new unfiltered five-tab audit and existing meaningful completion
+test are running at `separate-task-rows-audit-20261013-ax5` and
+`separate-task-rows-completion-20261013-ax5` under output/ios-development.
+This is an unverified local candidate, not a shipping/accessibility approval.
+
+The independent task-row completion run succeeded at source digest
+`18bbb6dc9cef82434cdee18117b39bfeea2c081f`: xcresult 1 passed, 0 failed,
+0 skipped. Both exported PNGs were reviewed and its owned simulator removal
+confirmed. The actual button advances the next date by 30 days and adds exactly
+one history record. Its unfiltered five-tab audit log still reports two failures
+(product-name clipping and next-date contrast); xcresult/diagnostic finalization
+is still running, so its result bundle and screenshots are not yet inspected.
+This layout keeps metadata independently scrollable but is not a fix proven to
+remove those audit findings. No findings were suppressed.
+
+The candidate's NativeRootView was compared against the current remote PR file.
+Only the three intended edits are present: compact semantic home Menu, opaque
+adaptive navigation background, and independent task metadata rows. The UI test
+checks the home selector's action label plus selected value; the helper's new
+completion mode invokes the existing behavioral test. These tested candidates,
+current negative audit evidence, and read-only Storage cost review are being
+prepared for the draft PR. No main/production merge, paid contract or actual
+purchase is authorized by this documentation.

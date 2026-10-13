@@ -188,24 +188,32 @@ private struct HomePicker: View {
                 Button(home.name) { store.homeID = home.id }
             }
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("住まい").font(.body).foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(store.household?.homes.first(where: { $0.id == store.homeID })?.name ?? "住まいを選ぶ")
+            HStack(alignment: .center, spacing: 12) {
+                Text(selectedHomeName)
                     .font(.body).fixedSize(horizontal: false, vertical: true)
-                Text("住まいを切り替える").font(.caption)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down").font(.caption)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .multilineTextAlignment(.leading)
-        }.disabled(store.busy)
+        }
+        .accessibilityLabel("住まいを切り替える")
+        .accessibilityValue(selectedHomeName)
+        .disabled(store.busy)
+    }
+    private var selectedHomeName: String {
+        store.household?.homes.first(where: { $0.id == store.homeID })?.name ?? "住まいを選ぶ"
     }
 }
 
 private struct AdaptiveNavigationTitle: ViewModifier {
     @Environment(\.dynamicTypeSize) private var textSize
     func body(content: Content) -> some View {
-        content.navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
+        content
+            .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
+            // Scrolled content must not reduce the title's contrast through a translucent bar.
+            .toolbarBackground(Color(uiColor: .systemBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 
@@ -221,11 +229,15 @@ private struct CareList: View {
                     ForEach(tasks) { task in
                         Section {
                             NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
-                            VStack(alignment: .leading, spacing: 8) {
-                            Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品").foregroundStyle(.secondary)
-                            Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと").font(.subheadline)
+                            // Independent List rows keep each metadata item measurable and scrollable.
+                            Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
+                                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと")
+                                .font(.subheadline).fixedSize(horizontal: false, vertical: true)
                             Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
-                            if let note = task.sourceNote, !note.isEmpty { Text(note).font(.caption) }
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let note = task.sourceNote, !note.isEmpty {
+                                Text(note).font(.caption).fixedSize(horizontal: false, vertical: true)
                             }
                             Button("完了を記録") { Task { await store.complete(task) } }
                                 .buttonStyle(.borderless)

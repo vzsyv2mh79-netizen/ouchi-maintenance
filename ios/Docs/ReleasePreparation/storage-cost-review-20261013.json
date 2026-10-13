@@ -1,0 +1,66 @@
+{
+  "status": "reviewed_partial_not_enabled",
+  "checkedAt": "2026-10-13",
+  "sources": [
+    "https://supabase.com/pricing",
+    "https://supabase.com/docs/guides/platform/manage-your-usage/storage-size"
+  ],
+  "readOnlyProjectObservation": {
+    "projectRef": "hphifiqyypwyxkzfanod",
+    "region": "ap-northeast-1",
+    "status": "ACTIVE_HEALTHY",
+    "databaseBytes": 13044883,
+    "storageObjectCount": 0,
+    "knownStorageMetadataBytes": 0,
+    "billingPlan": "not_returned_by_project_API_not_verified",
+    "limitations": [
+      "Metadata count does not prove absence of orphaned physical objects or pending uploads.",
+      "Database size is not total disk size or invoice usage.",
+      "Other projects in the organization, period-average storage, egress and current spend cap were not inspected."
+    ]
+  },
+  "publishedPlanReferences": {
+    "freeFileStorageGB": 1,
+    "freeDatabaseMB": 500,
+    "freeEgressGB": 5,
+    "proBaseUSDPerMonth": 25,
+    "proIncludedFileStorageGB": 100,
+    "proStorageOverageUSDPerGBMonth": 0.0213,
+    "billingScope": "organization across projects",
+    "billingMeasure": "average storage over period in GB-hours, not current metadata alone"
+  },
+  "proposedAccountCapacityBytes": 104857600,
+  "retainedAccountsAtFullCapacity": [
+    {
+      "accounts": 10,
+      "bytes": 1048576000,
+      "GiB": 0.9765625,
+      "decimalGB": 1.048576
+    },
+    {
+      "accounts": 100,
+      "bytes": 10485760000,
+      "GiB": 9.765625,
+      "decimalGB": 10.48576
+    },
+    {
+      "accounts": 1000,
+      "bytes": 104857600000,
+      "GiB": 97.65625,
+      "decimalGB": 104.8576
+    }
+  ],
+  "assessment": "Free 1 GB is a small test envelope, not capacity for a public 100 MiB-per-account storage promise. Even ten full accounts leave no margin and may exceed decimal 1 GB. Copies, reservations, other apps and expired subscribers retained for free all consume capacity. This observation does not establish the actual billing plan or authorize upgrade.",
+  "pricingProposal": "Keep monthly JPY 300 / annual JPY 3000 as a proposal until Apple price points, commission, tax/FX, organization plan, actual egress, fixed hosting/email/backup costs and subscriber forecasts are verified. No public profitability claim.",
+  "releaseRequirements": [
+    "Verify organization plan, spend cap, monthly storage and egress in dashboard before sales.",
+    "Set an explicit shared-project reserve including other apps, pending writes, transfer copies and retained expired accounts.",
+    "Implement and test the global admission budget; per-account quotas alone do not protect the shared project.",
+    "Do not promise storage availability or sell the photo benefit while provisioning and capacity remain unavailable.",
+    "Do not automatically delete expired subscriber files to reduce costs.",
+    "No automatic paid upgrade or spend-cap change."
+  ],
+  "productionChanges": false,
+  "newPaidContract": false,
+  "actualBillingEnabled": false
+}
