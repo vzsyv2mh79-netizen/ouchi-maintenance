@@ -9,7 +9,7 @@ import {createFamilyAttachmentJournal} from '../../lib/family-attachment-journal
 import {createFamilyAttachmentActivation} from '../../lib/family-attachment-activation.mjs';
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 
-export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,memberOnly=false,omitReceipt=false,commitFault=null}={}){
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,memberOnly=false,omitReceipt=false,commitFault=null}={}){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
@@ -40,7 +40,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
  const plan={requestID:scope.requestID,homeID:home,ownerID:owner,ownerEpoch:oe,recipientID:recipient,recipientEpoch:re,snapshotDigest:consentPlan.familySnapshotDigest,files:descriptions.map(([id,userID,epoch])=>({id,size:4,mime:'image/png',sha256:sha,source:{userID,epoch,path:`${userID}/${epoch}/${id}.png`}}))};
  // Signed family consent uses synthetic identity; complete file inventory
  // consent/freeze authorization is injected. No shipping Auth claim here.
- const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:async()=>true});
+ const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:inventoryAuthorize});
  if(prepared)await journal[reserve?'reserve':'record'](scope,plan,new AbortController().signal);
  const objects=new Map(plan.files.map(f=>[f.source.path,new Blob([bytes],{type:'image/png'})]));
  let checks=0,removals=0;
@@ -49,7 +49,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
   inspectDestination:async(s,p,f)=>objects.get(f.destination.path)??null,
   writeDestination:async(s,p,f)=>{objects.set(f.destination.path,objects.get(f.source.path));},
   activate:async(s,p,d,proof,signal)=>{
-   const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async()=>++checks===1||postAuthority});
+   const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async(...args)=>(++checks===1||postAuthority)&&await inventoryAuthorize(...args)});
    await db.transaction(tx=>{
     const pinned=adapter(tx);
     // Fault injection: a lying adapter claims the receipt was inserted. The DB

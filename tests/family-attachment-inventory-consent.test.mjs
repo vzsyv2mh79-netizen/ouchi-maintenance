@@ -1,0 +1,119 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {randomBytes} from 'node:crypto';
+import {createFamilyAttachmentInventoryConsent} from '../lib/family-attachment-inventory-consent.mjs';
+import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs';
+import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
+import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
+import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+
+const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
+async function setup(){
+ let provider;const f=await fixture({prepared:false,inventoryAuthorize:(...args)=>provider.authorize(...args)});
+ await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
+ let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
+ const key=randomBytes(32);
+ const adapt=tx=>({query:async(sql,args)=>{
+  const result=await tx.query(sql,args);
+  if(sql.includes('as consent_now'))return {rows:[{consent_now:Number(result.rows[0].consent_now)+offset}]};
+  return result;
+ }});
+ const transaction=cb=>f.db.transaction(tx=>cb(adapt(tx)));
+ async function inventory(tx){
+  const members=(await tx.query('select user_id from public.home_members where "homeId"=$1 order by user_id for update',[f.scope.homeID])).rows;
+  const products=(await tx.query('select id from public.products where "homeId"=$1 order by id for update',[f.scope.homeID])).rows;
+  const files=(await tx.query('select f.* from maintenance_private.product_attachments f join public.products p on p.id=f.product_id where p."homeId"=$1 order by f.id for update of f',[f.scope.homeID])).rows;
+  const writes=(await tx.query('select a.* from maintenance_private.attachment_write_attempts a join maintenance_private.product_attachments f on f.id=a.attachment_id join public.products p on p.id=f.product_id where p."homeId"=$1 order by a.attachment_id for update of a',[f.scope.homeID])).rows;
+  return JSON.parse(JSON.stringify({members,products,files,writes}));
+ }
+ const store={transaction,target:async tx=>({scope:f.scope,plan:f.plan,inventory:await inventory(tx)}),
+  records:async(tx,s)=>transform((await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows),
+  record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])
+ };
+ const options={key,store,verifyIdentity:async(actor,tx)=>{
+  if(![owner,recipient].includes(actor))return null;
+  const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
+  return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authenticatedAt:clock-10000,checkedAt:clock});
+ },verifyActor:async(tx,c)=>{
+  // Synthetic Auth table/session fixture; current MFA policy remains injected.
+  const row=(await tx.query('select user_id from auth.sessions where id=$1 for update',[c.sessionID])).rows[0];
+  return live&&row?.user_id===c.actorID;
+ },currentAuthority:async(tx,s,p,i,d,signal,original)=>{
+  signal.throwIfAborted();assert.equal(d,digest(i));assert.equal(original.requestID,f.scope.requestID);
+  const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests where id=$1 and user_id=$2 and app_epoch_id=$3 and lease_token=$4 and state='running' and lease_until>clock_timestamp()) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease])).rows[0];
+  return row.current===true&&await onAuthority(tx);
+ }};
+ provider=createFamilyAttachmentInventoryConsent(options);
+ const issue=actor=>provider.issue({requestID:f.scope.requestID,homeID:f.scope.homeID,accessToken:actor,confirmation,signal:new AbortController().signal});
+ const original=await transaction(inventory);
+ const authorize=(p=f.plan,i=original,s=f.scope,which=provider)=>transaction(tx=>which.authorize(tx,s,p,i,digest(i),new AbortController().signal,f.scope));
+ return {f,options,provider,transaction,original,issue,authorize,
+  set offset(v){offset=v;},set live(v){live=v;},set authority(v){onAuthority=v;},set transform(v){transform=v;},set identityTransform(v){identityTransform=v;}};
+}
+
+test('both private signatures bind the complete original inventory and permit guarded reserve/readback',async()=>{
+ const s=await setup();try{
+  for(const actor of [owner,recipient]){
+   const issued=await s.issue(actor);assert.equal(issued.status,'accepted');assert.deepEqual(Object.keys(issued).sort(),['expiresAt','status']);
+  }
+  assert.equal(await s.authorize(),true);
+  const reader=createFamilyAttachmentStatus({transaction:s.transaction,authorize:s.provider.authorize});
+  assert.equal((await reader(s.f.scope,s.f.plan,new AbortController().signal)).state,'absent');
+  assert.equal((await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal)).state,'reserved');
+  assert.equal((await reader(s.f.scope,s.f.plan,new AbortController().signal)).state,'prepared');
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,2);
+ }finally{await s.f.db.close();}
+});
+
+test('one person, changed receiver epoch/plan/metadata, forged token and wrong signing key cannot authorize',async()=>{
+ const s=await setup();try{
+  await s.issue(owner);assert.equal(await s.authorize(),false);await s.issue(recipient);
+  assert.equal(await s.authorize({...s.f.plan,snapshotDigest:'b'.repeat(64)}),false);
+  assert.equal(await s.authorize({...s.f.plan,recipientEpoch:oe}),false);
+  const changed=structuredClone(s.original);changed.files[0].created_at='2000-01-01T00:00:00Z';assert.equal(await s.authorize(s.f.plan,changed),false);
+  const missing=structuredClone(s.original);missing.files.pop();assert.equal(await s.authorize(s.f.plan,missing),false);
+  const wrong=createFamilyAttachmentInventoryConsent({...s.options,key:randomBytes(32)});assert.equal(await s.authorize(s.f.plan,s.original,s.f.scope,wrong),false);
+  s.transform=rows=>rows.map((r,i)=>i?{...r,token:r.token.slice(0,-2)+'xx'}:r);assert.equal(await s.authorize(),false);
+  s.transform=rows=>[...rows,rows[0]];assert.equal(await s.authorize(),false);
+ }finally{await s.f.db.close();}
+});
+
+test('replay keeps the original expiry, expired consent is not renewed and revoked consent cannot revive',async()=>{
+ const s=await setup();try{
+  const first=await s.issue(owner);assert.deepEqual(await s.issue(owner),first);await s.issue(recipient);
+  s.offset=900001;assert.equal(await s.authorize(),false);assert.deepEqual(await s.issue(owner),{status:'expired',expiresAt:first.expiresAt});
+  s.offset=0;await s.f.db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where actor_id=$1',[owner]);
+  assert.equal(await s.authorize(),false);assert.deepEqual(await s.issue(owner),{status:'revoked'});
+  await assert.rejects(s.f.db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=null where actor_id=$1',[owner]),/Immutable signed inventory/);
+  await assert.rejects(s.f.db.exec('delete from maintenance_private.family_attachment_inventory_consents'),/Immutable signed inventory/);
+ }finally{await s.f.db.close();}
+});
+
+test('recent authentication and a live signed session are mandatory; late revocation is re-read',async()=>{
+ const s=await setup();try{
+  s.identityTransform=x=>({...x,authenticatedAt:x.checkedAt-600001});assert.deepEqual(await s.issue(owner),{status:'unconfirmed'});
+  s.identityTransform=x=>({...x,aal:undefined});assert.deepEqual(await s.issue(owner),{status:'unconfirmed'});
+  s.identityTransform=x=>x;await s.issue(owner);await s.issue(recipient);
+  s.live=false;assert.equal(await s.authorize(),false);s.live=true;
+  let calls=0;s.authority=async tx=>{if(++calls===4)await tx.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);return true;};
+  assert.equal(await s.authorize(),false);assert.equal(calls,4);
+ }finally{await s.f.db.close();}
+});
+
+test('post-write authority loss and cancellation roll consent back; public roles cannot read private proofs',async()=>{
+ const s=await setup();try{
+  let calls=0;s.authority=async()=>++calls===1;
+  assert.deepEqual(await s.issue(owner),{status:'unconfirmed'});
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,0);
+  s.authority=async()=>true;s.live=false;assert.deepEqual(await s.issue(owner),{status:'unconfirmed'});
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,0);
+  const c=new AbortController();const cancelled=createFamilyAttachmentInventoryConsent({...s.options,verifyIdentity:async(...args)=>{const id=await s.options.verifyIdentity(...args);c.abort();return id;}});
+  assert.deepEqual(await cancelled.issue({requestID:s.f.scope.requestID,homeID:s.f.scope.homeID,accessToken:owner,confirmation,signal:c.signal}),{status:'unconfirmed'});
+  for(const role of ['anon','authenticated','service_role']){
+   await s.f.db.exec('set role '+role);
+   await assert.rejects(s.f.db.exec('select * from maintenance_private.family_attachment_inventory_consents'),/permission denied/);
+   await s.f.db.exec('reset role');
+  }
+ }finally{await s.f.db.close();}
+});
