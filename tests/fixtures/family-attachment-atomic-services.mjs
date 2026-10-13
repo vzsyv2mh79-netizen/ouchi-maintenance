@@ -16,13 +16,14 @@ import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller
  * route, new production grant, source cleanup or whole-account completion proof.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
+ assert.equal(typeof readAttachmentResponse,'function');
  const {Client}=await import('pg');
  const db=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:3000,query_timeout:5000});
  await db.connect();
  try{
-  const owner=await account(),receiver=await account();
+  const owner=await account(),receiver=await account(),unrelated=await account();
   const homeID=randomUUID(),productID=randomUUID(),taskID=randomUUID(),ownFile=randomUUID(),memberFile=randomUUID(),nativeRequestID=randomUUID(),nativeLease=randomUUID();
   const sha=createHash('sha256').update(bytes).digest('hex');
   await db.query('insert into public.homes(id,owner_id) values($1,$2)',[homeID,owner.user]);
@@ -96,10 +97,36 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   for(const id of [ownFile,memberFile]){
    const result=await admin.rpc('read_maintenance_attachment',{target_user:receiver.user,verified_session:receiver.session,expected_epoch:receiver.epoch,attachment_id:id});assert.equal(result.error,null);assert.equal(result.data.user,receiver.user);
   }
+  // Exercise the existing prepared HTTP handler with the person's ACTUAL bearer,
+  // not an admin-supplied target_user or a client entitlement flag. No public
+  // route is deployed by this direct handler invocation.
+  const receiverSession=await receiver.client.auth.getSession();assert.equal(receiverSession.error,null);
+  const receiverToken=receiverSession.data.session.access_token;
+  async function downloadWithToken(token,id){
+   return readAttachmentResponse(new Request(origin+'/api/attachments?attachmentId='+id,{headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)}),admin);
+  }
+  async function refused(response){
+   assert.notEqual(response.status,200);assert.equal(response.headers.get('content-type'),'application/json');
+   assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(typeof (await response.json()).error,'string');
+  }
+  for(const id of [ownFile,memberFile]){
+   const response=await downloadWithToken(receiverToken,id);assert.equal(response.status,200);
+   assert.equal(response.headers.get('content-type'),'image/png');assert.equal(response.headers.get('cache-control'),'no-store');
+   assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);
+  }
+  for(const actor of [owner,unrelated]){
+   const session=await actor.client.auth.getSession();assert.equal(session.error,null);
+   for(const id of [ownFile,memberFile])await refused(await downloadWithToken(session.data.session.access_token,id));
+  }
   await db.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where home_id=$1 and actor_id=$2',[homeID,receiver.user]);
   await assert.rejects(status(scope,plan,AbortSignal.timeout(10000)),/Retained family consent/);
   assert.deepEqual(await handoffFamilyAttachments(scope,ports,new AbortController().signal),{state:'pending'});assert.equal(activations,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(plan.files[0].source.path)).error,null);
   assert.equal((await owner.client.auth.getUser()).data.user.id,owner.user);assert.equal((await receiver.client.auth.getUser()).data.user.id,receiver.user);
+  const logout=await receiver.client.auth.signOut({scope:'local'});assert.equal(logout.error,null);
+  for(const id of [ownFile,memberFile])await refused(await downloadWithToken(receiverToken,id));
+  // Logout must not remove records, bytes or the GoTrue user itself.
+  assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
+  assert.equal((await admin.storage.from('ouchi-product-attachments').download(`${receiver.user}/${receiver.epoch}/${ownFile}.png`)).error,null);
  }finally{await db.end();}
 }

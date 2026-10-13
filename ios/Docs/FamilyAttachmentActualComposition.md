@@ -25,6 +25,12 @@ Intended checks, not a success claim until same-head CI logs prove execution:
   member paths remain, as source cleanup is explicitly refused in this fixture.
 - Actual receiver attachment-read RPC resolves transferred metadata, all source
   and receiver copies contain exact PNG bytes, and the family snapshot is retained.
+- The receiver's actual bearer passes the existing prepared attachment HTTP
+  handler for both transferred-owner and retained-member files and receives exact
+  PNG bytes with no-store/nosniff headers. Former owner and unrelated bearers are
+  refused with JSON errors; after real receiver logout, the old bearer is refused
+  while the user row, records and destination bytes remain. These added handler
+  assertions require same-head CI verification and do not deploy a public route.
 - Consent revocation blocks readback/restart while original bytes and both Auth
   accounts remain. No activation receipt is equated with retirement completion.
 

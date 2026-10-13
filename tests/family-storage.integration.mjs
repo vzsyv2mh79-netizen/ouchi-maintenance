@@ -185,7 +185,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   // Runs LAST: composed private review fences must not alter preceding cases.
-  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch});
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });
