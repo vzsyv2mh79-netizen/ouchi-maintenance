@@ -1,6 +1,6 @@
 -- Disposable review only. Requires household context/fences and journal/quota.
 create table maintenance_private.family_attachment_activation_contexts(
- token uuid primary key,household_token uuid not null,
+ token uuid primary key,household_token uuid not null references maintenance_private.household_handoff_contexts(token),
  request_id uuid not null,home_id uuid not null,scope jsonb not null,
  plan_digest text not null,inventory_digest text not null,expected_inventory_digest text not null,consents jsonb not null,
  backend_pid int not null,transaction_id bigint not null,expires_at timestamptz not null,
@@ -22,6 +22,15 @@ alter table maintenance_private.family_attachment_activation_receipts enable row
 revoke all on maintenance_private.family_attachment_activation_contexts,maintenance_private.family_attachment_activation_rows,maintenance_private.family_attachment_activation_receipts from public,anon,authenticated,service_role;
 -- Historical evidence must remain bound to the committed transaction, even
 -- after its live write capability expires. No public role gets access.
+create trigger immutable_composed_household_context before update or delete
+on maintenance_private.household_handoff_contexts for each row
+execute function maintenance_private.refuse_family_attachment_journal_change();
+create trigger immutable_composed_household_plan before update or delete
+on maintenance_private.household_handoff_plans for each row
+execute function maintenance_private.refuse_family_attachment_journal_change();
+create trigger immutable_composed_household_receipt before update or delete
+on maintenance_private.household_handoff_receipts for each row
+execute function maintenance_private.refuse_family_attachment_journal_change();
 create trigger immutable_family_activation_context before update or delete
 on maintenance_private.family_attachment_activation_contexts for each row
 execute function maintenance_private.refuse_family_attachment_journal_change();

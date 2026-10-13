@@ -7,10 +7,11 @@ import {createFamilyAttachmentStatus} from '../lib/family-attachment-status.mjs'
 import {familyAttachmentInventoryDigest as digest} from '../lib/family-attachment-journal.mjs';
 import {familyAttachmentActivationFixture as fixture} from './fixtures/family-attachment-activation.mjs';
 import {owner,recipient,oe,re,os,rs} from './fixtures/home-handoff-identifiers.mjs';
+import {createCommittedHouseholdConsentVerifier} from '../lib/home-handoff-consent.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
-async function setup({activation=false,commitFault=null,memberOnly=false}={}){
+async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false}={}){
  let provider;const f=await fixture({prepared:false,commitFault,memberOnly,inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
@@ -38,7 +39,11 @@ async function setup({activation=false,commitFault=null,memberOnly=false}={}){
  const options={key,store,identifyActor:async actor=>[owner,recipient].includes(actor)?actor:null,verifyIdentity:async(actor,tx)=>{
   if(![owner,recipient].includes(actor))return null;
   const clock=Number((await tx.query('select floor(extract(epoch from clock_timestamp())*1000)::bigint as consent_now')).rows[0].consent_now);
-  return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authStateDigest:'a'.repeat(64),authenticatedAt:clock-10000,checkedAt:clock});
+  // New household-composition cases share one synthetic verified auth time;
+  // actual GoTrue fixture separately verifies and pins signed TOTP AMR.
+  const family=alignFamilyAuth?(await tx.query('select token from maintenance_private.household_handoff_consents where actor_id=$1',[actor])).rows[0]:null;
+  const authenticatedAt=family?JSON.parse(Buffer.from(family.token.split('.')[0],'base64url').toString('utf8')).authVerifiedAt:clock-10000;
+  return identityTransform({userID:actor,epochID:actor===owner?oe:re,sessionID:actor===owner?os:rs,aal:'aal1',authStateDigest:'a'.repeat(64),authenticatedAt,checkedAt:clock});
  },verifyActor:async(tx,c)=>{
   // Synthetic Auth table/session fixture; current MFA policy remains injected.
   const row=(await tx.query('select user_id from auth.sessions where id=$1 for update',[c.sessionID])).rows[0];
@@ -303,5 +308,55 @@ for(const fault of ['receiptToken','approvalToken','futureActivation','expiredAt
   }},s.f.scope,new AbortController().signal));
   assert.equal(result,false);
   assert.equal(await s.transaction(tx=>s.provider.authorizeCommittedActivation(tx,s.f.scope,new AbortController().signal)),true);
+ }finally{await s.f.db.close();}
+});
+
+
+test('historical household and inventory consents confirm the same committed transfer without reviving current authority',async()=>{
+ const s=await setup({activation:true,alignFamilyAuth:true});try{
+  const verify=createCommittedHouseholdConsentVerifier({key:s.f.key,verifyCommittedInventory:s.provider.authorizeCommittedActivation});
+  const read=()=>s.transaction(tx=>verify(tx,s.f.scope,new AbortController().signal));
+  assert.equal(await read(),false);
+  for(const actor of [owner,recipient])await s.issue(actor);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
+  assert.equal(await read(),true);
+  await s.f.db.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);
+  await s.f.db.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where actor_id=$1',[recipient]);
+  s.live=false;await s.f.db.query('delete from auth.sessions where id=$1',[rs]);
+  assert.equal(await s.authorize(),false);assert.equal(await read(),true);
+  const wrong=createCommittedHouseholdConsentVerifier({key:randomBytes(32),verifyCommittedInventory:s.provider.authorizeCommittedActivation});
+  assert.equal(await s.transaction(tx=>wrong(tx,s.f.scope,new AbortController().signal)),false);
+  for(const table of ['household_handoff_contexts','household_handoff_plans','household_handoff_receipts']){
+   await assert.rejects(s.f.db.exec('delete from maintenance_private.'+table),/Immutable/);
+   await assert.rejects(s.f.db.exec('update maintenance_private.'+table+" set scope='{}'::jsonb"),/Immutable/);
+  }
+ }finally{await s.f.db.close();}
+});
+
+for(const fault of ['forgedFamilySignature','wrongFamilyRole','foreignFamilySnapshot','futureHouseholdTime','expiredHouseholdContext','differentAuthenticationTime'])test(`historical household confirmation refuses ${fault}`,async()=>{
+ const s=await setup({activation:true,alignFamilyAuth:true});try{
+  for(const actor of [owner,recipient])await s.issue(actor);
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
+  const verify=createCommittedHouseholdConsentVerifier({key:s.f.key,verifyCommittedInventory:s.provider.authorizeCommittedActivation});
+  const result=await s.transaction(tx=>verify({query:async(sql,args)=>{
+   const r=await tx.query(sql,args);if(!sql.startsWith('select to_jsonb(c)'))return r;
+   const rows=structuredClone(r.rows);
+   for(const row of rows){
+    if(fault==='forgedFamilySignature')row.context.consents[0].token+='x';
+    if(fault==='foreignFamilySnapshot')row.parent.snapshot.products=[];
+    if(fault==='futureHouseholdTime')row.household.completed_at='2999-01-01T00:00:00.000Z';
+    if(fault==='expiredHouseholdContext')row.household_context.expires_at=row.household.completed_at;
+    if(['wrongFamilyRole','differentAuthenticationTime'].includes(fault)){
+     const record=row.context.consents[0],claim=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url').toString('utf8'));
+     if(fault==='wrongFamilyRole')claim.role=claim.role==='owner'?'successor':'owner';
+     else claim.authVerifiedAt-=1000;
+     const body=Buffer.from(JSON.stringify(claim)).toString('base64url');
+     record.token=body+'.'+createHmac('sha256',s.f.key).update('OuchiMaintenance/shared-family-handoff/v1\n'+body).digest('base64url');
+    }
+   }
+   return {...r,rows};
+  }},s.f.scope,new AbortController().signal));
+  assert.equal(result,false);
+  assert.equal(await s.transaction(tx=>verify(tx,s.f.scope,new AbortController().signal)),true);
  }finally{await s.f.db.close();}
 });

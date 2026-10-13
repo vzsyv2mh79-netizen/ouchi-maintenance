@@ -9,7 +9,7 @@ import {createFamilyAttachmentActivation} from '../../lib/family-attachment-acti
 import {createFamilyAttachmentStoragePorts} from '../../lib/family-attachment-storage.mjs';
 import {handoffFamilyAttachments,normalizeFamilyAttachmentPlan} from '../../lib/family-attachment-handoff.mjs';
 import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-compatibility/handoff-port.mjs';
-import {createHandoffConsentIssuer,handoffPlanDigest} from './handoff-controller-compatibility/handoff-consent.mjs';
+import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdConsentVerifier} from './handoff-controller-compatibility/handoff-consent.mjs';
 import {syntheticTOTP} from './home-handoff-mfa.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
@@ -80,17 +80,25 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    catch(error){await db.query('rollback');throw error;}
   };
   const key=randomBytes(32);
-  const issuer=createHandoffConsentIssuer({key,verifyIdentity:async token=>{
-   const result=await admin.auth.getUser(token);assert.equal(result.error,null);
-   return {userID:result.data.user.id,authVerifiedAt:Date.now()};
-  },store:{transaction,target:async()=>({scope:controllerScope,plan:consentPlan}),
+  const issuer=createHandoffConsentIssuer({key,verifyIdentity:async(token,tx)=>{
+   // Both kinds of consent now attest the actual signed TOTP AMR time, with
+   // participant coordination and complete inventory pins before Auth pins.
+   for(const id of [...new Set([plan.ownerID,plan.recipientID,...plan.files.map(file=>file.source.userID)])].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);
+   await originalInventory(tx);
+   const verified=await identity(token,{signal:AbortSignal.timeout(10000),query:(sql,args)=>tx.query(sql,args)});
+   assert.ok([owner.user,receiver.user].includes(verified.userID));assert.equal(verified.aal,'aal2');
+   assert.equal(verified.authenticatedAt,totpTimes.get(verified.userID));
+   return {userID:verified.userID,authVerifiedAt:verified.authenticatedAt};
+  },store:{transaction,target:async(tx,request,home,actor)=>{
+   assert.equal(request,controllerScope.requestID);assert.equal(home,homeID);assert.ok([owner.user,receiver.user].includes(actor));
+   const row=(await tx.query('select scope,plan from maintenance_private.household_handoff_plans where home_id=$1 for update',[homeID])).rows[0];
+   assert.deepEqual(row.scope,controllerScope);assert.deepEqual(row.plan,consentPlan);
+   assert.deepEqual((await tx.query('select maintenance_private.household_family_snapshot($1) as value',[homeID])).rows[0].value,saved);
+   return row;
+  },
    existing:async(tx,s,p,actor)=>{const row=(await tx.query('select * from maintenance_private.household_handoff_consents where home_id=$1 and actor_id=$2 for update',[homeID,actor])).rows[0];return row?{actorID:row.actor_id,token:row.token,revokedAt:row.revoked_at}:null;},
    record:(tx,s,p,actor,token)=>tx.query('insert into maintenance_private.household_handoff_consents values($1,$2,$3,null)',[homeID,actor,token])
   }});
-  for(const actor of [owner,receiver]){
-   const session=await actor.client.auth.getSession();assert.equal(session.error,null);
-   assert.equal((await issuer({requestID:controllerScope.requestID,householdID:homeID,accessToken:session.data.session.access_token,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
-  }
   const scope={requestID:controllerScope.requestID,homeID,userID:owner.user,ownerEpoch:owner.epoch,nativeRequestID,nativeLease,controllerScope};
   const plan={requestID:scope.requestID,homeID,ownerID:owner.user,ownerEpoch:owner.epoch,recipientID:receiver.user,recipientEpoch:receiver.epoch,snapshotDigest:consentPlan.familySnapshotDigest,files:source.map(({id,user})=>({id,mime:'image/png',size:bytes.length,sha256:sha,source:{userID:user.user,epoch:user.epoch,path:`${user.user}/${user.epoch}/${id}.png`}}))};
   // Explicit disposable policy, not live Management acquisition. The production
@@ -176,9 +184,24 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    assert.equal(claims.actorID,record.actor_id);assert.equal(claims.aal,'aal2');
    assert.equal(claims.authenticatedAt,totpTimes.get(record.actor_id));
   }
+  for(const actor of [owner,receiver]){
+   const session=await actor.client.auth.getSession();assert.equal(session.error,null);
+   assert.equal((await issuer({requestID:controllerScope.requestID,householdID:homeID,accessToken:session.data.session.access_token,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
+  }
+  const householdConsents=(await db.query('select actor_id,token from maintenance_private.household_handoff_consents where home_id=$1',[homeID])).rows;
+  assert.equal(householdConsents.length,2);
+  for(const record of householdConsents){
+   const claim=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url'));
+   assert.equal(claim.actorID,record.actor_id);assert.equal(claim.authVerifiedAt,totpTimes.get(record.actor_id));
+  }
   const provider=()=>createFamilyAttachmentStatus({transaction,authorize:inventoryConsent.authorize});
   // Historical committed fact is separate from current mutation authority.
-  const historical=async()=>{const signal=AbortSignal.timeout(10000);return transaction(tx=>inventoryConsent.authorizeCommittedActivation(tx,scope,signal),signal);};
+  const committedHousehold=createCommittedHouseholdConsentVerifier({key,verifyCommittedInventory:inventoryConsent.authorizeCommittedActivation});
+  const historical=async()=>{const signal=AbortSignal.timeout(10000);return transaction(async tx=>{
+   const inventory=await inventoryConsent.authorizeCommittedActivation(tx,scope,signal);
+   const household=await committedHousehold(tx,scope,signal);assert.equal(household,inventory);
+   return household;
+  },signal);};
 
   const journal=createFamilyAttachmentJournal({transaction,authorize:inventoryConsent.authorize});
   let status=provider(),preparations=0,activations=0,cleanupCalls=0,tamperNextActivation=true,lastActivationFailure=null,cleanupEnabled=false,finishCalls=0;
