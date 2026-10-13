@@ -1,0 +1,23 @@
+{
+  "protocol": "app-closure-review/v2",
+  "productionRouteEnabled": false,
+  "realBillingEnabled": false,
+  "transport": "Prepared dependency-injected POST handler, JSON body <=4096 bytes, strict per-action fields, no query identity, bounded body/Auth/reauth/RPC work, no-store responses.",
+  "request": "Requires explicit REQUEST_OUCHI_ACCOUNT_DELETION, expectedEpochID, persisted submissionID and password. Trusted reauth provider must clean up temporary sessions including abort. Original bearer is checked again before dispatch; identity/epoch drift refuses.",
+  "readCancel": "Both use original persisted submissionID and verified current user/session/epoch. Cancel requires explicit CANCEL_OUCHI_DELETION_REVIEW. No new reauth session substitutes original app registration.",
+  "responses": "Only exact review_required/cancelled review receipts are confirmed. Lost response or provider failure is unconfirmed (503), expired Auth is 401. 404 review_not_found is only a missing matching review and never proves no deletion job, erased data or retired account.",
+  "tests": {
+    "handler": 6,
+    "rpcSQL": 7,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "scope": "Handler + real SDK contract + embedded full household SQL composition; synthetic Auth. Separate previous real Auth/PostgreSQL/Storage cancellation job115420998555 passed 1 enclosing fixture, no production HTTP endpoint."
+  },
+  "remaining": [
+    "Trusted shipping provider with effective Auth configuration and privilege review",
+    "HTTP route and native client plus durable submission custody",
+    "Actual classification/erasure and finite retention",
+    "App Store physical device, legal, listing and Apple purchase validation"
+  ]
+}
