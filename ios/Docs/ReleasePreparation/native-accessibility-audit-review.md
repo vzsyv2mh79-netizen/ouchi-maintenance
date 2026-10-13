@@ -297,3 +297,15 @@ completion mode invokes the existing behavioral test. These tested candidates,
 current negative audit evidence, and read-only Storage cost review are being
 prepared for the draft PR. No main/production merge, paid contract or actual
 purchase is authorized by this documentation.
+
+The independent-row audit result finished finalizing on 2026-10-13. xcresult
+reports 0 passed, 1 failed, 0 skipped; execution log contains two occurrences
+(product-name clipping and next-date contrast). All nine exported PNGs were
+reviewed: five initial tabs, both failure app screenshots and both element crops.
+Product-name crop appears fully wrapped and date crop intersects the floating
+tab bar; neither finding is dismissed or suppressed. Its owned-simulator removal
+is verified. Source digest remains `18bbb6dc9cef82434cdee18117b39bfeea2c081f`.
+No UI test or simulator session from these runs is still active. All five CI
+workflows at published head021ee succeeded. Native job115148913599's unsigned
+Release/Debug builds and built Release SDK metadata steps were individually
+confirmed successful. This does not override the failed accessibility audit.
