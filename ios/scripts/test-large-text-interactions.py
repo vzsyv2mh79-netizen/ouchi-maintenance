@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
+parser.add_argument('--test', choices=['all', 'editor'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -29,10 +30,11 @@ for key, value in info.items():
 sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/*.swift'),
                   root / 'OuchiMaintenance/Info.plist', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
-manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size,
+manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'selectedTest': args.test,
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
-            'scope': ['scroll and activate sample completion', 'next due date and history update',
-                      'scroll and activate export; share control appears'],
+            'scope': (['product editor model input above open software keyboard', 'back navigation without save preserves sample model'] if args.test == 'editor' else
+                      ['scroll and activate sample completion', 'next due date and history update',
+                       'scroll and activate export; share control appears', 'product editor keyboard and cancel']),
             'notVerified': ['real cloud persistence', 'VoiceOver', 'physical device', 'purchases', 'final signed build']}
 device = None
 
@@ -118,7 +120,9 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
             run('xcodebuild', '-project', work / 'OuchiMaintenance.xcodeproj', '-scheme', 'OuchiInteractions',
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
-                '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO', 'test', stdout=log, stderr=subprocess.STDOUT)
+                '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO',
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/testProductEditorKeyboardAndCancel'] if args.test == 'editor' else []),
+                'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:
     manifest['status'] = 'failed_or_interrupted_not_verified'

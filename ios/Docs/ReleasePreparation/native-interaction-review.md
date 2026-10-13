@@ -54,3 +54,36 @@ one old and one new entry. The owned simulator was removed. Together AX3/AX5
 have four passing test executions and eight reviewed attachments in light mode.
 This still does not prove cloud persistence, export file content, keyboard,
 VoiceOver, dark large text, physical iPhone or final signed release behavior.
+
+
+## Product model keyboard and cancel at AX5 — 2026-10-13
+
+The runner accepts `--test editor` to select the actual product-editor case.
+At AX5/light, the real product navigation was activated, the model field scrolled
+fully above an actually open software keyboard, and a character was entered.
+The character was present in the field. Back navigation without saving returned
+to the original sample model. One test passed, zero failed, zero skipped; the
+xcresult summary and both attached screenshots were inspected. Its own simulator
+was removed. The reach helper accounts for keyboard bounds as well as tab-bar
+bounds. The model field is a single-line text input and may scroll horizontally;
+this does not prove every long model number is simultaneously visible.
+
+No search, save, cloud mutation, purchase or real account was used. AX3 editor,
+other fields/save controls, dark keyboard, landscape, VoiceOver, real iPhone and
+cloud persistence remain. Shipping Swift sources were not changed.
+
+
+## AX3 editor and shared-helper regression — 2026-10-13
+
+With the keyboard-aware reach helper, all three AX3/light tests passed (zero
+failures and zero skips). The xcresult summary was independently read and all
+six attached screenshots inspected. Software-keyboard model entry and leaving
+without save preserved the original model; completion/date/history and export
+controls also passed again. The owned simulator was removed. The AX5 editor
+case separately passed once. These are four current test executions, not four
+different features and not proof of all form fields or cloud persistence.
+
+Long single-line product/model input fields can truncate or scroll horizontally
+when unfocused or while editing; the review does not claim that all text is
+simultaneously visible. Other fields/save controls, dark keyboard, landscape,
+VoiceOver, physical iPhone and final signed release still require review.

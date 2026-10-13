@@ -16,7 +16,9 @@ final class LargeTextInteractionTests: XCTestCase {
 
     private func reach(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<30 {
-            let bottom = app.tabBars.firstMatch.frame.minY - 8
+            var bottom = app.frame.maxY - 16
+            if app.tabBars.firstMatch.exists { bottom = min(bottom, app.tabBars.firstMatch.frame.minY - 8) }
+            if app.keyboards.firstMatch.exists { bottom = min(bottom, app.keyboards.firstMatch.frame.minY - 8) }
             let top = app.navigationBars.firstMatch.frame.maxY + 8
             if element.exists && element.isHittable && element.frame.minY >= top && element.frame.maxY <= bottom { return }
             // Hittable alone can accept a control obscured by the translucent
@@ -71,6 +73,28 @@ final class LargeTextInteractionTests: XCTestCase {
         XCTAssertTrue(share.waitForExistence(timeout: 10))
         reach(share, in: app)
         capture(app, name: "export-created")
+        app.terminate()
+    }
+
+    func testProductEditorKeyboardAndCancel() {
+        let app = launch(tab: 2)
+        let product = app.buttons["空気清浄機（サンプル）"]
+        reach(product, in: app)
+        product.tap()
+        let model = app.textFields["品番"]
+        XCTAssertTrue(model.waitForExistence(timeout: 10))
+        reach(model, in: app)
+        model.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "Software keyboard must really be open")
+        reach(model, in: app)
+        model.typeText("X")
+        XCTAssertTrue((model.value as? String)?.contains("X") == true)
+        capture(app, name: "editor-keyboard-model-visible")
+        let back = app.navigationBars.buttons.firstMatch
+        XCTAssertTrue(back.isHittable)
+        back.tap()
+        XCTAssertTrue(app.staticTexts["画面確認用 SAMPLE-001"].waitForExistence(timeout: 10), "Leaving without saving preserves the original sample model")
+        capture(app, name: "editor-cancel-original-record")
         app.terminate()
     }
 }
