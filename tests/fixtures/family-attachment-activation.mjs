@@ -43,33 +43,40 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
  const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:inventoryAuthorize});
  if(prepared)await journal[reserve?'reserve':'record'](scope,plan,new AbortController().signal);
  const objects=new Map(plan.files.map(f=>[f.source.path,new Blob([bytes],{type:'image/png'})]));
- let checks=0,removals=0;
+ let checks=0,removals=0,lateAuthWindow=null,lateAuthReceiptWritten=false,activationError=null;
  const ports={guard:async()=>true,plan:async()=>plan,prepare:async()=>{throw Error('Preparation already persisted');},
   status:async(s,p)=>({state:(await db.query('select 1 from maintenance_private.family_attachment_activation_receipts where request_id=$1',[scope.requestID])).rows.length?'activated':'prepared',planDigest:createHash('sha256').update(JSON.stringify(p)).digest('hex')}),
   inspectDestination:async(s,p,f)=>objects.get(f.destination.path)??null,
   writeDestination:async(s,p,f)=>{objects.set(f.destination.path,objects.get(f.source.path));},
   activate:async(s,p,d,proof,signal)=>{
    const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:async(...args)=>(++checks===1||postAuthority)&&await (activationAuthorize??inventoryAuthorize)(...args)});
-   await db.transaction(tx=>{
+   try{await db.transaction(tx=>{
     const pinned=adapter(tx);
     // Fault injection: a lying adapter claims the receipt was inserted. The DB
     // deferred group check must still refuse COMMIT using actual persisted rows.
     const guarded={query:async(sql,args)=>{
      if(omitReceipt&&sql.startsWith('insert into maintenance_private.family_attachment_activation_receipts'))return {rows:[],rowCount:1};
      if(commitFault&&sql.startsWith('insert into maintenance_private.household_handoff_receipts')){
+      if(commitFault==='recentAuthenticationExpired'){
+       const row=(await pinned.query('select extract(epoch from(expires_at-clock_timestamp()))*1000 as remaining from maintenance_private.family_attachment_inventory_approvals where transaction_id=txid_current()')).rows[0];
+       lateAuthWindow=Number(row?.remaining);
+       await pinned.query('select pg_sleep(3.2)');
+      }
       if(commitFault==='missingRoute')await pinned.query("delete from maintenance_private.household_write_routes where kind='products' and object_id=$1",[product]);
       if(commitFault==='expiredBinding')await pinned.query("update maintenance_private.household_stop_bindings set lease_until=clock_timestamp()-interval '1 second' where user_id=$1",[owner]);
       if(commitFault==='revokedInventoryConsent')await pinned.query('update maintenance_private.family_attachment_inventory_consents set revoked_at=clock_timestamp() where request_id=$1 and home_id=$2 and actor_id=$3',[scope.requestID,home,recipient]);
       if(commitFault==='revokedConsent')await pinned.query('update maintenance_private.household_handoff_consents set revoked_at=clock_timestamp() where home_id=$1 and actor_id=$2',[home,recipient]);
      }
-     return pinned.query(sql,args);
+     const result=await pinned.query(sql,args);
+     if(commitFault==='recentAuthenticationExpired'&&sql.startsWith('insert into maintenance_private.household_handoff_receipts'))lateAuthReceiptWritten=true;
+     return result;
     }};
     return createHouseholdHandoffPort(key,activation)(controllerScope,nativeLease,home,guarded);
-   });
+   });}catch(error){activationError=error;throw error;}
   },
   removeSource:async()=>{removals++;throw Error('Cleanup intentionally not implemented in this activation fixture');},
   sourceAbsent:async()=>false,finish:async()=>{throw Error('Activation is not whole-account completion');}
  };
- return {db,scope,plan,ports,objects,owned,member,key,saved,journal,get removals(){return removals;},run:()=>handoffFamilyAttachments(scope,ports,new AbortController().signal)};
+ return {db,scope,plan,ports,objects,owned,member,key,saved,journal,get removals(){return removals;},get lateAuthWindow(){return lateAuthWindow;},get lateAuthReceiptWritten(){return lateAuthReceiptWritten;},get activationError(){return activationError;},run:()=>handoffFamilyAttachments(scope,ports,new AbortController().signal)};
 }
 

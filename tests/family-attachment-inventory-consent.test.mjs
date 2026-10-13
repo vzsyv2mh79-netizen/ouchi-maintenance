@@ -156,6 +156,28 @@ test('boolean authorization or a prior transaction approval cannot authorize ato
  }finally{await s.f.db.close();}
 });
 
+for(const memberOnly of [false,true])test(`recent authentication expiry at the last write rolls activation back (member-only: ${memberOnly})`,async()=>{
+ const s=await setup({activation:true,commitFault:'recentAuthenticationExpired',memberOnly});try{
+  // Three seconds of authentication validity remain, while the original
+  // consent still has fifteen minutes and the normal approval has five seconds.
+  s.identityTransform=x=>({...x,authenticatedAt:x.checkedAt-597000});
+  assert.equal((await s.issue(owner)).status,'accepted');
+  assert.equal((await s.issue(recipient)).status,'accepted');
+  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);
+  const before=(await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows;
+  assert.deepEqual(await s.f.run(),{state:'pending'});
+  assert.ok(s.f.lateAuthWindow>0&&s.f.lateAuthWindow<=3000,'Reach the last write with a positive authentication-bound SQL deadline');
+  assert.equal(s.f.lateAuthReceiptWritten,true,'The final receipt INSERT must succeed before deferred COMMIT rejects expiry');
+  assert.ok(s.f.activationError,'The activation transaction must fail, not merely stop source cleanup');
+  assert.equal(s.f.activationError.code,'P0001');
+  assert.equal((await s.f.db.query('select owner_id from public.homes where id=$1',[s.f.scope.homeID])).rows[0].owner_id,owner);
+  assert.deepEqual((await s.f.db.query('select * from maintenance_private.product_attachments order by id')).rows,before);
+  for(const table of ['family_attachment_inventory_approvals','family_attachment_activation_contexts','family_attachment_activation_receipts','household_handoff_receipts'])assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.'+table)).rows[0].n,0);
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,2);
+  assert.equal(s.f.removals,0);
+ }finally{await s.f.db.close();}
+});
+
 
 test('an approval expires by the database clock and repeated authorization cannot extend its transaction deadline',async()=>{
  const s=await setup();try{

@@ -150,3 +150,29 @@ The validated UI changes and sample-only tests are being prepared for the draft
 PR after bdf0bfb's five workflows passed. This preserves failed contrast audit
 evidence and does not mark VoiceOver, dark audits, all forms, normal-size final
 screenshots, physical-device verification or release readiness complete.
+
+Seven exact files were subsequently published to draft PR #167 at
+`a49a6991686f8a43d2bec5c4b39bbefa0eeec5e9`, parent bdf0bfb. Prepared blob hashes
+matched the tested local files and the published Git tree was read back. Its
+five new CI checks are running; previous-head success is not new-head approval.
+Current-source normal-size light/dark five-tab capture is now in progress at
+`output/ios-development/current-ui-normal-captures-20261013-a49a`. It is a sample
+Debug capture, not final signed App Store screenshots. No production or billing
+gate was enabled. The publication manifest is saved under output/ios-development.
+
+The current-source iPhone normal-size capture completed: ten light/dark initial
+tab JPEGs were visually reviewed, independently checked as 1206×2622 without
+alpha, and the owned simulator's absence was confirmed. The capture manifest
+records all ten images and remaining scope. Menu/refresh/theme controls and
+sample products/history/settings are visible; this does not prove every scrolled
+screen, accessibility, family detail, signed release or App Store submission.
+
+Current-source iPad light/dark initial tab capture also completed. All ten JPEGs
+were reviewed, independently measured as 2064×2752 without alpha, and the owned
+simulator's absence was confirmed. Artifacts:
+`output/ios-development/current-ui-ipad-captures-20261013-a49a`.
+Along with the current iPhone set, this provides twenty sample initial viewports
+at the same source digest. It does not approve device interactions, accessibility,
+final signed screenshots or submission. All five a49a699 CI workflows completed
+successfully; the Native job's Release build, built SDK metadata checks and Debug
+build steps were individually confirmed successful.
