@@ -25,6 +25,7 @@ import {verifyDisposableReauthenticationResponseLoss} from './closure-reauth-res
 import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer} from './closure-reauth-producer-services.mjs';
 import {verifyDisposableClosureReauthLifecycle} from './closure-reauth-lifecycle-services.mjs';
 import {verifyDisposableClosureReauthRaces} from './closure-reauth-races.mjs';
+import {createDedicatedPostgresConnection} from '../../lib/dedicated-postgres-connection.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -158,15 +159,11 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    assert.deepEqual(flags,{rolcanlogin:true,rolsuper:false,rolcreaterole:false,rolcreatedb:false,rolbypassrls:false});
   }finally{await restrictedProbe.end();}
   const reviewApplicationName='ouchi-review-'+randomUUID(),reviewSQL=[];
+  const connectReview=createDedicatedPostgresConnection({createClient:bounds=>new Client({host:'127.0.0.1',port:54323,user:'ouchi_closure_review_ci_login',password:'synthetic-private-review-ci-only',database:'auth_test',application_name:reviewApplicationName,...bounds})});
   const dedicatedReviewTransactions=createAccountClosureReviewPrivateTransactions({connect:async({signal})=>{
    // Synthetic restricted credentials, never production configuration.
-   const client=new Client({host:'127.0.0.1',port:54323,user:'ouchi_closure_review_ci_login',password:'synthetic-private-review-ci-only',database:'auth_test',application_name:reviewApplicationName,connectionTimeoutMillis:3000,query_timeout:5000});
-   client.on('error',()=>{});let closing;
-   const abort=()=>{closing??=client.end();};signal.addEventListener('abort',abort,{once:true});
-   try{signal.throwIfAborted();await client.connect();signal.throwIfAborted();}
-   catch(error){abort();await closing.catch(()=>{});throw error;}
-   finally{signal.removeEventListener('abort',abort);}
-   return {query:(sql,args)=>{reviewSQL.push(sql);return client.query(sql,args);},abort,close:async()=>{abort();await closing;}};
+   const connection=await connectReview({signal});
+   return {query:(sql,args)=>{reviewSQL.push(sql);return connection.query(sql,args);},abort:connection.abort,close:connection.close};
   }});
   await db.query("create role ouchi_closure_reauth_ci_worker login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-reauth-worker-ci-only'");
   await db.query('grant ouchi_closure_reauth_worker to ouchi_closure_reauth_ci_worker');
