@@ -24,6 +24,7 @@ import {createAccountClosureReviewReauthentication,CLOSURE_REAUTHENTICATION_STAT
 import {verifyDisposableReauthenticationResponseLoss} from './closure-reauth-response-loss.mjs';
 import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer} from './closure-reauth-producer-services.mjs';
 import {verifyDisposableClosureReauthLifecycle} from './closure-reauth-lifecycle-services.mjs';
+import {verifyDisposableClosureReauthRaces} from './closure-reauth-races.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -181,6 +182,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    }});
   const markedProducer=disposableMarkedPasswordProducer({origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions});
   await verifyDisposableMarkedPasswordProducer({db,actor:owner,origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions});
+  await verifyDisposableClosureReauthRaces({db,actor:owner,origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions,applicationName:reviewApplicationName});
   const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:()=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:dedicatedReviewTransactions,authenticate:markedProducer})});
   await db.query('begin');
   try{
