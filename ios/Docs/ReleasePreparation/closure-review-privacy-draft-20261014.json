@@ -1,0 +1,50 @@
+{
+  "status": "draft_inventory_not_public_policy",
+  "date": "2026-10-14",
+  "component": "Ouchi closure review and marked reauthentication",
+  "data": [
+    {
+      "store": "maintenance_private.account_closure_reviews",
+      "columns": ["review_request_id", "user_id", "app_epoch_id", "submission_id", "state", "requested_at", "cancelled_at"],
+      "linked_to_user": true,
+      "purpose": "Recover an accepted review intention after response loss and permit explicit cancellation; not a completed deletion receipt.",
+      "cleanup": "The disabled stored deletion worker requires the exact current closed job lease and removes this actor's review generations before records/resumed completion.",
+      "retention": "Finite pending/cancelled review retention and operational cleanup must be adopted before intake activation; no public SLA approved."
+    },
+    {
+      "store": "maintenance_private.closure_reauth_markers",
+      "columns": ["marker_id", "user_id", "original_session", "app_epoch", "created_at", "expires_at", "closed_at"],
+      "linked_to_user": true,
+      "purpose": "Recover and clean exact temporary Ouchi password-reauthentication sessions after response loss/process termination.",
+      "cleanup": "Foreground close, private maintenance candidate and mandatory worker metadata erasure; preserve original shared Auth sessions.",
+      "retention": "Two-minute open lifetime and one-day closed-marker purge are implementation candidates. Scheduler, credentials, monitoring and SLA are not approved or enabled."
+    },
+    {
+      "store": "Supabase Auth temporary sessions/refresh tokens",
+      "linked_to_user": true,
+      "purpose": "Actual password reauthentication with an Ouchi-specific marker agent. Auth can retain additional managed session fields.",
+      "cleanup": "Only exact owned user/marker-agent rows, excluding original sessions; not shared Auth-user deletion or whole-account completion."
+    },
+    {
+      "store": "Request memory and native protected submission custody",
+      "linked_to_user": true,
+      "purpose": "Authenticate the current actor and recover the same submission after restart.",
+      "notes": [
+        "Email/password are request inputs, not columns in the review/marker tables.",
+        "Native protected submission custody and server review rows have separate cleanup boundaries.",
+        "Schema absence does not prove absence from provider logs/backups; review the final transport and operational retention."
+      ]
+    }
+  ],
+  "public_wording_draft_ja": "退会手続きの再開と本人確認のため、アカウントにひも付く受付番号、申請・取消の状態や日時、本人確認用の一時的な識別情報を取り扱います。家族や他のアプリへの影響を避けるため、退会の対象と保存が必要な情報の範囲を確認します。保存期間と削除の運用は公開前に確定します。",
+  "app_store_mapping": "Reconcile linked account/user identifiers and submitted account-management information with the full final-build inventory; do not claim anonymous data or no collection. Final questionnaire answers are unapproved.",
+  "remaining": [
+    "Confirm operator, support, public policy URL and effective date.",
+    "Adopt finite pending/cancelled review, protected custody, deletion proof, provider log and backup retention.",
+    "Review the actual submitted build, enabled data paths, processors, signed privacy report and App Store questionnaire together.",
+    "Distinguish app metadata cleanup from unresolved shared Auth/all-app identity deletion."
+  ],
+  "production_enabled": false,
+  "public_policy_published": false,
+  "production_user_erasure_performed": false
+}

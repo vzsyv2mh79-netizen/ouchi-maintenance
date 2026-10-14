@@ -27,6 +27,7 @@ import {verifyDisposableClosureReauthLifecycle} from './closure-reauth-lifecycle
 import {verifyDisposableClosureReauthRaces} from './closure-reauth-races.mjs';
 import {createDedicatedPostgresConnection} from '../../lib/dedicated-postgres-connection.mjs';
 import {verifyDisposableClosureReviewRuntime} from './closure-review-runtime-services.mjs';
+import {verifyDisposableSharedClosureMetadata} from './shared-maintenance-closure-services.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -643,5 +644,6 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   // Logout must not remove records, bytes or the GoTrue user itself.
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(`${receiver.user}/${receiver.epoch}/${ownFile}.png`)).error,null);
+  await verifyDisposableSharedClosureMetadata({db,account,admin,origin,options,createAttachmentFetch,bytes,retainedPath:`${receiver.user}/${receiver.epoch}/${ownFile}.png`});
  }finally{await db.end();}
 }
