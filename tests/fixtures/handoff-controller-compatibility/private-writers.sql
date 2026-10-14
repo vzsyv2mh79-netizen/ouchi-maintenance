@@ -14,6 +14,11 @@ create function maintenance_private.guard_private_account_write() returns trigge
 language plpgsql security definer set search_path='' as $$
 declare r jsonb;old_r jsonb;ids uuid[]:='{}';k text;p uuid;related uuid;route_kind text;record_id uuid;rows_to_check jsonb[];
 begin
+ if maintenance_private.allowed_shared_native_stage_write(tg_table_schema,tg_table_name,tg_op,
+  case when tg_op='INSERT' then null else to_jsonb(old) end,
+  case when tg_op='DELETE' then null else to_jsonb(new) end) then
+  if tg_op='DELETE' then return old;else return new;end if;
+ end if;
  if tg_op='UPDATE' and tg_table_name in('product_attachments','attachment_write_attempts')
  and maintenance_private.allowed_family_attachment_activation(tg_table_name,to_jsonb(old),to_jsonb(new)) then return new;end if;
  if tg_op='DELETE' then rows_to_check:=array[to_jsonb(old)];

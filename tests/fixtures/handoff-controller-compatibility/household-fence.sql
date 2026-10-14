@@ -1,5 +1,10 @@
 -- Review patch for actual household table/column names, NOT an enabled migration.
 -- No coordinator/worker grants until all writer categories and retention are integrated.
+-- Default-deny extension point; only the separately reviewed native-stage
+-- candidate installs exact transaction/row predicates. No public grant.
+create function maintenance_private.allowed_shared_native_stage_write(sch text,tbl text,op text,prior jsonb,next_value jsonb)
+returns boolean language sql security invoker set search_path='' as $$select false$$;
+revoke all on function maintenance_private.allowed_shared_native_stage_write(text,text,text,jsonb,jsonb) from public,anon,authenticated,service_role;
 create table maintenance_private.household_principal_fences(
  user_id uuid primary key, stopped boolean not null default false);
 create table maintenance_private.household_write_routes(
@@ -29,6 +34,11 @@ create function maintenance_private.guard_household_write() returns trigger
 language plpgsql security definer set search_path='' as $$
 declare r jsonb; prior jsonb; h uuid; own uuid; participant uuid; actor uuid:=auth.uid(); object_id uuid; parent_id uuid; parent_kind text;hold uuid;
 begin
+ if maintenance_private.allowed_shared_native_stage_write(tg_table_schema,tg_table_name,tg_op,
+  case when tg_op='INSERT' then null else to_jsonb(old) end,
+  case when tg_op='DELETE' then null else to_jsonb(new) end) then
+  if tg_op='DELETE' then return old;else return new;end if;
+ end if;
  if tg_op='DELETE' then r:=to_jsonb(old);else r:=to_jsonb(new);end if;
  if tg_op='UPDATE' then
   prior:=to_jsonb(old);
