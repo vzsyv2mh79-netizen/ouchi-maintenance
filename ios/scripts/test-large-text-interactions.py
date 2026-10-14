@@ -17,7 +17,7 @@ parser.add_argument('--text-size', choices=['accessibility-extra-large', 'access
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
 parser.add_argument('--device-type', choices=['iPhone-18-Pro', 'iPhone-17e', 'iPhone-SE-3rd-generation'], default='iPhone-18-Pro')
-parser.add_argument('--test', choices=['all', 'completion', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'home-switch', 'theme'], default='all')
+parser.add_argument('--test', choices=['all', 'completion', 'completion-export', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'home-switch', 'theme'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -38,6 +38,7 @@ manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_si
             'testHarnessDigest': test_stamp, 'auditIssuesFiltered': False,
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
             'scope': (['unfiltered screen textClipped audit with complete task-product label visible', 'unfiltered screen contrast audit with complete next-date label visible; does not replace full audit'] if args.test == 'task-audits' else
+                      ['complete actual sample task; exactly one history addition and next due date update', 'export action produces a reachable share control'] if args.test == 'completion-export' else
                       ['complete actual sample task; exactly one history addition and next due date update'] if args.test == 'completion' else
                       ['theme toggle and relaunch retention on isolated sample; restore starting appearance'] if args.test == 'theme' else
                       ['two synthetic homes: product/history filtering and return to original home; not cloud RLS verification'] if args.test == 'home-switch' else
@@ -135,7 +136,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never', 'CODE_SIGNING_ALLOWED=NO',
-                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'completion-export': 'testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl', 'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

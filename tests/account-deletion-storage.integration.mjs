@@ -58,7 +58,7 @@ const {handleAccountDeletionRequest}=await import(attachmentModule('account-dele
 const {deletionRequestDependencies}=await import(attachmentModule('account-deletion-request-store'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
  // Apply the canonical lifecycle release candidates only in this disposable instance.
- for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql"]){
+ for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql", "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql"]){
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:readFileSync(file,'utf8')+"\nnotify pgrst, 'reload schema';",timeout:10000,stdio:['pipe','pipe','pipe']});
  }
  // Metadata only, inside the opt-in disposable database. No row/customer values.
@@ -540,11 +540,19 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('erase_maintenance_deletion_prior_preferences',{...args,target_lease:randomUUID()})).data,false);
   const preferenceTables=['enrollment_consents','notification_channels','reminder_schedules','reconciliation_jobs'];
   const foreignPreferenceSnapshot=Object.fromEntries(preferenceTables.map(table=>[table,recoverySql(`select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),'[]'::jsonb) from maintenance_private.${table} t where user_id='${otherSignup.data.user.id}';`).trim()]));
+  // Retained review intents include cancelled and earlier Ouchi generations.
+  // Only the reviewed current job may clean this actor; other actors survive.
+  for(const [actor,actorEpoch,state] of [[userID,epoch.data,'review_required'],[userID,epoch.data,'cancelled'],[userID,priorEpoch,'review_required'],[otherSignup.data.user.id,otherEpoch.data,'review_required']]){
+   recoverySql(`insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id,state,cancelled_at) values('${actor}','${actorEpoch}','${randomUUID()}','${state}',${state==='cancelled'?'clock_timestamp()':'null'});`);
+  }
+  const foreignReviewsBefore=recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${otherSignup.data.user.id}';`).trim();
   let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${reauthMarker}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from auth.sessions where user_id='${userID}' and user_agent='${reauthAgent}';`).trim(),'0');
   assert.equal((await user.auth.getUser()).error,null,'stored record erasure retains the original shared Auth session');
-  console.log('Actual stored deletion adapter: mandatory marker erasure removes process-loss password session before records; original Auth retained, identity/retention still pending.');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.account_closure_reviews where user_id='${userID}';`).trim(),'0');
+  assert.equal(recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${otherSignup.data.user.id}';`).trim(),foreignReviewsBefore);
+  console.log('Actual stored deletion adapter: mandatory closure metadata erasure removes all owned review generations and process-loss password session before records; foreign reviews and original Auth retained, identity/retention still pending.');
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${deletionConsent}';`).trim(),'0');
@@ -668,10 +676,11 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.deepEqual(resumed,{state:'pending'});assert.equal(recoveryTail,1);assert.equal(recoveryComplete,0);
   const resumedMarker=randomUUID();
   recoverySql(`insert into maintenance_private.closure_reauth_markers(marker_id,user_id,original_session,app_epoch,closed_at) values('${resumedMarker}','${userID}','${originalSession}','${epoch.data}',clock_timestamp());`);
+  recoverySql(`insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values('${userID}','${priorEpoch}','${randomUUID()}');`);
   let resumedCompletionCalls=0;
-  const resumedCompletion=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{resumedCompletionCalls++;assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${resumedMarker}';`).trim(),'0');return false;}}));
+  const resumedCompletion=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{resumedCompletionCalls++;assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${resumedMarker}';`).trim(),'0');assert.equal(recoverySql(`select count(*) from maintenance_private.account_closure_reviews where user_id='${userID}';`).trim(),'0');return false;}}));
   assert.deepEqual(resumedCompletion,{state:'pending'});assert.equal(resumedCompletionCalls,1);
-  console.log('Actual stored resumed completion: identity checkpoint skips erased records but still erases retained marker metadata before completion delegate; no retention approval or completion fabricated.');
+  console.log('Actual stored resumed completion: identity checkpoint skips erased records but still erases retained marker and review metadata before completion delegate; no retention approval or completion fabricated.');
   console.log('Actual atomic identity erasure: exact live lease and strict policy, absence preflight, identity/session links removed, durable checkpoint resumes mandatory retention without replay, wrong lease/browser denied; no completion.');
   const independentProgress=await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID});assert.equal(independentProgress.error,null);assert.equal(independentProgress.data.state,'running');assert.equal(independentProgress.data.epochID,epoch.data);
   assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:randomUUID(),target_request:scope.requestID})).data,null);

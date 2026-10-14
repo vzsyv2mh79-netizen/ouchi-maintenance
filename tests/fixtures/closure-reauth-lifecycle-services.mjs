@@ -27,17 +27,27 @@ export async function verifyDisposableClosureReauthLifecycle({db,actor,origin,op
  assert.deepEqual(await maintenance(AbortSignal.timeout(10000),1),{state:'processed',closed:0,purged:1});
  await assert.rejects(db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[randomUUID(),actor.user,first.agent]),/agent closed/);
  const second=await abandoned(),request=randomUUID(),lease=randomUUID();
+ const foreignReviews=async()=>(await db.query('select to_jsonb(r) row from maintenance_private.account_closure_reviews r where user_id<>$1 order by submission_id',[actor.user])).rows;
+ const preservedReviews=await foreignReviews(),priorEpoch=randomUUID();
+ for(const [epoch,state] of [[actor.epoch,'review_required'],[actor.epoch,'cancelled'],[priorEpoch,'review_required']]){
+  await db.query("insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id,state,cancelled_at) values($1,$2,$3,$4,case when $4='cancelled' then clock_timestamp() end)",[actor.user,epoch,randomUUID(),state]);
+ }
+ await db.query('insert into maintenance_private.closure_reauth_markers(marker_id,user_id,original_session,app_epoch,closed_at) values($1,$2,$3,$4,clock_timestamp())',[randomUUID(),actor.user,actor.session,priorEpoch]);
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes')",[request,actor.user,actor.epoch,lease]);
  await assert.rejects(db.query("update maintenance_private.account_deletion_requests set state='complete',lease_token=null,lease_until=null where id=$1",[request]),/marker erasure required/);
  await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[actor.user]);
  try{
   await db.query('set role service_role');
-  const erase=values=>db.query('select public.erase_maintenance_deletion_reauth_markers($1,$2,$3,$4) as erased',values);
+  const erase=values=>db.query('select public.erase_maintenance_deletion_closure_metadata($1,$2,$3,$4) as erased',values);
   assert.equal((await erase([request,actor.user,actor.epoch,randomUUID()])).rows[0].erased,false);
+  assert.equal((await erase([request,actor.user,actor.epoch,lease])).rows[0].erased,true);
   assert.equal((await erase([request,actor.user,actor.epoch,lease])).rows[0].erased,true);
  }finally{await db.query('reset role');}
  assert.equal((await db.query('select count(*)::int n from maintenance_private.closure_reauth_markers where user_id=$1 and app_epoch=$2',[actor.user,actor.epoch])).rows[0].n,0);
+ assert.equal((await db.query('select count(*)::int n from maintenance_private.closure_reauth_markers where user_id=$1',[actor.user])).rows[0].n,0);
+ assert.equal((await db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[actor.user])).rows[0].n,0);
+ assert.deepEqual(await foreignReviews(),preservedReviews);
  assert.deepEqual((await db.query('select id::text from auth.sessions where user_id=$1 order by id',[actor.user])).rows,baseline);
  await assert.rejects(db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[randomUUID(),actor.user,second.agent]),/agent closed/);
- console.log('closure-review lifecycle actual Auth/PostgreSQL: restricted maintenance LOGIN skips busy actor, recovers process-loss session, purges aged metadata; exact deletion lease erases marker scope and completion refuses retained markers; original Auth preserved, no whole-account completion');
+ console.log('closure-review lifecycle actual Auth/PostgreSQL: restricted maintenance LOGIN skips busy actor, recovers process-loss session, purges aged metadata; exact deletion lease idempotently erases all owned review/marker generations and preserves other reviews and original Auth; no whole-account completion');
 }
