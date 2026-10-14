@@ -1,4 +1,5 @@
--- Disposable candidate only. No migration, endpoint, worker or erasure enabled.
+-- Additive release candidate. Intake remains disabled; no LOGIN or scheduler is provisioned.
+begin;
 create table maintenance_private.account_closure_review_policy (
  id integer primary key check(id=1), enabled boolean not null default false
 );
@@ -99,3 +100,4 @@ begin
 end;$$;
 revoke all on function public.cancel_maintenance_closure_review(uuid,uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.cancel_maintenance_closure_review(uuid,uuid,uuid,uuid) to service_role;
+commit;

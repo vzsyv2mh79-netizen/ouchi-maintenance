@@ -9,7 +9,7 @@ test('pending additive migrations preserve pre-existing free family records, oth
  const history=JSON.parse(readFileSync('tests/fixtures/migration-history/recorded-ouchi-baseline.json','utf8'));
  const plan=maintenanceMigrationPlan(history),db=new PGlite();
  try{
-  await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());create table auth.refresh_tokens(user_id uuid references auth.users(id),token text);');
+  await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now(),user_agent text);create table auth.refresh_tokens(user_id uuid references auth.users(id),token text);');
   await db.exec(readFileSync('tests/fixtures/auth/rest-bootstrap.sql','utf8'));
   const recorded=new Set(plan.recorded.map(row=>row.file));
   for(const file of maintenanceMigrationCatalog())if(recorded.has(file.file))await db.exec(readFileSync(file.file,'utf8'));
@@ -36,6 +36,16 @@ test('pending additive migrations preserve pre-existing free family records, oth
   for(const table of ['account_access','app_epochs','app_session_epochs','account_deletion_requests','verified_transactions'])assert.equal((await db.query(`select count(*)::int n from maintenance_private.${table}`)).rows[0].n,0,'no enrollment, deletion job or rights implicitly created');
   assert.equal((await db.query('select require_explicit from maintenance_private.enrollment_policy where id=1')).rows[0].require_explicit,false);
   assert.equal((await db.query('select enabled from maintenance_private.home_handoff_policy where id=1')).rows[0].enabled,false);
+  assert.equal((await db.query('select enabled from maintenance_private.account_closure_review_policy where id=1')).rows[0].enabled,false);
+  for(const table of ['account_closure_reviews','closure_reauth_markers'])assert.equal((await db.query(`select count(*)::int n from maintenance_private.${table}`)).rows[0].n,0);
+  for(const role of ['ouchi_closure_review_executor','ouchi_closure_reauth_worker'])assert.equal((await db.query('select rolcanlogin from pg_roles where rolname=$1',[role])).rows[0].rolcanlogin,false);
+  // The shared Auth trigger must leave ordinary sessions usable while refusing
+  // a marked session with no registered scope, even while intake is disabled.
+  const freshSession='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  await db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[freshSession,owner,'Synthetic ordinary client']);
+  await db.query('delete from auth.sessions where id=$1',[freshSession]);
+  await assert.rejects(db.query('insert into auth.sessions(id,user_id,user_agent) values($1,$2,$3)',[freshSession,owner,'OuchiMaintenance/closure-reauth/v1/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb']),/Reauthentication agent closed/);
+  assert.deepEqual(await snapshot(),before,'ordinary/marked session witnesses must preserve the pre-upgrade snapshot');
   const asActor=async(user,work)=>{
    await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user,session_id:session})]);await db.exec('set role authenticated');
    try{return await work();}finally{await db.exec('reset role');}

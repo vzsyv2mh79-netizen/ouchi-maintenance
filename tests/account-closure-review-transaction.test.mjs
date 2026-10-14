@@ -78,7 +78,7 @@ test('actual review SQL rolls back inserted intake on failed commit check, then 
    alter table auth.sessions add column refreshed_at timestamp;
    create table auth.mfa_factors(id uuid primary key,user_id uuid references auth.users(id),status text);
   `);
-  await db.exec(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261014061605_ouchi_account_closure_review.sql','utf8'));
   await db.exec('update maintenance_private.account_closure_review_policy set enabled=true');
   const bearer='e30.'+Buffer.from(JSON.stringify({sub:owner,session_id:os,aal:'aal1',exp:4102444800})).toString('base64url')+'.c2ln';
   let checks=0,refuseFinal=true;

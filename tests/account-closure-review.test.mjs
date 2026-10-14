@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
 import {owner,recipient,oe,os,rs} from './fixtures/home-handoff-identifiers.mjs';
 import {createAccountClosureReviewRPC} from '../lib/account-closure-review-rpc.mjs';
-const sql=readFileSync('tests/fixtures/account-closure-review.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261014061605_ouchi_account_closure_review.sql','utf8');
 const submission='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const args=[owner,os,oe,submission];
 const call=(db,verb='request',values=args)=>db.query(`select public.${verb}_maintenance_closure_review($1,$2,$3,$4) as value`,values);

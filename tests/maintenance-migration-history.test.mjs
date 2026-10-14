@@ -7,11 +7,12 @@ const observed=JSON.parse(readFileSync('tests/fixtures/migration-history/recorde
 test('recorded baseline hashes identify seven applied sources despite different version IDs, without replay or history repair',()=>{
  const foreign={version:'20990101000000',name:'other_application_fixture',source_sha256:'f'.repeat(64)};
  const plan=maintenanceMigrationPlan([...observed,foreign]);
- assert.equal(plan.recorded.length,7);assert.equal(plan.recorded.every(row=>!row.sameVersion),true);assert.deepEqual(plan.conflicts,[]);assert.equal(plan.pending.length,81);
+ assert.equal(plan.recorded.length,7);assert.equal(plan.recorded.every(row=>!row.sameVersion),true);assert.deepEqual(plan.conflicts,[]);assert.equal(plan.pending.length,85);
  for(const row of plan.recorded)assert.equal(plan.pending.includes(row.file),false);
  assert.deepEqual(plan.foreignHistory,[{version:foreign.version,name:foreign.name,action:'preserve'}]);
  assert.equal(plan.historyAligned,false);assert.equal(plan.automaticApplyAllowed,false);assert.equal(plan.historyRepairAllowed,false);
- assert.equal(plan.additionalReviewRuntimeCandidates.length,4);assert.ok(plan.additionalReviewRuntimeCandidates.every(row=>row.status==='fixture_only_not_canonical_do_not_apply'));
+ assert.equal(plan.reviewRuntimeMigrations.length,4);assert.ok(plan.reviewRuntimeMigrations.every(row=>plan.pending.includes(row.file)));
+ assert.equal(plan.additionalReviewRuntimeCandidates,undefined);
 });
 test('same names or versions with changed/unknown SQL are conflicts, never proof of applied source',()=>{
  const file=maintenanceMigrationCatalog()[0];

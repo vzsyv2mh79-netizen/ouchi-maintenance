@@ -1,5 +1,4 @@
--- Disposable candidate only. Never apply to the shared production project.
--- No LOGIN, credentials, membership, route or policy activation is created.
+-- Additive release candidate. Intake remains disabled; no LOGIN or scheduler is provisioned.
 begin;
 create role ouchi_closure_review_executor nologin noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
 grant usage on schema maintenance_private to ouchi_closure_review_executor;

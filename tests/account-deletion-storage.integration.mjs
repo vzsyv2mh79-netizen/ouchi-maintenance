@@ -57,9 +57,9 @@ const {storedDeletionDependencies,storedDeletionCompletion}=await import('data:t
 const {handleAccountDeletionRequest}=await import(attachmentModule('account-deletion-request'));
 const {deletionRequestDependencies}=await import(attachmentModule('account-deletion-request-store'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
- // Private lifecycle candidates are installed only in this disposable instance.
- for(const file of ['account-closure-review.sql','closure-review-private-access.sql','closure-reauth-markers.sql','closure-reauth-lifecycle.sql']){
-  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:readFileSync('tests/fixtures/'+file,'utf8')+"\nnotify pgrst, 'reload schema';",timeout:10000,stdio:['pipe','pipe','pipe']});
+ // Apply the canonical lifecycle release candidates only in this disposable instance.
+ for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql"]){
+  execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:readFileSync(file,'utf8')+"\nnotify pgrst, 'reload schema';",timeout:10000,stdio:['pipe','pipe','pipe']});
  }
  // Metadata only, inside the opt-in disposable database. No row/customer values.
  const inventoryText=execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:readFileSync('tests/fixtures/deletion/schema-inventory.sql','utf8'),encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']});

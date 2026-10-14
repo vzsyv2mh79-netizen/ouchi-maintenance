@@ -1,4 +1,4 @@
--- Disposable candidate only. Auth trigger/permissions are NOT applied live.
+-- Additive release candidate. Intake remains disabled; no LOGIN or scheduler is provisioned.
 begin;
 create table maintenance_private.closure_reauth_markers(
  marker_id uuid primary key,user_id uuid not null,original_session uuid not null,app_epoch uuid not null,

@@ -21,8 +21,8 @@ async function fixture(){
  create table auth.mfa_factors(id uuid primary key,user_id uuid references auth.users(id),status text,secret text);`);
  await db.query('update auth.users set email=$2,encrypted_password=$3 where id=$1',[owner,'synthetic@example.invalid','synthetic-password-hash']);
  await db.query('insert into auth.mfa_factors values($1,$2,$3,$4)',['bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',owner,'unverified','synthetic-factor-secret']);
- await db.exec(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));
- await db.exec(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261014061605_ouchi_account_closure_review.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql','utf8'));
  return db;
 }
 async function context(db,user=owner){await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user})]);}

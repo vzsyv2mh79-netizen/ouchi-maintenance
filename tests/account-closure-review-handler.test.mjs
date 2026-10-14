@@ -39,7 +39,7 @@ test('malformed transport and slow body are bounded before authentication',async
 });
 test('handler and real RPC contract recover a lost SQL acknowledgement then cancel the same stored submission',async()=>{
  const db=await seedHomeHandoffFullSchemaFixture();try{
-  await db.exec('reset role');await db.exec(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));await db.exec('update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
+  await db.exec('reset role');await db.exec(readFileSync('supabase/migrations/20261014061605_ouchi_account_closure_review.sql','utf8'));await db.exec('update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
   let lost=true;
   const port=createAccountClosureReviewRPC({client:{rpc(name,args){return{retry(value){assert.equal(value,false);return this;},async abortSignal(signal){signal.throwIfAborted();const values=[args.target_user,args.verified_session,args.expected_epoch,args.expected_submission];const value=(await db.query(`select public.${name}($1,$2,$3,$4) as value`,values)).rows[0].value;if(lost){lost=false;throw Error('Lost durable SQL response');}return{data:value,error:null};}};}}});
   // Auth here is synthetic; this proves handler/SDK/full-schema composition, not real endpoint authentication.

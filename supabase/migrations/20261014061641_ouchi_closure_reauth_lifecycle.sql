@@ -1,4 +1,4 @@
--- Disposable candidate only. No production worker, grants or erasure enabled.
+-- Additive release candidate. Intake remains disabled; no LOGIN or scheduler is provisioned.
 begin;
 create role ouchi_closure_reauth_worker nologin noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
 grant usage on schema maintenance_private to ouchi_closure_reauth_worker;

@@ -11,7 +11,7 @@ async function fixture(){
  alter table auth.sessions add column aal text default 'aal1';alter table auth.sessions add column refreshed_at timestamp;alter table auth.sessions add column user_agent text;
  create table auth.mfa_factors(id uuid primary key,user_id uuid references auth.users(id),status text);
  create table auth.refresh_tokens(session_id uuid references auth.sessions(id) on delete cascade,token text);`);
- await db.exec(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));await db.exec(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));await db.exec(readFileSync('tests/fixtures/closure-reauth-markers.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261014061605_ouchi_account_closure_review.sql','utf8'));await db.exec(readFileSync('supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql','utf8'));await db.exec(readFileSync('supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql','utf8'));
  await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:owner})]);return db;
 }
 const call=(db,verb,args=[owner,os,oe,marker])=>db.query(`select maintenance_private.closure_reauth_${verb}(${args.map((_,i)=>'$'+(i+1)+'::uuid').join(',')}) as value`,args);

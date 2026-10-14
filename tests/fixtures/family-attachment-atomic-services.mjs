@@ -77,9 +77,8 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    await db.query("insert into maintenance_private.attachment_write_attempts(attachment_id,attempt_id,uploader_id,owner_id,app_epoch_id,state,settled_at) values($1,$2,$3,$4,$5,'settled',clock_timestamp())",[id,randomUUID(),user.user,owner.user,user.epoch]);
    const upload=await admin.storage.from('ouchi-product-attachments').upload(`${user.user}/${user.epoch}/${id}.png`,bytes,{contentType:'image/png',upsert:false});assert.equal(upload.error,null);
   }
-  // Review intake precedes any real deletion job or family handoff. The
+  // Canonical migrations installed review intake before any deletion job or family handoff. The
   // actor is an actual fresh GoTrue/TOTP identity; no app closure is performed.
-  await db.query(readFileSync('tests/fixtures/account-closure-review.sql','utf8'));
   const reviewSession=await owner.client.auth.getSession();assert.equal(reviewSession.error,null);
   const reviewAuth=await createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(AbortSignal.timeout(5000),5000,65536)}}).auth.getUser(reviewSession.data.session.access_token);
   assert.equal(reviewAuth.error,null);assert.equal(reviewAuth.data.user.id,owner.user);
@@ -144,9 +143,6 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    }catch(error){await db.query('rollback');throw error;}
   }};
   const reviewIdentityOptions={projectID,policyReader,getUser:(token,signal)=>createClient(origin,'synthetic-public-key',{...options,global:{fetch:createAttachmentFetch(signal,5000,65536)}}).auth.getUser(token)};
-  await db.query(readFileSync('tests/fixtures/closure-review-private-access.sql','utf8'));
-  await db.query(readFileSync('tests/fixtures/closure-reauth-markers.sql','utf8'));
-  await db.query(readFileSync('tests/fixtures/closure-reauth-lifecycle.sql','utf8'));
   // Disposable LOGIN only: unlike SET ROLE on an administrator session, this
   // connection cannot regain administrator privileges after a query error.
   await db.query("create role ouchi_closure_review_ci_login login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password 'synthetic-private-review-ci-only'");

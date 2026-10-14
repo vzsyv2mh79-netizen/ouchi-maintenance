@@ -19,11 +19,10 @@ export function maintenanceMigrationCatalog(){
 }
 export function maintenanceMigrationPlan(history){
  const result=reconcileMaintenanceMigrationHistory(maintenanceMigrationCatalog(),history);
- const additionalReviewRuntimeCandidates=['account-closure-review','closure-review-private-access','closure-reauth-markers','closure-reauth-lifecycle'].map(name=>{
-  const file='tests/fixtures/'+name+'.sql';
-  return {file,source_sha256:createHash('sha256').update(readFileSync(resolve(root,file))).digest('hex'),status:'fixture_only_not_canonical_do_not_apply'};
- });
- return {...result,additionalReviewRuntimeCandidates,scope:result.scope+'; pending list covers canonical migrations only, not fixture SQL or production readiness'};
+ const reviewNames=new Set(['ouchi_account_closure_review','ouchi_closure_review_private_access','ouchi_closure_reauth_markers','ouchi_closure_reauth_lifecycle']);
+ const reviewRuntimeMigrations=maintenanceMigrationCatalog().filter(row=>reviewNames.has(row.name));
+ if(reviewRuntimeMigrations.length!==reviewNames.size)throw Error('Complete canonical review runtime required');
+ return {...result,reviewRuntimeMigrations,scope:result.scope+'; canonical source reconciliation does not prove production readiness or authorize application'};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  if(process.argv.length!==3)throw Error('Usage: node scripts/maintenance-migration-plan.mjs <read-only-history.json>');
