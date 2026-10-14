@@ -41,7 +41,7 @@ const run=mode=>new Promise((resolve,reject)=>{
  child.once('exit',(code,signal)=>{clearTimeout(timer);if(code===0)resolve();else reject(Error('Native closure HTTP phase failed: '+mode+' '+code+' '+signal));});
 });
 try{
- await db.exec('reset role');await db.exec(readFileSync(join(root,'tests/fixtures/account-closure-review.sql'),'utf8'));
+ await db.exec('reset role');await db.exec(readFileSync(join(root,'supabase/migrations/20261014061605_ouchi_account_closure_review.sql'),'utf8'));
  await db.exec('update maintenance_private.account_closure_review_policy set enabled=true;set role service_role');
  const before=await snapshot();
  const port=createAccountClosureReviewRPC({client:{rpc(name,args){return {
