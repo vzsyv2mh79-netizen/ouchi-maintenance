@@ -55,7 +55,10 @@ final class LargeTextInteractionTests: XCTestCase {
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         let next = formatter.string(from: calendar.date(byAdding: .day, value: 30, to: Date())!)
-        XCTAssertTrue(app.staticTexts["次回 \(next)・30日ごと"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["次回 \(next)"].waitForExistence(timeout: 30))
+        let interval = app.staticTexts["30日ごと"]
+        reach(interval, in: app)
+        XCTAssertTrue(interval.exists)
         app.tabBars.buttons["履歴"].tap()
         let entries = app.staticTexts.matching(NSPredicate(format: "label == %@", "フィルター確認（サンプル）"))
         XCTAssertTrue(entries.firstMatch.waitForExistence(timeout: 10))
@@ -107,7 +110,12 @@ final class LargeTextInteractionTests: XCTestCase {
             capture(app, name: "audit-tab-\(tab)-initial")
             do {
                 try app.performAccessibilityAudit(for: [.contrast, .dynamicType, .elementDetection,
-                    .hitRegion, .sufficientElementDescription, .textClipped, .trait])
+                    .hitRegion, .sufficientElementDescription, .textClipped, .trait]) { issue in
+                    // Record context without handling/filtering any audit issue.
+                    NSLog("Accessibility audit tab %d: %@; element=%@", tab,
+                          issue.detailedDescription, issue.element?.debugDescription ?? "unavailable")
+                    return false
+                }
             } catch {
                 XCTFail("Initial tab \(tab) accessibility audit failed: \(error)")
             }

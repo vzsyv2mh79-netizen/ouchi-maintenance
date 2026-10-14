@@ -209,11 +209,17 @@ private struct HomePicker: View {
 private struct AdaptiveNavigationTitle: ViewModifier {
     @Environment(\.dynamicTypeSize) private var textSize
     func body(content: Content) -> some View {
-        content
+        readableScrollEdges(content)
             .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
             // Scrolled content must not reduce the title's contrast through a translucent bar.
             .toolbarBackground(Color(uiColor: .systemBackground), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+    }
+    @ViewBuilder private func readableScrollEdges(_ content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            // Preserve text contrast at the bottom edge rather than fading rows.
+            content.scrollEdgeEffectHidden(true, for: .bottom)
+        } else { content }
     }
 }
 
@@ -231,9 +237,14 @@ private struct CareList: View {
                             NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
                             // Independent List rows keep each metadata item measurable and scrollable.
                             Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
-                                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                            Text("次回 \(task.nextDueAt)・\(task.intervalDays)日ごと")
-                                .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                                .font(.subheadline).foregroundStyle(.primary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.vertical, 8)
+                            Text("次回 \(task.nextDueAt)")
+                                .font(.subheadline).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                            Text("\(task.intervalDays)日ごと")
+                                .font(.caption).fixedSize(horizontal: false, vertical: true)
                             Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             if let note = task.sourceNote, !note.isEmpty {
@@ -243,7 +254,7 @@ private struct CareList: View {
                                 .buttonStyle(.borderless)
                                 .accessibilityLabel("\(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")の\(task.name)の完了を記録")
                                 .disabled(store.busy)
-                        }.padding(.vertical, 4)
+                        }
                     }
                 }
             }.navigationTitle("お手入れ").modifier(AdaptiveNavigationTitle())
@@ -360,11 +371,12 @@ private struct NativeSettings: View {
                 if store.attachmentServiceConfigured {
                     Section("写真・保証書") { NavigationLink("保存したファイルを管理") { AttachmentView() } }
                 }
-                Section("住まい") { NavigationLink("住まいを管理") { HomeSettings() } }
-                Section("家族") {
+                Section { NavigationLink("住まいを管理") { HomeSettings() } }
+                    header: { Text("住まい").foregroundStyle(Color(uiColor: .label)) }
+                Section {
                     NavigationLink("家族と共有") { FamilySettings() }
-                }
-                Section("記録") {
+                } header: { Text("家族").foregroundStyle(Color(uiColor: .label)) }
+                Section {
                     Text("家電・お手入れ・完了履歴を、無料でバックアップ用ファイルに保存できます。元の記録は消えません。ほかのアプリへの取り込みは、移行先がこの形式に対応している必要があります。")
                         .font(.caption)
                     Button("すべての記録を書き出す") {
@@ -372,7 +384,7 @@ private struct NativeSettings: View {
                     }.disabled(store.household == nil || store.busy)
                     if let exportURL = store.exportURL { ShareLink("ファイルを共有・保存", item: exportURL) }
                     Button("バックアップから復元") { choosingBackup = true }.disabled(store.busy)
-                }
+                } header: { Text("記録").foregroundStyle(Color(uiColor: .label)) }
                 Section("この端末のお手入れ通知") {
                     Toggle("朝9時に通知する", isOn: Binding(get: { store.remindersEnabled }, set: { value in Task { await store.setReminders(value) } })).disabled(store.busy || store.household == nil)
                     Text("読み込んだ予定をもとに、次の30日間の通知を予約します。住まい名・製品名は通知に表示しません。アプリを開いて記録を更新すると予約も更新します。別端末での変更は、再読み込みするまで反映されません。").font(.caption)

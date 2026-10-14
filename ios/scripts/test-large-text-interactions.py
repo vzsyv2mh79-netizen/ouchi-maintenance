@@ -16,6 +16,7 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
+parser.add_argument('--device-type', choices=['iPhone-18-Pro', 'iPhone-17e', 'iPhone-SE-3rd-generation'], default='iPhone-18-Pro')
 parser.add_argument('--test', choices=['all', 'completion', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'home-switch', 'theme'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
@@ -31,7 +32,10 @@ for key, value in info.items():
 sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/*.swift'),
                   root / 'OuchiMaintenance/Info.plist', root / 'OuchiMaintenance.xcodeproj/project.pbxproj'])
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
-manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'task-audits', 'all'],
+test_stamp = hashlib.sha256(pathlib.Path(__file__).read_bytes() + b'\0' +
+                           (root / 'UITests/LargeTextInteractionTests.swift').read_bytes()).hexdigest()
+manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'deviceType': args.device_type, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'task-audits', 'all'],
+            'testHarnessDigest': test_stamp, 'auditIssuesFiltered': False,
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
             'scope': (['unfiltered screen textClipped audit with complete task-product label visible', 'unfiltered screen contrast audit with complete next-date label visible; does not replace full audit'] if args.test == 'task-audits' else
                       ['complete actual sample task; exactly one history addition and next due date update'] if args.test == 'completion' else
@@ -120,7 +124,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
         scheme = work / 'OuchiMaintenance.xcodeproj/xcshareddata/xcschemes/OuchiInteractions.xcscheme'
         scheme.write_text('<Scheme version="1.3"><BuildAction buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES">' + ref + '</BuildActionEntry></BuildActionEntries></BuildAction><TestAction buildConfiguration="Debug" shouldUseLaunchSchemeArgsEnv="NO"><Testables><TestableReference skipped="NO">' + ref + '</TestableReference></Testables></TestAction></Scheme>')
         device = subprocess.check_output(['xcrun', 'simctl', 'create', 'おうちメンテ大きい文字操作テスト',
-            'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro', args.runtime], text=True).strip()
+            'com.apple.CoreSimulator.SimDeviceType.' + args.device_type, args.runtime], text=True).strip()
         manifest['simulatorUDID'] = device
         run('xcrun', 'simctl', 'boot', device)
         run('xcrun', 'simctl', 'bootstatus', device, '-b')
@@ -130,7 +134,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
             run('xcodebuild', '-project', work / 'OuchiMaintenance.xcodeproj', '-scheme', 'OuchiInteractions',
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
-                '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO',
+                '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never', 'CODE_SIGNING_ALLOWED=NO',
                 *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
