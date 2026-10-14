@@ -10,11 +10,24 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  const {Client}=await import('pg');
  const actor=await account(),marker=randomUUID(),agent='OuchiMaintenance/closure-reauth/v1/'+marker;
+ const session=await actor.client.auth.getSession();assert.equal(session.error,null);assert.ok(session.data.session);
+ const claims=JSON.parse(Buffer.from(session.data.session.access_token.split('.')[1],'base64url'));
+ assert.equal(claims.sub,actor.user);assert.equal(claims.session_id,actor.session);
+ const verified=await actor.client.auth.getUser(session.data.session.access_token);
+ assert.equal(verified.error,null);assert.equal(verified.data.user.id,actor.user);
+ const context=async()=>(await db.query("select nullif(current_setting('request.jwt.claims',true),'') as claims,nullif(current_setting('request.jwt.claim.sub',true),'') as subject")).rows[0];
+ const originalContext=await context();
+ // The preceding Kakei fixture installs auth.uid() backed by the legacy sub
+ // GUC. Bind BOTH GUC formats to this actual getUser-verified actor, locally
+ // on this connection; COMMIT/ROLLBACK restores the previous context.
+ assert.match((await db.query("select pg_get_functiondef('auth.uid()'::regprocedure) definition")).rows[0].definition,/request\.jwt\.claim\.sub/);
  await db.query('begin');try{
-  await db.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:actor.user})]);
+  await db.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify(claims),actor.user]);
+  assert.equal((await db.query('select auth.uid()::text as actor')).rows[0].actor,actor.user);
   assert.equal((await db.query('select maintenance_private.closure_reauth_register($1,$2,$3,$4) registered',[actor.user,actor.session,actor.epoch,marker])).rows[0].registered,true);
   await db.query('commit');
  }catch(error){await db.query('rollback');throw error;}
+ assert.deepEqual(await context(),originalContext);
  const temporary=createClient(origin,'synthetic-public-key',{...options,global:{headers:{'User-Agent':agent},fetch:createAttachmentFetch(AbortSignal.timeout(10000),5000,65536)}});
  assert.equal((await temporary.auth.signInWithPassword({email:actor.email,password:actor.password})).error,null);
  const native=Object.freeze({requestID:randomUUID(),userID:actor.user,epochID:actor.epoch,leaseToken:randomUUID()});
