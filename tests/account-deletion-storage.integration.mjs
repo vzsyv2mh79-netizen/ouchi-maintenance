@@ -58,7 +58,7 @@ const {handleAccountDeletionRequest}=await import(attachmentModule('account-dele
 const {deletionRequestDependencies}=await import(attachmentModule('account-deletion-request-store'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
  // Apply the canonical lifecycle release candidates only in this disposable instance.
- for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql", "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql"]){
+ for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql", "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql", "supabase/migrations/20261014231227_ouchi_closure_actor_context_compatibility.sql"]){
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:readFileSync(file,'utf8')+"\nnotify pgrst, 'reload schema';",timeout:10000,stdio:['pipe','pipe','pipe']});
  }
  // Metadata only, inside the opt-in disposable database. No row/customer values.

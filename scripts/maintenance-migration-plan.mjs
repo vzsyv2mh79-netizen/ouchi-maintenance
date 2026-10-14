@@ -19,7 +19,7 @@ export function maintenanceMigrationCatalog(){
 }
 export function maintenanceMigrationPlan(history){
  const result=reconcileMaintenanceMigrationHistory(maintenanceMigrationCatalog(),history);
- const reviewNames=new Set(['ouchi_account_closure_review','ouchi_closure_review_private_access','ouchi_closure_reauth_markers','ouchi_closure_reauth_lifecycle','ouchi_closure_review_erasure']);
+ const reviewNames=new Set(['ouchi_account_closure_review','ouchi_closure_review_private_access','ouchi_closure_reauth_markers','ouchi_closure_reauth_lifecycle','ouchi_closure_review_erasure','ouchi_closure_actor_context_compatibility']);
  const reviewRuntimeMigrations=maintenanceMigrationCatalog().filter(row=>reviewNames.has(row.name));
  if(reviewRuntimeMigrations.length!==reviewNames.size)throw Error('Complete canonical review runtime required');
  return {...result,reviewRuntimeMigrations,scope:result.scope+'; canonical source reconciliation does not prove production readiness or authorize application'};

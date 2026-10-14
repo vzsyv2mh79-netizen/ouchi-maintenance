@@ -64,6 +64,22 @@ test('private transport binds actor once and never sends raw Auth/table SQL to i
  await assert.rejects(provider.run(new AbortController().signal,async tx=>{await tx.query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[owner]);await tx.query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[recipient]);}),/Bound private review actor/);
  assert.equal(calls.some(([sql])=>sql===HOME_HANDOFF_AUTH_USER_PIN_SQL),false);
  assert.equal(calls.filter(([sql])=>sql.includes('request.jwt.claims')).length,1);
- assert.deepEqual(calls.find(([sql])=>sql.includes('request.jwt.claims'))[1],[JSON.stringify({sub:owner})]);
+ assert.deepEqual(calls.find(([sql])=>sql.includes('request.jwt.claims'))[1],[JSON.stringify({sub:owner}),owner]);
  await assert.rejects(provider.run(new AbortController().signal,tx=>tx.query(HOME_HANDOFF_AUTH_PIN_CONSTRAINT_SQL,[])),/Bound private review actor/);
+});
+
+// A shared app may use the legacy actor GUC. The composed private transport
+// must bind its server-verified actor in both forms, with no cross-user reuse.
+test('private transport executes restricted SQL with legacy auth.uid and restores the prior transaction context',async()=>{
+ const db=await fixture();try{
+  await db.exec("create or replace function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$");
+  await db.query("select set_config('request.jwt.claims',$1,false),set_config('request.jwt.claim.sub',$2,false)",[JSON.stringify({sub:recipient}),recipient]);
+  await db.exec('set role ouchi_closure_review_executor');
+  const provider=createAccountClosureReviewPrivateTransactions({connect:async()=>({query:(sql,args)=>db.query(sql,args),abort:()=>{},close:async()=>{}})});
+  const result=await provider.run(new AbortController().signal,tx=>tx.query(HOME_HANDOFF_AUTH_USER_PIN_SQL,[owner]));
+  assert.equal(result.rows.length,1);
+  await db.exec('reset role');
+  const restored=(await db.query("select current_setting('request.jwt.claims') claims,current_setting('request.jwt.claim.sub') subject,auth.uid()::text actor")).rows[0];
+  assert.deepEqual(restored,{claims:JSON.stringify({sub:recipient}),subject:recipient,actor:recipient});
+ }finally{await db.close();}
 });

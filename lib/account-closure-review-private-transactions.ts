@@ -38,7 +38,7 @@ export function createAccountClosureReviewPrivateTransactions({connect}:Paramete
    const target=mapped.get(sql);if(!target||!Array.isArray(args))throw Error('Unsupported private review SQL');
    const current=target.actorIndex===null?actor:args[target.actorIndex];
    if(typeof current!=='string'||!current||(actor!==null&&actor!==current))throw Error('Bound private review actor required');
-   if(actor===null){actor=current;await raw.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:actor})]);}
+   if(actor===null){actor=current;await raw.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify({sub:actor}),actor]);}
    return raw.query(target.sql,[...args]);
   }};
  }});
