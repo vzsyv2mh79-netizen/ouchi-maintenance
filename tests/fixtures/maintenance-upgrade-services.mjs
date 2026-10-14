@@ -4,6 +4,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {writeFileSync,readFileSync,unlinkSync} from 'node:fs';
 import {createClient} from '@supabase/supabase-js';
 import {Client} from 'pg';
+import {legacyUpgradeClient} from './maintenance-upgrade-client.mjs';
 assert.equal(process.env.OUCHI_UPGRADE_PRESERVATION_TEST,'true','Disposable upgrade opt-in required');
 const mode=process.argv[2];assert.ok(['seed','verify'].includes(mode));
 const stateFile='/tmp/ouchi-maintenance-upgrade-fixture.json',origin='http://127.0.0.1:54321';
@@ -48,10 +49,10 @@ try{
   assert.equal((await db.query('select require_explicit from maintenance_private.enrollment_policy where id=1')).rows[0].require_explicit,false);
   assert.equal((await db.query('select enabled from maintenance_private.home_handoff_policy where id=1')).rows[0].enabled,false);
   for(let index=0;index<state.actors.length;index++){
-   const actor=state.actors[index],client=createClient(origin,'synthetic-public-key',{...options,global:{headers:{authorization:'Bearer '+actor.token}}});
+   const actor=state.actors[index],client=legacyUpgradeClient(actor.token);
    const identity=await client.auth.getUser(actor.token);assert.equal(identity.error,null);assert.equal(identity.data.user.id,actor.id);
    const renewed=await client.auth.refreshSession({refresh_token:actor.refresh});assert.equal(renewed.error,null);assert.equal(renewed.data.user.id,actor.id);assert.ok(renewed.data.session);
-   const renewedClient=createClient(origin,'synthetic-public-key',{...options,global:{headers:{authorization:'Bearer '+renewed.data.session.access_token}}});
+   const renewedClient=legacyUpgradeClient(renewed.data.session.access_token);
    const renewedProducts=await renewedClient.from('products').select('id').order('id');assert.equal(renewedProducts.error,null);assert.deepEqual(renewedProducts.data,[{id:index===2?state.foreignProduct:state.product}]);
    const products=await client.from('products').select('id').order('id');assert.equal(products.error,null);assert.deepEqual(products.data,[{id:index===2?state.foreignProduct:state.product}]);
    if(index<2){for(const table of ['maintenance_tasks','maintenance_history']){const records=await client.from(table).select('id');assert.equal(records.error,null);assert.equal(records.data.length,1);}}
