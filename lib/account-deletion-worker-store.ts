@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeletionDependencies, DeletionScope } from './account-deletion-worker';
 import { eraseAccountDeletionObjects } from './account-deletion-objects';
+import { withClosureReauthenticationErasure } from './closure-reauth-erasure';
 /** Dormant service-only completion adapter. SQL independently requires a sealed,
  * fresh retention check and confirmed identity erasure. No approval is created.
  */
@@ -35,7 +36,7 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   if (requireBoolean && typeof result.data !== 'boolean') throw new Error('Deletion checkpoint unavailable');
   return result.data === true && !signal?.aborted;
  };
- return {
+ return withClosureReauthenticationErasure({
   completionAlreadyConfirmed: scope => rpc('maintenance_deletion_completion_is_confirmed', scope, true),
   identityAlreadyErased: scope => rpc('maintenance_deletion_identity_is_erased', scope, true),
   leaseCurrent: scope => rpc('maintenance_deletion_lease_is_current', scope),
@@ -62,5 +63,5 @@ export function storedDeletionDependencies(db: SupabaseClient, tail: DeletionFin
   },
   finalizeIdentityAndRetention: tail.finalizeIdentityAndRetention,
   markComplete: tail.markComplete,
- };
+ }, db, signal);
 }
