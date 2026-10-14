@@ -26,6 +26,7 @@ import {disposableMarkedPasswordProducer,verifyDisposableMarkedPasswordProducer}
 import {verifyDisposableClosureReauthLifecycle} from './closure-reauth-lifecycle-services.mjs';
 import {verifyDisposableClosureReauthRaces} from './closure-reauth-races.mjs';
 import {createDedicatedPostgresConnection} from '../../lib/dedicated-postgres-connection.mjs';
+import {verifyDisposableClosureReviewRuntime} from './closure-review-runtime-services.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -42,7 +43,7 @@ import {createDedicatedPostgresConnection} from '../../lib/dedicated-postgres-co
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -181,6 +182,7 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   await verifyDisposableMarkedPasswordProducer({db,actor:owner,origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions});
   await verifyDisposableClosureReauthRaces({db,actor:owner,origin,options,createAttachmentFetch,transactions:dedicatedReviewTransactions,applicationName:reviewApplicationName});
   const {reauthenticate:realReauthentication}=await verifyDisposableClosureReviewHTTP({db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification,handlerFactory:()=>createAccountClosureReviewServer({enabled:true,identityOptions:reviewIdentityOptions,transactions:dedicatedReviewTransactions,authenticate:markedProducer})});
+  await verifyDisposableClosureReviewRuntime({POST:closureReviewPOST,db,actor:owner,admin,origin,options,createAttachmentFetch,sessionAfterAuthVerification});
   await db.query('begin');
   try{
    await db.query('select id from auth.users where id=$1::uuid for update',[owner.user]);

@@ -14,6 +14,8 @@ const modules = new Map();
 function serverModule(name) {
  if (modules.has(name)) return modules.get(name);
  let source = ts.transpileModule(readFileSync(`lib/${name}.ts`,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+ source = source.replace(/import ['"]server-only['"];?/g,''); // Framework marker only; server logic remains.
+ if(name==='account-closure-review-runtime')source=source.replace("'./postgres-driver.mjs'",JSON.stringify(import.meta.resolve('./fixtures/closure-review-runtime-driver.mjs')));
  source = source.replace(/from ['"]\.\/([^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(dependency.endsWith('.mjs') ? import.meta.resolve('../lib/'+dependency) : serverModule(dependency))}`);
  source = source.replace(/from ['"]([^.'"][^'"]+)['"]/g,(_,dependency) => `from ${JSON.stringify(import.meta.resolve(dependency))}`);
  const url = 'data:text/javascript;base64,'+Buffer.from(source).toString('base64'); modules.set(name,url); return url;
@@ -26,6 +28,9 @@ const {createAccountClosureReviewTransactionPort}=await import(serverModule('acc
 const {createAccountClosureReviewServer}=await import(serverModule('account-closure-review-server'));
 const {createAccountClosureReviewPrivateTransactions}=await import(serverModule('account-closure-review-private-transactions'));
 const {createClosureReauthenticationMaintenance}=await import(serverModule('closure-reauth-maintenance'));
+let reviewRouteCode=ts.transpileModule(readFileSync('app/api/account/closure-review/[action]/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+reviewRouteCode=reviewRouteCode.replace(/from ['"]@\/lib\/([^'"]+)['"]/g,(_,name)=>`from ${JSON.stringify(serverModule(name))}`);
+const {POST:closureReviewPOST}=await import('data:text/javascript;base64,'+Buffer.from(reviewRouteCode).toString('base64'));
 
 // Explicit opt-in, disposable local containers only. No configurable remote URL.
 const sql = input => execFileSync('docker', ['compose', '-p', 'ouchi-identity-ci', '-f', 'tests/fixtures/auth/compose.yml', 'exec', '-T', 'db', 'psql', '-U', 'postgres', '-d', 'auth_test', '-v', 'ON_ERROR_STOP=1', '-At'], {input, encoding:'utf8', timeout:10000, stdio:['pipe','pipe','pipe']}).trim();
@@ -190,7 +195,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
   // Runs LAST: composed private review fences must not alter preceding cases.
-  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance});
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });
