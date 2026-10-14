@@ -805,10 +805,20 @@ private struct HelpInformation: View {
 }
 
 private struct PrivacyInformation: View {
+    @EnvironmentObject private var store: NativeStore
     var body: some View {
         List {
-            Section("この説明について") {
-                Text("このiPhone版は公開準備中です。以下は現在の機能と準備中の機能の説明です。正式なプライバシーポリシーは公開前に掲載します。")
+            if let links = store.releasePurchaseDisclosureLinks {
+                Section("正式なご案内") {
+                    Link("プライバシーポリシーを開く", destination: links.privacy).accessibilityIdentifier("ouchi.legal.privacy")
+                    Link("利用規約を開く", destination: links.terms).accessibilityIdentifier("ouchi.legal.terms")
+                    Link("問い合わせ先を開く", destination: links.support).accessibilityIdentifier("ouchi.legal.support")
+                    Text("以下はデータの取り扱いの概要です。詳しくは正式なプライバシーポリシーと利用規約を確認してください。")
+                }
+            } else {
+                Section("この説明について") {
+                    Text("このiPhone版は公開準備中です。以下は現在の機能と準備中の機能の説明です。正式なプライバシーポリシーは公開前に掲載します。")
+                }
             }
             Section("アカウントと記録") {
                 Text("クラウド保存にはメールアドレス、住まい・製品・お手入れ・履歴、家族に表示する名前を使用します。ログイン情報は端末の安全な保管領域に保存し、読み込んだ記録を端末にも保存します。")

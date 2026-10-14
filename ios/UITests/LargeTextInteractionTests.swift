@@ -30,6 +30,11 @@ final class LargeTextInteractionTests: XCTestCase {
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.70 : 0.45))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
+        let diagnostic = XCTAttachment(string: "Target: \(element)\nExists: \(element.exists)\nApp: \(app.frame)\n\(app.debugDescription)")
+        diagnostic.name = "unreachable-control-accessibility-tree"
+        diagnostic.lifetime = .keepAlways
+        add(diagnostic)
+        capture(app, name: "unreachable-control-viewport")
         XCTFail("Could not reach control: \(element)")
     }
 
@@ -92,8 +97,25 @@ final class LargeTextInteractionTests: XCTestCase {
         model.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "Software keyboard must really be open")
         reach(model, in: app)
+        // A Form drag can dismiss the keyboard. Refocus as a person would before
+        // entering text; typeText alone can otherwise use simulated hardware input.
+        model.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
         model.typeText("X")
         XCTAssertTrue((model.value as? String)?.contains("X") == true)
+        let keyboard = app.keyboards.firstMatch
+        let keyboardFrame = keyboard.exists ? keyboard.frame : .zero
+        let visibleKeyboard = keyboardFrame.intersection(app.frame)
+        let keyboardVisible = keyboard.exists && keyboard.isHittable && !visibleKeyboard.isNull && visibleKeyboard.height >= 100
+        if !keyboardVisible {
+            let diagnostic = XCTAttachment(string: "App: \(app.frame)\nKeyboard: \(keyboardFrame)\n\(app.debugDescription)")
+            diagnostic.name = "editor-keyboard-visibility-tree"
+            diagnostic.lifetime = .keepAlways
+            add(diagnostic)
+            capture(app, name: "editor-keyboard-not-visible-after-input")
+        }
+        XCTAssertTrue(keyboardVisible, "Software keyboard must remain visibly open after scrolling and typing")
+        XCTAssertLessThanOrEqual(model.frame.maxY, keyboardFrame.minY - 8, "Entire model field must stay above the visible software keyboard")
         capture(app, name: "editor-keyboard-model-visible")
         let back = app.navigationBars.buttons.firstMatch
         XCTAssertTrue(back.isHittable)
@@ -159,15 +181,57 @@ final class LargeTextInteractionTests: XCTestCase {
 
     func testVisibleOverdueCountAccessibilityAudit() {
         let app = launch(tab: 0, releaseLayout: true)
-        let overdue = app.staticTexts["期限を過ぎたお手入れ"]
+        // LabeledContent exposes both a visual child label and the semantic
+        // label/value row. Reach the row people hear, including its count.
+        let overdue = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "期限を過ぎたお手入れ", "件")).firstMatch
         reach(overdue, in: app)
         capture(app, name: "overdue-label-entirely-above-tab-bar")
         do {
             try app.performAccessibilityAudit(for: [.contrast, .dynamicType, .elementDetection,
-                .hitRegion, .sufficientElementDescription, .textClipped, .trait])
+                .hitRegion, .sufficientElementDescription, .textClipped, .trait]) { issue in
+                    NSLog("Visible overdue audit: %@; element=%@", issue.detailedDescription,
+                          issue.element?.debugDescription ?? "unavailable")
+                    return false // Preserve every reported issue; diagnostics only.
+                }
         } catch {
             XCTFail("Visible overdue-count accessibility audit failed: \(error)")
         }
+        app.terminate()
+    }
+
+    // Isolate the previously reported category. This does not replace the
+    // seven-category audit or turn the separate contrast finding into a pass.
+    func testVisibleOverdueDynamicType() {
+        let app = launch(tab: 0, releaseLayout: true)
+        let overdue = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "期限を過ぎたお手入れ", "件")).firstMatch
+        reach(overdue, in: app)
+        capture(app, name: "overdue-dynamic-type-visible")
+        do {
+            try app.performAccessibilityAudit(for: .dynamicType) { issue in
+                NSLog("Focused overdue Dynamic Type: %@; element=%@", issue.detailedDescription,
+                      issue.element?.debugDescription ?? "unavailable")
+                return false
+            }
+        } catch { XCTFail("Visible overdue Dynamic Type failed: \(error)") }
+        app.terminate()
+    }
+
+    func testReviewedLegalLinksAreReachableFromPrivacy() {
+        let app = launch(tab: 4)
+        let privacy = app.buttons["データの取り扱い"]
+        reach(privacy, in: app)
+        privacy.tap()
+        for (identifier, label) in [("ouchi.legal.privacy", "プライバシーポリシーを開く"),
+                                     ("ouchi.legal.terms", "利用規約を開く"),
+                                     ("ouchi.legal.support", "問い合わせ先を開く")] {
+            // Native Link may expose a link trait rather than a button trait.
+            let link = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+            reach(link, in: app)
+            XCTAssertEqual(link.label, label)
+            XCTAssertTrue(link.elementType == .link || link.elementType == .button)
+            XCTAssertTrue(link.isEnabled)
+        }
+        capture(app, name: "reviewed-legal-links-visible")
         app.terminate()
     }
 

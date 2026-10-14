@@ -17,7 +17,7 @@ parser.add_argument('--text-size', choices=['accessibility-extra-large', 'access
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
 parser.add_argument('--device-type', choices=['iPhone-18-Pro', 'iPhone-17e', 'iPhone-SE-3rd-generation'], default='iPhone-18-Pro')
-parser.add_argument('--test', choices=['all', 'completion', 'completion-export', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'home-switch', 'theme'], default='all')
+parser.add_argument('--test', choices=['all', 'completion', 'completion-export', 'editor-overdue', 'overdue-dynamic-type', 'legal-links', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'home-switch', 'theme'], default='all')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -34,14 +34,15 @@ sources = sorted([*root.glob('OuchiMaintenance/*.swift'), *root.glob('OuchiCore/
 stamp = hashlib.sha1(b''.join(str(p.relative_to(root)).encode() + b'\0' + p.read_bytes() for p in sources)).hexdigest()
 test_stamp = hashlib.sha256(pathlib.Path(__file__).read_bytes() + b'\0' +
                            (root / 'UITests/LargeTextInteractionTests.swift').read_bytes()).hexdigest()
-manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'deviceType': args.device_type, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'task-audits', 'all'],
+manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_size, 'appearance': args.appearance, 'deviceType': args.device_type, 'selectedTest': args.test, 'auditUsesReleaseHeaderLayout': args.test in ['audit', 'memo', 'overdue', 'overdue-dynamic-type', 'task-audits', 'all'],
             'testHarnessDigest': test_stamp, 'auditIssuesFiltered': False,
             'syntheticDataOnly': True, 'productionEnabled': False, 'actualBillingEnabled': False,
-            'scope': (['unfiltered screen textClipped audit with complete task-product label visible', 'unfiltered screen contrast audit with complete next-date label visible; does not replace full audit'] if args.test == 'task-audits' else
+            'scope': (['reviewed synthetic legal links reachable from settings privacy page; no URL opened, no live policy review or billing'] if args.test == 'legal-links' else ['isolated unfiltered Dynamic Type category on visible overdue row; does not replace seven-category audit or resolve separate contrast'] if args.test == 'overdue-dynamic-type' else ['unfiltered screen textClipped audit with complete task-product label visible', 'unfiltered screen contrast audit with complete next-date label visible; does not replace full audit'] if args.test == 'task-audits' else
                       ['complete actual sample task; exactly one history addition and next due date update', 'export action produces a reachable share control'] if args.test == 'completion-export' else
                       ['complete actual sample task; exactly one history addition and next due date update'] if args.test == 'completion' else
                       ['theme toggle and relaunch retention on isolated sample; restore starting appearance'] if args.test == 'theme' else
                       ['two synthetic homes: product/history filtering and return to original home; not cloud RLS verification'] if args.test == 'home-switch' else
+                      ['product editor visible software-keyboard avoidance after scrolling/typing', 'overdue-label reachability with retained failure tree/viewport and unfiltered screen audit'] if args.test == 'editor-overdue' else
                       ['seven unfiltered accessibility audit categories after scrolling overdue-count label entirely above tab bar'] if args.test == 'overdue' else
                       ['seven unfiltered accessibility audit categories after scrolling product memo entirely above tab bar'] if args.test == 'memo' else
                       ['home menu open and current-home reselection; not multi-home switching'] if args.test == 'home' else
@@ -84,6 +85,12 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
         info.update(OUCHI_REVIEW_SAMPLE_DATA='YES', OUCHI_REVIEW_BUILD_ID=stamp,
                     SUPABASE_URL='https://aaaaaaaaaaaaaaaaaaaa.supabase.co',
                     SUPABASE_PUBLISHABLE_KEY='sb_publishable_synthetic_review_only', IOS_SANDBOX_BILLING='NO')
+        if args.test in ['legal-links', 'all']:
+            # Synthetic display-only destinations; the test never opens them.
+            info.update(OUCHI_PURCHASE_DISCLOSURES_REVIEWED=True,
+                        OUCHI_TERMS_URL='https://example.invalid/terms',
+                        OUCHI_PRIVACY_URL='https://example.invalid/privacy',
+                        OUCHI_SUPPORT_URL='https://example.invalid/support')
         (work / 'OuchiMaintenance/Info.plist').write_bytes(plistlib.dumps(info))
         project = work / 'OuchiMaintenance.xcodeproj/project.pbxproj'
         data = plistlib.loads(subprocess.check_output(['plutil', '-convert', 'xml1', '-o', '-', str(project)]))
@@ -136,7 +143,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never', 'CODE_SIGNING_ALLOWED=NO',
-                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'completion-export': 'testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl', 'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'legal-links': 'testReviewedLegalLinksAreReachableFromPrivacy', 'overdue-dynamic-type': 'testVisibleOverdueDynamicType', 'editor-overdue': 'testProductEditorKeyboardAndCancel,testVisibleOverdueCountAccessibilityAudit', 'completion-export': 'testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl', 'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:
