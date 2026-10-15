@@ -20,10 +20,26 @@ export async function verifyDisposableSharedMaintenanceComposition({db,account,a
   await dispatch.query('create table private.composition_fixture_auth_dispatch(request_id uuid primary key,scope jsonb not null);alter table private.composition_fixture_auth_dispatch enable row level security;revoke all on private.composition_fixture_auth_dispatch from public,anon,authenticated,service_role');
   const actor=await account(),bystander=await account();assert.match(actor.email,/^family-ci-[a-f0-9-]+@example\.invalid$/);
   const home=randomUUID(),product=randomUUID(),task=randomUUID();
-  ok(await actor.client.from('homes').insert({id:home,owner_id:actor.user,name:'Synthetic global retirement',kind:'home'}));
-  ok(await actor.client.from('products').insert({id:product,homeId:home,categoryId:'air',name:'Synthetic global product'}));
-  ok(await actor.client.from('maintenance_tasks').insert({id:task,productId:product,name:'Synthetic global task',kind:'掃除',intervalDays:30,nextDueAt:'2030-01-01',sourceKind:'ユーザー設定'}));
-  ok(await actor.client.from('maintenance_history').insert({taskId:task,productId:product,completedAt:'2026-01-01'}));
+  // The preceding Kakei review fixture changes auth.uid() to read the legacy
+  // sub GUC, while this PostgREST uses JSON claims. Keep that fixture intact.
+  // Operator-seed only this getUser-verified actor in a transaction-local BOTH
+  // GUC context; this is not ordinary client CRUD/RLS or MFA/intake evidence.
+  const session=ok(await actor.client.auth.getSession()).session;assert.ok(session);
+  const claims=JSON.parse(Buffer.from(session.access_token.split('.')[1],'base64url'));
+  assert.equal(claims.sub,actor.user);assert.equal(claims.session_id,actor.session);
+  assert.equal(ok(await actor.client.auth.getUser(session.access_token)).user.id,actor.user);
+  const context=async()=>(await db.query("select nullif(current_setting('request.jwt.claims',true),'') claims,nullif(current_setting('request.jwt.claim.sub',true),'') subject")).rows[0];
+  const priorContext=await context();
+  await db.query('begin');try{
+   await db.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify(claims),actor.user]);
+   assert.equal((await db.query('select auth.uid()::text actor')).rows[0].actor,actor.user);
+   await db.query('insert into public.homes(id,owner_id,name,kind) values($1,$2,$3,$4)',[home,actor.user,'Synthetic global retirement','home']);
+   await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[product,home,'air','Synthetic global product']);
+   await db.query('insert into public.maintenance_tasks(id,"productId",name,kind,"intervalDays","nextDueAt","sourceKind") values($1,$2,$3,$4,30,$5,$6)',[task,product,'Synthetic global task','掃除','2030-01-01','ユーザー設定']);
+   await db.query('insert into public.maintenance_history("taskId","productId","completedAt") values($1,$2,$3)',[task,product,'2026-01-01']);
+   await db.query('commit');
+  }catch(error){await db.query('rollback');throw error;}
+  assert.deepEqual(await context(),priorContext);
   const foreignAuth=(await db.query('select id from auth.users where id<>$1 order by id',[actor.user])).rows;
   const readAuth=async()=>{
    const result=await admin.auth.admin.getUserById(actor.user);
@@ -64,7 +80,7 @@ export async function verifyDisposableSharedMaintenanceComposition({db,account,a
   assert.deepEqual((await db.query('select id,user_id,app_epoch_id,requested_at,completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows,sealed);
   assert.deepEqual(await metadataRows(db,bystander.user),f.keptMetadata);assert.deepEqual(await deviceRows(db,bystander.user),f.keptDevices);
   assert.deepEqual((await db.query('select id from auth.users where id<>$1 order by id',[actor.user])).rows,foreignAuth);
-  assert.ok((await actor.client.auth.getUser()).error);assert.deepEqual(ok(await actor.client.from('products').select('id')),[]);
+  assert.ok((await actor.client.auth.getUser()).error);
   for(const [table,column,id] of [['homes','id',home],['products','id',product],['maintenance_tasks','id',task],['maintenance_history','taskId',task]])assert.equal(Number((await db.query(`select count(*) n from public.${table} where "${column}"=$1`,[id])).rows[0].n),0);
   const kept=ok(await admin.storage.from('ouchi-product-attachments').download(retainedPath));assert.deepEqual(Buffer.from(await kept.arrayBuffer()),bytes);
   console.log('full shared coordinator actual GoTrue/PostgreSQL/Storage: started with empty prior receipts, actual Ouchi worker and canonical SQL completed, committed app-stage reply loss resumed without native replay; independently committed Auth dispatch survived dropped successful DELETE response, definitive SDK user_not_found recovered without second DELETE, mandatory post-Auth readback failure stayed pending and resumed; original sealed receipt, bystander metadata/devices/private bytes and all other real Auth users preserved; single Ouchi-only actor, synthetic inventory/enrollment/retention and operator role, no production intake/coverage/outbox policy or file-transfer proof');
