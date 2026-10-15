@@ -1,5 +1,5 @@
 import {readFileSync} from 'node:fs';
-import {randomUUID,createHash} from 'node:crypto';
+import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 
@@ -16,12 +16,11 @@ export const metadataTables=['reconciliation_jobs','reminder_schedules','notific
  'attest_registration_challenges','restore_attested_keys','restore_challenges','restore_cancelled_requests',
  'restore_transfer_jobs','verified_notifications','verified_renewals','verified_transactions','transaction_ownership'];
 export async function seedSharedNativeMetadata(db,actors){
- let index=0;
  const originalEpochs=(await db.query('select user_id,epoch_id,enabled from maintenance_private.app_epochs where user_id=any($1::uuid[])',[actors.map(([user])=>user)])).rows;
  // Actual schema constraints, synthetic data only; never fabricated completion
  // or a post-freeze writer bypass. Include retained old epochs and a bystander.
  for(const [user,epoch] of actors){
-  const original=String(99000+(++index)),session=randomUUID(),point=Buffer.concat([Buffer.from([4]),Buffer.alloc(64,index)]);
+  const original=String(BigInt('0x'+randomBytes(12).toString('hex'))+1n),session=randomUUID(),point=Buffer.concat([Buffer.from([4]),randomBytes(64)]);
   const key=createHash('sha256').update(point).digest('base64'),hash='a'.repeat(64),app='AAAAAAAAAA.dev.ouchi.synthetic';
   await db.query('update maintenance_private.app_epochs set epoch_id=$2,enabled=true where user_id=$1',[user,epoch]);
   await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);

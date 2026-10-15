@@ -39,8 +39,12 @@
     "every foreign metadata category, wrong-phase DELETE and settings UPDATE refused"
   ],
   "actualServices": {
-    "status": "fixture_prepared_not_yet_run",
-    "scope": "Disposable PostgreSQL/GoTrue/Storage; actual getUser actors with operator-seeded enrollment/Apple material, plus synthetic shared receipts/coverage/retention. No full shared controller or Auth erasure proof."
+    "status": "prior_head_failed_fixture_collision_corrected_pending_rerun",
+    "failedHead": "02191ec70b33eeaf047ced67cc935cbf8035fb61",
+    "failedRun": 38659883890,
+    "failedJob": 116178364938,
+    "reason": "Fixed synthetic purchase IDs collided with an earlier verified-restore reservation. Existing guard correctly refused them. Repeated preparation could also reuse deterministic synthetic keys. Both now use unique random data; no guard disabled.",
+    "scope": "Disposable PostgreSQL/GoTrue/Storage; actual getUser actors with operator-seeded enrollment/Apple material and synthetic shared receipts/coverage/retention. Not a whole shared controller or Auth-erasure proof."
   },
   "notVerified": [
     "full v2 controller from prepare with both apps and after-Auth readbacks",
@@ -58,5 +62,12 @@
     "skipped": 0,
     "lint": "passed",
     "scope": "Updated SQL-stage candidate, canonical schema, metadata fixture, shared boundary, family stage and transaction commit checks. Not a production all-writer or shared Auth erasure proof."
+  },
+  "localAfterFixtureUniquenessFix": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "scope": "Includes repeated preparation across actors in one database; random globally distinct purchase IDs and synthetic key material. Prior related 31 tests are retained separately, not added to this count."
   }
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {seedClosureReauthenticationDatabase} from './fixtures/closure-reauth-database.mjs';
-import {owner,recipient,home,product,oe} from './fixtures/home-handoff-identifiers.mjs';
+import {owner,recipient,other,home,product,oe,re} from './fixtures/home-handoff-identifiers.mjs';
 import {withSharedMaintenanceClosureMetadata as boundary} from '../lib/shared-maintenance-closure-metadata.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {seedSharedNativeMetadata,metadataTables,metadataRows} from './fixtures/shared-native-metadata.mjs';
@@ -36,6 +36,21 @@ async function fixture(beforeFreeze=async()=>{}){
  const gates=async tx=>(await tx.query('select not exists(select 1 from public.home_members where user_id=$1) as allowed',[owner])).rows[0].allowed;
  return {db,native,shared,stage,transaction,gates};
 }
+
+test('repeated service-fixture preparation uses globally distinct purchases and keys without changing prior actors',async()=>{
+ const db=await seedClosureReauthenticationDatabase();try{
+  await db.exec('reset role');
+  await seedSharedNativeMetadata(db,[[owner,oe],[recipient,re]]);
+  const savedOwner=await metadataRows(db,owner),savedRecipient=await metadataRows(db,recipient),epoch=randomUUID();
+  await db.query('insert into maintenance_private.app_epochs values($1,$2,true)',[other,epoch]);
+  await db.query('insert into maintenance_private.account_access values($1,true)',[other]);
+  await seedSharedNativeMetadata(db,[[other,epoch]]);
+  assert.ok(Object.values(await metadataRows(db,other)).every(rows=>rows.length===1));
+  assert.deepEqual(await metadataRows(db,owner),savedOwner);assert.deepEqual(await metadataRows(db,recipient),savedRecipient);
+  assert.equal((await db.query('select count(distinct original_transaction_id)::int n from maintenance_private.transaction_ownership')).rows[0].n,3);
+  assert.equal((await db.query('select count(distinct key_id)::int n from maintenance_private.restore_attested_keys')).rows[0].n,3);
+ }finally{await db.close();}
+});
 
 test('canonical native SQL stages run with stopped-writer guards, bounded authority and exact sealed completion',async()=>{
  const f=await fixture();try{
