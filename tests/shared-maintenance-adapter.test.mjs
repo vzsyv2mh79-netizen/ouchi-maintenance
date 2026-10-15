@@ -54,3 +54,11 @@ test('family/session checks preserve independent post-Auth requirements and fail
  const f=fixture();for(const name of ['handoff','verifyFamily','verifySessions','verifyFamilyAfterAuth','verifySessionsAfterAuth'])assert.equal(await f.adapter()[name](f.shared),true);
  f.ports.familyAfterAuth=async()=>{f.controller.abort();return true;};assert.equal(await f.adapter().verifyFamilyAfterAuth(f.shared),false);assert.equal(await f.adapter().verifySessionsAfterAuth(f.shared),false);
 });
+
+test('resolved accessors cannot change the native request after validation and before worker dispatch',async()=>{
+ const f=fixture(),foreign=randomUUID();let reads=0;
+ f.ports.resolve=async()=>({...f.native,get requestID(){return ++reads<=2?f.native.requestID:foreign;}});
+ const atomic=f.ports.atomic;
+ f.ports.atomic=async(mapping,native,...rest)=>{assert.equal(native.requestID,f.native.requestID);return atomic(mapping,native,...rest);};
+ assert.equal(await f.adapter().erase(f.shared),true);assert.equal(reads,1,'validate the same snapshot passed to every stage');
+});

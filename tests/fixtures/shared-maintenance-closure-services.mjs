@@ -14,7 +14,8 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  const {Client}=await import('pg');
  await db.query(readFileSync('tests/fixtures/shared-maintenance-native-stage.sql','utf8'));
- for(const approved of [false,true]){
+ for(const mode of ['unapproved','approved','adapter']){
+ const approved=mode!=='unapproved';
  const actor=await account(),marker=randomUUID(),agent='OuchiMaintenance/closure-reauth/v1/'+marker;
  const session=await actor.client.auth.getSession();assert.equal(session.error,null);assert.ok(session.data.session);
  const claims=JSON.parse(Buffer.from(session.data.session.access_token.split('.')[1],'base64url'));
@@ -115,6 +116,56 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  },gates)),error=>error.code==='55P03');
  assert.equal(await count(),2);
  assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),1);
+ // A third fresh actor exercises every application worker stage through the
+ // owned bridge against actual PostgreSQL, preserving both original cases.
+ // Inventory/enrollment/coverage/retention remain explicit disposable fixtures;
+ // there are no physical files or external sends belonging to this actor.
+ if(mode==='adapter'){
+  const calls=[],signal=AbortSignal.timeout(30000);
+  const current=async tx=>{
+   const sharedLive=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() live from private.kb_shared_deletion_journal where request_id=$1",[shared.requestID,fixed,shared.leaseToken])).rows[0]?.live;
+   return sharedLive===true&&await gates(tx,shared,native)===true;
+  };
+  const confirmed=async tx=>(await tx.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) value',args)).rows[0].value===true;
+  let dropReply=true;
+  const composed=createSharedMaintenanceAdapter({
+   resolve:async mapping=>{assert.deepEqual(mapping.shared,shared);return native;},
+   atomic:async(mapping,value,phase)=>{
+    assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);calls.push(phase);
+    const result=await transaction(async tx=>{
+     if(!await current(tx))return false;
+     if(phase==='completionAlreadyConfirmed')return confirmed(tx);
+     if(phase==='leaseCurrent')return (await tx.query('select public.maintenance_deletion_lease_is_current($1,$2,$3,$4) value',args)).rows[0].value===true;
+     if(phase==='revokeAndCaptureInventory')return (await tx.query('select inventory_captured from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows[0].inventory_captured===true;
+     if(phase==='eraseAttachments')return (await tx.query('select not exists(select 1 from maintenance_private.account_deletion_objects where request_id=$1) as empty',[native.requestID])).rows[0].empty===true;
+     const run=name=>boundary(tx,shared,native,name,tx=>stage(tx,name),gates);
+     if(phase==='finalizeIdentityAndRetention')return await run('captureReceiptSessions')===true&&await run('eraseIdentity')===true;
+     return run(phase);
+    });
+    if(phase==='markComplete'&&result===true&&dropReply){dropReply=false;throw Error('Committed native completion reply lost');}
+    return result;
+   },
+   verify:async(mapping,value)=>{
+    assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);calls.push('verify');
+    return transaction(async tx=>await current(tx)&&await confirmed(tx));
+   },
+   handoff:async()=>false,family:async()=>false,sessions:async()=>false,familyAfterAuth:async()=>false,sessionsAfterAuth:async()=>false,
+  },signal);
+  assert.equal(await composed.erase(shared),false,'committed reply loss stays pending until exact readback');
+  assert.deepEqual(calls.filter(name=>!['leaseCurrent','completionAlreadyConfirmed'].includes(name)),['revokeAndCaptureInventory','eraseDeviceRegistrations','eraseAttachments','eraseRecords','finalizeIdentityAndRetention','markComplete']);
+  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows[0].state,'complete');
+  const sealed=(await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows;
+  calls.length=0;assert.equal(await composed.erase(shared),true);assert.deepEqual(calls,['completionAlreadyConfirmed','verify']);
+  assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
+  assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+  assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===0));
+  assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length===0));
+  assert.deepEqual(await metadataRows(db,bystander.user),keptMetadata);assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
+  assert.equal((await actor.client.auth.getUser()).error,null);assert.equal((await bystander.client.auth.getUser()).error,null);
+  const retained=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(retained.error,null);assert.deepEqual(Buffer.from(await retained.data.arrayBuffer()),bytes);
+  console.log('application-owned native worker actual PostgreSQL: all six stages used original shared/native bindings and checked metadata transactions; committed completion reply loss recovered through exact sealed receipt without replay; bystander metadata/devices, private Storage bytes and original real Auth retained; empty inventory and synthetic coverage/retention only, no global controller or physical object/outbox/device acknowledgement proof');
+  continue;
+ }
  assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseDeviceRegistrations',tx=>stage(tx,'eraseDeviceRegistrations'),gates)),true);
  assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length===0));
  assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);

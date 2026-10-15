@@ -41,8 +41,8 @@ acknowledgements and finite retention remain required. Family and pre/post-Auth
 session verifiers are mandatory separate callbacks, with no default approval.
 There is no Auth-delete port, route, credential, schema, grant or scheduler here.
 
-Seven focused adapter cases and fourteen existing/full-schema native-stage cases
-passed locally (21 passed, 0 failed, 0 skipped). Two new composed SQL cases run
+Eight focused adapter cases and fourteen existing/full-schema native-stage cases
+passed locally (22 passed, 0 failed, 0 skipped). Two new composed SQL cases run
 the actual worker against the canonical metadata/device stages: a committed
 completion with a lost response is recovered without repeating writes, while
 an expired-but-unknown notification send prevents record erasure and rolls back
@@ -51,8 +51,20 @@ users remain. The full-schema engine is PGlite; preparation, current coverage,
 retention and an empty file inventory are explicit fixtures, not real service
 or whole-account completion evidence.
 
-The existing disposable real PostgreSQL/Auth/Storage helper additionally invokes
-this adapter for exact completed-receipt recovery only, requiring no mutation
-phase and unchanged receipt fields. Its new CI result is pending. This does not
-replace testing the full adapter with actual services, full writer/family
-coverage, signed consent/current MFA, shared global controller or shipping UI.
+The first actual-service adapter check passed at draft head 3f46c617, Family
+workflow 38678863621 / job 116238577593 (raw log reviewed): exact completed-native
+receipt recovery only, with no mutation phase and unchanged receipt fields.
+
+A later negative adapter test reproduced a provider accessor returning a different
+request after validation. The bridge now snapshots the resolved binding once
+before checking it; the same frozen value reaches every worker port. The old
+code failed that test; all 22 related cases now pass locally.
+
+The service helper also prepares a third fresh actor to run all six native worker
+stages through the owned bridge, then drop the committed completion response and
+require recovery without replay. Its result is pending new-head CI. Original
+approved/unapproved manual-boundary cases remain. Enrollment, inventory, current
+coverage, destinations and retention are explicit disposable fixtures; this
+actor has no files or external sends. Full global controller/production ports,
+physical file/outbox/device acknowledgement, signed consent/current MFA and
+shipping UI remain unverified.

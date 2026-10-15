@@ -25,14 +25,16 @@ function mapping(value: unknown): MaintenanceMapping {
  return Object.freeze({shared, app});
 }
 function nativeScope(value: unknown, fixed: MaintenanceMapping): Readonly<DeletionScope> {
- if (!value || typeof value !== 'object' || Array.isArray(value)
-  || Object.keys(value).sort().join(',') !== 'epochID,leaseToken,requestID,userID'
-  || !Object.values(value).every(uuid)) throw Error('Fixed native binding required');
- const native = value as DeletionScope;
+ if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Fixed native binding required');
+ // Snapshot once before validation. Accessors or a provider's mutable row must
+ // not substitute another request between validation and worker dispatch.
+ const native = Object.freeze({...value}) as Readonly<DeletionScope>;
+ if (Object.keys(native).sort().join(',') !== 'epochID,leaseToken,requestID,userID'
+  || !Object.values(native).every(uuid)) throw Error('Fixed native binding required');
  if (native.requestID !== fixed.app.requestID || native.userID !== fixed.shared.userID
   || native.epochID !== fixed.app.scopeID
   || native.leaseToken.toLowerCase() === fixed.shared.leaseToken.toLowerCase()) throw Error('Independent matching native lease required');
- return Object.freeze({...native});
+ return native;
 }
 /** Dormant application-owned bridge to the actual worker. This is NOT a
  * transaction provider: atomic must enforce the shared/native leases, complete
