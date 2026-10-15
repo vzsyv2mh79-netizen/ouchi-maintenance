@@ -20,3 +20,39 @@ Important distinctions:
 - The review adapter has no shipping credentials, route or grants. Private review functions/tables must not be exposed through the Data API or enabled on the shared production database.
 
 Next integration requirements: unify trusted consent/identity and the live transaction provider; carry the immutable snapshot and successor routing through the controller stage; implement measured file custody/quota transfer and subsequent retired-owner erasure isolation; prove the combined flow using actual Auth, PostgreSQL and Storage before deployment.
+
+## Application-owned native worker bridge — 2026-10-15
+
+`lib/shared-maintenance-adapter.ts` now binds the fixed shared-account inventory
+to the application's actual `runAccountDeletion` worker. It requires all native
+ports and cancellation, freezes provider identities and the resolved native
+binding, and refuses a missing/foreign mapping or a native lease reused from
+the shared controller (including a case-only UUID spelling change). A receipt
+is accepted only after an independent final verifier. Unknown outcomes and
+cancellation never report app completion. Recovery of an exact completed native
+receipt does not rerun irreversible stages or infer notification delivery.
+
+The adapter does not supply production ports. SQL metadata ports must use the
+coordinator's same checked transaction and `withSharedMaintenanceClosureMetadata`;
+an independent Supabase RPC connection is not an atomic substitute. Every port
+must enforce current immutable inventory, both execution leases, family/session
+and writer gates. Prepared remote outboxes, physical file absence, native device
+acknowledgements and finite retention remain required. Family and pre/post-Auth
+session verifiers are mandatory separate callbacks, with no default approval.
+There is no Auth-delete port, route, credential, schema, grant or scheduler here.
+
+Seven focused adapter cases and fourteen existing/full-schema native-stage cases
+passed locally (21 passed, 0 failed, 0 skipped). Two new composed SQL cases run
+the actual worker against the canonical metadata/device stages: a committed
+completion with a lost response is recovered without repeating writes, while
+an expired-but-unknown notification send prevents record erasure and rolls back
+its current SQL stage. The bystander's metadata/device rows and original Auth
+users remain. The full-schema engine is PGlite; preparation, current coverage,
+retention and an empty file inventory are explicit fixtures, not real service
+or whole-account completion evidence.
+
+The existing disposable real PostgreSQL/Auth/Storage helper additionally invokes
+this adapter for exact completed-receipt recovery only, requiring no mutation
+phase and unchanged receipt fields. Its new CI result is pending. This does not
+replace testing the full adapter with actual services, full writer/family
+coverage, signed consent/current MFA, shared global controller or shipping UI.

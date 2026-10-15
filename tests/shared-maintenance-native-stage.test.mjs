@@ -8,9 +8,70 @@ import {withSharedMaintenanceClosureMetadata as boundary} from '../lib/shared-ma
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {seedSharedNativeMetadata,metadataTables,metadataRows} from './fixtures/shared-native-metadata.mjs';
 import {seedSharedNativeDevices,deviceRows,deviceTables} from './fixtures/shared-native-devices.mjs';
+import {createSharedMaintenanceAdapter} from './fixtures/shared-maintenance-adapter-module.mjs';
 
 const seedMetadata=db=>seedSharedNativeMetadata(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
 const seedDevices=db=>seedSharedNativeDevices(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
+
+// Application-owned adapter + actual worker + existing full-schema canonical
+// SQL stages. Preparation/retention/current gates are explicit fixtures; this
+// deliberately has no files, global Auth erasure, deployment or real service.
+function workerAdapter(f,{loseCompletionReply=false}={}){
+ const calls=[],signal=AbortSignal.timeout(30000),args=[f.native.requestID,owner,oe,f.native.leaseToken];
+ const inventory={...f.shared};delete inventory.leaseToken;
+ const confirmed=async tx=>(await tx.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) value',args)).rows[0].value;
+ const current=async tx=>{
+  const shared=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() live from private.kb_shared_deletion_journal where request_id=$1",[f.shared.requestID,inventory,f.shared.leaseToken])).rows[0]?.live;
+  return shared===true&&await f.gates(tx)===true;
+ };
+ const ports={
+  resolve:async()=>f.native,
+  atomic:async(mapping,native,phase)=>{
+   assert.deepEqual(mapping.shared,f.shared);assert.deepEqual(native,f.native);calls.push(phase);
+   const result=await f.transaction(async tx=>{
+    if(!await current(tx))return false;
+    if(phase==='completionAlreadyConfirmed')return confirmed(tx);
+    if(phase==='leaseCurrent')return (await tx.query('select public.maintenance_deletion_lease_is_current($1,$2,$3,$4) value',args)).rows[0].value;
+    if(phase==='revokeAndCaptureInventory')return (await tx.query('select inventory_captured from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows[0].inventory_captured===true;
+    if(phase==='eraseAttachments')return (await tx.query('select not exists(select 1 from maintenance_private.account_deletion_objects where request_id=$1) as empty',[native.requestID])).rows[0].empty===true;
+    const run=name=>boundary(tx,f.shared,native,name,tx=>f.stage(tx,name),f.gates);
+    if(phase==='finalizeIdentityAndRetention')return await run('captureReceiptSessions')===true&&await run('eraseIdentity')===true;
+    return run(phase);
+   });
+   if(phase==='markComplete'&&result===true&&loseCompletionReply){loseCompletionReply=false;throw Error('Committed completion reply lost');}
+   return result;
+  },
+  verify:async()=>{calls.push('verify');return f.transaction(async tx=>await current(tx)&&await confirmed(tx));},
+  handoff:async()=>false,family:async()=>false,sessions:async()=>false,familyAfterAuth:async()=>false,sessionsAfterAuth:async()=>false,
+ };
+ return {calls,adapter:createSharedMaintenanceAdapter(ports,signal)};
+}
+
+test('application-owned bridge reconciles committed native completion using canonical metadata/device SQL and preserves bystander/Auth',async()=>{
+ const f=await fixture(async db=>{await seedMetadata(db);await seedDevices(db);});try{
+  const foreignMetadata=await metadataRows(f.db,recipient),foreignDevices=await deviceRows(f.db,recipient);
+  const w=workerAdapter(f,{loseCompletionReply:true});
+  assert.equal(await w.adapter.erase(f.shared),false);
+  assert.equal((await f.db.query('select state from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows[0].state,'complete');
+  assert.ok(Object.values(await metadataRows(f.db,owner)).every(rows=>rows.length===0));
+  assert.ok(Object.values(await deviceRows(f.db,owner)).every(rows=>rows.length===0));
+  assert.deepEqual(await metadataRows(f.db,recipient),foreignMetadata);assert.deepEqual(await deviceRows(f.db,recipient),foreignDevices);
+  assert.equal((await f.db.query('select count(*)::int n from auth.users where id in($1,$2)',[owner,recipient])).rows[0].n,2);
+  const receipt=(await f.db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows;
+  w.calls.length=0;assert.equal(await w.adapter.erase(f.shared),true);assert.deepEqual(w.calls,['completionAlreadyConfirmed','verify']);
+  assert.deepEqual((await f.db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows,receipt);
+ }finally{await f.db.close();}
+});
+
+test('application bridge stops at unknown notification outcome and rolls back that SQL stage without erasing records',async()=>{
+ const f=await fixture(async db=>{await seedMetadata(db);await seedDevices(db);await db.query('update public.maintenance_push_subscriptions set claim_token=$2,claimed_until=clock_timestamp()-interval \'1 second\' where user_id=$1',[owner,randomUUID()]);});try{
+  const own=await metadataRows(f.db,owner),devices=await deviceRows(f.db,owner),w=workerAdapter(f);
+  assert.equal(await w.adapter.erase(f.shared),false);assert.equal(w.calls.includes('eraseRecords'),false);
+  assert.deepEqual(await metadataRows(f.db,owner),own);assert.deepEqual(await deviceRows(f.db,owner),devices);
+  assert.equal((await f.db.query('select records_erased,identity_erased,state from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows[0].state,'running');
+  assert.equal((await f.db.query('select count(*)::int n from public.products where id=$1',[product])).rows[0].n,1);
+ }finally{await f.db.close();}
+});
 
 test('record-stage Web deletion permits only its own cascading test-limit cleanup',async()=>{
  const f=await fixture(seedDevices);try{

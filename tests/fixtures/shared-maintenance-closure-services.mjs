@@ -6,6 +6,7 @@ import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
 import {seedSharedNativeDevices,deviceRows} from './shared-native-devices.mjs';
+import {createSharedMaintenanceAdapter} from './shared-maintenance-adapter-module.mjs';
 /** Actual local GoTrue/PG/Storage; shared receipts/enrollment/retention are
  * privileged SYNTHETIC fixtures. Not live coverage, role, SLA or Auth-erasure proof.
  */
@@ -119,6 +120,7 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
  assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseRecords',records,gates)),true);
  assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+
  assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),0);
  assert.equal((await actor.client.auth.getUser()).error,null,'original real Auth remains current');
  for(const phase of ['captureReceiptSessions','eraseIdentity'])assert.equal(await transaction(tx=>boundary(tx,shared,native,phase,tx=>stage(tx,phase),gates)),true);
@@ -136,8 +138,31 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.equal(await transaction(tx=>boundary(tx,shared,native,'markComplete',async()=>{throw Error('must only read exact completion');},gates)),true);
  assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
  assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+ // Recover the exact committed receipt through the application-owned bridge
+ // and current actual worker. No stage may run again after sealed completion.
+ // This verifies only the completed-receipt port against actual PostgreSQL;
+ // the full worker stage composition is separately covered in PGlite.
+ const recoveryCalls=[];
+ const confirmed=async()=>{
+  assert.equal(await gates(db,shared,native),true);
+  return (await db.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) value',args)).rows[0].value===true;
+ };
+ const recovered=createSharedMaintenanceAdapter({
+  resolve:async mapping=>{assert.deepEqual(mapping.shared,shared);return native;},
+  atomic:async(mapping,value,phase)=>{
+   assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);recoveryCalls.push(phase);
+   assert.equal(phase,'completionAlreadyConfirmed','completed recovery must not repeat any stage');return confirmed();
+  },
+  verify:async(mapping,value)=>{
+   assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);recoveryCalls.push('verify');
+   assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);return confirmed();
+  },
+  handoff:async()=>false,family:async()=>false,sessions:async()=>false,familyAfterAuth:async()=>false,sessionsAfterAuth:async()=>false,
+ },AbortSignal.timeout(10000));
+ assert.equal(await recovered.erase(shared),true);assert.deepEqual(recoveryCalls,['completionAlreadyConfirmed','verify']);
+ assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
  const kept=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
  assert.equal((await actor.client.auth.getUser()).error,null);
  }
- console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: guarded frozen device-registration SQL erases five categories across retained epochs and retains bystander rows; shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic destinations/enrollment/Apple material/shared receipts/coverage/retention, no external delivery/device ack, shared Auth erasure or live role/SLA proof');
+ console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: guarded frozen device-registration SQL erases five categories across retained epochs and retains bystander rows; shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; application-owned adapter plus actual worker recovers the sealed native receipt without repeating any mutation; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic destinations/enrollment/Apple material/shared receipts/coverage/retention, no external delivery/device ack, shared Auth erasure or live role/SLA proof');
 }

@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-15",
+  "sourceHeadBeforeChange": "326d4153754302002c9c4cf1cb753d006eab030d",
+  "status": "dormant_application_owned_worker_bridge",
+  "local": {
+    "adapterCases": 7,
+    "relatedCases": 14,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "typecheckExitCode": 0,
+    "lintExitCode": 0,
+    "engine": "full-schema PGlite plus actual application worker",
+    "lostCompletionReplyRecovered": true,
+    "unknownNotificationStopsRecordErasure": true,
+    "bystanderMetadataDevicesAndOriginalAuthPreserved": true
+  },
+  "actualService": {
+    "scope": "Exact completed native receipt recovery only; no new mutation via this bridge",
+    "status": "CI pending"
+  },
+  "requiredBeforeShipping": [
+    "reviewed same-transaction ports with current inventory, independent shared/native leases, family/session and every writer gate",
+    "real-service full worker and physical file/outbox/device acknowledgement coverage",
+    "full global shared-controller and post-Auth verification",
+    "dedicated role, finite retention, recovery scheduling and production approval"
+  ],
+  "enabled": {
+    "production": false,
+    "realBilling": false,
+    "paidInfrastructure": false,
+    "sharedAuthErasure": false
+  }
+}
