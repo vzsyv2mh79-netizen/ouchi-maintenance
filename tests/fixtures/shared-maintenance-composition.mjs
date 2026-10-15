@@ -84,7 +84,7 @@ export async function seedSharedMaintenanceComposition({lostStage=null,postAuthF
    sessionsAfterAuth:async()=>{calls.push('native:sessionsAfterAuth');return afterAuth(tx);},
   };
  };
- const composed=composeSharedMaintenanceHandlers(makePorts,peer,controller.signal);
+ const composed=composeSharedMaintenanceHandlers(makePorts,peer,controller.signal,peer);
  const handlers={...composed,
   'verify-coverage':async(s,tx)=>{assert.deepEqual(s,scope);return coverage(tx);},
   prepare:async(s,tx)=>{

@@ -1,0 +1,33 @@
+{
+  "status": "local_checked_composition_change_not_production",
+  "baseHead": "ee791a1a7c9691076721907b15157c82575b76e6",
+  "problem": "Guarded peer stage methods register COMMIT checks. Reusing a different guarded peer stage as a final verifier can attempt first hook registration after the pinned transaction has entered its checks phase, correctly refusing COMMIT.",
+  "change": "composeSharedMaintenanceHandlers requires a fourth, separately snapshotted readbacks object. Execute stages through original seven peer methods; final verifiers call only independent readbacks which must never register hooks or mutate state. Current scope/prerequisite/lease/fence/coverage/family/session/absence checks remain mandatory.",
+  "connection": "composeSharedMaintenanceHandlers(makeNativePorts, peer, signal, peer.readback)",
+  "peerSource": {
+    "fixedManifestSHA256": "08f5e4999878eb49d6d314c714113f8b787599988e9106962061a3ae28a26c65",
+    "readbackDeltaManifestSHA256": "95349420b10fdefcdea84dbe7aca34d3d0d4675f6bbc5f5ca57a9940e193d9a5",
+    "factorySHA256": "5898827b4d909b59e55522052959f60da670ca4fc38148e6210e90775591d3a9",
+    "copiedIntoPublicRuntime": false
+  },
+  "verification": {
+    "ownCompositionAndNativeSQLTests": 22,
+    "ownControllerTests": 6,
+    "isolatedNativePostgresConnectionTests": 3,
+    "isolatedNativePostgresLimits": "Actual Kakei protected SQL/ports and Ouchi composition; Ouchi native operations are explicit read doubles. Not whole paired actual services.",
+    "separateLocalPairedTests": 4,
+    "pairedLimits": "Actual Ouchi worker/canonical SQL plus Kakei protected ports, empty initial stage receipts; PGlite/synthetic Auth/policy/session and privileged reduced review schema. Requires strict original private Ouchi family checkpoint overlay not included as production DDL.",
+    "typecheck": "passed",
+    "lint": "passed",
+    "webBuild": "passed"
+  },
+  "remaining": [
+    "Run prepared paired PostgreSQL/GoTrue/private Storage test with actual identity providers and explicit injected policy",
+    "Review the exact private family checkpoint SQL contract in shared owner code",
+    "Trusted current production Auth policy, complete registered apps/writers and intake/claimPrepared",
+    "Finite retention, least privileges, deployment and actual device/Apple purchase review"
+  ],
+  "productionApplied": false,
+  "liveUserDeletion": false,
+  "billingEnabled": false
+}

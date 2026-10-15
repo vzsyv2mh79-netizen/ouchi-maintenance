@@ -9,7 +9,7 @@
 - APNsはSandbox用リクエストの作成と応答の検証のみ。端末登録、署名、配信、再試行、最新クラウド記録に基づく予約は未実装。
 
 提出前に必要な作業:
-1. Apple Developer有料登録の完了、Team/Bundle ID確定、署名、配布用Archive、App Store Connectの契約・銀行・税務・商品登録。本人の入力・同意・支払いは未実施。
+1. Apple Developer会員、Team `97PA83J8NT`、Bundle ID `jp.ouchi.maintenance`、App Store Connectの「おうちメンテ」（Apple ID `6823150600`、iOS 1.0 提出準備中）は2026年10月15日に確認済み。署名、配布用Archive、有料アプリ契約・銀行・税務・商品登録、契約更新の反映確認は未完了。
 2. 写真/保証書、詳細通知、レポートの本番実装と利用権制御。無料の登録・記録・閲覧・書き出しは維持する。実装前の機能は購入特典に表示しない。
 3. 本番の容量/保存期間/解約後の閲覧・書き出し、アプリ単位のアカウント削除と共有Authへの影響、キャッシュのアカウント/利用権世代分離を完成させる。
 4. Apple Sandboxで購入・復元・更新・期限切れ・返金・取消・保留・キャンセル・重複・通信失敗を検証。Webと同じアカウントの利用権認識と二重契約防止も確認する。
@@ -33,7 +33,7 @@ Packageは共通ライブラリ。OuchiMaintenance.xcodeprojにはSwiftUIアプ�
 
 Xcodeで開く: `ios/OuchiMaintenance.xcodeproj`。
 Config/Local.example.xcconfigをLocal.xcconfigにコピーし、publishable keyとTeamを設定。
-Bundle IDは仮のjp.ouchi.maintenance。本人のApp Store Connect登録に合わせて確定する。
+Bundle ID `jp.ouchi.maintenance` はApple Developerで登録済み。`MARKETING_VERSION = 1.0` はApp Store Connectの提出準備中バージョンに合わせる。署名用Teamは手元の `Local.xcconfig` またはビルド時の `DEVELOPMENT_TEAM` で設定し、認証情報や秘密鍵をリポジトリへ保存しない。
 秘密鍵やログイン用パスワードはビルド設定に入れない。
 Keychainは端末ロック中に読み取り不可、他端末へ移行しない設定。
 ユーザーセッションの更新はactorで単一化し、ログアウト後の古い応答を保存しない。

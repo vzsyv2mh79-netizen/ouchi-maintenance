@@ -12,6 +12,8 @@ export type SharedPeerDeletionPorts = {
  verifyFamilyAfterAuth: Check; verifySessionsAfterAuth: Check;
  erase: Check; verify: Check;
 };
+export type SharedPeerDeletionReadbacks = Pick<SharedPeerDeletionPorts,
+ 'verifyFamily' | 'verifySessions' | 'verifyFamilyAfterAuth' | 'verifySessionsAfterAuth' | 'verify'>;
 type NativePorts = (scope: SharedDeletionScope, tx: SharedMaintenanceTransaction, signal: AbortSignal) => SharedMaintenancePorts;
 type Outcome = {confirmed: boolean; verify: () => Promise<boolean>};
 type Operation = (scope: SharedDeletionScope, tx: SharedMaintenanceTransaction) => Promise<Outcome>;
@@ -22,17 +24,24 @@ type Operation = (scope: SharedDeletionScope, tx: SharedMaintenanceTransaction) 
  * boundary, never a nested transaction or an independent RPC. Remote effects
  * still require their own fixed outbox and definitive result readback.
  *
+ * Stage ports may register their own COMMIT hooks. Separate readbacks MUST NOT
+ * register hooks or mutate state: registration is closed when these run. They
+ * retain the same current scope, prerequisites, fences, coverage, content,
+ * sessions and Auth absence checks. Prior receipts are not current readbacks.
  * Both applications supply independent READ-ONLY family/session/app readbacks,
  * including immediately before the owning COMMIT. The owner still supplies
  * prepare, coverage, Auth, completion and retention gates. No defaults, journal,
  * connection, role, route, scheduler or production Auth deletion are created.
  */
 export function composeSharedMaintenanceHandlers(makePorts: NativePorts,
- peer: SharedPeerDeletionPorts, signal: AbortSignal) {
+ peer: SharedPeerDeletionPorts, signal: AbortSignal, readbacks: SharedPeerDeletionReadbacks) {
  const fixed = Object.freeze({...peer});
+ const reads = Object.freeze({...readbacks});
  if (typeof makePorts !== 'function' || !(signal instanceof AbortSignal)
   || ['handoffFamily','verifyFamily','verifySessions','verifyFamilyAfterAuth','verifySessionsAfterAuth','erase','verify']
-   .some(name => typeof fixed[name as keyof SharedPeerDeletionPorts] !== 'function')) throw Error('Complete shared composition providers required');
+   .some(name => typeof fixed[name as keyof SharedPeerDeletionPorts] !== 'function')
+  || ['verifyFamily','verifySessions','verifyFamilyAfterAuth','verifySessionsAfterAuth','verify']
+   .some(name => typeof reads[name as keyof SharedPeerDeletionReadbacks] !== 'function')) throw Error('Complete shared composition providers required');
  const transactions = new WeakMap<SharedMaintenanceTransaction, {key: string; failed: boolean; verifiers: Map<Operation, () => Promise<boolean>>}>();
  const handler = (operation: Operation) => async (value: unknown, tx: SharedMaintenanceTransaction) => {
   let state = tx && transactions.get(tx);
@@ -75,36 +84,36 @@ export function composeSharedMaintenanceHandlers(makePorts: NativePorts,
   createSharedMaintenanceAdapter(makePorts(s, tx, signal), signal);
  const family = handler(async (s, tx) => {
   const native = adapter(s, tx);
-  const verify = async () => await fixed.verifyFamily(s, tx, signal) === true && await native.verifyFamily(s) === true;
-  return {confirmed: await verify(), verify};
+  const verify = async () => await reads.verifyFamily(s, tx, signal) === true && await native.verifyFamily(s) === true;
+  return {confirmed: await fixed.verifyFamily(s, tx, signal) === true && await native.verifyFamily(s) === true, verify};
  });
  const sessions = handler(async (s, tx) => {
   const native = adapter(s, tx);
-  const verify = async () => await fixed.verifySessions(s, tx, signal) === true && await native.verifySessions(s) === true;
-  return {confirmed: await verify(), verify};
+  const verify = async () => await reads.verifySessions(s, tx, signal) === true && await native.verifySessions(s) === true;
+  return {confirmed: await fixed.verifySessions(s, tx, signal) === true && await native.verifySessions(s) === true, verify};
  });
  return Object.freeze({
   'handoff-family': handler(async (s, tx) => {
    const native = adapter(s, tx);
    return {confirmed: await fixed.handoffFamily(s, tx, signal) === true && await native.handoff(s) === true,
-    verify: async () => await fixed.verifyFamily(s, tx, signal) === true && await native.verifyFamily(s) === true};
+    verify: async () => await reads.verifyFamily(s, tx, signal) === true && await native.verifyFamily(s) === true};
   }),
   'verify-family-before': family, 'verify-family': family,
   'verify-sessions-before': sessions, 'verify-sessions': sessions,
   'verify-family-after-auth': handler(async (s, tx) => {
    const native = adapter(s, tx);
-   const verify = async () => await fixed.verifyFamilyAfterAuth(s, tx, signal) === true && await native.verifyFamilyAfterAuth(s) === true;
-   return {confirmed: await verify(), verify};
+   const verify = async () => await reads.verifyFamilyAfterAuth(s, tx, signal) === true && await native.verifyFamilyAfterAuth(s) === true;
+   return {confirmed: await fixed.verifyFamilyAfterAuth(s, tx, signal) === true && await native.verifyFamilyAfterAuth(s) === true, verify};
   }),
   'verify-sessions-after-auth': handler(async (s, tx) => {
    const native = adapter(s, tx);
-   const verify = async () => await fixed.verifySessionsAfterAuth(s, tx, signal) === true && await native.verifySessionsAfterAuth(s) === true;
-   return {confirmed: await verify(), verify};
+   const verify = async () => await reads.verifySessionsAfterAuth(s, tx, signal) === true && await native.verifySessionsAfterAuth(s) === true;
+   return {confirmed: await fixed.verifySessionsAfterAuth(s, tx, signal) === true && await native.verifySessionsAfterAuth(s) === true, verify};
   }),
   'erase:kakei': handler(async (s, tx) => ({confirmed: await fixed.erase(s, tx, signal) === true,
-   verify: () => fixed.verify(s, tx, signal)})),
+   verify: () => reads.verify(s, tx, signal)})),
   'verify:kakei': handler(async (s, tx) => ({confirmed: await fixed.verify(s, tx, signal) === true,
-   verify: () => fixed.verify(s, tx, signal)})),
+   verify: () => reads.verify(s, tx, signal)})),
   'erase:ouchi-maintenance': handler(async (s, tx) => {
    const native = adapter(s, tx);return {confirmed: await native.erase(s), verify: () => native.verify(s)};
   }),

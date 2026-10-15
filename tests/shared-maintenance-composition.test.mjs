@@ -11,7 +11,7 @@ function fixture(){
  const peer=Object.fromEntries(['handoffFamily','verifyFamily','verifySessions','verifyFamilyAfterAuth','verifySessionsAfterAuth','erase','verify'].map(name=>[name,check('peer:'+name)]));
  const ports={resolve:async()=>native,atomic:async(_,n,stage)=>{assert.deepEqual(n,native);calls.push('native:'+stage);return stage!=='completionAlreadyConfirmed';},verify:async()=>{calls.push('native:verify');return true;},...Object.fromEntries(['handoff','family','sessions','familyAfterAuth','sessionsAfterAuth'].map(name=>[name,async()=>{calls.push('native:'+name);return true;}]))};
  const makePorts=(s,t,signal)=>{assert.deepEqual(s,scope);assert.equal(t,tx);assert.equal(signal,controller.signal);return ports;};
- return {scope,native,controller,checks,calls,tx,peer,ports,makePorts,build:()=>composeSharedMaintenanceHandlers(makePorts,peer,controller.signal)};
+ return {scope,native,controller,checks,calls,tx,peer,ports,makePorts,build:()=>composeSharedMaintenanceHandlers(makePorts,peer,controller.signal,peer)};
 }
 test('composition preserves both apps pre/post Auth checks and dispatches the actual native worker',async()=>{
  const f=fixture(),handlers=f.build();
@@ -36,7 +36,7 @@ test('cancelled composition, changed inventory, or unreviewed transaction cannot
  const g=fixture(),h=g.build();await h['verify-family'](g.scope,g.tx);g.controller.abort();assert.equal(await g.checks[0][1](),false);await assert.rejects(h['erase:ouchi-maintenance'](g.scope,g.tx));
 });
 test('peer provider identities are snapshotted and every required provider is mandatory',async()=>{
- const f=fixture();for(const key of Object.keys(f.peer))assert.throws(()=>composeSharedMaintenanceHandlers(f.makePorts,{...f.peer,[key]:undefined},f.controller.signal));
+ const f=fixture();for(const key of Object.keys(f.peer))assert.throws(()=>composeSharedMaintenanceHandlers(f.makePorts,{...f.peer,[key]:undefined},f.controller.signal,f.peer));
  const handlers=f.build();f.peer.verifyFamilyAfterAuth=async()=>{throw Error('Replaced');};assert.equal(await handlers['verify-family-after-auth'](f.scope,f.tx),true);
 });
 
@@ -45,4 +45,33 @@ test('current independent readbacks must still pass immediately before the ownin
  const handlers=f.build();assert.equal(await handlers['verify-family'](f.scope,f.tx),true);
  allowed=false;assert.equal(await f.checks[0][1](),false,'earlier approval cannot stand in for current readback');
  allowed=true;assert.equal(await f.checks[0][1](),false,'a failed final readback poisons this transaction permanently');
+});
+
+test('stage registration and COMMIT readbacks remain separate for every peer stage',async()=>{
+ for(const stage of ['handoff-family','verify-family-before','verify-sessions-before','erase:kakei','verify:kakei','verify-family-after-auth','verify-sessions-after-auth']){
+  const f=fixture();let closed=false;
+  const readbacks={...f.peer};
+  for(const name of Object.keys(f.peer)){
+   const original=f.peer[name];
+   f.peer[name]=async(...args)=>{f.tx.beforeCommit('peer:'+name,async()=>true);return original(...args);};
+  }
+  const register=f.tx.beforeCommit;f.tx.beforeCommit=(...args)=>{if(closed)throw Error('Late registration refused');register(...args);};
+  const handlers=composeSharedMaintenanceHandlers(f.makePorts,f.peer,f.controller.signal,readbacks);
+  assert.equal(await handlers[stage](f.scope,f.tx),true);closed=true;
+  for(const [,check] of f.checks)assert.equal(await check(),true,stage);
+ }
+});
+test('COMMIT readbacks are mandatory, snapshotted and fail closed independently of successful stage handlers',async()=>{
+ const names=['verifyFamily','verifySessions','verifyFamilyAfterAuth','verifySessionsAfterAuth','verify'];
+ const f=fixture();
+ for(const name of names)assert.throws(()=>composeSharedMaintenanceHandlers(f.makePorts,f.peer,f.controller.signal,{...f.peer,[name]:undefined}),/providers required/);
+ assert.throws(()=>composeSharedMaintenanceHandlers(f.makePorts,f.peer,f.controller.signal),/providers required/);
+ for(const [stage,name] of [['handoff-family','verifyFamily'],['erase:kakei','verify'],['verify-family-after-auth','verifyFamilyAfterAuth'],['verify-sessions-after-auth','verifySessionsAfterAuth']]){
+  const g=fixture();let allowed=true;const reads={...g.peer,[name]:async()=>allowed};
+  const h=composeSharedMaintenanceHandlers(g.makePorts,g.peer,g.controller.signal,reads);
+  assert.equal(await h[stage](g.scope,g.tx),true);
+  reads[name]=async()=>true;allowed=false;
+  assert.equal(await g.checks[0][1](),false,stage);allowed=true;
+  assert.equal(await g.checks[0][1](),false,'failed final readback remains poisoned');
+ }
 });

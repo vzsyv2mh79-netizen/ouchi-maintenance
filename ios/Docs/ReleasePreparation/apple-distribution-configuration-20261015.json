@@ -1,0 +1,44 @@
+{
+  "status": "local_app_store_distribution_artifact_verified_not_submitted",
+  "baseHead": "ee791a1a7c9691076721907b15157c82575b76e6",
+  "apple": {
+    "membershipVerified": true,
+    "teamID": "97PA83J8NT",
+    "bundleID": "jp.ouchi.maintenance",
+    "appStoreConnectAppID": "6823150600",
+    "version": "1.0",
+    "build": "1"
+  },
+  "change": [
+    "Align native marketing version with registered App Store Connect iOS 1.0",
+    "Correct setup notes: membership, app ID and App Store record now exist",
+    "Add read-only artifact checks for public client configuration, signature/profile/team and distinct distribution/submission stages"
+  ],
+  "actualArtifact": {
+    "sdk": "iphoneos27.0",
+    "archiveSucceeded": true,
+    "distributionExportSucceeded": true,
+    "codesignVerify": true,
+    "profileTeamAndApplicationMatched": true,
+    "getTaskAllow": false,
+    "enabledModernPublishableKeyConfigured": true,
+    "publicKeyOrPrivateKeyContentsCommitted": false,
+    "ipaSHA256": "bd7769acdd400fe2ddbfb3ab1f0cce6d9d6cfd675eb5313248808a1b1311d519",
+    "uploadPerformed": false,
+    "reviewSubmitted": false,
+    "actualBillingEnabled": false
+  },
+  "verification": [
+    "Actual development and distribution signature verification using macOS trust services",
+    "Generated Info.plist contains registered version and enabled public client configuration",
+    "Submission stage correctly refuses the three unset public policy/support URLs",
+    "Synthetic configuration tests reject absent/server/placeholder keys, wrong host, sample mode and missing disclosures"
+  ],
+  "remaining": [
+    "Reviewed public terms/privacy/support destinations and operator/contact details",
+    "Actual device, accessibility, purchase/restore/refund/cancellation lifecycle and TestFlight verification",
+    "Trusted server endpoints/shared retirement composition, actual current Auth policy and deployed least-privilege database review",
+    "App Store products, agreements/bank/tax/privacy answers and final submission approval"
+  ],
+  "scope": "Distribution artifact proof only; not release readiness or App Review acceptance"
+}
