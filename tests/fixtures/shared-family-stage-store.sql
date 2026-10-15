@@ -46,7 +46,7 @@ begin
  from maintenance_private.household_handoff_plans p where p.owner_id=root.user_id and (p.scope-'leaseToken')=root.scope;
  if homes is distinct from known or jsonb_array_length(homes)<>(select count(distinct v.value->'plan'->>'homeID') from jsonb_array_elements(c.targets) v)
  or exists(select 1 from public.homes h where h.owner_id=root.user_id
-  and (select count(*) from public.home_members where "homeId"=h.id)>1
+  and exists(select 1 from public.home_members m where m."homeId"=h.id and m.user_id<>root.user_id)
   and not exists(select 1 from maintenance_private.household_handoff_plans p where p.home_id=h.id and p.owner_id=root.user_id and (p.scope-'leaseToken')=root.scope))
  then raise exception 'Complete original family coverage required';end if;
  for t in select value from jsonb_array_elements(c.targets) loop

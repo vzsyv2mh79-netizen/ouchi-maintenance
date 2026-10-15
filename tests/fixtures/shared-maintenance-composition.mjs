@@ -17,7 +17,7 @@ import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared
 // PGlite Auth; optional guarded disposable services use managed Auth hooks.
 // Inventory/retention are synthetic and there are no files/other-app accounts.
 // Never production intake, managed deployment or full writer-coverage proof.
-export async function seedSharedMaintenanceComposition({lostStage=null,postAuthFailure=false,unknownSend=false,receiptIndependent=true,services=null,simulateLostAuthReply=false}={}){
+export async function seedSharedMaintenanceComposition({lostStage=null,postAuthFailure=false,unknownSend=false,receiptIndependent=true,services=null,simulateLostAuthReply=false,deferInventory=false}={}){
  if(services){assert.equal(simulateLostAuthReply,false);assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(services.origin,'http://127.0.0.1:54321');}
  const owner=services?.actor.user??fixtureOwner,oe=services?.actor.epoch??fixtureEpoch,recipient=services?.bystander.user??fixtureRecipient,re=services?.bystander.epoch??fixtureRecipientEpoch;
  const db=services?.db??await seedClosureReauthenticationDatabase();if(!services)await db.exec('reset role;delete from public.home_members');
@@ -90,7 +90,12 @@ export async function seedSharedMaintenanceComposition({lostStage=null,postAuthF
   prepare:async(s,tx)=>{
    assert.deepEqual(s,scope);if(!await gates(tx))return false;
    await tx.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until) values($1,$2,$3,'running',$4,clock_timestamp()+interval '5 minutes')",args);
-   if((await tx.query('select public.capture_maintenance_deletion_objects($1,$2,$3,$4) value',args)).rows[0].value!==true)return false;
+   if(deferInventory){
+    // Synthetic review option: stop normal app access before the household
+    // fence, but leave capture for the post-handoff exact scoped capability.
+    await tx.query('update maintenance_private.account_access set enabled=false where user_id=$1',[owner]);
+    await tx.query('update maintenance_private.app_epochs set enabled=false where user_id=$1 and epoch_id=$2',[owner,oe]);
+   }else if((await tx.query('select public.capture_maintenance_deletion_objects($1,$2,$3,$4) value',args)).rows[0].value!==true)return false;
    await tx.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-composition-only',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[native.requestID]);
    await tx.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner,scope,native.leaseToken]);
    await tx.query('select maintenance_private.freeze_household_scope($1,$2)',[scope,native.leaseToken]);return true;
