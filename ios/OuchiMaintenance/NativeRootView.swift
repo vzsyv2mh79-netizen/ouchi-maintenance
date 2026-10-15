@@ -208,9 +208,10 @@ private struct HomePicker: View {
 
 private struct AdaptiveNavigationTitle: ViewModifier {
     @Environment(\.dynamicTypeSize) private var textSize
+    var forceInline = false
     func body(content: Content) -> some View {
         readableScrollEdges(content)
-            .navigationBarTitleDisplayMode(textSize.isAccessibilitySize ? .inline : .automatic)
+            .navigationBarTitleDisplayMode(forceInline || textSize.isAccessibilitySize ? .inline : .automatic)
             // Scrolled content must not reduce the title's contrast through a translucent bar.
             .toolbarBackground(Color(uiColor: .systemBackground), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -736,7 +737,7 @@ private struct FamilySettings: View {
                 }.disabled(store.busy || !HouseholdAPI.validInvite(joinCode.trimmingCharacters(in: .whitespacesAndNewlines)) || !(1...80).contains(nickname.trimmingCharacters(in: .whitespacesAndNewlines).count))
                 if joined { Text("参加しました。上の住まい一覧から家族の住まいを選べます。") }
             }
-        }.navigationTitle("家族と共有").modifier(AdaptiveNavigationTitle())
+        }.navigationTitle("家族と共有").modifier(AdaptiveNavigationTitle(forceInline: true))
          .task(id: store.homeID) { await store.loadMembers(home: store.homeID) }
          .onDisappear { store.clearFamily() }
          .onChange(of: store.homeID) { _, _ in revoke = false; leave = false; removing = nil; joined = false }
@@ -1998,4 +1999,5 @@ private struct ExplicitEnrollmentView: View {
         }
     }
 }
+
 

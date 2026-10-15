@@ -223,6 +223,10 @@ final class LargeTextInteractionTests: XCTestCase {
         let sharing = app.buttons["家族と共有"]
         reach(sharing, in: app)
         sharing.tap()
+        let title = app.navigationBars["家族と共有"].staticTexts["家族と共有"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        XCTAssertTrue(title.isHittable)
+        capture(app, name: "family-navigation-title-visible")
         let member = app.staticTexts["家族のサンプル"]
         // Form rows below the viewport may not exist in the accessibility
         // tree until scrolled into view. Require the complete visible row.
