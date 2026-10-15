@@ -28,6 +28,7 @@ import {verifyDisposableClosureReauthRaces} from './closure-reauth-races.mjs';
 import {createDedicatedPostgresConnection} from '../../lib/dedicated-postgres-connection.mjs';
 import {verifyDisposableClosureReviewRuntime} from './closure-review-runtime-services.mjs';
 import {verifyDisposableSharedClosureMetadata} from './shared-maintenance-closure-services.mjs';
+import {verifyDisposableSharedMaintenanceComposition} from './shared-maintenance-composition-services.mjs';
 
 /** Actual disposable PostgreSQL, GoTrue accounts and private Storage bytes.
  * Family-snapshot consents use actual getUser identities and a synthetic signing
@@ -44,7 +45,7 @@ import {verifyDisposableSharedClosureMetadata} from './shared-maintenance-closur
  * durable family completion does not prove whole-account retirement.
  * Runs last: its global private review fences must not change preceding cases.
  */
-export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST}){
+export async function verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST,dropAuthReplies}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  assert.equal(typeof readAttachmentResponse,'function');assert.equal(typeof createHomeHandoffInventoryIdentityVerifier,'function');assert.equal(typeof createHomeHandoffInventoryActorVerifier,'function');
  const {Client}=await import('pg');
@@ -645,5 +646,6 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   assert.equal((await db.query('select count(*)::int n from auth.users where id=$1',[receiver.user])).rows[0].n,1);
   assert.equal((await admin.storage.from('ouchi-product-attachments').download(`${receiver.user}/${receiver.epoch}/${ownFile}.png`)).error,null);
   await verifyDisposableSharedClosureMetadata({db,account,admin,origin,options,createAttachmentFetch,bytes,retainedPath:`${receiver.user}/${receiver.epoch}/${ownFile}.png`});
+  await verifyDisposableSharedMaintenanceComposition({db,account,admin,origin,bytes,retainedPath:`${receiver.user}/${receiver.epoch}/${ownFile}.png`,dropAuthReplies});
  }finally{await db.end();}
 }

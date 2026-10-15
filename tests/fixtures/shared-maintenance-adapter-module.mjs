@@ -9,3 +9,5 @@ function moduleURL(name){
  const url='data:text/javascript;base64,'+Buffer.from(code).toString('base64');cache.set(name,url);return url;
 }
 export const {createSharedMaintenanceAdapter}=await import(moduleURL('shared-maintenance-adapter.ts'));
+
+export const {composeSharedMaintenanceHandlers}=await import(moduleURL('shared-maintenance-composition.ts'));

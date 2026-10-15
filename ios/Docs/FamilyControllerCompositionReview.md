@@ -62,9 +62,73 @@ code failed that test; all 22 related cases now pass locally.
 
 The service helper also prepares a third fresh actor to run all six native worker
 stages through the owned bridge, then drop the committed completion response and
-require recovery without replay. Its result is pending new-head CI. Original
+require recovery without replay. It passed at 24b16f14, Family workflow38679677280 / job116241121836; the raw marker and enclosing 1/0/0 result were reviewed. This was a post-COMMIT callback exception, not an HTTP socket fault. Original
 approved/unapproved manual-boundary cases remain. Enrollment, inventory, current
 coverage, destinations and retention are explicit disposable fixtures; this
 actor has no files or external sends. Full global controller/production ports,
 physical file/outbox/device acknowledgement, signed consent/current MFA and
 shipping UI remain unverified.
+
+
+## Owned shared-handler composition and Auth-independent receipt
+
+The dormant `shared-maintenance-composition.ts` now connects the actual owned
+adapter to the existing v2 shared journal. It requires all seven independent
+peer callbacks and the explicit native port factory. Both applications retain
+pre/post-Auth family and session checks. Each operation keeps its first frozen
+readback and runs it again on the same checked transaction before COMMIT. A
+false, unknown, cancelled or swallowed failure poisons that transaction. It
+creates no prepare/coverage/Auth/completion default, connection, role, grant,
+route or scheduler. SQL ports must reuse the journal's pinned checked connection;
+remote effects still need separately durable dispatch and reconciliation.
+
+A negative test reproduced an earlier-approval-only composition accepting a
+failed final family check. Current readback and a permanent failed-transaction
+latch correct that. The first current verifier cannot be replaced by repetition.
+
+The full PGlite coordinator, starting with an empty receipt object through the
+existing fixture journal API, also found a canonical schema blocker: the native
+request's Auth FK refused the final Auth-user removal (23503). The CLI-generated
+`20261015052134_ouchi_deletion_receipt_auth_independence.sql` removes exactly that
+verified FK. It preserves NOT NULL, RLS, table privileges and the existing
+live-session/epoch/family enqueue checks. A private invoker trigger, ungranted to
+PUBLIC/anon/authenticated/service_role, keeps request ID, actor, app epoch and
+original acceptance immutable. Unexpected FK history refuses migration rather
+than repairing it. No cascade or actor-null substitution destroys the receipt.
+Direct operator DML is not authorized intake. Retained UUIDs are personal data;
+a reviewed finite retention/purge operation is still required before activation.
+
+Local verification: 38 related cases passed, 0 failed, 0 skipped; typecheck and
+targeted lint passed. The new checks include the whole v2 sequence and actual
+canonical native worker, missing post-Auth readback, unknown sends, reply loss
+after a committed app stage, preserved bystander rows, actor immutability and
+unchanged privileges. The old FK is reproduced and then the same original
+request resumes after the migration without native replay or receipt renewal.
+Auth erasure in these local tests is PGlite SQL only. Inventory/enrollment,
+retention, private SQL-owner access and one Ouchi-only account are fixtures;
+no managed Auth, other-app erasure, physical file transfer or production proof
+is inferred from them.
+
+A separate disposable GoTrue/PostgreSQL/Storage helper is prepared, not yet
+verified: it uses the same controller, owned worker and fixed request, an
+independently committed dispatch reservation, and the real admin SDK. It drops
+one successful Auth DELETE reply, requires a real SDK error and explicit
+user_not_found plus SQL absence, forbids a second DELETE while an earlier send
+is uncertain, and blocks completion until both post-Auth readbacks pass. It
+also preserves the sealed native receipt, bystander metadata/devices, all other
+Auth users and retained private bytes. Its single actor has no other app account
+or physical files. The operator dispatch table/intake/coverage/retention are
+fixtures, not production role, outbox or SLA adoption. Raw new-head CI must be
+reviewed before claiming this managed-service scenario passed.
+
+Read-only live history still matches seven Ouchi source hashes and preserves
+eight foreign rows; the current canonical list has99 files with92 pending and
+no conflicts. Automatic apply and history repair remain false. Staged advisors,
+effective least privileges, complete current writer/app registry, current MFA
+and consent, physical file/outbox/device reconciliation and finite operational
+retention remain release gates. No production migration, shared Auth erasure,
+actual billing or paid infrastructure is enabled.
+
+References checked for the disposable admin SDK scenario:
+- https://supabase.com/docs/reference/javascript/auth-admin-deleteuser
+- https://supabase.com/docs/reference/javascript/auth-admin-getuserbyid

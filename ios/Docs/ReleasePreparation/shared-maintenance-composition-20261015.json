@@ -1,0 +1,60 @@
+{
+  "status": "dormant_shared_handler_composition_candidate",
+  "date": "2026-10-15",
+  "sourceHeadBeforeChange": "63e97c3c9e383bc27a8b59b0c0af6de85aa6ecce",
+  "migration": "supabase/migrations/20261015052134_ouchi_deletion_receipt_auth_independence.sql",
+  "local": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "typecheckExitCode": 0,
+    "lintExitCode": 0,
+    "fullV2Controller": true,
+    "seededPriorReceipts": false,
+    "auth": "PGlite SQL only; no managed Auth proof",
+    "beforeFixReproductions": [
+      "late failed readback incorrectly accepted at commit",
+      "23503 native request Auth FK prevented final Auth erasure"
+    ],
+    "sameRequestRecovery": true,
+    "byStanderRetained": true
+  },
+  "actualServices": {
+    "status": "new-head CI pending; not verified",
+    "scope": "one fresh Ouchi-only actor, actual native worker and global journal, independent dispatch + real SDK dropped Auth DELETE response, no second DELETE, explicit SDK user_not_found plus SQL absence, required post-Auth readbacks; other users/private bytes preserved",
+    "limitations": [
+      "synthetic inventory/enrollment/retention and operator SQL role",
+      "no other-app erasure, real MFA/intake or physical own files",
+      "no production provider/outbox/retention adoption"
+    ]
+  },
+  "migrationSecurity": {
+    "rlsAndGrantsUnchanged": true,
+    "actorNonNullAndImmutable": true,
+    "existingSessionEpochFamilyIntakeChecksRetained": true,
+    "unknownHistoryRefused": true
+  },
+  "history": {
+    "readOnly": true,
+    "canonical": 99,
+    "matchingApplied": 7,
+    "pending": 92,
+    "foreignPreserved": 8,
+    "conflicts": 0,
+    "automaticApplyAllowed": false,
+    "historyRepairAllowed": false
+  },
+  "advisors": {
+    "verified": false,
+    "reason": "Candidate staged DB unavailable; unrelated live schema advisors do not verify it"
+  },
+  "enabled": {
+    "production": false,
+    "realBilling": false,
+    "newPaidInfrastructure": false,
+    "rolesOrGrants": false,
+    "customerOrSharedAuthDeletion": false,
+    "scheduler": false,
+    "retentionSLA": false
+  }
+}

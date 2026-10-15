@@ -42,6 +42,7 @@ const ok = result => { assert.equal(result.error, null); return result.data; };
 test('actual Auth and Storage preserve family files, recover handoff acknowledgement loss, and isolate retirement', {skip:process.env.OUCHI_FAMILY_STORAGE_TEST !== 'true', timeout:120000}, async () => {
  let dropNextHandoffReply = false, handoffDecisionRequests = 0, revokeDuringDownload = null;
  let dropCleanupReplies=false,cleanupDrops=0;
+ let dropAuthUser=null,authDrops=0,authRequests=0;
  const gateway = createServer((req,res) => {
   const prefix = ['/auth/v1/','/rest/v1/','/storage/v1/'].find(p => req.url?.startsWith(p));
   if (!prefix) { res.writeHead(404).end(); return; }
@@ -49,13 +50,15 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   const decision = prefix === '/rest/v1/' && req.url.endsWith('/rpc/decide_maintenance_home_handoff');
   if (decision) handoffDecisionRequests++;
   const cleanupDrop=prefix==='/storage/v1/'&&req.method==='DELETE'&&dropCleanupReplies;
+  const authDrop=prefix==='/auth/v1/'&&req.method==='DELETE'&&dropAuthUser!==null&&req.url==='/auth/v1/admin/users/'+dropAuthUser;
+  if(authDrop)authRequests++;
   const drop = decision && dropNextHandoffReply;
   if (drop) dropNextHandoffReply = false;
   const upstream = proxyRequest('http://127.0.0.1:'+port+'/'+req.url.slice(prefix.length), {method:req.method,headers:req.headers}, response => {
    if (prefix === '/storage/v1/' && req.method === 'GET' && revokeDuringDownload) {
     const revoke = revokeDuringDownload; revokeDuringDownload = null; revoke();
    }
-   if (drop || cleanupDrop && response.statusCode>=200 && response.statusCode<300) { if(cleanupDrop)cleanupDrops++;response.resume(); response.once('end',() => res.destroy()); }
+   if (drop || (cleanupDrop||authDrop) && response.statusCode>=200 && response.statusCode<300) { if(cleanupDrop)cleanupDrops++;if(authDrop)authDrops++;response.resume(); response.once('end',() => res.destroy()); }
    else { res.writeHead(response.statusCode ?? 502,response.headers); response.pipe(res); }
   });
   upstream.on('error',() => { if (!res.headersSent) res.writeHead(502); res.end(); }); req.pipe(upstream);
@@ -201,7 +204,8 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   await verifyDisposableAttachmentRetention({account,admin,origin});
   await verifyDisposableAttachmentCleanup({account,admin,origin,bytes,retainedPath:path,dropReplies:{start:()=>{cleanupDrops=0;dropCleanupReplies=true;},stop:()=>{dropCleanupReplies=false;},count:()=>cleanupDrops}});
   // Runs LAST: composed private review fences must not alter preceding cases.
-  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST});
-  // No whole-account completion, Apple proof or shared Auth deletion is asserted.
+  await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST,dropAuthReplies:{start:user=>{assert.match(user,/^[a-f0-9-]{36}$/);dropAuthUser=user;authDrops=0;authRequests=0;},stop:()=>{dropAuthUser=null;},count:()=>authDrops,requests:()=>authRequests}});
+  // Global completion above is only for its fresh synthetic Ouchi-only actor.
+  // No real customer/production/Apple or complete all-app coverage is proven.
  } finally { gateway.closeAllConnections(); await new Promise(resolve => gateway.close(resolve)); }
 });
