@@ -1,6 +1,6 @@
 {
   "status": "draft_not_public_policy",
-  "version": "2026-10-13",
+  "version": "2026-10-15",
   "operator": null,
   "contact": null,
   "effectiveDate": null,
@@ -53,11 +53,11 @@
     },
     {
       "title": "委託先と送信",
-      "body": "現在の構成では保存・認証にSupabase、Web配信にVercel、設定済みの認証メール送信にResendを利用します。Apple購入・端末通知を有効にする場合はAppleにも必要な情報を送信します。実際のデータ保存地域、再委託、ログの内容と保存期間は確認して追記します。検索を利用する場合は品番などを検索処理へ送信します。"
+      "body": "保存・認証にSupabase、Web配信にVercelを利用します。認証メールの送信には設定に応じてResendを利用する構成です。Supabaseのデータベース用プロジェクトは東京リージョン（ap-northeast-1）であることを確認しています。これは、認証・メール・配信・再委託先を含むすべての処理や保存を国内に限定する約束ではありません。各サービスのログ、再委託、その他の保存場所と保存期間は確認して追記します。Apple購入・端末通知を有効にする場合はAppleにも必要な情報を送信します。検索を利用する場合は品番などを検索処理へ送信します。"
     },
     {
       "title": "保存・削除",
-      "body": "基本の記録は有料契約の終了だけでは削除しません。写真・保証書の保存条件は別紙の保管方針案に示します。退会・削除では対象データを削除し、通信失敗時には未完了として再確認します。法律上必要な取引情報を残す場合は、対象・理由・期間を確定して説明します。匿名化していると確認できない識別子を匿名情報と表示しません。"
+      "body": "基本の記録は有料契約の終了だけでは削除しません。写真・保証書の保存条件は別紙の保管方針案に示します。退会・削除では対象データを削除し、通信失敗時には未完了として再確認します。データベースのバックアップと写真などのファイル本体の復旧は別の仕組みで、現在の復旧体制と削除完了までの期間は公開前に確定します。法律上必要な取引情報を残す場合は、対象・理由・期間を確定して説明します。匿名化していると確認できない識別子を匿名情報と表示しません。"
     },
     {
       "title": "端末内の情報",
@@ -87,6 +87,8 @@
   ],
   "sources": [
     "https://developer.apple.com/app-store/review/guidelines/",
-    "https://developer.apple.com/support/offering-account-deletion-in-your-app/"
+    "https://developer.apple.com/support/offering-account-deletion-in-your-app/",
+    "https://supabase.com/docs/guides/platform/regions",
+    "https://supabase.com/docs/guides/platform/backups"
   ]
 }
