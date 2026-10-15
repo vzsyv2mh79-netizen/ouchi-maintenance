@@ -37,12 +37,17 @@ export async function seedSharedNativeMetadata(db,actors){
   await db.query("insert into maintenance_private.restore_transfer_jobs(id,user_id,session_id,app_epoch_id,environment,original_transaction_id,app_transaction_id,previous_account_token,bundle_id,lease_token,authorized_at,expected_counter,verified_counter,client_hash,assertion_hash,pair_hash) values($1,$2,$3,$4,'Sandbox',$5,$5,$6,'dev.ouchi.synthetic',$7,clock_timestamp(),0,1,$8,$8,$8)",[randomUUID(),user,session,epoch,original,randomUUID(),randomUUID(),hash]);
   await db.query("insert into maintenance_private.restore_attested_keys(key_id,user_id,app_epoch_id,registration_session,app_id,attest_environment,public_key_x962,attestation_sha256,verified_receipt) values($1,$2,$3,$4,$5,'development',$6,$7,$8)",[key,user,epoch,session,app,point,hash,Buffer.from([1])]);
   const scope={userID:user,sessionID:session,epochID:epoch,requestID:randomUUID(),keyID:key,appID:app,attestEnvironment:'development'};
-  const restore=restoration.createRestoreChallenge({...scope,purchaseEnvironment:'Sandbox',proofSHA256:hash});
-  const restoreHash=createHash('sha256').update(restoration.restoreAssertionClientData(restore)).digest('hex');
+  // Use the authoritative disposable database clock, rather than assuming the
+  // Mac and Linux VM clocks are identical to the millisecond. SQL expiry and
+  // future-issuance guards remain fully enabled.
+  const issued=Number((await db.query('select floor(extract(epoch from clock_timestamp())*1000)::text issued')).rows[0].issued);
+  assert.ok(Number.isSafeInteger(issued)&&issued>0);
+  const restore=restoration.createRestoreChallenge({...scope,purchaseEnvironment:'Sandbox',proofSHA256:hash},issued);
+  const restoreHash=createHash('sha256').update(restoration.restoreAssertionClientData(restore,issued)).digest('hex');
   await db.query("insert into maintenance_private.restore_challenges(request_id,user_id,session_id,app_epoch_id,key_id,challenge,nonce,client_data_sha256,issued_at,expires_at) values($1,$2,$3,$4,$5,$6,$7,$8,to_timestamp($9::numeric/1000),to_timestamp($10::numeric/1000))",[restore.requestID,user,session,epoch,key,restore,restore.nonce,restoreHash,restore.issuedAt,restore.expiresAt]);
   await db.query("insert into maintenance_private.restore_cancelled_requests(request_id,user_id,session_id,app_epoch_id,key_id,app_id,attest_environment,pair_hash,assertion_hash) values($1,$2,$3,$4,$5,$6,'development',$7,$7)",[randomUUID(),user,session,epoch,key,app,hash]);
-  const register=registration.createRegistrationChallenge({...scope,requestID:randomUUID()});
-  await db.query("insert into maintenance_private.attest_registration_challenges(request_id,user_id,session_id,app_epoch_id,key_id,app_id,attest_environment,challenge,nonce,client_data_sha256,issued_at,expires_at) values($1,$2,$3,$4,$5,$6,'development',$7,$8,$9,to_timestamp($10::numeric/1000),to_timestamp($11::numeric/1000))",[register.requestID,user,session,epoch,key,app,register,register.nonce,registration.registrationClientDataHash(register).toString('hex'),register.issuedAt,register.expiresAt]);
+  const register=registration.createRegistrationChallenge({...scope,requestID:randomUUID()},issued);
+  await db.query("insert into maintenance_private.attest_registration_challenges(request_id,user_id,session_id,app_epoch_id,key_id,app_id,attest_environment,challenge,nonce,client_data_sha256,issued_at,expires_at) values($1,$2,$3,$4,$5,$6,'development',$7,$8,$9,to_timestamp($10::numeric/1000),to_timestamp($11::numeric/1000))",[register.requestID,user,session,epoch,key,app,register,register.nonce,registration.registrationClientDataHash(register,issued).toString('hex'),register.issuedAt,register.expiresAt]);
  }
  for(const row of originalEpochs)await db.query('update maintenance_private.app_epochs set epoch_id=$2,enabled=$3 where user_id=$1',[row.user_id,row.epoch_id,row.enabled]);
 }

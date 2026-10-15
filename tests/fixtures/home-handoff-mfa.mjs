@@ -63,6 +63,13 @@ export async function verifyDisposableHandoffMFA({account,sql,origin,options,cre
  const amr=JSON.parse(Buffer.from(promoted.access_token.split('.')[1],'base64url')).amr.filter(c=>c.method==='totp');
  assert.equal(amr.length,1);assert.equal(inventoryIdentity.authenticatedAt,amr[0].timestamp*1000);
  assert.ok(inventoryIdentity.checkedAt>=inventoryIdentity.authenticatedAt&&inventoryIdentity.checkedAt-inventoryIdentity.authenticatedAt<=600000);
+ // The real database is in a VM and its clock can lead the Mac by a few ms.
+ // Preserve temporal ordering: accept only after the observed verification
+ // time has actually elapsed on the host. Do not alter signed claims, expiry
+ // checks or server clocks, and refuse a materially skewed environment.
+ const lead=inventoryIdentity.checkedAt-Date.now();
+ assert.ok(lead<=1000,'Disposable database clock is more than one second ahead');
+ if(lead>0)await new Promise(resolve=>setTimeout(resolve,Math.ceil(lead)+1));
  const claim={purpose:'OuchiMaintenance/family-attachment-inventory/v2',bindingDigest:'a'.repeat(64),actorID:inventoryIdentity.userID,sessionID:inventoryIdentity.sessionID,epochID:inventoryIdentity.epochID,aal:inventoryIdentity.aal,authStateDigest:inventoryIdentity.authStateDigest,authenticatedAt:inventoryIdentity.authenticatedAt,checkedAt:inventoryIdentity.checkedAt,acceptedAt:Date.now(),expiresAt:0};
  claim.expiresAt=claim.acceptedAt+900000;
  // Direct worker predicate check: the complete handoff fixture separately

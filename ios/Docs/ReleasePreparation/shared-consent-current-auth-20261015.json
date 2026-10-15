@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-15",
+  "status": "current_auth_consent_adapter_verified_in_disposable_services_not_deployed",
+  "baseHead": "4ae7e05b8e38ea440a62ceca2d1c382826327e2d",
+  "problem": "A normal application identity reader requires active Ouchi enrollment. Retirement intentionally stops that access before shared-family handoff, so the paired current consent check refused and could not advance.",
+  "change": [
+    "Add independent exact-bearer current Auth identity with mandatory original private request/plan authority on the checked transaction",
+    "Pin current user/session/factors with validated immediate Auth foreign keys; require original bearer and live session AAL2, verified TOTP, recent signed TOTP AMR and current highest-AAL policy",
+    "Bind complete current credential/session/factor state into a domain-separated digest; keep the owning consumer's before-COMMIT comparison mandatory",
+    "Capture authority/Auth/policy callback identities at construction; do not permit in-flight options replacement",
+    "Keep normal application access stopped and existing normal enrollment verifier unchanged",
+    "Use authoritative database time for disposable challenge setup; wait for a previously observed verification timestamp before fixture acceptance, bounded to one second; no SQL expiry/authorization guard relaxed"
+  ],
+  "verification": {
+    "newIdentityUnitTests": 9,
+    "existingIdentityTests": 17,
+    "combinedPassed": 26,
+    "failed": 0,
+    "skipped": 0,
+    "targetedLint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "actualServices": {
+      "testCount": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "services": [
+        "GoTrue v2.196.0",
+        "PostgreSQL 17.6",
+        "private Storage API v1.74.0"
+      ],
+      "scenarios": [
+        "actual same-transaction Auth factor insertion invalidates original signed consent; no family handoff/native erasure, original proofs unchanged; rollback then resumes original request",
+        "normal application access stays stopped while independent scoped current Auth succeeds",
+        "paired Kakei/Ouchi original coordinator starts without prior receipts and completes",
+        "native committed response loss does not replay mutation",
+        "successful Auth DELETE response loss recovers by independent dispatch and exact SDK user_not_found; no second DELETE",
+        "post-Auth verification failure remains pending before retry",
+        "Kakei family/record and bystander metadata/devices/private bytes/other Auth accounts preserved"
+      ]
+    }
+  },
+  "localFixedReview": {
+    "manifest": "output/paired-current-auth-fixed-20261015/manifest.json",
+    "manifestSHA256": "09ad48f405ec5b853db48b6bd87fec607884d483868d19e080467846da2ba0fa",
+    "unchangedBaseInputs": 737,
+    "deltaFiles": 9,
+    "privatePeerSourcesPublished": false,
+    "upstreamKakeiSourcesModified": false
+  },
+  "limits": [
+    "Real service composition is a private local review fixture, not an enabled shipping route",
+    "Management Auth policy explicitly injected; production effective-policy acquisition remains required",
+    "Six-table Kakei review schema, synthetic inventory/enrollment/retention, privileged test operator role",
+    "No trusted shipping intake, complete app/writer registry, deployed least-privilege grants, finite retention or external outbox/device acknowledgement proof",
+    "Whole-account actor owns no attachment; separate preceding family scenarios verify private Storage transfer",
+    "Actual Apple purchases, public policies, accessibility and release approval still required"
+  ],
+  "cleanup": {
+    "testContainersAndVolumesRemoved": true,
+    "localVMStopped": true
+  },
+  "sideEffects": {
+    "mainMerge": false,
+    "productionDDL": false,
+    "productionAuthDeletion": false,
+    "actualBilling": false,
+    "AppleUpload": false,
+    "AppReviewSubmission": false
+  }
+}
