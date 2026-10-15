@@ -8,7 +8,7 @@ import {readFileSync} from 'node:fs';
 import {deletionStages} from '../lib/shared-deletion-protocol.mjs';
 test('full v2 coordinator starts without prior receipts, runs actual native worker and preserves bystander after synthetic Auth erasure',async()=>{
  const f=await seedSharedMaintenanceComposition();try{
-  assert.deepEqual(await f.run(),{state:'complete',notification:'unconfirmed'});
+  assert.deepEqual(await f.run(),{state:'complete',notification:'unconfirmed'},JSON.stringify(f.errors));
   const row=(await f.db.query('select status,receipts from private.kb_shared_deletion_journal where request_id=$1',[f.scope.requestID])).rows[0];
   assert.equal(row.status,'complete');assert.deepEqual(Object.keys(row.receipts).sort(),deletionStages(f.scope).sort());
   assert.ok(Object.values(await metadataRows(f.db,owner)).every(rows=>rows.length===0));assert.ok(Object.values(await deviceRows(f.db,owner)).every(rows=>rows.length===0));
@@ -46,5 +46,18 @@ test('the original Auth foreign key blocks completed retirement; reviewed migrat
   const sealed=await snapshot();await f.db.exec(readFileSync('supabase/migrations/20261015052134_ouchi_deletion_receipt_auth_independence.sql','utf8'));
   assert.deepEqual(await snapshot(),sealed);f.calls.length=0;
   assert.deepEqual(await f.run(),{state:'complete',notification:'unconfirmed'});assert.equal(f.calls.some(name=>name.startsWith('native:erase')),false);assert.deepEqual(await snapshot(),sealed);
+ }finally{await f.db.close();}
+});
+
+test('a committed external Auth erasure with no global receipt recovers despite the erased original session',async()=>{
+ const f=await seedSharedMaintenanceComposition({simulateLostAuthReply:true});try{
+  assert.deepEqual(await f.run(),{state:'pending',stage:'erase-auth'});
+  assert.equal(await f.journal.readReceipt(f.scope,'erase-auth'),null);
+  assert.equal((await f.db.query('select count(*)::int n from auth.users where id=$1',[owner])).rows[0].n,0);
+  assert.equal((await f.db.query('select count(*)::int n from auth.sessions where user_id=$1',[owner])).rows[0].n,0);
+  const count=(await f.db.query('select count(*)::int n from private.composition_fixture_local_auth_dispatch where request_id=$1',[f.scope.requestID])).rows[0].n;assert.equal(count,1);
+  f.calls.length=0;assert.deepEqual(await f.run(),{state:'complete',notification:'unconfirmed'});
+  assert.equal(f.calls.some(name=>name.startsWith('native:erase')),false);
+  assert.equal((await f.db.query('select count(*)::int n from private.composition_fixture_local_auth_dispatch where request_id=$1',[f.scope.requestID])).rows[0].n,1);
  }finally{await f.db.close();}
 });

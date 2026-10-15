@@ -49,14 +49,16 @@ export async function verifyDisposableSharedMaintenanceComposition({db,account,a
   };
   let deletes=0,unknownReplies=0;
   const receipt=async scope=>(await dispatch.query('select scope=$2::jsonb matches from private.composition_fixture_auth_dispatch where request_id=$1',[scope.requestID,scope])).rows[0]?.matches===true;
-  const eraseAuth=async(scope,tx)=>{
+  const eraseAuth=async(scope,tx,authorizeNewDispatch)=>{
    assert.equal(scope.userID,actor.user);await requireDeletionPrerequisites(tx,scope,'erase-auth');
    const before=await readAuth();if(before==='absent')return receipt(scope);if(before!=='present')return false;
+   if(typeof authorizeNewDispatch!=='function'||await authorizeNewDispatch()!==true)return false;
    // Independent committed intent has no Auth/journal FK or dependency on the
    // transaction's row locks. Unknown dispatch is NEVER repeated while present.
    const inserted=await dispatch.query('insert into private.composition_fixture_auth_dispatch values($1,$2) on conflict(request_id) do nothing returning request_id',[scope.requestID,scope]);
    if(inserted.rows.length!==1)return false;
    await requireDeletionPrerequisites(tx,scope,'erase-auth');
+   if(await authorizeNewDispatch()!==true)return false;
    assert.equal(await receipt(scope),true);
    deletes++;try{
     const result=await admin.auth.admin.deleteUser(actor.user,false);
@@ -68,7 +70,7 @@ export async function verifyDisposableSharedMaintenanceComposition({db,account,a
   const f=await seedSharedMaintenanceComposition({lostStage:'erase:ouchi-maintenance',postAuthFailure:true,
    services:{origin,actor,bystander,db:{query:(...args)=>db.query(...args),exec:sql=>db.query(sql)},eraseAuth,
     verifyAuth:async scope=>{assert.equal(scope.userID,actor.user);return await receipt(scope)&&await readAuth()==='absent';}}});
-  assert.deepEqual(await f.run(),{state:'pending',stage:'erase:ouchi-maintenance'});
+  assert.deepEqual(await f.run(),{state:'pending',stage:'erase:ouchi-maintenance'},JSON.stringify(f.errors));
   const sealed=(await db.query('select id,user_id,app_epoch_id,requested_at,completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows;
   assert.equal(await readAuth(),'present');assert.equal(deletes,0);f.calls.length=0;
   dropAuthReplies.start(actor.user);try{assert.deepEqual(await f.run(),{state:'pending',stage:'erase-auth'});}finally{dropAuthReplies.stop();}

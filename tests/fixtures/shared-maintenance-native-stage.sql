@@ -40,8 +40,17 @@ begin
  end loop;
  if app->>'app' is distinct from 'ouchi-maintenance' then return null;end if;
  foreach st in array required loop
-  if j.receipts->st->>'durable' is distinct from 'true' or j.receipts->st->>'stage' is distinct from st
-   or ((j.receipts->st)-'durable'-'stage') is distinct from j.scope then return null;end if;
+  if j.receipts->st->>'durable' is distinct from 'true' or j.receipts->st->>'stage' is distinct from st then return null;end if;
+  if st='handoff-family' and (j.receipts->st) ? 'familyCoverageDigest' then
+   if to_regclass('maintenance_private.shared_family_stage_contexts') is null then return null;end if;
+   if coalesce(j.receipts->st->>'familyCoverageDigest','') !~ '^[a-f0-9]{64}$'
+    or ((j.receipts->st)-'durable'-'stage'-'familyCoverageDigest') is distinct from j.scope
+    or not exists(select 1 from maintenance_private.shared_family_stage_contexts f
+     where f.request_id=j.request_id and (f.scope-'leaseToken')=j.scope
+      and f.receipt=j.receipts->st and f.coverage_digest=j.receipts->st->>'familyCoverageDigest') then return null;end if;
+  elsif (st='handoff-family' and to_regclass('maintenance_private.shared_family_stage_contexts') is not null)
+   or ((j.receipts->st)-'durable'-'stage') is distinct from j.scope then return null;
+  end if;
  end loop;
  return c;
 end $$;

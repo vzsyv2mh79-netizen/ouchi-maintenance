@@ -115,3 +115,31 @@ test('resumed native completion cleans review metadata in the same boundary, nee
   assert.equal(await metadataCount(f.db),0);
  }finally{await f.db.close();}
 });
+
+test('a full checkpoint schema refuses naked or fabricated family receipts before any native erasure',async()=>{
+ const f=await fixture();try{
+  await f.db.exec('create table maintenance_private.shared_family_stage_contexts(request_id uuid primary key,scope jsonb,coverage_digest text,receipt jsonb);alter table maintenance_private.shared_family_stage_contexts enable row level security;revoke all on maintenance_private.shared_family_stage_contexts from public,anon,authenticated,service_role');
+  await assert.rejects(f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseRecords',f.work,f.gates)),/Current verified family checkpoint/);
+  const fixed={...f.shared};delete fixed.leaseToken;
+  const proof={durable:true,stage:'handoff-family',...fixed,familyCoverageDigest:'a'.repeat(64)};
+  await f.db.query("update private.kb_shared_deletion_journal set receipts=jsonb_set(receipts,'{handoff-family}',$1::jsonb)",[JSON.stringify(proof)]);
+  await assert.rejects(f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseRecords',f.work,f.gates)),/Current verified family checkpoint/);
+  await f.db.query('insert into maintenance_private.shared_family_stage_contexts values($1,$2,$3,$4)',[f.shared.requestID,f.shared,'b'.repeat(64),proof]);
+  await assert.rejects(f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseRecords',f.work,f.gates)),/Current verified family checkpoint/);
+  assert.equal(await metadataCount(f.db),2);
+ }finally{await f.db.close();}
+});
+test('exact family coverage is checked again at native COMMIT; enriched proof is accepted only with its matching private record',async()=>{
+ const f=await fixture();try{
+  await f.db.exec('create table maintenance_private.shared_family_stage_contexts(request_id uuid primary key,scope jsonb,coverage_digest text,receipt jsonb)');
+  const fixed={...f.shared};delete fixed.leaseToken;
+  const proof={durable:true,stage:'handoff-family',...fixed,familyCoverageDigest:'a'.repeat(64)};
+  await f.db.query("update private.kb_shared_deletion_journal set receipts=jsonb_set(receipts,'{handoff-family}',$1::jsonb)",[JSON.stringify(proof)]);
+  await f.db.query('insert into maintenance_private.shared_family_stage_contexts values($1,$2,$3,$4)',[f.shared.requestID,f.shared,proof.familyCoverageDigest,proof]);
+  // Privileged fault in a minimal matching fixture, not a client write or a
+  // bypass of the real checkpoint's immutable/deferred-commit triggers.
+  await assert.rejects(f.transaction(async tx=>{await boundary(tx,f.shared,f.native,'eraseRecords',f.work,f.gates);await tx.query('update maintenance_private.shared_family_stage_contexts set coverage_digest=$1',['b'.repeat(64)]);}),/Current verified family checkpoint/);
+  assert.equal(await metadataCount(f.db),2);
+  assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseRecords',f.work,f.gates)),true);assert.equal(await metadataCount(f.db),0);
+ }finally{await f.db.close();}
+});

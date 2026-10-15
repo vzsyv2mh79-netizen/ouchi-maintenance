@@ -4,7 +4,7 @@
   "sourceHeadBeforeChange": "63e97c3c9e383bc27a8b59b0c0af6de85aa6ecce",
   "migration": "supabase/migrations/20261015052134_ouchi_deletion_receipt_auth_independence.sql",
   "local": {
-    "passed": 38,
+    "passed": 50,
     "failed": 0,
     "skipped": 0,
     "typecheckExitCode": 0,
@@ -14,13 +14,16 @@
     "auth": "PGlite SQL only; no managed Auth proof",
     "beforeFixReproductions": [
       "late failed readback incorrectly accepted at commit",
-      "23503 native request Auth FK prevented final Auth erasure"
+      "23503 native request Auth FK prevented final Auth erasure",
+      "exact deferred family checkpoint required at handoff commit; legacy journal.perform overwrote enriched family proof"
     ],
     "sameRequestRecovery": true,
-    "byStanderRetained": true
+    "byStanderRetained": true,
+    "fullFamilyCheckpointConstraints": true,
+    "externalAuthAbsenceRecoveryWithoutOriginalSession": true
   },
   "actualServices": {
-    "status": "new-head CI pending; not verified",
+    "status": "follow-up candidate pending; prior attempt stopped at family checkpoint before Auth erasure",
     "scope": "one fresh Ouchi-only actor, actual native worker and global journal, independent dispatch + real SDK dropped Auth DELETE response, no second DELETE, explicit SDK user_not_found plus SQL absence, required post-Auth readbacks; other users/private bytes preserved",
     "limitations": [
       "synthetic inventory/enrollment/retention and operator SQL role",

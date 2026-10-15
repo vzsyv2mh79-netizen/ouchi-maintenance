@@ -7,6 +7,8 @@ import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-check
 import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
 import {seedSharedNativeDevices,deviceRows} from './shared-native-devices.mjs';
 import {createSharedMaintenanceAdapter} from './shared-maintenance-adapter-module.mjs';
+import {createSharedFamilyStageStore} from '../../lib/shared-family-stage-store.mjs';
+import {sharedFamilyCoverageDigest} from '../../lib/shared-family-handoff-stage.mjs';
 /** Actual local GoTrue/PG/Storage; shared receipts/enrollment/retention are
  * privileged SYNTHETIC fixtures. Not live coverage, role, SLA or Auth-erasure proof.
  */
@@ -42,7 +44,7 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  // stay separate and are not relabelled as this actor's verified inventory.
  const shared={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:actor.user,leaseToken:randomUUID(),inventoryDigest:'c'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:native.requestID,scopeID:native.epochID}]};
  const fixed={...shared};delete fixed.leaseToken;
- const receipts=Object.fromEntries(['prepare','handoff-family','verify-family-before','verify-sessions-before'].map(stage=>[stage,{durable:true,stage,...fixed}]));
+ const receipts=Object.fromEntries(['prepare','verify-family-before','verify-sessions-before'].map(stage=>[stage,{durable:true,stage,...fixed}]));
  await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '5 minutes',$5)",[shared.requestID,actor.user,fixed,shared.leaseToken,receipts]);
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,inventory_captured) values($1,$2,$3,'running',$4,clock_timestamp()+interval '5 minutes',true)",[native.requestID,actor.user,actor.epoch,native.leaseToken]);
  await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[actor.user,shared,native.leaseToken]);
@@ -97,6 +99,16 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
    and not exists(select 1 from maintenance_private.account_access where user_id=$1 and enabled)
    and exists(select 1 from auth.sessions where user_id=$1 and id=$2 and (not_after is null or not_after>clock_timestamp())) as allowed`,[actor.user,actor.session])).rows[0].allowed===true;
  };
+
+ // Even these metadata-only cases use the exact committed empty-family proof;
+ // a legacy naked family boolean is not accepted by the full review schema.
+ const emptyFamily=async(tx,value)=>{
+  assert.deepEqual(value,shared);
+  const live=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() value from private.kb_shared_deletion_journal where request_id=$1",[shared.requestID,fixed,shared.leaseToken])).rows[0]?.value===true;
+  return live&&await gates(tx,shared,native)&&(await tx.query('select not exists(select 1 from maintenance_private.household_handoff_plans where owner_id=$1) value',[actor.user])).rows[0].value===true;
+ };
+ const familyStore=createSharedFamilyStageStore({verifyReadAuthority:emptyFamily,loadValidatedTargets:async(tx,value)=>{if(!await emptyFamily(tx,value))throw Error('Complete empty family proof required');return [];}});
+ await transaction(tx=>familyStore.record(tx,shared,sharedFamilyCoverageDigest([],shared),AbortSignal.timeout(10000)));
  const records=tx=>stage(tx,'eraseRecords');
  for(const table of ['private.kb_shared_deletion_journal','maintenance_private.household_stop_bindings']){
   await assert.rejects(transaction(async tx=>{

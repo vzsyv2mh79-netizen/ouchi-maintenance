@@ -6,7 +6,9 @@ import {owner as fixtureOwner,recipient as fixtureRecipient,oe as fixtureEpoch,r
 import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
 import {seedSharedNativeDevices,deviceRows} from './shared-native-devices.mjs';
 import {composeSharedMaintenanceHandlers} from './shared-maintenance-adapter-module.mjs';
-import {createDeletionJournal} from './kakei-completion/lib/shared-deletion-journal.mjs';
+import {requireDeletionPrerequisites,createDeletionJournal} from './kakei-completion/lib/shared-deletion-journal.mjs';
+import {createSharedFamilyStageStore,connectSharedFamilyStage} from '../../lib/shared-family-stage-store.mjs';
+import {createSharedFamilyHandoffStage} from '../../lib/shared-family-handoff-stage.mjs';
 import {runSharedDeletion} from '../../lib/shared-deletion-protocol.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared-maintenance-closure-metadata.mjs';
@@ -15,8 +17,8 @@ import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared
 // PGlite Auth; optional guarded disposable services use managed Auth hooks.
 // Inventory/retention are synthetic and there are no files/other-app accounts.
 // Never production intake, managed deployment or full writer-coverage proof.
-export async function seedSharedMaintenanceComposition({lostStage=null,postAuthFailure=false,unknownSend=false,receiptIndependent=true,services=null}={}){
- if(services){assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(services.origin,'http://127.0.0.1:54321');}
+export async function seedSharedMaintenanceComposition({lostStage=null,postAuthFailure=false,unknownSend=false,receiptIndependent=true,services=null,simulateLostAuthReply=false}={}){
+ if(services){assert.equal(simulateLostAuthReply,false);assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(services.origin,'http://127.0.0.1:54321');}
  const owner=services?.actor.user??fixtureOwner,oe=services?.actor.epoch??fixtureEpoch,recipient=services?.bystander.user??fixtureRecipient,re=services?.bystander.epoch??fixtureRecipientEpoch;
  const db=services?.db??await seedClosureReauthenticationDatabase();if(!services)await db.exec('reset role;delete from public.home_members');
  if(receiptIndependent&&!services)await db.exec(readFileSync('supabase/migrations/20261015052134_ouchi_deletion_receipt_auth_independence.sql','utf8'));
@@ -29,11 +31,14 @@ export async function seedSharedMaintenanceComposition({lostStage=null,postAuthF
  if(!services){
  for(const file of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.exec(readFileSync('tests/fixtures/handoff-controller-compatibility/'+file,'utf8'));
  await db.exec(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
+ for(const name of ['journal','quota','activation','completion'])await db.exec(readFileSync('tests/fixtures/family-attachment-'+name+'.sql','utf8'));
+ await db.exec(readFileSync('tests/fixtures/shared-family-stage-store.sql','utf8'));
  await db.exec(readFileSync('tests/fixtures/shared-maintenance-native-stage.sql','utf8'));
  }
  const keptMetadata=await metadataRows(db,recipient),keptDevices=await deviceRows(db,recipient);
  await db.exec('create table if not exists private.composition_fixture_inventory(user_id uuid,app text,request_id uuid,scope_id uuid,primary key(user_id,app));alter table private.composition_fixture_inventory enable row level security;revoke all on private.composition_fixture_inventory from public,anon,authenticated,service_role');
  await db.query('insert into private.composition_fixture_inventory values($1,$2,$3,$4)',[owner,'ouchi-maintenance',native.requestID,oe]);
+ if(simulateLostAuthReply)await db.exec('create table private.composition_fixture_local_auth_dispatch(request_id uuid primary key,scope jsonb not null);alter table private.composition_fixture_local_auth_dispatch enable row level security;revoke all on private.composition_fixture_local_auth_dispatch from public,anon,authenticated,service_role');
  const controller=new AbortController(),calls=[],args=[native.requestID,owner,oe,native.leaseToken];
  const transaction=async work=>{await db.exec('begin');try{const value=await runWithTransactionCommitChecks(db,controller.signal,work);await db.exec('commit');return value;}catch(error){await db.exec('rollback');throw error;}};
  const coverage=async tx=>{
@@ -91,8 +96,12 @@ export async function seedSharedMaintenanceComposition({lostStage=null,postAuthF
    await tx.query('select maintenance_private.freeze_household_scope($1,$2)',[scope,native.leaseToken]);return true;
   },
   'erase-auth':async(s,tx)=>{
-   assert.deepEqual(s,scope);if(!await gates(tx)||!await confirmed(tx))return false;calls.push('auth:erase');
-   if(services)return await services.eraseAuth(s,tx)===true&&await absent(tx);
+   assert.deepEqual(s,scope);if(!await coverage(tx)||!await family(tx)||!await stopped(tx)||!await confirmed(tx))return false;calls.push('auth:erase');
+   // Confirmed prior dispatch may have erased the Auth session already. A live
+   // session is required for a NEW send, never invented for absence recovery.
+   if(services)return await services.eraseAuth(s,tx,async()=>await gates(tx)&&await stopped(tx)&&await confirmed(tx))===true&&await absent(tx);
+   if(simulateLostAuthReply&&await absent(tx))return (await tx.query('select scope=$2::jsonb matches from private.composition_fixture_local_auth_dispatch where request_id=$1',[scope.requestID,scope])).rows[0]?.matches===true;
+   if(!await sessions(tx))return false;
    // Local-only synthetic Auth rows. The separate actual-service hook must use
    // managed Auth plus an independently committed fixed dispatch reservation.
    await tx.query('delete from auth.sessions where user_id=$1',[owner]);await tx.query('delete from auth.users where id=$1',[owner]);return absent(tx);
@@ -101,9 +110,39 @@ export async function seedSharedMaintenanceComposition({lostStage=null,postAuthF
   complete:async(s,tx)=>{assert.deepEqual(s,scope);return afterAuth(tx);},
  };
  const journal=createDeletionJournal({query:(...args)=>db.query(...args),transaction},handlers);
+ // Route family completion through its EXISTING independent pinned checkpoint,
+ // not legacy journal.perform which would overwrite the coverage-bearing proof.
+ const currentFamily=async(tx,s)=>{
+  assert.deepEqual(s,scope);
+  const live=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() value from private.kb_shared_deletion_journal where request_id=$1",[scope.requestID,inventory,scope.leaseToken])).rows[0]?.value===true;
+  return live&&await stopped(tx)&&await gates(tx);
+ };
+ const emptyFamilies=async(tx,s)=>await currentFamily(tx,s)&&(await tx.query('select not exists(select 1 from maintenance_private.household_handoff_plans where owner_id=$1) empty',[owner])).rows[0].empty===true;
+ const store=createSharedFamilyStageStore({verifyReadAuthority:async(tx,s)=>{assert.deepEqual(s,scope);return await coverage(tx);},loadValidatedTargets:async(tx,s)=>{if(!await emptyFamilies(tx,s))throw Error('Complete empty family inventory required');return [];}});
+ const familyStage=createSharedFamilyHandoffStage({transaction:work=>transaction(work),
+  verifyCurrentController:currentFamily,loadFrozenTargets:async(tx,s)=>{if(!await emptyFamilies(tx,s))throw Error('Complete empty family inventory required');return [];},
+  verifyFrozenCoverage:async(tx,s,list)=>list.length===0&&await emptyFamilies(tx,s),
+  verifyCompletions:async(tx,s,list)=>list.length===0&&await emptyFamilies(tx,s),
+  verifyOtherApps:async(tx,s)=>await peer.verifyFamily(s,tx,controller.signal),
+  portsForTarget:async()=>{throw Error('No family target may be invented');},store});
+ const connected=connectSharedFamilyStage({journal,familyStage,readFamilyReceipt:s=>transaction(tx=>store.read(tx,s,controller.signal)),signal:controller.signal});
+
  await journal.create(scope);assert.equal(await journal.claim(scope),true);
  assert.deepEqual((await db.query('select receipts from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].receipts,{},'No prior-stage receipts may be seeded');
  const errors=[];let lost=false;
- const adapters={...journal,perform:async(s,stage)=>{calls.push('global:'+stage);let receipt;try{receipt=await journal.perform(s,stage);}catch(error){errors.push({stage,message:error.message,code:error.code});throw error;}if(!lost&&stage===lostStage){lost=true;throw Error('Global committed reply lost');}return receipt;}};
+ let externalAuthErased=false;
+ const adapters={...connected,perform:async(s,stage)=>{calls.push('global:'+stage);
+  if(simulateLostAuthReply&&stage==='erase-auth'&&!externalAuthErased){
+   await transaction(async tx=>{
+    await requireDeletionPrerequisites(tx,s,stage);
+    if(!await gates(tx)||!await stopped(tx)||!await confirmed(tx))throw Error('Current new Auth dispatch authority required');
+    await tx.query('insert into private.composition_fixture_local_auth_dispatch values($1,$2)',[scope.requestID,scope]);
+   });
+   // SQL-only emulation of an independently committed external side effect.
+   // Its journal transaction has not started; original intent is already durable.
+   await db.exec('begin');try{await db.query('delete from auth.sessions where user_id=$1',[owner]);await db.query('delete from auth.users where id=$1',[owner]);await db.exec('commit');}catch(error){await db.exec('rollback');throw error;}
+   externalAuthErased=true;throw Error('External Auth erasure committed but reply lost');
+  }
+  let receipt;try{receipt=await connected.perform(s,stage);}catch(error){errors.push({stage,message:error.message,code:error.code});throw error;}if(!lost&&stage===lostStage){lost=true;throw Error('Global committed reply lost');}return receipt;}};
  return {db,scope,native,calls,errors,controller,journal,run:()=>runSharedDeletion(scope,adapters,controller.signal),allowPostAuth:()=>{postAuthFailure=false;},keptMetadata,keptDevices};
 }

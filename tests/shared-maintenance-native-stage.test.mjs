@@ -303,3 +303,17 @@ test('transaction-local stage predicates refuse wrong phase, row, columns, inser
   assert.equal((await f.db.query('select count(*)::int n from public.products where id=$1',[product])).rows[0].n,1);
  }finally{await f.db.close();}
 });
+
+test('native SQL capability requires the exact private family checkpoint when that schema is installed',async()=>{
+ const f=await fixture();try{
+  await f.db.exec('create table maintenance_private.shared_family_stage_contexts(request_id uuid primary key,scope jsonb,coverage_digest text,receipt jsonb)');
+  await assert.rejects(f.transaction(tx=>f.stage(tx,'eraseRecords')),/authority/);
+  const fixed={...f.shared};delete fixed.leaseToken;
+  const proof={durable:true,stage:'handoff-family',...fixed,familyCoverageDigest:'a'.repeat(64)};
+  await f.db.query("update private.kb_shared_deletion_journal set receipts=jsonb_set(receipts,'{handoff-family}',$1::jsonb)",[JSON.stringify(proof)]);
+  await f.db.query('insert into maintenance_private.shared_family_stage_contexts values($1,$2,$3,$4)',[f.shared.requestID,f.shared,'b'.repeat(64),proof]);
+  await assert.rejects(f.transaction(tx=>f.stage(tx,'eraseRecords')),/authority/);
+  await f.db.query('update maintenance_private.shared_family_stage_contexts set coverage_digest=$1',[proof.familyCoverageDigest]);
+  assert.equal(await f.transaction(tx=>f.stage(tx,'eraseRecords')),true);
+ }finally{await f.db.close();}
+});

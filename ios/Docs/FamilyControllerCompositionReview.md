@@ -98,7 +98,7 @@ than repairing it. No cascade or actor-null substitution destroys the receipt.
 Direct operator DML is not authorized intake. Retained UUIDs are personal data;
 a reviewed finite retention/purge operation is still required before activation.
 
-Local verification: 38 related cases passed, 0 failed, 0 skipped; typecheck and
+Initial related verification: 38 cases passed, 0 failed, 0 skipped; typecheck and
 targeted lint passed. The new checks include the whole v2 sequence and actual
 canonical native worker, missing post-Auth readback, unknown sends, reply loss
 after a committed app stage, preserved bystander rows, actor immutability and
@@ -132,3 +132,42 @@ actual billing or paid infrastructure is enabled.
 References checked for the disposable admin SDK scenario:
 - https://supabase.com/docs/reference/javascript/auth-admin-deleteuser
 - https://supabase.com/docs/reference/javascript/auth-admin-getuserbyid
+
+
+### Exact family checkpoint integration follow-up
+
+The first service attempt stopped in operator seeding because a preceding Kakei
+fixture installed a legacy-sub auth.uid implementation. Seeding now binds both
+transaction-local GUCs to the exact getUser-verified actor and restores the prior
+context. It does not weaken Actor required or claim ordinary client CRUD/RLS.
+
+The next service attempt exposed a substantive composition gap: the real review
+schema requires a deferred exact family checkpoint, while the old journal's
+plain handoff-family receipt could not satisfy it. The same constraints are now
+loaded in the local full-controller fixture, reproducing that refusal. The
+existing connectSharedFamilyStage and private store route that phase OUTSIDE
+legacy journal.perform, preserving its coverage-bearing receipt. Empty coverage
+is independently checked against the frozen app catalog, household plans and
+current family obligations; no target/transfer is invented.
+
+The native metadata boundary and private SQL capability now accept an enriched
+family receipt only when its exact scope, coverage digest and receipt match the
+protected committed checkpoint. When that schema exists, naked legacy family
+receipts are refused. Both layers recheck the proof, including at the owning
+COMMIT. Minimal matching-record fault fixtures test missing, fabricated and
+changed proofs; the full controller loads the real immutable/deferred checkpoint
+schema. Metadata-only actual-service cases also record a verified empty family
+checkpoint rather than manufacture a plain boolean receipt.
+
+Recovery after an independently committed Auth deletion cannot require a live
+session that was deleted by that operation. New dispatch still requires current
+session/lease/family/fence authority before and after its independent reservation.
+Absence recovery instead requires the original exact dispatch proof, current
+controller/family/fence/native completion and definitive Auth absence. A new
+SQL-only external-effect emulation reproduces that missing-global-receipt case;
+it does not replace the pending real SDK/socket-loss check.
+
+The strengthened related suite passed50/0/0 locally. Typecheck and targeted lint
+passed again for this follow-up. The managed-service scenario is still unverified;
+its previous failed attempts do not count as successful Auth deletion evidence.
+No production provider, migration, grant, customer erasure or sale is enabled.
