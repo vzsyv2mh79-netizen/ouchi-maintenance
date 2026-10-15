@@ -193,10 +193,13 @@ private struct HomePicker: View {
                     .font(.body).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.down").font(.caption)
+                    .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .multilineTextAlignment(.leading)
         }
+        // One action and one current value, rather than a duplicate child label.
+        .accessibilityElement(children: .combine)
         .accessibilityLabel("住まいを切り替える")
         .accessibilityValue(selectedHomeName)
         .disabled(store.busy)
