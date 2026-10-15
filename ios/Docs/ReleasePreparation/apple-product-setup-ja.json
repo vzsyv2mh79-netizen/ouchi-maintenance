@@ -1,15 +1,8 @@
 {
-  "status": "preparation_only_not_created_or_submitted",
+  "status": "five_product_drafts_created_not_priced_or_submitted",
   "checkedAt": "2026-10-16",
   "bundleId": "jp.ouchi.maintenance",
   "appStoreAppId": "6823150600",
-  "liveObservation": {
-    "inAppPurchases": "Creation empty state; no product rows displayed",
-    "subscriptions": "No subscription groups displayed; create group prompt",
-    "build": "Upload tools prompt; no uploaded build displayed",
-    "listingText": "Promotion, description, keywords and support URL empty",
-    "streamlinedPurchasing": "on; evaluate account-linking behavior before sale; not changed"
-  },
   "products": [
     {
       "productId": "ouchi.premium.monthly",
@@ -23,7 +16,13 @@
       "storePriceConfirmed": false,
       "description": null,
       "saleReady": false,
-      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits."
+      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits.",
+      "appStoreProductId": "6823391235",
+      "storeDraftStatus": "提出準備中",
+      "subscriptionGroupId": "22483191",
+      "storeLevel": 1,
+      "priceSaved": false,
+      "availabilityConfigured": false
     },
     {
       "productId": "ouchi.premium.annual",
@@ -37,7 +36,13 @@
       "storePriceConfirmed": false,
       "description": null,
       "saleReady": false,
-      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits."
+      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits.",
+      "appStoreProductId": "6823391257",
+      "storeDraftStatus": "提出準備中",
+      "subscriptionGroupId": "22483191",
+      "storeLevel": 1,
+      "priceSaved": false,
+      "availabilityConfigured": false
     },
     {
       "productId": "ouchi.tip.small",
@@ -47,7 +52,13 @@
       "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
       "proposedPriceJPY": 100,
       "storePriceConfirmed": false,
-      "saleReady": false
+      "saleReady": false,
+      "appStoreProductId": "6823390247",
+      "storeDraftStatus": "提出準備中",
+      "japaneseMetadataSaved": true,
+      "proposedPricePointAvailableInJPY": true,
+      "priceSaved": false,
+      "availabilityConfigured": false
     },
     {
       "productId": "ouchi.tip.medium",
@@ -57,7 +68,13 @@
       "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
       "proposedPriceJPY": 300,
       "storePriceConfirmed": false,
-      "saleReady": false
+      "saleReady": false,
+      "appStoreProductId": "6823390751",
+      "storeDraftStatus": "提出準備中",
+      "japaneseMetadataSaved": true,
+      "proposedPricePointAvailableInJPY": true,
+      "priceSaved": false,
+      "availabilityConfigured": false
     },
     {
       "productId": "ouchi.tip.large",
@@ -67,13 +84,19 @@
       "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
       "proposedPriceJPY": 1000,
       "storePriceConfirmed": false,
-      "saleReady": false
+      "saleReady": false,
+      "appStoreProductId": "6823390803",
+      "storeDraftStatus": "提出準備中",
+      "japaneseMetadataSaved": true,
+      "proposedPricePointAvailableInJPY": true,
+      "priceSaved": false,
+      "availabilityConfigured": false
     }
   ],
   "setupOrder": [
-    "Owner creates three consumable tips using the exact product IDs and verified Japanese store price points; leave unsubmitted.",
+    "Three consumable tip drafts already exist with saved Japanese metadata. Reuse their exact product IDs; confirm intended prices/territories, configure those and attach reviewed screenshots before Sandbox readiness or submission.",
     "Finalize actual subscription benefits and operational limits before filling subscription descriptions or offering purchases.",
-    "Owner creates one Ouchi Premium subscription group; monthly and annual products use the same group and level 1.",
+    "The Ouchi Premium group and both subscription products already exist. Reuse group22483191, exact product IDs and the verified shared level1; do not create duplicates.",
     "Select distribution territories only after owner decision; no automatic worldwide selection.",
     "Record store-supplied product metadata and displayed prices, then run signed Sandbox lifecycle tests using a test account.",
     "Review screenshots, live terms/privacy/support URLs, actual benefits and account-linking/restoration before first product/app submission."
@@ -88,5 +111,87 @@
   "sources": [
     "https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/create-consumable-or-non-consumable-in-app-purchases/",
     "https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions/"
-  ]
+  ],
+  "initialLiveObservation": {
+    "inAppPurchases": "Creation empty state; no product rows displayed",
+    "subscriptions": "No subscription groups displayed; create group prompt",
+    "build": "Upload tools prompt; no uploaded build displayed",
+    "listingText": "Promotion, description, keywords and support URL empty",
+    "streamlinedPurchasing": "on; evaluate account-linking behavior before sale; not changed"
+  },
+  "currentStoreRegistration": {
+    "date": "2026-10-16",
+    "created": [
+      {
+        "productID": "ouchi.tip.small",
+        "appleID": "6823390247",
+        "name": "応援チップ（小）",
+        "proposedPriceJPY": 100
+      },
+      {
+        "productID": "ouchi.tip.medium",
+        "appleID": "6823390751",
+        "name": "応援チップ（中）",
+        "proposedPriceJPY": 300
+      },
+      {
+        "productID": "ouchi.tip.large",
+        "appleID": "6823390803",
+        "name": "応援チップ（大）",
+        "proposedPriceJPY": 1000
+      }
+    ],
+    "type": "consumable",
+    "status": "提出準備中",
+    "japaneseNamesAndDescriptionsVerified": true,
+    "pricePointCandidatesAvailableInJapanesePicker": [
+      100,
+      300,
+      1000
+    ],
+    "priceSaved": false,
+    "availabilityConfigured": false,
+    "submittedForReview": false,
+    "actualPurchasePerformed": false,
+    "billingEnabled": false
+  },
+  "currentSubscriptionRegistration": {
+    "date": "2026-10-16",
+    "appStoreAppId": "6823150600",
+    "groupID": "22483191",
+    "groupReferenceName": "Ouchi Premium",
+    "products": [
+      {
+        "productId": "ouchi.premium.monthly",
+        "appleID": "6823391235",
+        "duration": "1 month",
+        "level": 1
+      },
+      {
+        "productId": "ouchi.premium.annual",
+        "appleID": "6823391257",
+        "duration": "1 year",
+        "level": 1
+      }
+    ],
+    "status": "提出準備中",
+    "sameGroupAndLevelConfirmedAfterSave": true,
+    "priceSaved": false,
+    "availabilityConfigured": false,
+    "benefitDescriptionPublished": false,
+    "submittedForReview": false,
+    "actualPurchasePerformed": false,
+    "billingEnabled": false,
+    "observedAdditionalOptions": {
+      "monthlyPurchaseDestinations": "App Store, Apple Business, Apple School Manager",
+      "monthlyMultiseat": "allowed by default; not changed",
+      "annualOptions": "1-year upfront and 12-month commitment with monthly payments are offered as separate setup paths; neither configured",
+      "familySharing": "off for both observed product detail pages"
+    },
+    "releaseRequirements": [
+      "Review purchase channels and multi-seat ownership against the implemented single-account entitlement model before selling.",
+      "Use annual upfront renewal matching the initial pricing proposal; do not configure a 12-month monthly-payment commitment unintentionally.",
+      "Real continuous benefits, limits, privacy/terms, proposed prices and territories still need completion before purchasing can be offered."
+    ]
+  }
 }
