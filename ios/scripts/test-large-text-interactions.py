@@ -58,6 +58,8 @@ def run(*command, **kwargs):
     return subprocess.run([str(v) for v in command], check=True, **kwargs)
 
 try:
+    # Catch harness syntax errors before creating/booting an ephemeral device.
+    run('xcrun', 'swiftc', '-frontend', '-parse', root / 'UITests/LargeTextInteractionTests.swift')
     with tempfile.TemporaryDirectory(prefix='ouchi-ui-test-') as temporary:
         work = pathlib.Path(temporary)
         for directory in ['OuchiMaintenance', 'OuchiCore', 'Tests', 'UITests', 'OuchiMaintenance.xcodeproj']:

@@ -264,12 +264,32 @@ final class LargeTextInteractionTests: XCTestCase {
 
     // Diagnose the two reported findings without hiding or filtering any node.
     // These focused categories do not replace the failed seven-category full audit.
+    private func retainTaskAuditIssue(_ issue: XCUIAccessibilityAuditIssue,
+                                      in app: XCUIApplication) -> Bool {
+        let element = issue.element
+        let elementDescription = element?.debugDescription ?? "unavailable"
+        let details = "Description: \(issue.detailedDescription)\n" +
+            "Element: \(elementDescription)\n" +
+            "Frame: \(String(describing: element?.frame))\n" +
+            "Navigation: \(app.navigationBars.firstMatch.frame)\n" +
+            "Tabs: \(app.tabBars.firstMatch.frame)\n" +
+            "App: \(app.frame)\nTree: \(app.debugDescription)"
+        let attachment = XCTAttachment(string: details)
+        attachment.name = "task-audit-issue-geometry"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        NSLog("Task audit geometry: %@", details)
+        return false // Always report the finding; never suppress an issue.
+    }
+
     func testVisibleTaskProductClipping() {
         let app = launch(tab: 1, releaseLayout: true)
         let product = app.staticTexts["空気清浄機（サンプル）"]
         reach(product, in: app)
         capture(app, name: "task-product-fully-visible")
-        do { try app.performAccessibilityAudit(for: .textClipped) }
+        do { try app.performAccessibilityAudit(for: .textClipped) { issue in
+            self.retainTaskAuditIssue(issue, in: app)
+        } }
         catch { XCTFail("Visible task product clipping audit failed: \(error)") }
         app.terminate()
     }
@@ -279,7 +299,9 @@ final class LargeTextInteractionTests: XCTestCase {
         let due = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次回 ")).firstMatch
         reach(due, in: app)
         capture(app, name: "task-next-date-fully-visible")
-        do { try app.performAccessibilityAudit(for: .contrast) }
+        do { try app.performAccessibilityAudit(for: .contrast) { issue in
+            self.retainTaskAuditIssue(issue, in: app)
+        } }
         catch { XCTFail("Visible next date contrast audit failed: \(error)") }
         app.terminate()
     }

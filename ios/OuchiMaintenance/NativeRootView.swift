@@ -224,6 +224,46 @@ private struct AdaptiveNavigationTitle: ViewModifier {
     }
 }
 
+/// Ask the same multiline text renderer for both wrapping and required height.
+/// No font shrinking, line cap, fixed device width or accessibility override.
+private struct WrappingProductName: UIViewRepresentable {
+    let text: String
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = .label
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        label.text = text
+        label.font = UIFont.preferredFont(forTextStyle: .subheadline,
+                                          compatibleWith: label.traitCollection)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel,
+                     context: Context) -> CGSize? {
+        guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+#if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "OUCHI_REVIEW_SAMPLE_DATA") as? String == "YES",
+           let font = label.font {
+            let rect = (text as NSString).boundingRect(
+                with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font], context: nil)
+            NSLog("Sample product typography: width=%.2f labelHeight=%.2f pointSize=%.2f lineHeight=%.2f stringHeight=%.2f",
+                  width, size.height, font.pointSize, font.lineHeight, rect.height)
+        }
+#endif
+        return CGSize(width: width, height: ceil(size.height))
+    }
+}
+
 private struct CareList: View {
     @EnvironmentObject private var store: NativeStore
     var body: some View {
@@ -237,10 +277,7 @@ private struct CareList: View {
                         Section {
                             NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
                             // Independent List rows keep each metadata item measurable and scrollable.
-                            Text(data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
-                                .font(.subheadline).foregroundStyle(.primary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
+                            WrappingProductName(text: data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
                                 .padding(.vertical, 8)
                             Text("次回 \(task.nextDueAt)")
                                 .font(.subheadline).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
@@ -1999,5 +2036,3 @@ private struct ExplicitEnrollmentView: View {
         }
     }
 }
-
-
