@@ -6,12 +6,16 @@ import {seedClosureReauthenticationDatabase} from './fixtures/closure-reauth-dat
 import {owner,recipient,home,product,oe} from './fixtures/home-handoff-identifiers.mjs';
 import {withSharedMaintenanceClosureMetadata as boundary} from '../lib/shared-maintenance-closure-metadata.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
+import {seedSharedNativeMetadata,metadataTables,metadataRows} from './fixtures/shared-native-metadata.mjs';
 
-async function fixture(){
+const seedMetadata=db=>seedSharedNativeMetadata(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
+
+async function fixture(beforeFreeze=async()=>{}){
  const db=await seedClosureReauthenticationDatabase();await db.exec('reset role;delete from public.home_members');
  const native={requestID:randomUUID(),userID:owner,epochID:oe,leaseToken:randomUUID()};
  const shared={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'d'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:native.requestID,scopeID:oe}]};
  const inventory={...shared};delete inventory.leaseToken;
+ await beforeFreeze(db,native);
  // Legitimate preparation precedes the stop fence. It is not a stopped-writer
  // exception and is not a claim of full production writer/session coverage.
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,inventory_captured) values($1,$2,$3,'running',$4,clock_timestamp()+interval '5 minutes',true)",[native.requestID,owner,oe,native.leaseToken]);
@@ -48,6 +52,55 @@ test('canonical native SQL stages run with stopped-writer guards, bounded author
   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.shared_native_stage_contexts')).rows[0].n,0);
   assert.equal((await f.db.query('select count(*)::int n from auth.users where id=$1',[owner])).rows[0].n,1);
   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[recipient])).rows[0].n,1);
+ }finally{await f.db.close();}
+});
+
+test('identity finalization clears all thirteen Ouchi metadata categories across retained epochs and preserves the bystander',async()=>{
+ const f=await fixture(seedMetadata);try{
+  const foreign=await metadataRows(f.db,recipient),own=await metadataRows(f.db,owner);
+  assert.ok(Object.values(own).every(rows=>rows.length===2));
+  assert.ok(Object.values(foreign).every(rows=>rows.length===1));
+  for(const phase of ['eraseRecords','captureReceiptSessions','eraseIdentity'])assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,phase,tx=>f.stage(tx,phase),f.gates)),true);
+  assert.ok(Object.values(await metadataRows(f.db,owner)).every(rows=>rows.length===0));
+  assert.deepEqual(await metadataRows(f.db,recipient),foreign);
+  assert.equal((await f.db.query('select count(*)::int n from auth.users where id in($1,$2)',[owner,recipient])).rows[0].n,2);
+  assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,'markComplete',tx=>f.stage(tx,'markComplete'),f.gates)),true);
+ }finally{await f.db.close();}
+});
+
+test('unknown restoration, mismatched ledger and final identity refusal roll back earlier metadata cleanup',async()=>{
+ for(const fault of ['restore','ledger','device']){
+  const f=await fixture(async(db)=>{
+   await seedMetadata(db);
+   if(fault==='restore')await db.query("update maintenance_private.restore_transfer_jobs set phase='update_started',mutation_started_at=authorized_at where user_id=$1",[owner]);
+   if(fault==='ledger')await db.query('update maintenance_private.verified_notifications set app_epoch_id=$1 where user_id=$2',[randomUUID(),owner]);
+   if(fault==='device')await db.query("insert into maintenance_private.native_notification_devices(user_id,app_epoch_id,environment,device_token,topic) values($1,$2,'Sandbox',$3,'jp.ouchi.maintenance')",[owner,oe,'a'.repeat(64)]);
+  });try{
+   for(const phase of ['eraseRecords','captureReceiptSessions'])assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,phase,tx=>f.stage(tx,phase),f.gates)),true);
+   const own=await metadataRows(f.db,owner),foreign=await metadataRows(f.db,recipient);
+   await assert.rejects(f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseIdentity',tx=>f.stage(tx,'eraseIdentity'),f.gates)),/Native account metadata stage unconfirmed|Native stage write refused/);
+   assert.deepEqual(await metadataRows(f.db,owner),own);
+   assert.deepEqual(await metadataRows(f.db,recipient),foreign);
+   assert.equal((await f.db.query('select identity_erased from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows[0].identity_erased,false);
+   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.shared_native_stage_contexts')).rows[0].n,0);
+  }finally{await f.db.close();}
+ }
+});
+
+test('metadata stage refuses every foreign category, wrong-phase erasure and preference updates',async()=>{
+ const f=await fixture(seedMetadata);try{
+  const own=await metadataRows(f.db,owner),foreign=await metadataRows(f.db,recipient);
+  for(const table of metadataTables)for(const [phase,user] of [['eraseIdentity',recipient],['eraseRecords',owner]]){
+   await assert.rejects(f.transaction(async tx=>{
+    await tx.query("insert into maintenance_private.shared_native_stage_contexts values(pg_backend_pid(),txid_current(),$1,$2,$3,$4,$5,clock_timestamp()+interval '10 seconds')",[f.shared,f.native.requestID,oe,f.native.leaseToken,phase]);
+    await tx.query(`delete from maintenance_private.${table} where user_id=$1`,[user]);
+   }),/Native stage write refused/);
+  }
+  await assert.rejects(f.transaction(async tx=>{
+   await tx.query("insert into maintenance_private.shared_native_stage_contexts values(pg_backend_pid(),txid_current(),$1,$2,$3,$4,'eraseIdentity',clock_timestamp()+interval '10 seconds')",[f.shared,f.native.requestID,oe,f.native.leaseToken]);
+   await tx.query('update maintenance_private.notification_channels set revision=2 where user_id=$1',[owner]);
+  }),/Native stage write refused/);
+  assert.deepEqual(await metadataRows(f.db,owner),own);assert.deepEqual(await metadataRows(f.db,recipient),foreign);
  }finally{await f.db.close();}
 });
 

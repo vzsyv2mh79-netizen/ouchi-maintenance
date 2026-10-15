@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createClient} from '@supabase/supabase-js';
 import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared-maintenance-closure-metadata.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
+import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
 /** Actual local GoTrue/PG/Storage; shared receipts/enrollment/retention are
  * privileged SYNTHETIC fixtures. Not live coverage, role, SLA or Auth-erasure proof.
  */
@@ -43,6 +44,11 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,inventory_captured) values($1,$2,$3,'running',$4,clock_timestamp()+interval '5 minutes',true)",[native.requestID,actor.user,actor.epoch,native.leaseToken]);
  await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[actor.user,shared,native.leaseToken]);
  for(const epoch of [actor.epoch,randomUUID()])await db.query('insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values($1,$2,$3)',[actor.user,epoch,randomUUID()]);
+ const bystander=await account();
+ await seedSharedNativeMetadata(db,[[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]]);
+ const keptMetadata=await metadataRows(db,bystander.user);
+ assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===2));
+ assert.ok(Object.values(keptMetadata).every(rows=>rows.length===1));
  await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[actor.user]);
  await db.query('update maintenance_private.app_epochs set enabled=false where user_id=$1',[actor.user]);
  if(approved)await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-shared-boundary-test',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[native.requestID]);
@@ -91,6 +97,9 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),0);
  assert.equal((await actor.client.auth.getUser()).error,null,'original real Auth remains current');
  for(const phase of ['captureReceiptSessions','eraseIdentity'])assert.equal(await transaction(tx=>boundary(tx,shared,native,phase,tx=>stage(tx,phase),gates)),true);
+ assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===0));
+ assert.deepEqual(await metadataRows(db,bystander.user),keptMetadata);
+ assert.equal((await bystander.client.auth.getUser()).error,null);
  await db.query('insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values($1,$2,$3)',[actor.user,randomUUID(),randomUUID()]);
  const complete=tx=>stage(tx,'markComplete');
  if(!approved){
@@ -105,5 +114,5 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  const kept=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
  assert.equal((await actor.client.auth.getUser()).error,null);
  }
- console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic shared receipts/coverage/retention, no shared Auth erasure or live role/SLA proof');
+ console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic enrollment/Apple material/shared receipts/coverage/retention, no shared Auth erasure or live role/SLA proof');
 }

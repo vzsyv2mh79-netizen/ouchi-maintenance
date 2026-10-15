@@ -81,6 +81,23 @@ begin
   return next_value->>'request_id'=c.native_request::text;
  end if;
  if c.stage='eraseIdentity' and sch='maintenance_private' and op='DELETE' then
+  -- Canonical finalization also removes Ouchi-only settings/proofs across this
+  -- actor's retained epochs. No insert/update or unrelated-user exception.
+  if tbl in('reconciliation_jobs','reminder_schedules','notification_channels','enrollment_consents',
+   'attest_registration_challenges','restore_attested_keys','restore_challenges','restore_cancelled_requests') then
+   return prior->>'user_id'=u::text;
+  elsif tbl='restore_transfer_jobs' then
+   return prior->>'user_id'=u::text and prior->>'phase' in('authorized','completed');
+  elsif tbl='account_deletion_objects' then
+   return prior->>'request_id'=c.native_request::text and prior->>'absence_confirmed'='true';
+  elsif tbl in('verified_transactions','verified_renewals','verified_notifications') then
+   return prior->>'user_id'=u::text and (
+    (tbl='verified_notifications' and prior->>'original_transaction_id' is null)
+    or exists(select 1 from maintenance_private.transaction_ownership o
+     where o.environment=prior->>'environment' and o.original_transaction_id=prior->>'original_transaction_id'
+     and o.user_id=u and o.app_epoch_id::text=prior->>'app_epoch_id'));
+  elsif tbl='transaction_ownership' then return prior->>'user_id'=u::text;
+  end if;
   if tbl='app_session_epochs' then return prior->>'user_id'=u::text;
   elsif tbl='app_epochs' then return prior->>'user_id'=u::text and prior->>'epoch_id'=c.native_epoch::text and prior->>'enabled'='false';
   elsif tbl='account_access' then return prior->>'user_id'=u::text and prior->>'enabled'='false';end if;
@@ -140,7 +157,30 @@ begin
  if (maintenance_private.current_shared_native_stage()).backend_pid is null then raise exception 'Current shared/native stage authority required';end if;
  if phase='eraseRecords' then ok:=public.erase_maintenance_deletion_records(r.id,r.user_id,r.app_epoch_id,n);
  elsif phase='captureReceiptSessions' then ok:=public.capture_maintenance_deletion_receipt_sessions(r.id,r.user_id,r.app_epoch_id,n);
- elsif phase='eraseIdentity' then ok:=public.erase_maintenance_deletion_identity(r.id,r.user_id,r.app_epoch_id,n);
+ elsif phase='eraseIdentity' then
+  -- Keep the established canonical erasure sequence on this SAME connection.
+  -- An unknown restore job, corrupt ledger or missing absence proof aborts the
+  -- entire statement; earlier preference erasures cannot commit on false.
+  ok:=public.erase_maintenance_deletion_reconciliation(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_reminder_schedule(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_notifications(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_enrollment_consents(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_prior_preferences(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_restore_jobs(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_restore_proofs(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.minimize_maintenance_deletion_object_inventory(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_purchase_ledger(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_identity(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native account metadata stage unconfirmed';end if;
  else ok:=public.complete_maintenance_account_deletion(r.id,r.user_id,r.app_epoch_id,n);end if;
  delete from maintenance_private.shared_native_stage_contexts where backend_pid=pg_backend_pid() and transaction_id=txid_current();
  return ok;
