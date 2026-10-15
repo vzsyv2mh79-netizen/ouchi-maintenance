@@ -4,6 +4,51 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    func testDeletionFamilyRefusalRequiresExactBodyAndSubmissionResponse() async throws {
+        let epoch = UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
+        let cases = [
+            ("{\"error\":\"Family handoff required\",\"code\":\"family_handoff_required\"}", true),
+            ("{\"error\":\"Family handoff required\"}", false),
+            ("{\"error\":\"unknown\",\"code\":\"family_handoff_required\"}", false),
+            ("{\"error\":\"Family handoff required\",\"code\":\"family_handoff_required\",\"requestID\":\"unexpected\"}", false)
+        ]
+        for (body, exact) in cases {
+            let api = AccountDeletionAPI { request in
+                (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 409, httpVersion: nil, headerFields: nil)!)
+            }
+            do { _ = try await api.request(password: "synthetic", token: "synthetic", expectedEpochID: epoch); XCTFail("Refusal cannot accept deletion") }
+            catch {
+                if exact { XCTAssertEqual(error as? AccountDeletionError, .familyHandoffRequired) }
+                else { XCTAssertEqual(error as? CloudError, .rejected(409)) }
+            }
+            do { _ = try await api.currentProgress(token: "synthetic"); XCTFail("GET refusal is not an empty current request") }
+            catch { XCTAssertEqual(error as? CloudError, .rejected(409)) }
+        }
+    }
+
+    @MainActor func testDeletionFamilyRefusalLeavesNoAcceptedReceiptOrBusyState() async throws {
+        let account = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let epoch = UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
+        let api = AccountDeletionAPI { request in
+            let body = request.httpMethod == "GET"
+                ? "{\"state\":\"not_requested\",\"userID\":\"\(account.uuidString)\",\"epochID\":\"\(epoch.uuidString)\"}"
+                : "{\"error\":\"Family handoff required\",\"code\":\"family_handoff_required\"}"
+            return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: request.httpMethod == "GET" ? 200 : 409, httpVersion: nil, headerFields: nil)!)
+        }
+        let flow = AccountDeletionFlow(api: api); flow.bind(accountID: account, epochID: epoch)
+        do { _ = try await flow.submit(password: "synthetic", token: "synthetic"); XCTFail("Family refusal must not become a receipt") }
+        catch { XCTAssertEqual(error as? AccountDeletionError, .familyHandoffRequired) }
+        XCTAssertNil(flow.receipt); XCTAssertFalse(flow.busy)
+    }
+
+    func testRedirectedFamilyRefusalCannotBeTrusted() async throws {
+        let api = AccountDeletionAPI { _ in
+            (Data("{\"error\":\"Family handoff required\",\"code\":\"family_handoff_required\"}".utf8), HTTPURLResponse(url: URL(string: "https://example.invalid/redirected")!, statusCode: 409, httpVersion: nil, headerFields: nil)!)
+        }
+        do { _ = try await api.request(password: "synthetic", token: "synthetic", expectedEpochID: UUID()); XCTFail("Redirect refused") }
+        catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+    }
+
     func testReminderCleanupKeepsForeignAccountAndUnknownLegacyNotifications() {
         let account = UUID(), other = UUID(), nonce = UUID().uuidString
         let owned = "ouchi.local.\(account.uuidString.lowercased()).\(nonce).0"

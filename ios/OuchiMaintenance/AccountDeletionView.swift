@@ -289,6 +289,10 @@ import Security
                 guard expected == activeBinding, !Task.isCancelled else { return }
                 cleanupPending = !cleaned
             }
+        } catch AccountDeletionError.familyHandoffRequired {
+            guard expected == activeBinding, !Task.isCancelled else { return }
+            receipt = nil; cleanupPending = false
+            message = "家族と共有している住まいがあります。家族に管理を引き継いでから、削除を申請してください。今回の申請は受け付けられていません。"
         } catch {
             guard expected == activeBinding, !Task.isCancelled else { return }
             message = "申請の結果を確認できません。再申請する前に状況を確認してください。"

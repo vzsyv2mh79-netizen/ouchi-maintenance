@@ -134,6 +134,45 @@ public actor SessionController {
     }
     /// Device-local identity for offline viewing only; not remote authorization.
     public func localAccount() -> UUID? { session?.user.id }
+    /// Read factor information only for the login that initiated the request.
+    /// A delayed response after logout, restore, or token replacement is discarded.
+    public func totpFactors(api: TOTPVerificationAPI, expectedAccount: UUID) async throws -> [TOTPFactor] {
+        let expected = generation
+        let current = try await credentials()
+        guard generation == expected, current.user.id == expectedAccount else { throw CloudError.authenticationRequired }
+        let result = try await api.factors(token: current.access_token, accountID: expectedAccount)
+        try Task.checkCancellation()
+        guard generation == expected, session?.user.id == expectedAccount,
+              session?.access_token == current.access_token else { throw CloudError.authenticationRequired }
+        return result
+    }
+    public func totpChallenge(api: TOTPVerificationAPI, factorID: UUID, expectedAccount: UUID) async throws -> TOTPChallenge {
+        let expected = generation
+        let current = try await credentials()
+        guard generation == expected, current.user.id == expectedAccount else { throw CloudError.authenticationRequired }
+        let result = try await api.challenge(factorID: factorID, token: current.access_token, accountID: expectedAccount)
+        try Task.checkCancellation()
+        guard generation == expected, session?.user.id == expectedAccount,
+              session?.access_token == current.access_token else { throw CloudError.authenticationRequired }
+        return result
+    }
+    /// Promote only this exact current login after server TOTP verification.
+    /// This is session custody, never proof that a handoff/deletion is authorized.
+    public func verifyTOTP(api: TOTPVerificationAPI, challenge: TOTPChallenge, code: String, expectedAccount: UUID) async throws {
+        let expected = generation
+        let current = try await credentials()
+        guard generation == expected, current.user.id == expectedAccount else { throw CloudError.authenticationRequired }
+        let promoted = try await api.verify(challenge, code: code, token: current.access_token, accountID: expectedAccount)
+        try Task.checkCancellation()
+        guard generation == expected, session?.user.id == expectedAccount,
+              session?.access_token == current.access_token else { throw CloudError.authenticationRequired }
+        // Invalidate any suspended refresh before writing promoted credentials.
+        generation += 1; refreshTask?.cancel(); refreshTask = nil
+        let encoded = try JSONEncoder().encode(promoted)
+        try storage.write(encoded)
+        guard try storage.read() == encoded else { throw CloudError.unavailable }
+        session = promoted
+    }
     public func credentials(now: Date = Date()) async throws -> Session {
         guard let current = session else { throw CloudError.authenticationRequired }
         if current.expires_at > now.timeIntervalSince1970 + 60 { return current }

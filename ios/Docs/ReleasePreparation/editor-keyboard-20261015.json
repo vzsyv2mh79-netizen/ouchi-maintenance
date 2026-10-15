@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-15",
+  "status": "sample_editor_keyboard_verified",
+  "device": "iPhone 17e",
+  "runtime": "iOS 27.0",
+  "textSize": "accessibility-extra-large",
+  "appearance": "dark",
+  "sourceDigest": "e5266f8e7953a8ea68973666374ddb82b6b6b1de",
+  "testHarnessDigest": "918afbc88a4ef59da06e8066087aded9649c186679dc083e2ba4c47242f4e7c5",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "ownedSimulatorRemoved": true,
+  "assertions": [
+    "Actual software keyboard exists, hittable and at least 100 points visible after scrolling and typing",
+    "Entire model field stays at least 8 points above keyboard",
+    "Back navigation without save preserves original sample model"
+  ],
+  "screenshotsReviewed": 2,
+  "images": [
+    {
+      "name": "editor-keyboard-model-visible",
+      "width": 1170,
+      "height": 2532
+    },
+    {
+      "name": "editor-cancel-original-record",
+      "width": 1170,
+      "height": 2532
+    }
+  ],
+  "limitations": [
+    "Synthetic in-memory sample with review header; not live cloud persistence",
+    "Not horizontal orientation, all text sizes, VoiceOver or physical device",
+    "Not a signed release or final App Store image"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false
+}

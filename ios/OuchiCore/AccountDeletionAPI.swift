@@ -8,6 +8,8 @@ private final class DeletionRedirectBlocker: NSObject, URLSessionTaskDelegate, @
 }
 
 /// Prepared client only. No deletion screen or production server route is enabled.
+public enum AccountDeletionError: Error, Equatable { case familyHandoffRequired }
+
 public struct AccountDeletionAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let origin: String
@@ -79,6 +81,14 @@ public struct AccountDeletionAPI: Sendable {
         try Task.checkCancellation()
         guard response.url == url, data.count <= 4096 else { throw CloudError.malformedResponse }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
+        if body != nil && response.statusCode == 409 {
+            let refusal = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            if let refusal, Set(refusal.keys) == ["error", "code"],
+               refusal["code"] as? String == "family_handoff_required",
+               refusal["error"] as? String == "Family handoff required" {
+                throw AccountDeletionError.familyHandoffRequired
+            }
+        }
         guard response.statusCode == (body == nil ? 200 : 202) else { throw CloudError.rejected(response.statusCode) }
         return (data, response.statusCode)
     }
