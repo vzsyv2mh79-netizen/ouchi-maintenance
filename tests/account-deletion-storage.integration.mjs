@@ -449,6 +449,22 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   // Simulate a process lost after actual Auth success: no SDK logout here.
   const temporaryClients=[];const requestDeps=deletionRequestDependencies(admin,()=>{const client=createClient(origin,'synthetic-public-key',options);temporaryClients.push(client);return client;});
   const wrongPassword=new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer '+signup.data.session.access_token},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',expectedEpochID:epoch.data,password:'Wrong-synthetic-password'})});assert.equal((await handleAccountDeletionRequest(wrongPassword,requestDeps)).status,403);
+  // Family guards now run in this baseline too. A populated shared household
+  // must refuse closure before enqueue; do not weaken the guard for this test.
+  const familyBlocked=await handleAccountDeletionRequest(deletionRequest(),requestDeps);
+  assert.equal(familyBlocked.status,409);assert.equal((await familyBlocked.json()).code,'family_handoff_required');
+  assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_requests where user_id='${userID}';`).trim(),'0');
+  const attachmentSnapshot=()=>recoverySql(`select coalesce(jsonb_agg(to_jsonb(f) order by id),'[]'::jsonb) from maintenance_private.product_attachments f where id in('${file}','${lateFile}');`).trim();
+  const beforeMemberLeaves=attachmentSnapshot();
+  // This synthetic member voluntarily leaves using their own live session.
+  // Family-preserving handoff is independently exercised in the Family suite;
+  // the remaining fixture below tests a now sole-resident household erasure.
+  const left=await other.from('home_members').delete().eq('homeId',home).eq('user_id',otherSignup.data.user.id);
+  assert.equal(left.error,null);
+  const membersAfterLeaving=await user.from('home_members').select('user_id').eq('homeId',home).eq('user_id',otherSignup.data.user.id);
+  assert.equal(membersAfterLeaving.error,null);assert.deepEqual(membersAfterLeaving.data,[]);
+  assert.equal(attachmentSnapshot(),beforeMemberLeaves,'leaving alone must not erase attachment inventory');
+  assert.equal((await other.auth.getUser()).error,null);
   const submitted=await handleAccountDeletionRequest(deletionRequest(),requestDeps);assert.equal(submitted.status,202);const submittedBody=await submitted.json();assert.equal(submittedBody.state,'pending');assert.equal(submittedBody.epochID,epoch.data);const requested={data:submittedBody.requestID};
   const retrySubmitted=await handleAccountDeletionRequest(deletionRequest(),requestDeps);assert.equal(retrySubmitted.status,202);assert.equal((await retrySubmitted.json()).requestID,requested.data);assert.equal((await user.auth.getUser()).error,null);for(const temporary of temporaryClients){const session=await temporary.auth.getSession();assert.equal(session.error,null);assert.equal(session.data.session,null);}
   // Other earlier integration fixtures share this disposable database. Keep their
@@ -466,6 +482,11 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal(await dispatchRegisteredSandboxPush(nativeRegistered.data,1,Date.now()+1000,dispatchDeps),'skipped');assert.equal(syntheticSends,2);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.ok((await admin.rpc('register_maintenance_native_push',nativeArgs)).error);
   assert.equal((await admin.rpc('can_dispatch_maintenance_push',dispatchArgs)).data,false);assert.equal((await admin.rpc('can_dispatch_maintenance_push_test',testDispatchArgs)).data,false);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,false,'unconfirmed Web send cannot be discarded');
+  assert.equal((await admin.from('maintenance_push_subscriptions').select('claim_token').eq('id',pushID)).data[0].claim_token,pushLease);
+  // Synthetic late sender acknowledgement through the existing canonical RPC.
+  // No actual Web notification is sent or claimed verified by this fixture.
+  assert.equal((await admin.rpc('finish_maintenance_push',{subscription_id:pushID,delivery_token:pushLease,delivery_day:'2026-10-15',delivered:true,expired:false})).error,null);
   assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_web_push',args)).data,true);const gonePush=await admin.from('maintenance_push_subscriptions').select('id').eq('id',pushID);assert.equal(gonePush.error,null);assert.deepEqual(gonePush.data,[]);
   const sharedClosed=await other.from('products').select('id').eq('id',product);assert.equal(sharedClosed.error,null);assert.deepEqual(sharedClosed.data,[]);
   assert.ok((await other.from('products').insert({id:randomUUID(),homeId:home,categoryId:'air',name:'Blocked synthetic write'})).error);
@@ -487,7 +508,16 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
   const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
-  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_native_delivery_identities',args)).data,true);
+  assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);
+  assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,false,'unknown native sends must remain until an exact late acknowledgement');
+  const unresolved=JSON.parse(recoverySql(`select coalesce(jsonb_agg(jsonb_build_object('id',j.id,'lease',j.lease_id)),'[]'::jsonb) from maintenance_private.native_notification_jobs j join maintenance_private.native_notification_devices d on d.id=j.device_id where d.user_id='${userID}' and (j.state='unknown' or (j.state='claimed' and j.send_started_at is not null));`).trim());
+  assert.ok(unresolved.some(row=>row.id===racingJob));
+  for(const row of unresolved){
+   assert.ok([racingJob,delayedInvalidationJob].includes(row.id),'only the known synthetic uncertain sends may be reconciled here');
+   const acknowledged=await admin.rpc('finish_maintenance_native_push_job',{target_job:row.id,target_lease:row.lease,outcome:'accepted'});
+   assert.equal(acknowledged.error,null);assert.equal(acknowledged.data,true);
+  }
+  assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_native_delivery_identities',args)).data,true);
   // Removing currently absent files cannot acknowledge a still-running upload.
   await assert.rejects(()=>erase(admin,scope),/Object (acknowledgement unavailable|removal not confirmed)/);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);

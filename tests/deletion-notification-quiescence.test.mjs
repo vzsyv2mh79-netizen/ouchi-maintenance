@@ -50,3 +50,28 @@ test('known quiet registrations retire across epochs without changing another ac
   assert.equal((await f.db.query('select count(*)::int n from auth.users where id in($1,$2)',[owner,recipient])).rows[0].n,2);
  }finally{await f.db.close();}
 });
+
+test('exact late sender acknowledgements resolve uncertainty before registration retirement',async()=>{
+ const f=await fixture();try{
+  const webLease=randomUUID();
+  await f.db.query("update public.maintenance_push_subscriptions set claim_token=$1,claimed_until=clock_timestamp()-interval '1 hour' where user_id=$2",[webLease,owner]);
+  const subscriptions=(await f.db.query('select id from public.maintenance_push_subscriptions where user_id=$1',[owner])).rows;
+  assert.equal(await f.erase('web_push'),false);
+  for(const row of subscriptions){
+   const args=[row.id,randomUUID()];
+   await f.db.query('select public.finish_maintenance_push($1,$2,current_date,true,false)',args);
+   assert.equal((await f.db.query('select claim_token from public.maintenance_push_subscriptions where id=$1',[row.id])).rows[0].claim_token,webLease);
+   await f.db.query('select public.finish_maintenance_push($1,$2,current_date,true,false)',[row.id,webLease]);
+  }
+  assert.equal(await f.erase('web_push'),true);
+  const jobs=(await f.db.query('select j.id from maintenance_private.native_notification_jobs j join maintenance_private.native_notification_devices d on d.id=j.device_id where d.user_id=$1',[owner])).rows;
+  const nativeLease=randomUUID();
+  await f.db.query("update maintenance_private.native_notification_jobs set state='unknown',lease_id=$1,lease_until=clock_timestamp()-interval '1 hour',send_started_at=clock_timestamp()-interval '2 hours' where device_id in(select id from maintenance_private.native_notification_devices where user_id=$2)",[nativeLease,owner]);
+  assert.equal(await f.erase('native_push'),false);
+  for(const row of jobs){
+   assert.equal((await f.db.query("select public.finish_maintenance_native_push_job($1,$2,'accepted') accepted",[row.id,randomUUID()])).rows[0].accepted,false);
+   assert.equal((await f.db.query("select public.finish_maintenance_native_push_job($1,$2,'accepted') accepted",[row.id,nativeLease])).rows[0].accepted,true);
+  }
+  assert.equal(await f.erase('native_push'),true);
+ }finally{await f.db.close();}
+});
