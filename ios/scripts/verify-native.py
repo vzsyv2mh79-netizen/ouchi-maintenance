@@ -59,7 +59,10 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     manifest_path = root / 'OuchiMaintenance/PrivacyInfo.xcprivacy'
     run(['plutil', '-lint', manifest_path])
     manifest = plistlib.loads(manifest_path.read_bytes())
-    assert manifest['NSPrivacyAccessedAPITypes'] == [{
+    assert sorted(manifest['NSPrivacyAccessedAPITypes'],
+                  key=lambda entry: entry['NSPrivacyAccessedAPIType']) == [{
+        'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryFileTimestamp',
+        'NSPrivacyAccessedAPITypeReasons': ['C617.1']}, {
         'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults',
         'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}]
     project_bytes = subprocess.check_output(['plutil', '-convert', 'xml1', '-o', '-',
