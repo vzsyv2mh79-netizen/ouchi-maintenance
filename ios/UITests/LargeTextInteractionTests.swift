@@ -185,6 +185,8 @@ final class LargeTextInteractionTests: XCTestCase {
         // label/value row. Reach the row people hear, including its count.
         let overdue = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "期限を過ぎたお手入れ", "件")).firstMatch
         reach(overdue, in: app)
+        let reload = app.navigationBars.buttons["最新の記録を読み込む"]
+        XCTAssertTrue(reload.isHittable, "Reload stays reachable after scrolling the home list")
         capture(app, name: "overdue-label-entirely-above-tab-bar")
         do {
             try app.performAccessibilityAudit(for: [.contrast, .dynamicType, .elementDetection,

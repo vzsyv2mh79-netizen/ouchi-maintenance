@@ -916,18 +916,6 @@ private struct HomeDashboard: View {
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 List {
                     HomePicker()
-                    Section {
-                        Button {
-                            Task { await store.reload() }
-                        } label: {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Image(systemName: "arrow.clockwise").accessibilityHidden(true)
-                                Text(store.busy ? "記録を更新中…" : "最新の記録を読み込む")
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .disabled(store.busy)
-                    }
                     if let data = store.household {
                         let overview = data.overview(home: store.homeID, now: context.date)
                         Section(overview.today) {
@@ -954,6 +942,16 @@ private struct HomeDashboard: View {
                     }
                 }.refreshable { await store.reload() }
             }.navigationTitle("おうちメンテ").modifier(AdaptiveNavigationTitle())
+             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("最新の記録を読み込む", systemImage: "arrow.clockwise") {
+                        Task { await store.reload() }
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityValue(store.busy ? "更新中" : "")
+                    .disabled(store.busy)
+                }
+             }
         }
     }
 }
