@@ -15,10 +15,12 @@ import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdCon
 // Private disposable integration only. Real signed Auth/MFA is mandatory. No
 // production grant/route or peer source modification. The explicit-owner variant
 // requires a phase-bound removal of only the original owner's member row.
-// Former-uploader cases remain outside this two-file scene.
-export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,origin,bytes,clientForSignal,createSharedConsentIdentityVerifier,sharedIdentityOptions,tokens}){
+// Optional former-member upload remains at its original uploader path; that
+// account and its unrelated private home/file are never retirement targets.
+export async function createWholeOuchiFamilyServices({db,actor,recipient,formerUploader=null,admin,origin,bytes,clientForSignal,createSharedConsentIdentityVerifier,sharedIdentityOptions,tokens}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  for(const f of [clientForSignal,createSharedConsentIdentityVerifier])assert.equal(typeof f,'function');
+ assert.equal(!!formerUploader,process.env.OUCHI_WHOLE_FAMILY_FORMER_UPLOADER==='true');
  const explicitOwner=process.env.OUCHI_WHOLE_FAMILY_EXPLICIT_OWNER==='true';
  const home=randomUUID(),product=randomUUID(),task=randomUUID(),sha=createHash('sha256').update(bytes).digest('hex');
  const ok=r=>{assert.equal(r.error,null);return r.data;};
@@ -30,13 +32,14 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   await db.query('insert into public.homes(id,owner_id,name,kind) values($1,$2,$3,$4)',[home,actor.user,'Synthetic retained Ouchi family','home']);
   await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,recipient.user,'Synthetic receiver']);
   if(explicitOwner)await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,actor.user,'Synthetic original owner member']);
+  if(formerUploader)await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,formerUploader.user,'Synthetic prior uploader']);
   await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[product,home,'air','Synthetic retained family product']);
   await db.query('insert into public.maintenance_tasks(id,"productId",name,kind,"intervalDays","nextDueAt","sourceKind") values($1,$2,$3,$4,30,$5,$6)',[task,product,'Synthetic retained care',"\u6383\u9664",'2030-01-01',"\u30e6\u30fc\u30b6\u30fc\u8a2d\u5b9a"]);
   await db.query('insert into public.maintenance_history("taskId","productId","completedAt") values($1,$2,$3)',[task,product,'2026-01-01']);await db.query('commit');
  }catch(e){await db.query('rollback');throw e;}
  assert.deepEqual((await db.query("select nullif(current_setting('request.jwt.claims',true),'') claims,nullif(current_setting('request.jwt.claim.sub',true),'') subject")).rows[0],old);
  const source=[];
- for(const person of [actor,recipient]){
+ for(const person of [actor,recipient,...(formerUploader?[formerUploader]:[])]){
   const id=randomUUID(),path=`${person.user}/${person.epoch}/${id}.png`,identity={target_user:person.user,verified_session:person.session,expected_epoch:person.epoch};
   ok(await admin.rpc('reserve_maintenance_attachment',{...identity,target_product:product,attachment_id:id,byte_count:bytes.length,media_type:'image/png',measured_sha256:sha}));
   const attempt=randomUUID();ok(await admin.rpc('begin_maintenance_attachment_write',{...identity,target_attachment:id,target_attempt:attempt}));
@@ -44,6 +47,40 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   assert.equal(ok(await admin.rpc('settle_maintenance_attachment_write',{target_attachment:id,target_attempt:attempt})),true);
   ok(await admin.rpc('finalize_maintenance_attachment',{...identity,attachment_id:id,actual_bytes:bytes.length,verified_sha256:sha}));
   source.push({id,user:person.user,epoch:person.epoch,path});
+ }
+ let privateFile=null,privateState=null;
+ const readPrivate=async()=>{
+  if(!privateFile)return null;
+  const h=(await db.query('select * from public.homes where id=$1',[privateFile.home])).rows;
+  const p=(await db.query('select * from public.products where id=$1',[privateFile.product])).rows;
+  const f=(await db.query('select * from maintenance_private.product_attachments where id=$1',[privateFile.id])).rows;
+  const w=(await db.query('select * from maintenance_private.attachment_write_attempts where attachment_id=$1 order by attempt_id',[privateFile.id])).rows;
+  return JSON.parse(JSON.stringify({h,p,f,w}));
+ };
+ if(formerUploader){
+  const person=formerUploader,token=ok(await person.client.auth.getSession()).session.access_token;
+  const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'));
+  assert.equal(ok(await admin.auth.getUser(token)).user.id,person.user);assert.equal(claims.sub,person.user);assert.equal(claims.session_id,person.session);
+  privateFile={home:randomUUID(),product:randomUUID(),id:randomUUID()};privateFile.path=`${person.user}/${person.epoch}/${privateFile.id}.png`;
+  await db.query('begin');try{
+   await db.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify(claims),person.user]);
+   assert.equal((await db.query('select auth.uid() id')).rows[0].id,person.user);
+   await db.query('insert into public.homes(id,owner_id,name,kind) values($1,$2,$3,$4)',[privateFile.home,person.user,'Synthetic former uploader private home','home']);
+   await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[privateFile.product,privateFile.home,'air','Synthetic unrelated former uploader product']);
+   assert.equal((await db.query('delete from public.home_members where "homeId"=$1 and user_id=$2 returning user_id',[home,person.user])).rowCount,1);
+   await db.query('commit');
+  }catch(e){await db.query('rollback');throw e;}
+  assert.deepEqual((await db.query("select nullif(current_setting('request.jwt.claims',true),'') claims,nullif(current_setting('request.jwt.claim.sub',true),'') subject")).rows[0],old);
+  const who={target_user:person.user,verified_session:person.session,expected_epoch:person.epoch},attempt=randomUUID();
+  ok(await admin.rpc('reserve_maintenance_attachment',{...who,target_product:privateFile.product,attachment_id:privateFile.id,byte_count:bytes.length,media_type:'image/png',measured_sha256:sha}));
+  ok(await admin.rpc('begin_maintenance_attachment_write',{...who,target_attachment:privateFile.id,target_attempt:attempt}));
+  ok(await admin.storage.from('ouchi-product-attachments').upload(privateFile.path,bytes,{contentType:'image/png',upsert:false}));
+  assert.equal(ok(await admin.rpc('settle_maintenance_attachment_write',{target_attachment:privateFile.id,target_attempt:attempt})),true);
+  ok(await admin.rpc('finalize_maintenance_attachment',{...who,attachment_id:privateFile.id,actual_bytes:bytes.length,verified_sha256:sha}));
+  privateState=await readPrivate();assert.equal(privateState.f.length,1);assert.equal(privateState.w.length,1);
+  const formerFile=source.find(f=>f.user===person.user);assert.ok(formerFile);
+  assert.equal(ok(await admin.rpc('read_maintenance_attachment',{...who,attachment_id:formerFile.id})),null);
+  console.log('whole Ouchi family: third member uploaded before leaving; original family now excludes that member, unrelated private home and file retained for comparison');
  }
  const snapshot=async tx=>(await tx.query('select maintenance_private.household_family_snapshot($1) value',[home])).rows[0].value;
  const initialSnapshot=await snapshot(db);
@@ -84,7 +121,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
  const events=[];const key=randomBytes(32);let preparations=0,copies=0,activations=0,removals=0,finishes=0,tamperActivation=true,lastActivationFailure=null,originalProofDigest=null;
  const proofDigest=async()=>createHash('sha256').update(JSON.stringify({household:(await db.query('select actor_id,token,revoked_at from maintenance_private.household_handoff_consents where home_id=$1 order by actor_id',[home])).rows,inventory:(await db.query('select actor_id,token,revoked_at from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id',[root.requestID,home])).rows})).digest('hex');
  let lockOrderProved=false;
- const locks=async tx=>{await tx.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);for(const id of [actor.user,recipient.user].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);};
+ const locks=async tx=>{await tx.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);for(const id of [...new Set([actor.user,recipient.user,...source.map(f=>f.user)])].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);};
  const frozenAuthority=async(tx,s,p,signal)=>{
   signal.throwIfAborted();if(!same(s,scope)||p.homeID!==home)return false;
   const fixed={...root};delete fixed.leaseToken;
@@ -105,7 +142,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    if(![actor.user,recipient.user].includes(who.userID))return false;await locks(checked);
    if(!lockOrderProved){
     const probe=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:2000,query_timeout:2000});await probe.connect();
-    try{await probe.query("set lock_timeout='200ms'");await assert.rejects(probe.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]),e=>e.code==='55P03');for(const id of [actor.user,recipient.user])await assert.rejects(probe.query('select pg_advisory_xact_lock(hashtext($1))',[id]),e=>e.code==='55P03');}finally{await probe.end();}
+    try{await probe.query("set lock_timeout='200ms'");await assert.rejects(probe.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]),e=>e.code==='55P03');for(const id of [...new Set([actor.user,recipient.user,...source.map(f=>f.user)])].sort())await assert.rejects(probe.query('select pg_advisory_xact_lock(hashtext($1))',[id]),e=>e.code==='55P03');}finally{await probe.end();}
     lockOrderProved=true;console.log('whole Ouchi family: original root and both participant coordination locks held before Auth row pins');
    }
 
@@ -158,7 +195,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   if(owner!==recipient.user||!committed||!await committed(tx,scope,tx.signal))return false;
   const list=await inventory(tx);if(list.files.length!==source.length||list.writes.length!==source.length)return false;
   for(const f of normalizeFamilyAttachmentPlan(plan).files){const row=list.files.find(x=>x.id===f.id),w=list.writes.find(x=>x.attachment_id===f.id);
-   if(!row||row.user_id!==recipient.user||row.app_epoch_id!==recipient.epoch||row.captured_owner_id!==recipient.user||row.object_path!==f.destination.path||row.sha256!==sha||Number(row.size_bytes)!==bytes.length||row.mime!=='image/png'||row.state!=='stored'||!w||w.state!=='settled'||!w.settled_at||w.owner_id!==recipient.user||w.uploader_id!==recipient.user||w.app_epoch_id!==recipient.epoch)return false;
+   if(!row||row.user_id!==f.destination.userID||row.app_epoch_id!==f.destination.epoch||row.captured_owner_id!==recipient.user||row.object_path!==f.destination.path||row.sha256!==sha||Number(row.size_bytes)!==bytes.length||row.mime!=='image/png'||row.state!=='stored'||!w||w.state!=='settled'||!w.settled_at||w.owner_id!==recipient.user||w.uploader_id!==f.destination.userID||w.app_epoch_id!==f.destination.epoch)return false;
   }return true;
  };
  return {home,product,task,source,stats:()=>({preparations,copies,activations,removals,finishes,events:[...events]}),
@@ -217,7 +254,16 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    for(const f of source){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);}
   },
   async verifyRetained(){assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,recipient.user);assert.equal(await retainedSnapshotMatches(db),true);
-   for(const f of normalizeFamilyAttachmentPlan(plan).files){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.destination.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);const read=ok(await admin.rpc('read_maintenance_attachment',{target_user:recipient.user,verified_session:recipient.session,expected_epoch:recipient.epoch,attachment_id:f.id}));assert.equal(read.user,recipient.user);if(f.source.path!==f.destination.path){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.error?.code,'NoSuchKey');}}
+   for(const f of normalizeFamilyAttachmentPlan(plan).files){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.destination.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);const read=ok(await admin.rpc('read_maintenance_attachment',{target_user:recipient.user,verified_session:recipient.session,expected_epoch:recipient.epoch,attachment_id:f.id}));assert.equal(read.user,f.destination.userID);if(f.source.path!==f.destination.path){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.error?.code,'NoSuchKey');}}
+   if(formerUploader){
+    assert.deepEqual(await readPrivate(),privateState);
+    const blob=ok(await admin.storage.from('ouchi-product-attachments').download(privateFile.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);
+    const who={target_user:formerUploader.user,verified_session:formerUploader.session,expected_epoch:formerUploader.epoch};
+    assert.equal(ok(await admin.rpc('read_maintenance_attachment',{...who,attachment_id:privateFile.id})).user,formerUploader.user);
+    assert.equal(ok(await admin.rpc('read_maintenance_attachment',{...who,attachment_id:source.find(f=>f.user===formerUploader.user).id})),null);
+    assert.equal(ok(await formerUploader.client.auth.getUser()).user.id,formerUploader.user);
+    console.log('whole Ouchi family: former uploader family file remains readable to recipient at original path; former member denied family RPC read, unrelated private metadata/write/path/bytes and Auth unchanged');
+   }
    assert.deepEqual({preparations,copies,activations,removals,finishes},{preparations:1,copies:1,activations:2,removals:1,finishes:1});assert.equal(await proofDigest(),originalProofDigest);
   }};
 }
