@@ -1,0 +1,115 @@
+{
+  "status": "source_facts_prepared_owner_and_final_build_review_required",
+  "checkedAt": "2026-10-15",
+  "sourceHead": "befae143a2df9f3c641ead12adb7ae4642e5d56c",
+  "sourceDigest": "d8623a3d0051b7ddfb19c0ada98d9191be95d5fb",
+  "submitted": false,
+  "ageRating": {
+    "assignedRating": null,
+    "appStoreConnectAnswers": null,
+    "sourceFacts": [
+      {
+        "fact": "Products, notes, tasks and completion history can be shared with invited household members; private user-entered content exists.",
+        "evidence": [
+          "ios/OuchiCore/HouseholdAPI.swift",
+          "ios/OuchiMaintenance/NativeRootView.swift: FamilySettings, editors"
+        ]
+      },
+      {
+        "fact": "Manufacturer/product/manual links open through SwiftUI Link; user-provided task source URLs can also link to HTTPS destinations. No embedded general-purpose WebKit browser was identified in the inspected native source.",
+        "evidence": [
+          "ios/OuchiCore/ProductLookup.swift: officialURL",
+          "ios/OuchiCore/ManualLookup.swift: supportedURL",
+          "ios/OuchiMaintenance/NativeRootView.swift: TaskEditor source link"
+        ]
+      },
+      {
+        "fact": "Invitation code is shared through the OS ShareLink. This alone does not decide the age questionnaire's messaging/content classification.",
+        "evidence": [
+          "ios/OuchiMaintenance/NativeRootView.swift: FamilySettings"
+        ]
+      }
+    ],
+    "ownerReview": [
+      "Classify private household content and external links using the current App Store Connect questionnaire examples.",
+      "Review final active photos/attachments, support channels and content policy.",
+      "Confirm country/region distribution and any chosen minimum age; let Apple's questionnaire assign ratings. Do not guess 4+ from the household category.",
+      "Do not claim parental controls, age assurance or content filtering without verified implementation."
+    ]
+  },
+  "encryption": {
+    "usesEncryptionFacts": true,
+    "ITSAppUsesNonExemptEncryption": null,
+    "formalExemptionDetermined": false,
+    "exportDocumentationSubmitted": false,
+    "sourceFacts": [
+      {
+        "fact": "OS URLSession/HTTPS is used for cloud authentication/data and service endpoints.",
+        "evidence": [
+          "ios/OuchiCore/HouseholdAPI.swift",
+          "ios/OuchiCore/ProductLookup.swift"
+        ]
+      },
+      {
+        "fact": "CryptoKit AES.GCM seal/open and symmetric-key providers exist in pending registration/purchase recovery storage, including code for held features.",
+        "evidence": [
+          "ios/OuchiCore/PendingRestoreStorage.swift",
+          "ios/OuchiCore/AppAttestPendingRegistrationStorage.swift",
+          "ios/OuchiCore/AppAttestEncryptionKeyStorage.swift"
+        ]
+      },
+      {
+        "fact": "SHA256 digests are used for backup integrity and assertion/transaction pairing; Keychain/Security stores credentials and keys.",
+        "evidence": [
+          "ios/OuchiCore/Backup.swift",
+          "ios/OuchiCore/RestoreAssertionChallenge.swift",
+          "ios/OuchiCore/StoreDeviceVerification.swift",
+          "ios/OuchiMaintenance/DeletionReadCredentialVault.swift"
+        ]
+      },
+      {
+        "fact": "The current local Swift package declares OuchiCore with no external package dependencies. This is not a signed archive or full binary cryptography audit.",
+        "evidence": [
+          "ios/Package.swift"
+        ]
+      }
+    ],
+    "ownerReview": [
+      "Complete Apple's encryption determination using final signed archive, enabled features and distribution territories.",
+      "Account for cryptography contained in the binary even if its feature is held.",
+      "Do not infer exemption solely from HTTPS or OS APIs; do not add ITSAppUsesNonExemptEncryption=false without completing that determination.",
+      "Record any resulting documentation/key/value only after the determination; current source Info.plist has no export-compliance declaration."
+    ]
+  },
+  "listingText": {
+    "formatValidation": "passed 2026-10-15; name6/subtitle13/promotional42/description488 characters and keywords83 UTF-8 bytes",
+    "ownerFieldsMissing": [
+      "developerName",
+      "copyright",
+      "supportURL",
+      "privacyPolicyURL"
+    ],
+    "contentAndLegalApproval": false
+  },
+  "privacy": {
+    "existingInventory": "ios/Docs/AppPrivacyInventory.json",
+    "finalAnswersSubmitted": false,
+    "pending": [
+      "final active data paths and all bundled privacy manifests",
+      "provider logs/regions/retention, support and tracking review",
+      "operator/contact/public policy URLs",
+      "finite deletion, receipt/outbox and backup retention"
+    ]
+  },
+  "sideEffects": {
+    "production": false,
+    "billing": false,
+    "accountCreation": false,
+    "ownerSecretsRead": false,
+    "AppStoreConnectChanges": false
+  },
+  "sources": [
+    "https://developer.apple.com/help/app-store-connect/manage-app-information/set-an-app-age-rating/",
+    "https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/"
+  ]
+}
