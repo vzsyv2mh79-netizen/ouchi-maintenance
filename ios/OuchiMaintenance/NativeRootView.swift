@@ -693,6 +693,7 @@ private struct TaskEditor: View {
 
 private struct FamilySettings: View {
     @EnvironmentObject private var store: NativeStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var joinCode = ""
     @State private var nickname = ""
     @State private var revoke = false
@@ -719,11 +720,7 @@ private struct FamilySettings: View {
                 if store.familyHomeID == store.homeID {
                     if store.familyMembers.isEmpty { Text("参加している家族はまだいません。") }
                     ForEach(store.familyMembers) { member in
-                        HStack {
-                            Text(member.nickname)
-                            Spacer()
-                            if owner { Button("共有を解除", role: .destructive) { removing = member }.disabled(store.busy) }
-                        }
+                        memberRow(member)
                     }
                 } else { Text("一覧を読み込んでください。") }
                 Button("家族一覧を再読み込み") { let home = store.homeID; Task { await store.loadMembers(home: home) } }.disabled(store.busy)
@@ -752,6 +749,25 @@ private struct FamilySettings: View {
          .confirmationDialog("\(removing?.nickname ?? "家族")の共有アクセスを解除しますか？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
              if let member = removing { Button("共有を解除", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: member.user_id) }; removing = nil } }
          }
+    }
+    @ViewBuilder private func memberRow(_ member: FamilyMember) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(member.nickname).fixedSize(horizontal: false, vertical: true)
+                if owner { removeSharingButton(member) }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack {
+                Text(member.nickname)
+                Spacer()
+                if owner { removeSharingButton(member) }
+            }
+        }
+    }
+    private func removeSharingButton(_ member: FamilyMember) -> some View {
+        Button("共有を解除", role: .destructive) { removing = member }
+            .disabled(store.busy)
+            .accessibilityLabel("\(member.nickname)の共有を解除")
     }
 }
 
@@ -1982,3 +1998,4 @@ private struct ExplicitEnrollmentView: View {
         }
     }
 }
+

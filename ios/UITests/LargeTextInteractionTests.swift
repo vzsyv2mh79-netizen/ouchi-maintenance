@@ -229,6 +229,10 @@ final class LargeTextInteractionTests: XCTestCase {
         reach(member, in: app)
         XCTAssertTrue(member.exists)
         capture(app, name: "family-sample-member-fully-visible")
+        let removal = app.buttons["家族のサンプルの共有を解除"]
+        reach(removal, in: app)
+        XCTAssertTrue(removal.isHittable)
+        capture(app, name: "family-scoped-removal-control-fully-visible")
         reach(app.buttons["家族一覧を再読み込み"], in: app)
         XCTAssertTrue(app.buttons["家族一覧を再読み込み"].isHittable)
         capture(app, name: "family-reload-fully-visible")

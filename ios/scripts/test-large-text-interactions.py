@@ -13,7 +13,7 @@ import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
-parser.add_argument('--text-size', choices=['accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
+parser.add_argument('--text-size', choices=['large', 'accessibility-extra-large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
 parser.add_argument('--device-type', choices=['iPhone-18-Pro', 'iPhone-17e', 'iPhone-SE-3rd-generation'], default='iPhone-18-Pro')
