@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only checks for an already built app; never uploads or enables features."""
-import argparse,json,pathlib,plistlib,re,subprocess,urllib.parse
+import argparse,datetime,json,pathlib,plistlib,re,subprocess,urllib.parse
 
 def configuration_checks(info,stage):
     errors=[]
@@ -10,7 +10,10 @@ def configuration_checks(info,stage):
         errors.append('Enabled modern public client key is missing; never use a server key')
     if url.scheme!='https' or not re.fullmatch(r'[a-z]{20}\.supabase\.co',url.netloc) or url.path not in ('','/'):
         errors.append('Exact HTTPS Supabase project URL is missing')
-    if info.get('OUCHI_REVIEW_SAMPLE_DATA') is True:
+    # Xcode review builds use a string, while fixtures can use a plist boolean.
+    # Unresolved build substitutions also cannot establish a shipping build.
+    sample=info.get('OUCHI_REVIEW_SAMPLE_DATA',False)
+    if sample is not False and sample not in ('','NO','false','0'):
         errors.append('Sample-data review app cannot be submitted')
     if stage=='submission':
         for name in ('OUCHI_TERMS_URL','OUCHI_PRIVACY_URL','OUCHI_SUPPORT_URL'):
@@ -26,6 +29,32 @@ def configuration_checks(info,stage):
             if not str(info.get('OUCHI_ATTACHMENT_RETENTION_DESCRIPTION','')).strip():errors.append('Attachment retention explanation is missing')
     return errors
 
+def profile_checks(profile,team,bundle_id,stage,now=None):
+    errors=[]
+    now=now or datetime.datetime.now(datetime.timezone.utc)
+    def utc(value):
+        if not isinstance(value,datetime.datetime):return None
+        return value.replace(tzinfo=datetime.timezone.utc) if value.tzinfo is None else value.astimezone(datetime.timezone.utc)
+    created=utc(profile.get('CreationDate'));expires=utc(profile.get('ExpirationDate'))
+    if created is None or expires is None or not created<=now<expires:
+        errors.append('Embedded profile validity period is missing or not current')
+    ent=profile.get('Entitlements',{})
+    if profile.get('TeamIdentifier')!=[team] or ent.get('application-identifier')!=team+'.'+bundle_id:
+        errors.append('Profile does not match the registered team/app')
+    if stage!='development' and (ent.get('get-task-allow') is not False or 'ProvisionedDevices' in profile or profile.get('ProvisionsAllDevices')):
+        errors.append('App Store distribution profile required')
+    return errors
+
+def privacy_checks(manifest):
+    if not isinstance(manifest,dict):return ['Bundled privacy manifest is missing or invalid']
+    declared={entry.get('NSPrivacyAccessedAPIType'):entry.get('NSPrivacyAccessedAPITypeReasons',[])
+              for entry in manifest.get('NSPrivacyAccessedAPITypes',[]) if isinstance(entry,dict)}
+    required={'NSPrivacyAccessedAPICategoryUserDefaults':'CA92.1',
+              'NSPrivacyAccessedAPICategoryFileTimestamp':'C617.1'}
+    return ['Bundled privacy manifest is missing '+category+' reason '+reason
+            for category,reason in required.items()
+            if not isinstance(declared.get(category),list) or reason not in declared[category]]
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app',type=pathlib.Path,required=True)
@@ -35,6 +64,9 @@ def main():
     parser.add_argument('--version',default='1.0')
     args=parser.parse_args()
     info=plistlib.loads((args.app/'Info.plist').read_bytes());errors=configuration_checks(info,args.stage)
+    try:manifest=plistlib.loads((args.app/'PrivacyInfo.xcprivacy').read_bytes())
+    except (OSError,plistlib.InvalidFileException):manifest=None
+    errors.extend(privacy_checks(manifest))
     for name,expected in [('CFBundleIdentifier',args.bundle_id),('CFBundleShortVersionString',args.version)]:
         if info.get(name)!=expected:errors.append(name+' differs from the registered app')
     signed=subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],capture_output=True)
@@ -43,9 +75,8 @@ def main():
     profile={}
     if decoded.returncode:errors.append('Embedded Apple profile could not be verified/decoded')
     else:
-        profile=plistlib.loads(decoded.stdout);ent=profile.get('Entitlements',{})
-        if profile.get('TeamIdentifier')!=[args.team] or ent.get('application-identifier')!=args.team+'.'+args.bundle_id:errors.append('Profile does not match the registered team/app')
-        if args.stage!='development' and (ent.get('get-task-allow') is not False or 'ProvisionedDevices' in profile or profile.get('ProvisionsAllDevices')):errors.append('App Store distribution profile required')
+        profile=plistlib.loads(decoded.stdout)
+        errors.extend(profile_checks(profile,args.team,args.bundle_id,args.stage))
     # Neither client key contents, device identifiers nor certificate contents
     # are logged. Passing distribution checks is not App Review acceptance.
     print(json.dumps({'stage':args.stage,'verified':not errors,'bundleId':info.get('CFBundleIdentifier'),'version':info.get('CFBundleShortVersionString'),'build':info.get('CFBundleVersion'),'signatureVerified':signed.returncode==0,'profileDecoded':decoded.returncode==0,'errors':errors,'uploaded':False,'limits':'Does not prove device behavior, purchase lifecycle, privacy answers, server readiness or App Review acceptance'},ensure_ascii=False,indent=2))

@@ -51,3 +51,14 @@ References:
 - https://developer.apple.com/documentation/swiftui/uiviewrepresentable/sizethatfits(_:uiview:context:)
 - https://developer.apple.com/documentation/xcuiautomation/xcuiaccessibilityauditissue
 - https://developer.apple.com/documentation/swiftui/scrolledgeeffectstyle
+
+## Rejected tab-background trial, later on 2026-10-15
+
+An explicit system-background/visible tab-bar preference was tested with the
+unchanged unfiltered task audits on iPhone 17e, AX5, dark appearance. Product
+textClipped passed; contrast failed for the source-kind label at y798.7/h81.3.
+The captured viewport still showed text beneath the floating tab controls.
+Both saved viewports were inspected. The trial did not resolve the issue and
+was removed; NativeRootView was byte-compared with its published starting source.
+The ephemeral simulator was removed. There were 2 tests, 1 pass, 1 failure,
+0 skipped. This does not improve the accessibility completion claim.

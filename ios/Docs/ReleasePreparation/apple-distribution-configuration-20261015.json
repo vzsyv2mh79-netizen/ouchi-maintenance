@@ -23,16 +23,22 @@
     "getTaskAllow": false,
     "enabledModernPublishableKeyConfigured": true,
     "publicKeyOrPrivateKeyContentsCommitted": false,
-    "ipaSHA256": "bd7769acdd400fe2ddbfb3ab1f0cce6d9d6cfd675eb5313248808a1b1311d519",
+    "ipaSHA256": "86447c67b9847d7f71ae5fd46f7016676ad37befb21054b89d80368662858e41",
     "uploadPerformed": false,
     "reviewSubmitted": false,
-    "actualBillingEnabled": false
+    "actualBillingEnabled": false,
+    "requiredReasonManifestMatchesSource": true,
+    "profileValidityPeriodVerified": true
   },
   "verification": [
     "Actual development and distribution signature verification using macOS trust services",
     "Generated Info.plist contains registered version and enabled public client configuration",
     "Submission stage correctly refuses the three unset public policy/support URLs",
-    "Synthetic configuration tests reject absent/server/placeholder keys, wrong host, sample mode and missing disclosures"
+    "Synthetic configuration tests reject absent/server/placeholder keys, wrong host, sample mode and missing disclosures",
+    "Reject Xcode string YES, boolean true and unresolved sample-mode substitutions before any submission",
+    "Reject expired, future, undated, wrong-team and non-App-Store profiles; naive Apple plist dates interpreted as UTC",
+    "Rechecked the exported distribution IPA with current profile validity checks: passed; development-signed archive correctly fails distribution stage",
+    "New signed distribution IPA rebuilt with FileTimestamp C617.1 and UserDefaults CA92.1; bundled manifest matches source; submission still refuses exactly three unset public URLs"
   ],
   "remaining": [
     "Reviewed public terms/privacy/support destinations and operator/contact details",
@@ -40,5 +46,15 @@
     "Trusted server endpoints/shared retirement composition, actual current Auth policy and deployed least-privilege database review",
     "App Store products, agreements/bank/tax/privacy answers and final submission approval"
   ],
-  "scope": "Distribution artifact proof only; not release readiness or App Review acceptance"
+  "scope": "Distribution artifact proof only; not release readiness or App Review acceptance",
+  "verifierRegression": {
+    "cases": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "targetedLint": "passed",
+    "actualExportedIPARecheck": "passed",
+    "sourceBaseBeforeVerifierChange": "d8411026b83837a85e9e234f0f720ba0e0920aea",
+    "allIOSScriptsCases": 7
+  }
 }

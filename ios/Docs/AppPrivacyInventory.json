@@ -1,7 +1,7 @@
 {
   "status": "source_inventory_not_final_app_store_answers",
   "sourceHead": "672aefc835273f626b6636390b5e33ddf8ea2fe0",
-  "checkedAt": "2026-10-13",
+  "checkedAt": "2026-10-15",
   "interpretation": "Apple collection includes data transmitted off-device and retained beyond real-time servicing, including app-functionality and third-party processing. A required-reason manifest is not proof of no personal data collection.",
   "currentManifestCategories": [
     {
@@ -133,5 +133,38 @@
     "https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests"
   ],
   "workingTreeAddition": "canonical receipt token validation and deletion receipt inventory update; prepared route remains disabled",
-  "officialReviewDate": "2026-10-13"
+  "officialReviewDate": "2026-10-13",
+  "requiredReasonAPIReview": {
+    "status": "source_unsigned_release_and_signed_distribution_manifest_verified",
+    "sourceBase": "d8411026b83837a85e9e234f0f720ba0e0920aea",
+    "categories": [
+      {
+        "type": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "reason": "CA92.1",
+        "use": "App-owned theme and reminder preferences",
+        "evidence": [
+          "ios/OuchiMaintenance/NativeRootView.swift: preferredAppearance",
+          "ios/OuchiMaintenance/LocalReminders.swift: preference"
+        ]
+      },
+      {
+        "type": "NSPrivacyAccessedAPICategoryFileTimestamp",
+        "reason": "C617.1",
+        "use": "App-container file size/type/ownership/permissions checks; no external directory scanning or timestamp telemetry",
+        "evidence": [
+          "ios/OuchiCore/AppAttestMutationLease.swift: fstat",
+          "ios/OuchiCore/PendingRestoreStorage.swift: fstat",
+          "ios/OuchiCore/AppAttestPendingRegistrationStorage.swift: fstat",
+          "ios/OuchiMaintenance/NativeStore.swift: Application Support roots"
+        ]
+      }
+    ],
+    "limits": [
+      "Does not establish final App Store privacy answers",
+      "Pre-update IPA preserved separately and superseded; no upload performed"
+    ],
+    "source": "https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype",
+    "unsignedReleaseBundleManifestMatchesSource": true,
+    "signedDistributionBundleManifestMatchesSource": true
+  }
 }
