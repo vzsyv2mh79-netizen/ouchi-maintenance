@@ -55,6 +55,61 @@ def privacy_checks(manifest):
             for category,reason in required.items()
             if not isinstance(declared.get(category),list) or reason not in declared[category]]
 
+def collection_privacy_checks(manifest,info):
+    """Ouchi-specific minimums, not a substitute for reviewing provider practices."""
+    if not isinstance(manifest,dict):return ['Data collection manifest is missing or invalid']
+    errors=[]
+    if manifest.get('NSPrivacyTracking') is not False:
+        errors.append('Ouchi no-tracking declaration must be explicit')
+    if manifest.get('NSPrivacyTrackingDomains',[])!=[]:
+        errors.append('Tracking domains contradict the reviewed Ouchi no-tracking policy')
+    entries=manifest.get('NSPrivacyCollectedDataTypes')
+    if not isinstance(entries,list):return errors+['Collected data declarations must be an array']
+    declared={}
+    for entry in entries:
+        if not isinstance(entry,dict):
+            errors.append('Collected data entry must be a dictionary');continue
+        name=entry.get('NSPrivacyCollectedDataType')
+        if not isinstance(name,str) or not name:
+            errors.append('Collected data type is missing');continue
+        if name in declared:errors.append('Duplicate collected data type '+name)
+        declared[name]=entry
+        if type(entry.get('NSPrivacyCollectedDataTypeLinked')) is not bool:
+            errors.append(name+' must declare identity linkage as a boolean')
+        if entry.get('NSPrivacyCollectedDataTypeTracking') is not False:
+            errors.append(name+' contradicts the reviewed no-tracking policy')
+        purposes=entry.get('NSPrivacyCollectedDataTypePurposes')
+        if not isinstance(purposes,list) or not purposes or any(not isinstance(p,str) or not p for p in purposes):
+            errors.append(name+' must declare a nonempty purpose array')
+    required={'EmailAddress','Name','UserID','OtherUserContent'}
+    feature_categories={
+        'OUCHI_ATTACHMENTS_ENABLED':{'PhotosorVideos'},
+        'OUCHI_RELEASE_TIPS_ENABLED':{'PurchaseHistory'},
+        'OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED':{'PurchaseHistory'},
+        'OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED':{'PurchaseHistory','DeviceID'},
+        'OUCHI_SANDBOX_RESTORE_ENABLED':{'PurchaseHistory','DeviceID'},
+        'OUCHI_NATIVE_PUSH_ENABLED':{'DeviceID'},
+        'OUCHI_APP_ATTEST_REGISTRATION_ENABLED':{'DeviceID'},
+        'OUCHI_CLOSURE_REVIEW_ENABLED':{'DeviceID'},
+    }
+    for flag,categories in feature_categories.items():
+        value=info.get(flag,False)
+        if type(value) is not bool:
+            errors.append(flag+' must be a resolved boolean in the built artifact')
+        elif value:required.update(categories)
+    if info.get('IOS_SANDBOX_BILLING') in ('YES',True):required.add('PurchaseHistory')
+    for category in sorted(required):
+        name='NSPrivacyCollectedDataType'+category
+        entry=declared.get(name)
+        if entry is None:
+            errors.append('Enabled Ouchi data path is missing '+name);continue
+        if entry.get('NSPrivacyCollectedDataTypeLinked') is not True:
+            errors.append(name+' must disclose linkage to the Ouchi account')
+        purposes=entry.get('NSPrivacyCollectedDataTypePurposes')
+        if not isinstance(purposes,list) or 'NSPrivacyCollectedDataTypePurposeAppFunctionality' not in purposes:
+            errors.append(name+' must include the app-functionality purpose')
+    return errors
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app',type=pathlib.Path,required=True)
@@ -67,6 +122,7 @@ def main():
     try:manifest=plistlib.loads((args.app/'PrivacyInfo.xcprivacy').read_bytes())
     except (OSError,plistlib.InvalidFileException):manifest=None
     errors.extend(privacy_checks(manifest))
+    errors.extend(collection_privacy_checks(manifest,info))
     for name,expected in [('CFBundleIdentifier',args.bundle_id),('CFBundleShortVersionString',args.version)]:
         if info.get(name)!=expected:errors.append(name+' differs from the registered app')
     signed=subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],capture_output=True)

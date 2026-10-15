@@ -51,3 +51,38 @@ assert m.privacy_checks({'NSPrivacyAccessedAPITypes':[e for e in manifest['NSPri
 assert m.privacy_checks({'NSPrivacyAccessedAPITypes':[{'NSPrivacyAccessedAPIType':'NSPrivacyAccessedAPICategoryFileTimestamp','NSPrivacyAccessedAPITypeReasons':['DDA9.1']}]})
 print('passed')`).trim(),'passed');
 });
+test('enabled photos, purchases and device registration cannot outgrow the bundled data disclosures',()=>{
+ assert.equal(run(`import copy,plistlib
+manifest=plistlib.loads(open('ios/OuchiMaintenance/PrivacyInfo.xcprivacy','rb').read())
+assert m.collection_privacy_checks(manifest,{})==[]
+assert m.collection_privacy_checks(None,{})
+for category in ['EmailAddress','Name','UserID','OtherUserContent']:
+ missing=copy.deepcopy(manifest)
+ missing['NSPrivacyCollectedDataTypes']=[e for e in missing['NSPrivacyCollectedDataTypes'] if e['NSPrivacyCollectedDataType']!='NSPrivacyCollectedDataType'+category]
+ assert m.collection_privacy_checks(missing,{})
+for flag,category in [('OUCHI_ATTACHMENTS_ENABLED','PhotosorVideos'),('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED','PurchaseHistory'),('OUCHI_RELEASE_TIPS_ENABLED','PurchaseHistory'),('OUCHI_NATIVE_PUSH_ENABLED','DeviceID'),('OUCHI_APP_ATTEST_REGISTRATION_ENABLED','DeviceID')]:
+ assert m.collection_privacy_checks(manifest,{flag:True})
+ complete=copy.deepcopy(manifest)
+ entry=copy.deepcopy(complete['NSPrivacyCollectedDataTypes'][0]);entry['NSPrivacyCollectedDataType']='NSPrivacyCollectedDataType'+category
+ complete['NSPrivacyCollectedDataTypes'].append(entry)
+ assert m.collection_privacy_checks(complete,{flag:True})==[]
+ assert m.collection_privacy_checks(manifest,{flag:False})==[]
+for flag in ['OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED','OUCHI_SANDBOX_RESTORE_ENABLED']:
+ assert len(m.collection_privacy_checks(manifest,{flag:True}))==2
+assert m.collection_privacy_checks(manifest,{'IOS_SANDBOX_BILLING':'YES'})
+for value in ['NO','false','$(OUCHI_ATTACHMENTS_ENABLED)',0,1]:
+ assert m.collection_privacy_checks(manifest,{'OUCHI_ATTACHMENTS_ENABLED':value})
+print('passed')`).trim(),'passed');
+});
+test('collection checks reject contradictory tracking, duplicate and unlinked declarations without accepting malformed data',()=>{
+ assert.equal(run(`import copy,plistlib
+manifest=plistlib.loads(open('ios/OuchiMaintenance/PrivacyInfo.xcprivacy','rb').read())
+for change in [{'NSPrivacyTracking':True},{'NSPrivacyTracking':'false'},{'NSPrivacyTrackingDomains':['tracker.invalid']},{'NSPrivacyCollectedDataTypes':None},{'NSPrivacyCollectedDataTypes':['bad']}]:
+ assert m.collection_privacy_checks({**manifest,**change},{})
+duplicate=copy.deepcopy(manifest);duplicate['NSPrivacyCollectedDataTypes'].append(duplicate['NSPrivacyCollectedDataTypes'][0])
+assert m.collection_privacy_checks(duplicate,{})
+for change in [{'NSPrivacyCollectedDataTypeLinked':False},{'NSPrivacyCollectedDataTypeLinked':'true'},{'NSPrivacyCollectedDataTypeTracking':True},{'NSPrivacyCollectedDataTypePurposes':[]},{'NSPrivacyCollectedDataTypePurposes':'NSPrivacyCollectedDataTypePurposeAppFunctionality'},{'NSPrivacyCollectedDataTypePurposes':['NSPrivacyCollectedDataTypePurposeAnalytics']}]:
+ altered=copy.deepcopy(manifest);altered['NSPrivacyCollectedDataTypes'][0].update(change)
+ assert m.collection_privacy_checks(altered,{})
+print('passed')`).trim(),'passed');
+});
