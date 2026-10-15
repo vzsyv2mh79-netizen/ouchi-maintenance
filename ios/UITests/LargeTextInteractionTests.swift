@@ -1,9 +1,10 @@
 import XCTest
+import UIKit
 
 /// In-memory sample only; never authenticates or purchases.
 @MainActor
 final class LargeTextInteractionTests: XCTestCase {
-    private func launch(tab: Int, releaseLayout: Bool = false, twoHomes: Bool = false) -> XCUIApplication {
+    private func launch(tab: Int, releaseLayout: Bool = false, twoHomes: Bool = false, requiresPhoneTabBar: Bool = true) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.storecaptures")
         app.launchEnvironment["OUCHI_REVIEW_CAPTURE_TAB"] = String(tab)
@@ -12,7 +13,11 @@ final class LargeTextInteractionTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         app.launch()
         if !releaseLayout { XCTAssertTrue(app.staticTexts["ouchi.reviewSample"].waitForExistence(timeout: 45)) }
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 45))
+        if requiresPhoneTabBar {
+            XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 45))
+        } else {
+            XCTAssertTrue(app.buttons["ホーム"].waitForExistence(timeout: 45), app.debugDescription)
+        }
         return app
     }
 
@@ -38,11 +43,55 @@ final class LargeTextInteractionTests: XCTestCase {
         XCTFail("Could not reach control: \(element)")
     }
 
-    private func capture(_ app: XCUIApplication, name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+    private func capture(_ app: XCUIApplication, name: String, wholeScreen: Bool = false) {
+        let attachment = XCTAttachment(screenshot: wholeScreen ? XCUIScreen.main.screenshot() : app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testIPadRotationKeepsNavigationReachable() throws {
+        let app = launch(tab: 0, releaseLayout: true, requiresPhoneTabBar: false)
+        defer {
+            XCUIDevice.shared.orientation = .portrait
+            app.terminate()
+        }
+        guard min(app.frame.width, app.frame.height) >= 700 else {
+            throw XCTSkip("iPad rotation test requires an iPad destination")
+        }
+        let orientations: [(UIDeviceOrientation, String, Bool)] = [
+            (.landscapeLeft, "landscape-left", true),
+            (.landscapeRight, "landscape-right", true),
+            (.portraitUpsideDown, "portrait-upside-down", false),
+            (.portrait, "portrait", false)
+        ]
+        for (orientation, name, landscape) in orientations {
+            XCUIDevice.shared.orientation = orientation
+            let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                landscape ? app.frame.width > app.frame.height : app.frame.height > app.frame.width
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 15), .completed,
+                           "App viewport must actually rotate, not just the requested device orientation")
+            for tab in ["ホーム", "製品", "設定"] {
+                let candidates = app.buttons.matching(identifier: tab)
+                let reachable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    candidates.allElementsBoundByIndex.contains(where: { $0.isHittable })
+                }, object: nil)
+                let readiness = XCTWaiter.wait(for: [reachable], timeout: 10)
+                if readiness != .completed {
+                    let tree = XCTAttachment(string: app.debugDescription)
+                    tree.name = "ipad-\(name)-\(tab)-unreachable-tree"
+                    tree.lifetime = .keepAlways
+                    add(tree)
+                    capture(app, name: "ipad-\(name)-\(tab)-unreachable", wholeScreen: true)
+                }
+                XCTAssertEqual(readiness, .completed)
+                let button = try XCTUnwrap(candidates.allElementsBoundByIndex.first(where: { $0.isHittable }))
+                button.tap()
+                XCTAssertTrue(button.isSelected)
+                capture(app, name: "ipad-\(name)-\(tab)", wholeScreen: true)
+            }
+        }
     }
 
     func testCompletionUpdatesDueDateAndHistory() {
