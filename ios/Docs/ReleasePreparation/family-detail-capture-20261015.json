@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-15",
+  "status": "actual_ax5_dark_family_reachability_verified_normal_capture_pending",
+  "purpose": "Prepare the missing actual FamilySettings detail for App Store sample image review without real family accounts",
+  "changes": [
+    "DEBUG-only NativeReviewFixture handles the actual HouseholdAPI GET home_members response for either of its two known synthetic homes",
+    "Require exact home filter, selected member fields and synthetic bearer; unknown home/token, broad read and mutation requests throw without network fallback",
+    "NativeReviewFamilySmoke compiles with DEBUG against a freshly compiled release-like OuchiCore module; added to the existing native verification loop",
+    "Large-text UI harness adds a family-only selection that opens real settings navigation, waits for the synthetic member, reaches member and reload control, and retains viewport images"
+  ],
+  "validation": {
+    "freshCoreCompile": "passed against macOS27 SDK, arm64 macOS15 target",
+    "familySmoke": "passed; actual HouseholdAPI decoding for two known homes and unknown home/token/write/unscoped refusal",
+    "pythonHarnessSyntax": "both verification scripts parsed successfully",
+    "swiftUITestSyntax": "swiftc frontend parse passed",
+    "initialSmokeFailure": "The test incorrectly passed the loopback-only isolatedDevelopment flag with its HTTPS mock host and correctly received invalidConfiguration. Removed the flag to match the existing in-memory fixture configuration; no configuration guard was loosened."
+  },
+  "visualReview": {
+    "status": "AX5_dark_reachability_passed_images_reviewed",
+    "command": "python3 ios/scripts/test-large-text-interactions.py --output <fresh-private-directory> --text-size accessibility-extra-extra-extra-large --device-type iPhone-17e --appearance dark --test family",
+    "plannedViews": [
+      "fully visible family member label",
+      "fully visible family list reload control"
+    ],
+    "submissionImagesCreated": false,
+    "remaining": [
+      "Normal text and light/dark family detail captures",
+      "AX3/AX5 layout and controls",
+      "VoiceOver and physical device",
+      "Final signed release screenshots with operator approval",
+      "AX5 member/action row remains horizontally crowded; further layout polish pending"
+    ],
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "sourceDigest": "842b39aef82f24ce1a30e1c31300d33e88739964",
+    "testHarnessDigest": "2ea349776b0104b209ab53d64e98e95d239f6a4d42eb14dfa7f9a1e5c9b81ce1",
+    "imagesReviewed": [
+      "family-sample-member-fully-visible",
+      "family-reload-fully-visible"
+    ],
+    "ownedSimulatorRemoved": true,
+    "scope": "Real FamilySettings navigation and fully visible sample member/reload; not a seven-category audit, VoiceOver, physical device or cloud-sharing test",
+    "initialUIFailure": "A pre-scroll waitForExistence incorrectly assumed an offscreen lazy Form row existed in the accessibility tree. Raw failure summary/hierarchy inspected; replaced with existing reach helper then full-visibility/existence assertion. No shipping workaround or issue filtering."
+  },
+  "boundaries": [
+    "No shipping FamilySettings layout, API, account, invite or membership mutation changes",
+    "Sample member is explicitly synthetic; no live RLS/family sharing proof is inferred from the mock transport",
+    "No actual notification, Apple payment, paid infrastructure, billing, merge or production activation",
+    "Existing screenshot-plan sample capture evidence remains historical and unapproved for submission"
+  ],
+  "officialScreenshotSpecifications": {
+    "checkedAt": "2026-10-15",
+    "source": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+    "requiredIPhone": "Dynamic Island medium display, 1179x2556 or 1206x2622 portrait",
+    "requiredIPadIfSupported": "13-inch, 2064x2752 or 2048x2732 portrait",
+    "noAlpha": true,
+    "currentAX5ReviewImageIsSubmissionApproved": false
+  }
+}

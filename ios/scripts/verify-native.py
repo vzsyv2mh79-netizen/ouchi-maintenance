@@ -38,7 +38,11 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
         if test.stem in ('SnapshotStorageSmoke', 'AccountDeletionLocalCleanupSmoke'): sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
         if test.stem in ('DeletionReceiptVaultSmoke', 'DeletionReceiptVaultRestartSmoke'): sources.append(root / 'OuchiMaintenance' / 'DeletionReadCredentialVault.swift')
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
-        run(common + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
+        test_flags = []
+        if test.stem == 'NativeReviewFamilySmoke':
+            sources.append(root / 'OuchiMaintenance' / 'NativeReviewFixture.swift')
+            test_flags = ['-D', 'DEBUG']
+        run(common + test_flags + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
         if test.stem in ('DeletionReceiptVaultRestartSmoke', 'AccountClosureReviewVaultRestartSmoke'):
             marker = build / 'receipt-restart-marker.json'
             run([executable, 'save', marker])
@@ -77,3 +81,4 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
         print('PASS: iOS Simulator SDK build. Device/network/StoreKit tests still required.', flush=True)
     else:
         print('iOS SDK build, UI rendering, real Auth/DB/notifications and StoreKit were NOT verified.', flush=True)
+

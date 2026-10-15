@@ -35,6 +35,14 @@ actor NativeReviewFixture {
               request.value(forHTTPHeaderField:"Authorization")=="Bearer "+Self.token else { throw CloudError.authenticationRequired }
         let body:Data
         switch (request.httpMethod,url.path) {
+        case ("GET","/rest/v1/home_members"):
+            guard let items=URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems,
+                  items.count==2,
+                  items.filter({$0.name=="select" && $0.value=="user_id,nickname"}).count==1,
+                  let target=items.first(where:{$0.name=="homeId"})?.value,
+                  let homes=data["homes"] as? [[String:String]],
+                  homes.contains(where:{"eq."+$0["id",default:""]==target}) else { throw CloudError.invalidInput }
+            body=try JSONSerialization.data(withJSONObject:[["user_id":"77777777-7777-4777-8777-777777777777","nickname":"家族のサンプル"]])
         case ("POST","/rest/v1/rpc/load_household"):
             body=try JSONSerialization.data(withJSONObject:data)
         case ("POST","/rest/v1/rpc/complete_maintenance"):

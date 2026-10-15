@@ -218,6 +218,23 @@ final class LargeTextInteractionTests: XCTestCase {
         app.terminate()
     }
 
+    func testFamilyDetailsLoadAndRemainReachable() {
+        let app = launch(tab: 4, releaseLayout: true)
+        let sharing = app.buttons["家族と共有"]
+        reach(sharing, in: app)
+        sharing.tap()
+        let member = app.staticTexts["家族のサンプル"]
+        // Form rows below the viewport may not exist in the accessibility
+        // tree until scrolled into view. Require the complete visible row.
+        reach(member, in: app)
+        XCTAssertTrue(member.exists)
+        capture(app, name: "family-sample-member-fully-visible")
+        reach(app.buttons["家族一覧を再読み込み"], in: app)
+        XCTAssertTrue(app.buttons["家族一覧を再読み込み"].isHittable)
+        capture(app, name: "family-reload-fully-visible")
+        app.terminate()
+    }
+
     func testReviewedLegalLinksAreReachableFromPrivacy() {
         let app = launch(tab: 4)
         let privacy = app.buttons["データの取り扱い"]
