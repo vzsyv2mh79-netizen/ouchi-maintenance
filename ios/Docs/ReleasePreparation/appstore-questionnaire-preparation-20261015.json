@@ -78,8 +78,20 @@
       "Complete Apple's encryption determination using final signed archive, enabled features and distribution territories.",
       "Account for cryptography contained in the binary even if its feature is held.",
       "Do not infer exemption solely from HTTPS or OS APIs; do not add ITSAppUsesNonExemptEncryption=false without completing that determination.",
-      "Record any resulting documentation/key/value only after the determination; current source Info.plist has no export-compliance declaration."
-    ]
+      "Record any resulting documentation/key/value only after the determination; inspect both source build settings and final built Info.plist; absence in source Info.plist alone is insufficient."
+    ],
+    "configurationFinding": {
+      "previousBuildSetting": "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO in ios/Config/Shared.xcconfig",
+      "correction": "Remove unreviewed exemption build setting. Info.plist alone was insufficient evidence; built Release plist must be checked.",
+      "formalExemptionDetermined": false,
+      "builtProductRecheck": {
+        "status": "unsigned Release iPhoneOS27 build passed",
+        "declarationPresent": false,
+        "sanitizedSourceSharedConfig": true,
+        "localConfigRead": false,
+        "signingOrFormalExemptionVerified": false
+      }
+    }
   },
   "listingText": {
     "formatValidation": "passed 2026-10-15; name6/subtitle13/promotional42/description488 characters and keywords83 UTF-8 bytes",

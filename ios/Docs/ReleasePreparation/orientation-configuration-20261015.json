@@ -1,0 +1,53 @@
+{
+  "status": "configuration_and_unsigned_release_verified_rotation_interaction_pending",
+  "sourceHeadBeforeChange": "7e5c96c95a0cc6ee31dfe5848069ff73a8d0c7c3",
+  "sourceDigest": "9ed8b89075cc2ccd147bf7c05abb1f9944e602ab",
+  "changes": [
+    "Explicit supported iPhone and iPad orientations in source Info.plist; iPad includes all four orientations.",
+    "Remove unreviewed ITSAppUsesNonExemptEncryption=NO build setting from shared configuration. No exemption determination is made."
+  ],
+  "unsignedRelease": {
+    "status": "unsigned_release_build_passed",
+    "platform": "iphoneos",
+    "sdk": "iphoneos27.0",
+    "ipadOrientations": [
+      "UIInterfaceOrientationPortrait",
+      "UIInterfaceOrientationPortraitUpsideDown",
+      "UIInterfaceOrientationLandscapeLeft",
+      "UIInterfaceOrientationLandscapeRight"
+    ],
+    "iphoneOrientations": [
+      "UIInterfaceOrientationPortrait",
+      "UIInterfaceOrientationLandscapeLeft",
+      "UIInterfaceOrientationLandscapeRight"
+    ],
+    "encryptionDeclarationPresent": false,
+    "orientationWarningPresent": false,
+    "sanitizedSourceSharedConfig": true,
+    "localConfigRead": false,
+    "signingVerified": false,
+    "production": false,
+    "billing": false
+  },
+  "runtime": {
+    "status": "not_verified",
+    "initialFailure": "iPad top tabs are not exposed as the phone TabBar query.",
+    "secondFailure": "App viewport rotated to landscape; Home button query existed but was not hittable. Recorded image shows the top tabs. Actual selection not proven.",
+    "instrumentedFollowup": "running; no success claimed",
+    "syntheticDataOnly": true,
+    "realAccountActions": false
+  },
+  "remaining": [
+    "Resolve and verify iPad rotation tab interactions",
+    "iPhone landscape and keyboard review",
+    "VoiceOver and physical device",
+    "Final signed archive",
+    "Owner export-compliance determination"
+  ],
+  "productionEnabled": false,
+  "billingEnabled": false,
+  "sources": [
+    "https://developer.apple.com/documentation/bundleresources/information-property-list/uisupportedinterfaceorientations",
+    "https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/iPhoneOSKeys.html"
+  ]
+}
