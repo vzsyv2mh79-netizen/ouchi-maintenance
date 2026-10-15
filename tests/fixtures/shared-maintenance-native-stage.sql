@@ -4,7 +4,7 @@
 create table maintenance_private.shared_native_stage_contexts(
  backend_pid int not null,transaction_id bigint not null,scope jsonb not null,
  native_request uuid not null,native_epoch uuid not null,native_lease uuid not null,
- stage text not null check(stage in('eraseRecords','captureReceiptSessions','eraseIdentity','markComplete')),
+ stage text not null check(stage in('eraseRecords','eraseDeviceRegistrations','captureReceiptSessions','eraseIdentity','markComplete')),
  expires_at timestamptz not null,primary key(backend_pid,transaction_id));
 alter table maintenance_private.shared_native_stage_contexts enable row level security;
 revoke all on maintenance_private.shared_native_stage_contexts from public,anon,authenticated,service_role;
@@ -80,6 +80,18 @@ begin
  if c.stage='captureReceiptSessions' and sch='maintenance_private' and tbl='deletion_receipt_sessions' and op='INSERT' then
   return next_value->>'request_id'=c.native_request::text;
  end if;
+ if c.stage='eraseDeviceRegistrations' and op='DELETE' then
+  if sch='public' and tbl in('maintenance_push_subscriptions','maintenance_push_test_limits') then
+   return prior->>'user_id'=u::text;
+  elsif sch='maintenance_private' and tbl in('native_notification_devices','native_delivery_identities') then
+   return prior->>'user_id'=u::text;
+  elsif sch='maintenance_private' and tbl='native_notification_jobs' then
+   -- The immutable route survives deletion of the cascading device parent.
+   return exists(select 1 from maintenance_private.private_writer_routes x
+    where x.kind='device' and x.object_id=(prior->>'device_id')::uuid and x.principal=u);
+  end if;
+  return false;
+ end if;
  if c.stage='eraseIdentity' and sch='maintenance_private' and op='DELETE' then
   -- Canonical finalization also removes Ouchi-only settings/proofs across this
   -- actor's retained epochs. No insert/update or unrelated-user exception.
@@ -145,7 +157,7 @@ create function maintenance_private.run_shared_native_stage(s jsonb,n uuid,phase
 returns boolean language plpgsql security invoker set search_path='' as $$
 declare app jsonb;r maintenance_private.account_deletion_requests;ok boolean;
 begin
- if not maintenance_private.valid_household_scope(s) or phase not in('eraseRecords','captureReceiptSessions','eraseIdentity','markComplete') then raise exception 'Native stage scope required';end if;
+ if not maintenance_private.valid_household_scope(s) or phase not in('eraseRecords','eraseDeviceRegistrations','captureReceiptSessions','eraseIdentity','markComplete') then raise exception 'Native stage scope required';end if;
  select value into app from jsonb_array_elements(s->'apps') where value->>'app'='ouchi-maintenance';
  if app is null then raise exception 'Native app mapping required';end if;
  -- Match the outer shared-journal lock order before pinning the native row.
@@ -155,7 +167,25 @@ begin
  select * into r from maintenance_private.account_deletion_requests where id=(app->>'requestID')::uuid for update;
  insert into maintenance_private.shared_native_stage_contexts values(pg_backend_pid(),txid_current(),s,r.id,(app->>'scopeID')::uuid,n,phase,clock_timestamp()+interval '15 seconds');
  if (maintenance_private.current_shared_native_stage()).backend_pid is null then raise exception 'Current shared/native stage authority required';end if;
+ if phase in('eraseRecords','eraseDeviceRegistrations') then
+  -- A lease timeout is not evidence that an external send did not happen.
+  -- This SQL portion does not replace the worker's external device/outbox ack.
+  if exists(select 1 from public.maintenance_push_subscriptions p where p.user_id=r.user_id
+   and (p.claim_token is not null or p.claimed_until is not null))
+   or exists(select 1 from maintenance_private.native_notification_jobs j
+    join maintenance_private.native_notification_devices d on d.id=j.device_id
+    where d.user_id=r.user_id and (j.state='unknown' or (j.state='claimed' and j.send_started_at is not null))) then
+   raise exception 'Notification delivery outcome unconfirmed';
+  end if;
+ end if;
  if phase='eraseRecords' then ok:=public.erase_maintenance_deletion_records(r.id,r.user_id,r.app_epoch_id,n);
+ elsif phase='eraseDeviceRegistrations' then
+  ok:=public.erase_maintenance_deletion_web_push(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native device registration stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_native_push(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native device registration stage unconfirmed';end if;
+  ok:=public.erase_maintenance_deletion_native_delivery_identities(r.id,r.user_id,r.app_epoch_id,n);
+  if ok is distinct from true then raise exception 'Native device registration stage unconfirmed';end if;
  elsif phase='captureReceiptSessions' then ok:=public.capture_maintenance_deletion_receipt_sessions(r.id,r.user_id,r.app_epoch_id,n);
  elsif phase='eraseIdentity' then
   -- Keep the established canonical erasure sequence on this SAME connection.

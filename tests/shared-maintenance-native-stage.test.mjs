@@ -7,8 +7,74 @@ import {owner,recipient,other,home,product,oe,re} from './fixtures/home-handoff-
 import {withSharedMaintenanceClosureMetadata as boundary} from '../lib/shared-maintenance-closure-metadata.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {seedSharedNativeMetadata,metadataTables,metadataRows} from './fixtures/shared-native-metadata.mjs';
+import {seedSharedNativeDevices,deviceRows,deviceTables} from './fixtures/shared-native-devices.mjs';
 
 const seedMetadata=db=>seedSharedNativeMetadata(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
+const seedDevices=db=>seedSharedNativeDevices(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
+
+test('frozen device retirement removes all retained epochs, preserves bystanders and retries harmlessly',async()=>{
+ const f=await fixture(seedDevices);try{
+  const foreign=await deviceRows(f.db,recipient),own=await deviceRows(f.db,owner);
+  assert.ok(Object.values(own).every(rows=>rows.length>0));
+  for(let attempt=0;attempt<2;attempt++){
+   assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseDeviceRegistrations',tx=>f.stage(tx,'eraseDeviceRegistrations'),f.gates)),true);
+   assert.ok(Object.values(await deviceRows(f.db,owner)).every(rows=>rows.length===0));
+   assert.deepEqual(await deviceRows(f.db,recipient),foreign);
+  }
+  assert.equal((await f.db.query('select count(*)::int n from auth.users where id in($1,$2)',[owner,recipient])).rows[0].n,2);
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.shared_native_stage_contexts')).rows[0].n,0);
+ }finally{await f.db.close();}
+});
+
+test('ambiguous notification sends including expired leases retain registrations and roll back metadata',async()=>{
+ for(const fault of ['web','native','unknown']){
+  const f=await fixture(async db=>{
+   await seedDevices(db);
+   if(fault==='web')await db.query("update public.maintenance_push_subscriptions set claim_token=$1,claimed_until=clock_timestamp()-interval '1 hour' where user_id=$2",[randomUUID(),owner]);
+   else await db.query("update maintenance_private.native_notification_jobs set state=$1,lease_id=$2,lease_until=clock_timestamp()-interval '1 hour',send_started_at=clock_timestamp()-interval '2 hours' where device_id in(select id from maintenance_private.native_notification_devices where user_id=$3)",[fault==='native'?'claimed':'unknown',randomUUID(),owner]);
+  });try{
+   const own=await deviceRows(f.db,owner),foreign=await deviceRows(f.db,recipient);
+   for(const phase of ['eraseDeviceRegistrations','eraseRecords'])await assert.rejects(f.transaction(tx=>boundary(tx,f.shared,f.native,phase,tx=>f.stage(tx,phase),f.gates)),/Notification delivery outcome unconfirmed/);
+   assert.deepEqual(await deviceRows(f.db,owner),own);assert.deepEqual(await deviceRows(f.db,recipient),foreign);
+   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner])).rows[0].n,1);
+  }finally{await f.db.close();}
+ }
+});
+
+test('device absence, fresh current gates and final lease checks are required before COMMIT',async()=>{
+ for(const fault of ['false-absence','gate','lease']){
+  const f=await fixture(seedDevices);try{
+   const own=await deviceRows(f.db,owner),foreign=await deviceRows(f.db,recipient);
+   let open=true;const gates=async(...args)=>open&&await f.gates(...args);
+   await assert.rejects(f.transaction(async tx=>{
+    await boundary(tx,f.shared,f.native,'eraseDeviceRegistrations',fault==='false-absence'?async()=>true:tx=>f.stage(tx,'eraseDeviceRegistrations'),gates);
+    if(fault==='gate')open=false;
+    if(fault==='lease')await tx.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[f.shared.requestID]);
+   }),/absence unconfirmed|Current/);
+   assert.deepEqual(await deviceRows(f.db,owner),own);assert.deepEqual(await deviceRows(f.db,recipient),foreign);
+   assert.equal((await f.db.query('select count(*)::int n from maintenance_private.account_closure_reviews where user_id=$1',[owner])).rows[0].n,1);
+  }finally{await f.db.close();}
+ }
+});
+
+test('device stage refuses foreign rows, wrong phases and preference mutations',async()=>{
+ const f=await fixture(seedDevices);try{
+  const own=await deviceRows(f.db,owner),foreign=await deviceRows(f.db,recipient);
+  for(const table of deviceTables)for(const [phase,user] of [['eraseDeviceRegistrations',recipient],['captureReceiptSessions',owner]]){
+   await assert.rejects(f.transaction(async tx=>{
+    await tx.query("insert into maintenance_private.shared_native_stage_contexts values(pg_backend_pid(),txid_current(),$1,$2,$3,$4,$5,clock_timestamp()+interval '10 seconds')",[f.shared,f.native.requestID,oe,f.native.leaseToken,phase]);
+    const rows=await deviceRows(tx,user);
+    const key=table.endsWith('.native_delivery_identities')?'destination_hash':table.endsWith('.maintenance_push_test_limits')?'user_id':'id';
+    await tx.query(`delete from ${table} where ${key}=$1`,[rows[table][0][key]]);
+   }),/Native stage write refused/);
+  }
+  await assert.rejects(f.transaction(async tx=>{
+   await tx.query("insert into maintenance_private.shared_native_stage_contexts values(pg_backend_pid(),txid_current(),$1,$2,$3,$4,'eraseDeviceRegistrations',clock_timestamp()+interval '10 seconds')",[f.shared,f.native.requestID,oe,f.native.leaseToken]);
+   await tx.query('update maintenance_private.native_notification_devices set enabled=false where user_id=$1',[owner]);
+  }),/Native stage write refused/);
+  assert.deepEqual(await deviceRows(f.db,owner),own);assert.deepEqual(await deviceRows(f.db,recipient),foreign);
+ }finally{await f.db.close();}
+});
 
 async function fixture(beforeFreeze=async()=>{}){
  const db=await seedClosureReauthenticationDatabase();await db.exec('reset role;delete from public.home_members');

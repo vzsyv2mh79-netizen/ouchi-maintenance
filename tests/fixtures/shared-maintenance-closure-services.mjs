@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import {randomUUID,randomBytes} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {createClient} from '@supabase/supabase-js';
 import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared-maintenance-closure-metadata.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
+import {seedSharedNativeDevices,deviceRows} from './shared-native-devices.mjs';
 /** Actual local GoTrue/PG/Storage; shared receipts/enrollment/retention are
  * privileged SYNTHETIC fixtures. Not live coverage, role, SLA or Auth-erasure proof.
  */
@@ -51,13 +52,11 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  assert.ok(Object.values(keptMetadata).every(rows=>rows.length===1));
  await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[actor.user]);
  await db.query('update maintenance_private.app_epochs set enabled=false where user_id=$1',[actor.user]);
- // Verify the canonical delivery-history correction before the household
- // freeze. This is NOT evidence of a shared frozen device-stage adapter.
- for(const [user,epoch] of [[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]])await db.query("insert into maintenance_private.native_delivery_identities values($1,current_date,$2,$3,$4,$5,clock_timestamp()+interval '1 day')",[randomBytes(32).toString('hex'),user,epoch,randomUUID(),randomUUID()]);
- const deliveryRows=user=>db.query('select to_jsonb(r) row from maintenance_private.native_delivery_identities r where user_id=$1 order by destination_hash',[user]).then(r=>r.rows);
- const keptDeliveries=await deliveryRows(bystander.user);assert.equal((await deliveryRows(actor.user)).length,2);
- assert.equal((await db.query('select public.erase_maintenance_deletion_native_delivery_identities($1,$2,$3,$4) erased',[native.requestID,actor.user,actor.epoch,native.leaseToken])).rows[0].erased,true);
- assert.deepEqual(await deliveryRows(actor.user),[]);assert.deepEqual(await deliveryRows(bystander.user),keptDeliveries);
+ // All synthetic destinations are inserted before freezing. The guarded SQL
+ // stage below must erase them without an ordinary stopped-writer exemption.
+ await seedSharedNativeDevices(db,[[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]]);
+ const keptDevices=await deviceRows(db,bystander.user);
+ assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length>0));
  if(approved)await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-shared-boundary-test',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[native.requestID]);
  await db.query('select maintenance_private.freeze_household_scope($1,$2)',[shared,native.leaseToken]);
  const args=[native.requestID,actor.user,actor.epoch,native.leaseToken];
@@ -99,6 +98,9 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  },gates)),error=>error.code==='55P03');
  assert.equal(await count(),2);
  assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),1);
+ assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseDeviceRegistrations',tx=>stage(tx,'eraseDeviceRegistrations'),gates)),true);
+ assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length===0));
+ assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
  assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseRecords',records,gates)),true);
  assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
  assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),0);
@@ -121,5 +123,5 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  const kept=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
  assert.equal((await actor.client.auth.getUser()).error,null);
  }
- console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: prior-epoch native delivery identities purged before freeze with bystander rows retained, not a frozen device-stage adapter; shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic enrollment/Apple material/shared receipts/coverage/retention, no shared Auth erasure or live role/SLA proof');
+ console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: guarded frozen device-registration SQL erases five categories across retained epochs and retains bystander rows; shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic destinations/enrollment/Apple material/shared receipts/coverage/retention, no external delivery/device ack, shared Auth erasure or live role/SLA proof');
 }
