@@ -10,6 +10,7 @@ import {verifyDisposableHandoffMFA} from './fixtures/home-handoff-mfa.mjs';
 import {verifyDisposableFamilyAttachmentStorage} from './fixtures/family-attachment-storage.mjs';
 import {verifyDisposableFamilyAttachmentJournal} from './fixtures/family-attachment-journal.mjs';
 import {verifyDisposableFamilyAttachmentAtomic} from './fixtures/family-attachment-atomic-services.mjs';
+import {verifyDisposableAttachmentRetention} from './fixtures/attachment-retention-services.mjs';
 const modules = new Map();
 function serverModule(name) {
  if (modules.has(name)) return modules.get(name);
@@ -194,6 +195,7 @@ test('actual Auth and Storage preserve family files, recover handoff acknowledge
   assert.deepEqual(transferSnapshot(),originalRecords); assert.equal(sql(`select owner_id from public.homes where id='${transferHome}';`),successor.user);
   assert.equal(ok(await observer.client.from('products').select('id').eq('id',transferProduct))[0]?.id,transferProduct);
   assert.equal(ok(await transferOwner.client.auth.getUser()).user.id,transferOwner.user);
+  await verifyDisposableAttachmentRetention({account,admin,origin});
   // Runs LAST: composed private review fences must not alter preceding cases.
   await verifyDisposableFamilyAttachmentAtomic({account,admin,origin,service,options,bytes,createAttachmentFetch,readAttachmentResponse,createHomeHandoffInventoryIdentityVerifier,createHomeHandoffInventoryActorVerifier,sessionAfterAuthVerification,createAccountClosureReviewTransactionPort,createAccountClosureReviewServer,createAccountClosureReviewPrivateTransactions,createClosureReauthenticationMaintenance,closureReviewPOST});
   // No whole-account completion, Apple proof or shared Auth deletion is asserted.

@@ -64,6 +64,10 @@
   "costReviewReference": "ios/Docs/ReleasePreparation/storage-cost-review-20261013.json",
   "allocatedAppBudgetCandidate": "ios/Docs/ReleasePreparation/attachment-app-budget-20261014.json",
   "allocatedAppBudgetEnabled": false,
+  "retentionObservationCandidate": "ios/Docs/ReleasePreparation/attachment-retention-observation-20261015.json",
+  "retentionObservationEnabled": false,
+  "physicalDeletionWorkerEnabled": false,
+  "retentionPhysicalSLAApproved": false,
   "allocatedAppBudgetBytes": null,
   "backupDisclosureBoundary": "Database backup metadata does not back up Storage file contents. File-copy backup and finite erasure/retention policy require separate verified operations before being promised."
 }
