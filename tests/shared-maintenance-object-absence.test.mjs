@@ -38,5 +38,10 @@ test('provider replacement on the same transaction cannot replace the original c
 });
 test('cancellation during SQL cannot return an acknowledgement',async()=>{
  const f=fixture(),query=f.tx.query;f.tx.query=async(...args)=>{const value=await query(...args);f.controller.abort();return value;};
- await assert.rejects(f.confirm(),{name:'AbortError'});assert.equal(f.checks.length,0);
+ await assert.rejects(f.confirm(),{name:'AbortError'});assert.equal(f.checks.length,1);assert.equal(await f.checks[0][1](),false);
+});
+
+test('a lost first successful SQL acknowledgement cannot commit when caller swallows its rejection',async()=>{
+ const f=fixture(),query=f.tx.query;f.tx.query=async(...args)=>{const result=await query(...args);if(args[0].includes('confirm_shared_native_object_absence'))throw Error('Successful statement reply lost');return result;};
+ await assert.rejects(f.confirm());assert.equal(f.checks.length,1);assert.equal(await f.checks[0][1](),false);
 });

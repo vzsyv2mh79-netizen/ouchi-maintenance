@@ -1,3 +1,5 @@
+import {captureSharedMaintenanceInventory} from '../lib/shared-maintenance-inventory-capture.mjs';
+import {confirmSharedMaintenanceObjectAbsence} from '../lib/shared-maintenance-object-absence.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -82,4 +84,29 @@ test('SQL checkpoint refuses omitted family when the owner is implicit and only 
    }catch(error){await db.exec('rollback');throw error;}
   },/Complete original family coverage/);
  }finally{await db.close();}
+});
+
+test('checked SQL rolls back first lost capture/absence replies and late independent gate loss even when work catches the error',async()=>{
+ for(const mode of ['capture-reply','gate-loss','absence-reply']){
+  const f=await fixture(),db=f.db;
+  try{
+   await f.run();if(mode==='absence-reply')assert.equal((await capture(f)).rows[0].value,true);
+   let allowed=true;const verify=async()=>allowed;
+   const raw={query:async(sql,args)=>{const result=await db.query(sql,args);if((mode==='capture-reply'&&sql.includes('capture_shared_native_deletion_objects'))||(mode==='absence-reply'&&sql.includes('confirm_shared_native_object_absence')))throw Error('Synthetic successful SQL reply lost');return result;}};
+   await assert.rejects(async()=>{
+    await db.exec('begin');try{
+     await runWithTransactionCommitChecks(raw,f.controller.signal,async tx=>{
+      try{
+       if(mode==='absence-reply')await confirmSharedMaintenanceObjectAbsence(tx,f.scope,f.native,f.id,verify);
+       else await captureSharedMaintenanceInventory(tx,f.scope,f.native,verify);
+      }catch{/* Deliberately incomplete caller must still fail its owning COMMIT. */}
+      if(mode==='gate-loss')allowed=false;
+     });await db.exec('commit');
+    }catch(error){await db.exec('rollback');throw error;}
+   },error=>error.code==='CURRENT_TRANSACTION_VERIFICATION_REQUIRED');
+   assert.equal((await db.query('select inventory_captured from maintenance_private.account_deletion_requests where id=$1',[f.native.requestID])).rows[0].inventory_captured,mode==='absence-reply');
+   const rows=(await db.query('select absence_confirmed from maintenance_private.account_deletion_objects where request_id=$1',[f.native.requestID])).rows;
+   if(mode==='absence-reply')assert.deepEqual(rows,[{absence_confirmed:false}]);else assert.deepEqual(rows,[]);
+  }finally{await db.close();}
+ }
 });
