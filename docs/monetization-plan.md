@@ -29,7 +29,11 @@ https://developer.apple.com/jp/app-store/review/guidelines/ （3.1.1/3.1.2/4.2�
 https://developer.apple.com/in-app-purchase/
 https://github.com/apple/app-store-server-library-node （公式署名検証ライブラリ）
 https://supabase.com/docs/guides/storage/pricing （Free1GB、Pro100GB、超過$0.0213/GB月。転送費別）
-現請求額/プラン/共有枠残量は管理画面で確認が必要。既存Vercel/Supabase/Resendの請求書を確認するまで実費を断定しない。300円税/手数料控除前、15%適用仮定255円/30%仮定210円。Apple Developer年会費を含む固定費の損益は実請求額確定後。チップは固定収入へ織り込まない。
+2026-10-15の費用確認：認証済みの契約画面でVercel Pro、組織情報でSupabase Freeを確認した。実際の請求総額、従量利用、送信メールのプランは未確認。新規契約・支払い・上限の変更はしていない。写真保管の100MiB枠は提案のままで、共有プロジェクト全体の割当と保存・削除運用を確認するまで販売しない。
+
+[Apple公式の日本向け条件](https://developer.apple.com/support/payment-options-on-the-app-store-in-japan/)では、App Storeの通常手数料21%にAppleアプリ内購入の決済処理料5%が加わる。Small Business Program等の対象取引、または自動更新サブスクの2年目以降は10%＋5%。日本向け新条件を前提に、単純試算は月300円から26%控除で222円、15%控除で255円、年3,000円では2,220円／2,550円となる。これは税・為替・返金・調整・運営費を反映する前の計算で、実入金額ではない。Small Business Programの申請・承認は未確認のため、15%適用を前提にしない。他地域・OS・契約条件へ一律に適用しない。
+
+月300円／年3,000円案は維持する。Appleの選択可能価格、適用条件、年会費と既存インフラの実費を確認してから採算と最終料金を決める。チップを固定収入へ織り込まない。詳細は `ios/Docs/ReleasePreparation/release-cost-check-20261015.json`。
 
 ## このPRの実装範囲と残り
 Sandbox専用検証API/取引台帳の隔離SQL fixture/権利判定/設定案内・プランページ/StoreKit2アダプターを実装。SQLは実DBに未適用、BILLING_MODE未設定時は受付503・利用権free。Production取引は常に拒否する。fixtureは移行ファイルではなく、販売開始時にSupabase CLIで正式migrationを生成・レビューする。
