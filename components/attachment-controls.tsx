@@ -2,10 +2,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {browserAttachmentAuth} from '@/lib/attachment-auth-lifecycle';
 import {getSupabase} from '@/lib/supabase';
-import {attachmentBinding,attachmentPage,downloadAttachment,removeAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
-import {browserPendingAttachments,type PendingWebAttachment} from '@/lib/pending-attachment-store';
+import {attachmentBinding,attachmentPage,downloadAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
+import {browserPendingAttachments,browserPendingAttachmentRemovals,type PendingWebAttachment} from '@/lib/pending-attachment-store';
 import {prepareAttachmentImage} from '@/lib/attachment-image-preparation';
 import {sendPendingAttachment,AttachmentScopeChanged} from '@/lib/attachment-upload-flow';
+import {sendPendingAttachmentRemoval} from '@/lib/attachment-removal-flow';
 
 export function AttachmentControls({product,account}:{product:string;account:string}){
  const [items,setItems]=useState<AttachmentItem[]>([]),[next,setNext]=useState<string|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
@@ -45,7 +46,8 @@ export function AttachmentControls({product,account}:{product:string;account:str
  function remove(id:string){
   if(!items.some(item=>item.id===id)||!window.confirm('この写真・保証書をクラウドから削除しますか？家族も取り出せなくなります。必要なファイルは先に保存してください。'))return;
   void run(async(token,signal,current)=>{
-   await removeAttachment(id,current.epoch,true,token,signal);signal.throwIfAborted();
+   const saved=await browserPendingAttachmentRemovals.stage({...current,product,id});signal.throwIfAborted();
+   await sendPendingAttachmentRemoval(current,saved.id,token,signal);signal.throwIfAborted();
    const latest=await attachmentBinding(token,signal);signal.throwIfAborted();
    if(latest.account!==current.account||latest.epoch!==current.epoch)throw new AttachmentScopeChanged();
    setItems(previous=>previous.filter(item=>item.id!==id));setMessage('ファイルの削除を確認しました。');
@@ -79,6 +81,7 @@ export function AttachmentControls({product,account}:{product:string;account:str
   });
  }
  return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。保存した本人または住まいの所有者は、契約終了後も削除できます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。写真は24メガピクセル以下で、変換後も約5MB以下である必要があります。撮影情報を除いたコピーを保存します（JPEGは再圧縮されます）。写っている氏名・住所やPDFの内容は変更しません。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
+  <p>削除中に通信が切れた場合は、設定のクラウド保存から同じファイルの削除結果を再確認できます。</p>
   <label>写真・保証書を選ぶ<input type="file" accept="image/jpeg,image/png,application/pdf" disabled={busy||pending!==null} onChange={event=>{const chosen=event.target.files?.[0]??null;event.target.value='';if(chosen&&(chosen.size<1||chosen.size>5242880||!['image/jpeg','image/png','application/pdf'].includes(chosen.type))){setFile(null);setMessage('JPEG・PNG・PDFの約5MB以下のファイルを選択してください。');return;}setFile(chosen);setMessage('');}} /></label>
   {file?<p>{file.name} <button className="text-button" disabled={busy} onClick={()=>setFile(null)}>選択を取り消す</button></p>:null}
   <div className="attachment-actions"><button className="primary-button" disabled={busy||!file||pending!==null} onClick={save}>保存する</button>

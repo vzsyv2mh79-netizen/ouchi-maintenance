@@ -1,5 +1,6 @@
 export type PendingWebAttachment={version:1;account:string;epoch:string;product:string;id:string;mime:string;sha256:string;blob:Blob};
-export type PendingAttachmentDriver={read:(key:string)=>Promise<unknown>;revision:(key:string)=>Promise<number>;stage:(key:string,item:PendingWebAttachment,revision:number)=>Promise<unknown>;reset:(account:string,blocked:boolean)=>Promise<void>;resetAll:()=>Promise<void>;complete:(key:string,id:string)=>Promise<void>};
+export type PendingWebAttachmentRemoval={version:1;kind:'removal';account:string;epoch:string;product:string;id:string};
+export type PendingAttachmentDriver={read:(key:string)=>Promise<unknown>;revision:(key:string)=>Promise<number>;stage:(key:string,item:PendingWebAttachment|PendingWebAttachmentRemoval,revision:number)=>Promise<unknown>;reset:(account:string,blocked:boolean)=>Promise<void>;resetAll:()=>Promise<void>;complete:(key:string,id:string)=>Promise<void>};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const valid=(value:unknown):value is string=>typeof value==='string'&&uuid.test(value)&&value!=='00000000-0000-0000-0000-000000000000';
 function scope(account:string,epoch:string){if(!valid(account)||!valid(epoch)||account.toLowerCase()===epoch.toLowerCase())throw Error('登録状態を確認できません。');return `${account.toLowerCase()}/${epoch.toLowerCase()}`;}
@@ -31,6 +32,30 @@ export function pendingAttachmentStore(driver:PendingAttachmentDriver){return {
  clearAccount:async(account:string)=>{if(!valid(account))throw Error('アカウントを確認してください。');await driver.reset(account.toLowerCase(),true);},
  resumeAccount:async(account:string)=>{if(!valid(account))throw Error('アカウントを確認してください。');await driver.reset(account.toLowerCase(),false);},
  complete:async(account:string,epoch:string,id:string)=>{if(!valid(id))throw Error('添付IDを確認してください。');await driver.complete(scope(account,epoch),id.toLowerCase());},
+};}
+
+function checkedRemoval(value:unknown,account:string,epoch:string):PendingWebAttachmentRemoval|null{
+ if(value===undefined||value===null)return null;
+ const item=value as PendingWebAttachmentRemoval;
+ if(!item||typeof item!=='object'||Array.isArray(item)||Object.keys(item).sort().join(',')!=='account,epoch,id,kind,product,version'
+  ||item.version!==1||item.kind!=='removal'||item.account!==account.toLowerCase()||item.epoch!==epoch.toLowerCase()
+  ||!valid(item.product)||!valid(item.id))throw Error('確認待ちの削除情報を読み込めません。');
+ return Object.freeze({...item});
+}
+/** Separate key from pending file bytes, with the same account logout fence.
+ * A receipt is only a retry target, never deletion completion or permission. */
+export function pendingAttachmentRemovalStore(driver:PendingAttachmentDriver){return {
+ read:async(account:string,epoch:string)=>checkedRemoval(await driver.read(scope(account,epoch)+'/removal'),account,epoch),
+ stage:async(input:{account:string;epoch:string;product:string;id:string})=>{
+  const key=scope(input.account,input.epoch)+'/removal';
+  if(!valid(input.product)||!valid(input.id))throw Error('削除するファイルを確認してください。');
+  const revision=await driver.revision(key);
+  const item:PendingWebAttachmentRemoval={version:1,kind:'removal',account:input.account.toLowerCase(),epoch:input.epoch.toLowerCase(),product:input.product.toLowerCase(),id:input.id.toLowerCase()};
+  const saved=checkedRemoval(await driver.stage(key,item,revision),item.account,item.epoch);
+  if(!saved||saved.id!==item.id||saved.product!==item.product)throw Error('別のファイルの削除が確認待ちです。設定から先にその結果を確認してください。');
+  return saved;
+ },
+ complete:async(account:string,epoch:string,id:string)=>{if(!valid(id))throw Error('添付IDを確認してください。');await driver.complete(scope(account,epoch)+'/removal',id.toLowerCase());},
 };}
 
 function database():Promise<IDBDatabase>{return new Promise((resolve,reject)=>{
@@ -75,7 +100,7 @@ async function resetAllAccounts(){
   tx.oncomplete=()=>resolve();tx.onabort=()=>reject(error??Error('端末の確認待ちファイルを消去できません。'));tx.onerror=()=>{error??=Error('端末の確認待ちファイルを消去できません。');};
  });}finally{db.close();}
 }
-export const browserPendingAttachments=pendingAttachmentStore({
+const browserPendingAttachmentDriver:PendingAttachmentDriver={
  read:key=>transaction(key,'readonly',value=>value),
  revision:async key=>{const current=fence(await transaction(fenceKey(key.split('/')[0]),'readonly',value=>value));if(current.blocked)throw Error('ログインし直してから保存してください。');return current.revision;},
  stage:async(key,item,revision)=>{
@@ -87,4 +112,6 @@ export const browserPendingAttachments=pendingAttachmentStore({
  },
  reset:resetAccount,resetAll:resetAllAccounts,
  complete:async(key,id)=>{await transaction(key,'readwrite',(value,store)=>{if(value===undefined)return;if((value as PendingWebAttachment).id!==id)throw Error('別のファイルの確認待ち情報は消去できません。');store.delete(key);});},
-});
+};
+export const browserPendingAttachments=pendingAttachmentStore(browserPendingAttachmentDriver);
+export const browserPendingAttachmentRemovals=pendingAttachmentRemovalStore(browserPendingAttachmentDriver);

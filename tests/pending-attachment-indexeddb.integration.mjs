@@ -27,10 +27,21 @@ try{
  const stage=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachments:store}=await import('/module.js');const blob=new File([new Uint8Array([137,80,78,71,13,10,26,10])],'private-warranty.png',{type:'image/png'});try{const saved=await store.stage({...value,blob});return {ok:true,id:saved.id,filenameStored:'name' in saved.blob};}catch(error){return {ok:false,error:error.message};}},input);
  const read=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachments:store}=await import('/module.js');const saved=await store.read(value.account,value.epoch);return saved?{id:saved.id,bytes:Array.from(new Uint8Array(await saved.blob.arrayBuffer())),filenameStored:'name' in saved.blob}:null;},input);
  assert.deepEqual(await stage(first,base),{ok:true,id:base.id,filenameStored:false});
+ const removal={...base,id:'88888888-8888-4888-8888-888888888888'};
+ const stageRemoval=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachmentRemovals:store}=await import('/module.js');try{return {ok:true,id:(await store.stage(value)).id};}catch{return {ok:false};}},input);
+ const readRemoval=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachmentRemovals:store}=await import('/module.js');return store.read(value.account,value.epoch);},input);
+ assert.deepEqual(await stageRemoval(first,removal),{ok:true,id:removal.id});
+
  await context.close();context=await chromium.launchPersistentContext(profile,{headless:true,executablePath});
  first=await context.newPage();second=await context.newPage();await Promise.all([first.goto(url),second.goto(url)]);
  await first.reload();assert.deepEqual(await read(first,base),{id:base.id,bytes:[137,80,78,71,13,10,26,10],filenameStored:false});
  assert.equal((await read(second,base)).id,base.id);
+ assert.equal((await readRemoval(first,base)).id,removal.id);assert.equal((await readRemoval(second,base)).id,removal.id);
+ assert.equal((await stageRemoval(second,{...removal,id:base.id})).ok,false);
+ const completeRemoval=(page,input)=>page.evaluate(async value=>{const {browserPendingAttachmentRemovals:store}=await import('/module.js');try{await store.complete(value.account,value.epoch,value.id);return true;}catch{return false;}},input);
+ assert.equal(await completeRemoval(second,base),false);assert.equal((await readRemoval(first,base)).id,removal.id);
+ assert.equal(await completeRemoval(second,removal),true);assert.equal(await readRemoval(first,base),null);assert.equal((await read(first,base)).id,base.id);
+
  assert.equal(await read(first,{...base,epoch:'66666666-6666-4666-8666-666666666666'}),null);
  const otherAccount={...base,account:'66666666-6666-4666-8666-666666666666'};
  assert.equal(await read(first,otherAccount),null);
@@ -43,7 +54,9 @@ try{
  assert.equal(await acknowledge(first,base),true);assert.equal(await read(second,base),null);assert.equal((await read(first,otherAccount)).id,winner);
  const lifecycle=(page,method,account)=>page.evaluate(async({method,account})=>{const {browserPendingAttachments:store}=await import('/module.js');await store[method](account);},{method,account});
  await stage(first,{...base,epoch:competitor.id});
+ assert.equal((await stageRemoval(first,removal)).ok,true);
  await lifecycle(second,'clearAccount',base.account);
+ assert.equal(await readRemoval(first,base),null);
  assert.equal(await read(first,base),null);assert.equal(await read(first,{...base,epoch:competitor.id}),null);assert.equal((await read(first,otherAccount)).id,winner);
  assert.equal((await stage(first,base)).ok,false);
  // Hold hashing after the write permit is captured; cleanup in another tab must fence the late commit.
@@ -57,5 +70,5 @@ try{
  assert.equal(await read(first,base),null);assert.equal(await read(second,otherAccount),null);assert.equal((await stage(first,base)).ok,false);assert.equal((await stage(second,otherAccount)).ok,false);
  const keys=await first.evaluate(()=>new Promise(resolve=>{const open=indexedDB.open('ouchi-maintenance-pending-attachments',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('uploads','readonly'),request=tx.objectStore('uploads').getAllKeys();request.onsuccess=()=>resolve(request.result);tx.oncomplete=()=>db.close();};}));assert.ok(keys.every(key=>String(key).startsWith('@account/')));
  assert.equal(apiRequests,0);
- console.log('PASS: real Chromium IndexedDB commit, browser restart and reload, cross-tab visibility and atomic competing writes, account/epoch isolation, exact-ID acknowledgement, stripped filename, account-wide cleanup and cross-tab late-write fencing, explicit login resumption and signed-out account-wide cleanup. Zero API requests; disposable profile and synthetic bytes only.');
+ console.log('PASS: real Chromium IndexedDB commit, browser restart and reload, cross-tab visibility and atomic competing writes, account/epoch isolation, exact-ID acknowledgement, stripped filename, account-wide cleanup and cross-tab late-write fencing, explicit login resumption and signed-out account-wide cleanup. Removal references also survive browser restart, cannot replace a pending target, clear only by exact ID without erasing pending upload bytes, and follow account-wide logout cleanup. Zero API requests; disposable profile and synthetic bytes only.');
 }finally{await context?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(profile,{recursive:true,force:true});}

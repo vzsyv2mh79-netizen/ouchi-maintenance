@@ -1,6 +1,6 @@
 {
   "date": "2026-10-15",
-  "status": "local_candidate_verified_actual_postgres_ci_pending",
+  "status": "actual_disposable_postgres_verified_not_activated",
   "migration": "supabase/migrations/20261015023355_ouchi_attachment_retention_observation.sql",
   "purpose": "Record first committed transition to the existing removal fence and observe aggregate backlog without erasing anything",
   "behavior": [
@@ -40,7 +40,12 @@
       "Aggregate report works with service's existing reads; authenticated client denied",
       "No Storage deletion; pending file and real Auth retained"
     ],
-    "status": "pending_new_head"
+    "status": "passed_on_parent_4401eace",
+    "verifiedHead": "4401eaceb8fc8f7bb383c3cb40e0dd4dc863de70",
+    "run": 38672506498,
+    "job": 116218645655,
+    "rawLogInspected": true,
+    "scope": "One whole Family integration test passed with the new helper marker present; helper assertions are not counted as separate tests"
   },
   "limitations": [
     "Subset: product_attachments removal_pending rows, not all account-deletion/family-copy outboxes",
