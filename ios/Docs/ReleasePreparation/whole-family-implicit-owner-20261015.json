@@ -1,0 +1,44 @@
+{
+  "status": "actual_paired_implicit_owner_two_family_files_solo_deletion_complete_not_deployed",
+  "inputSetCounts": {
+    "previous": 753,
+    "unchanged": 746,
+    "changedExisting": 7,
+    "new": 1,
+    "total": 754
+  },
+  "result": {
+    "actualServices": {
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "durationMs": 71501.904667
+  },
+  "claims": [
+    "Original Ouchi implicit-owner family with owner file moved and recipient member file retained at original path",
+    "Real GoTrue AAL2/TOTP with private exact original household and inventory consent authority while normal owner app access stays stopped",
+    "Second connection proves original journal plus both participant coordination locks held before Auth pins",
+    "Canonical family journal, actual private Storage, atomic ownership/file/quota transfer, old-source absence and committed family checkpoint; successful replies deliberately lost at reservation/activation/removal/completion/global checkpoint",
+    "Global checkpoint acknowledgement lost before native inventory capture; same request resumes without reissuing signed consents or repeating transfer mutations",
+    "Post-family canonical inventory captures and deletes only solo actor file; native metadata and Auth response-loss recovery complete original whole coordinator",
+    "After actual actor Auth erasure, receiver can still read both retained family files via canonical RPC and private Storage bytes; family home/care/history snapshot, other Auth users and Kakei family record200 preserved"
+  ],
+  "limits": [
+    "Only implicit-owner membership and two current-epoch participants tested; explicit old-owner member row and former-uploader variants remain pending",
+    "Copy-upload acknowledgement loss and cancellation transport quieting require additional cases",
+    "Injected Management policy, reduced Kakei review schema and synthetic inventory/enrollment/retention/operator role; no production intake/full writer registry/least-privilege proof",
+    "No production migration/grants/endpoint/customer deletion, billing, Apple upload/submission/publication"
+  ],
+  "snapshotTiming": "Full runtime source frozen after successful terminal test; no before-start snapshot claim.",
+  "privateKakeiSourcesModified": false,
+  "fixedManifestSHA256": "9eb723100c8291f1a08f0d0a6765f6a931c903ce97d6118d740c45e18a10c663",
+  "parentPublicHead": "0cd2379193a33fc7791de7c02867d75ba1cd97ff",
+  "publicAssembly": "Ouchi-owned scene builder and health/clock fixtures only; paired assembly stays in local fixed source, public CI does not execute this nonempty paired case",
+  "legacyConsoleNote": "The final generic console limitation still mentions no actor-file-transfer proof. That old label is retained in the raw log; the new whole-account Ouchi family line and executed scene verifyRetained assertions prove only the bounded implicit-owner two-file transfer described here. Explicit membership/former uploader/cancellation remain open.",
+  "cleanup": {
+    "containersRemaining": 0,
+    "VM": "Stopped verified separately"
+  }
+}
