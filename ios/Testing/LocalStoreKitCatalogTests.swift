@@ -425,6 +425,7 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.setContentSize(NSSize(width: 460, height: 620))
         window.contentView = NSHostingView(rootView:
             Form { ReleaseTipPurchaseSection(purchases: store.releasePurchases) }
+                .formStyle(.grouped)
                 .environmentObject(store).preferredColorScheme(.light).padding())
         window.makeKeyAndOrderFront(nil)
         print("LOCAL_TIP_UI_REVIEW_READY")
@@ -454,7 +455,8 @@ final class LocalStoreKitCatalogTests: XCTestCase {
         window.contentView = NSHostingView(rootView: Form {
             Section { Text("表示確認専用・合成の容量と保存方針・実際の請求なし") }
             ReleaseSubscriptionPurchaseSection(purchases: store.releasePurchases, disclosure: disclosure)
-        }.environmentObject(store).preferredColorScheme(.light).padding())
+        }.formStyle(.grouped)
+            .environmentObject(store).preferredColorScheme(.light).padding())
         window.makeKeyAndOrderFront(nil)
         print("LOCAL_SUBSCRIPTION_UI_REVIEW_READY")
         try await Task.sleep(for: .seconds(90))

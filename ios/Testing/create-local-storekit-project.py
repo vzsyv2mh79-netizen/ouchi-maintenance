@@ -18,7 +18,7 @@ host = ref('host-source','LocalStoreKitHost.swift','sourcecode.swift')
 tests = ref('tests-source','LocalStoreKitCatalogTests.swift','sourcecode.swift')
 catalog = ref('catalog','OuchiLocal.storekit','text')
 purchase = ref('purchase-source','../OuchiMaintenance/PurchaseManager.swift','sourcecode.swift')
-native_sources = [ref('native-'+name, '../OuchiMaintenance/'+name+'.swift','sourcecode.swift') for name in ['NativeStore','KeychainSessionStorage','LocalReminders','NativeReviewFixture']]
+native_sources = [ref('native-'+name, '../OuchiMaintenance/'+name+'.swift','sourcecode.swift') for name in ['NativeStore','KeychainSessionStorage','LocalReminders','NativeReviewFixture','DeletionReadCredentialVault','AccountClosureReviewVault']]
 # Extract the actual shipping tip view; only visibility differs in the test module.
 ui_source = (root.parent/'OuchiMaintenance/NativeRootView.swift').read_text()
 ui_start = ui_source.index('private struct ReleaseTipPurchaseSection: View {')

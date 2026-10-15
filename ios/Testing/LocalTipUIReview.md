@@ -80,3 +80,36 @@ Production subscription updates.
 Apple documents accelerated time and forced renewal as separate testing controls:
 https://developer.apple.com/documentation/storekittest/sktestsession/timerate-swift.property
 https://developer.apple.com/documentation/storekittest/sktestsession/forcerenewalofsubscription(productidentifier:)
+
+## 2026-10-15 current-source review
+
+The dedicated host initially failed to compile after NativeStore gained two
+Keychain adapters. The generator now includes the existing
+DeletionReadCredentialVault and AccountClosureReviewVault sources, without
+stubs or changes to the shipping target. Both extracted purchase sections were
+compared byte-for-byte with their current shipping bodies before review.
+
+The optional macOS forms now explicitly use grouped style. The automatic macOS
+Form style truncated the tip explanation; changing the review container to
+grouped style displayed the complete explanation and separate test-environment
+notice. No shipping iOS view change was needed. In the grouped form, CUA observed
+all three local prices (JPY 100, 300, 1,000), opened the JPY 300 one-time-payment
+confirmation, pressed Cancel, and observed the original three choices again.
+The final payment action was never pressed. These are local catalog prices,
+not registered App Store products or approved selling prices.
+
+StoreKit emitted SKInternalErrorDomain code 3 diagnostics while resetting and
+reading its test journal in this environment. Do not treat an empty journal
+assertion alone as definitive service-state proof. The observed interaction
+proves only local view content and cancellation before entering the purchase
+handler; mock submission checks remain separate. Signed Apple Sandbox, actual
+iPhone rendering, surrounding legal links/restore, and transaction-lifecycle
+verification remain release requirements.
+
+The grouped subscription form was also observed through CUA: both local
+JPY 300 / one-month and JPY 3,000 / one-year full prices, automatic renewal,
+Apple management link, post-expiry record access/export, and explicitly synthetic
+capacity/retention were visible without truncation. Each plan opened a
+confirmation with its own full price/period; Cancel returned to both plan
+choices. No final contract action or external management link was pressed.
+The stated benefits remain gated off in the shipping app until actually ready.
