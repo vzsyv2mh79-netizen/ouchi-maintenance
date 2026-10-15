@@ -121,7 +121,9 @@ begin
    and maintenance_private.attachment_write_is_quiet((prior->>'id')::uuid);
  end if;
  if sch<>'public' then return false;end if;
- if tbl='maintenance_push_subscriptions' then return prior->>'user_id'=u::text;end if;
+ -- clear_push_test_limit is the canonical AFTER DELETE subscription trigger.
+ -- Its cleanup is still DELETE-only and restricted to this same principal.
+ if tbl in('maintenance_push_subscriptions','maintenance_push_test_limits') then return prior->>'user_id'=u::text;end if;
  if tbl='maintenance_backup_restores' then return prior->>'owner_id'=u::text;end if;
  if tbl='home_members' then
   -- The canonical RPC may delete this actor's memberships; it must not delete

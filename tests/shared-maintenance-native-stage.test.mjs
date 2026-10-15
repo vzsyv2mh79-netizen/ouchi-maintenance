@@ -12,6 +12,18 @@ import {seedSharedNativeDevices,deviceRows,deviceTables} from './fixtures/shared
 const seedMetadata=db=>seedSharedNativeMetadata(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
 const seedDevices=db=>seedSharedNativeDevices(db,[[owner,oe],[owner,randomUUID()],[recipient,randomUUID()]]);
 
+test('record-stage Web deletion permits only its own cascading test-limit cleanup',async()=>{
+ const f=await fixture(seedDevices);try{
+  const foreign=await deviceRows(f.db,recipient),own=await deviceRows(f.db,owner);
+  assert.equal(await f.transaction(tx=>boundary(tx,f.shared,f.native,'eraseRecords',tx=>f.stage(tx,'eraseRecords'),f.gates)),true);
+  const remaining=await deviceRows(f.db,owner);
+  assert.deepEqual(remaining['public.maintenance_push_subscriptions'],[]);
+  assert.deepEqual(remaining['public.maintenance_push_test_limits'],[]);
+  for(const table of deviceTables.filter(t=>t.startsWith('maintenance_private.')))assert.deepEqual(remaining[table],own[table]);
+  assert.deepEqual(await deviceRows(f.db,recipient),foreign);
+ }finally{await f.db.close();}
+});
+
 test('frozen device retirement removes all retained epochs, preserves bystanders and retries harmlessly',async()=>{
  const f=await fixture(seedDevices);try{
   const foreign=await deviceRows(f.db,recipient),own=await deviceRows(f.db,owner);

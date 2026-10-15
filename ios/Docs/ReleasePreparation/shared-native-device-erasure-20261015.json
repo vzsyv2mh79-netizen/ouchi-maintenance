@@ -1,6 +1,6 @@
 {
   "date": "2026-10-15",
-  "status": "review_candidate_local_checks_passed_actual_services_pending",
+  "status": "review_candidate_cascade_refusal_reproduced_and_fixed_actual_services_retry_pending",
   "parent": "9d3166cc35dbbb177a2035037cbe32725df4626a",
   "scope": "SQL portion of frozen shared/native device-registration retirement on the journal-owned checked transaction",
   "changes": [
@@ -24,7 +24,12 @@
     "lint": "selected JavaScript files passed with zero warnings"
   },
   "actualServices": {
-    "status": "pending_on_this_candidate",
+    "status": "initial_candidate_failed_cascade_predicate_corrected_retry_pending",
+    "failedHead": "831deefbf4b04a28c1ee53820b3f0a979ed87e2d",
+    "failedRun": 38662992323,
+    "failedJob": 116188370757,
+    "diagnosis": "The canonical clear_push_test_limit AFTER DELETE trigger also deletes the actor's test-limit row during eraseRecords. That exact DELETE was refused by the phase predicate before the intended expiry fault; the expected error assertion was not broadened.",
+    "correction": "Allow only the same principal's DELETE on maintenance_push_test_limits in eraseRecords; add a regression proving its own Web/test-limit rows disappear while own native categories and all bystander rows remain unchanged.",
     "fixture": "tests/fixtures/shared-maintenance-closure-services.mjs",
     "assertions": "Seed synthetic Web/native destinations for current/prior epochs and bystander before freeze; run guarded device SQL while frozen, verify all five own categories absent and bystander retained before record/session/identity/sealed completion"
   },
