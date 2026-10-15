@@ -17,10 +17,12 @@ import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdCon
 // requires a phase-bound removal of only the original owner's member row.
 // Optional former-member upload remains at its original uploader path; that
 // account and its unrelated private home/file are never retirement targets.
-export async function createWholeOuchiFamilyServices({db,actor,recipient,formerUploader=null,admin,origin,bytes,clientForSignal,createSharedConsentIdentityVerifier,sharedIdentityOptions,tokens}){
+export async function createWholeOuchiFamilyServices({db,actor,recipient,formerUploader=null,copyTransport=null,admin,origin,bytes,clientForSignal,createSharedConsentIdentityVerifier,sharedIdentityOptions,tokens}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  for(const f of [clientForSignal,createSharedConsentIdentityVerifier])assert.equal(typeof f,'function');
  assert.equal(!!formerUploader,process.env.OUCHI_WHOLE_FAMILY_FORMER_UPLOADER==='true');
+ assert.equal(!!copyTransport,process.env.OUCHI_WHOLE_FAMILY_CANCEL_COPY_HTTP==='true');
+ let copySignalWitness=false;
  const explicitOwner=process.env.OUCHI_WHOLE_FAMILY_EXPLICIT_OWNER==='true';
  const home=randomUUID(),product=randomUUID(),task=randomUUID(),sha=createHash('sha256').update(bytes).digest('hex');
  const ok=r=>{assert.equal(r.error,null);return r.data;};
@@ -166,7 +168,19 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,formerU
   const client=await clientForSignal(signal);
   return {storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');const api=client.storage.from(bucket);return {
    download:(...args)=>api.download(...args),
-   upload:async(path,...args)=>{assert.ok(normalizeFamilyAttachmentPlan(plan).files.some(f=>f.destination.path===path&&f.source.path!==path));copies++;return api.upload(path,...args);},
+   upload:async(path,...args)=>{
+    assert.ok(normalizeFamilyAttachmentPlan(plan).files.some(f=>f.destination.path===path&&f.source.path!==path));copies++;
+    if(copyTransport&&copies===1){
+     const child=new AbortController();copyTransport.start(path,()=>child.abort(new DOMException('Synthetic committed-copy HTTP cancellation','AbortError')));
+     const cancelledClient=await clientForSignal(AbortSignal.any([signal,child.signal]));let result;
+     try{result=await cancelledClient.storage.from(bucket).upload(path,...args);}finally{await copyTransport.waitQuiet(signal);}
+     copySignalWitness=child.signal.aborted&&!signal.aborted&&!!result.error;
+     assert.equal(copySignalWitness,true);
+     console.log('whole Ouchi family: actual SDK copy fetch aborted after Storage response ended; gateway downstream closed and upstream ended before return, live family operation must reconcile committed bytes');
+     return result;
+    }
+    return api.upload(path,...args);
+   },
    remove:async paths=>{assert.equal(paths.length,1);assert.ok(normalizeFamilyAttachmentPlan(plan).files.some(f=>f.source.path===paths[0]&&f.destination.path!==paths[0]));removals++;return api.remove(paths);}
   };}}};
  };
@@ -255,6 +269,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,formerU
   },
   async verifyRetained(){assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,recipient.user);assert.equal(await retainedSnapshotMatches(db),true);
    for(const f of normalizeFamilyAttachmentPlan(plan).files){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.destination.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);const read=ok(await admin.rpc('read_maintenance_attachment',{target_user:recipient.user,verified_session:recipient.session,expected_epoch:recipient.epoch,attachment_id:f.id}));assert.equal(read.user,f.destination.userID);if(f.source.path!==f.destination.path){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.error?.code,'NoSuchKey');}}
+   if(copyTransport){assert.equal(copySignalWitness,true);const observed=copyTransport.stats();assert.deepEqual(observed,{requests:1,status:observed.status,upstreamEnded:true,downstreamClosed:true,failed:false});assert.ok(observed.status>=200&&observed.status<300);}
    if(formerUploader){
     assert.deepEqual(await readPrivate(),privateState);
     const blob=ok(await admin.storage.from('ouchi-product-attachments').download(privateFile.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);
