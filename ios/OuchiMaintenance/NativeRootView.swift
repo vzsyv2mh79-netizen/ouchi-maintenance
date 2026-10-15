@@ -229,8 +229,10 @@ private struct AdaptiveNavigationTitle: ViewModifier {
 
 /// Ask the same multiline text renderer for both wrapping and required height.
 /// No font shrinking, line cap, fixed device width or accessibility override.
-private struct WrappingProductName: UIViewRepresentable {
+private struct WrappingCareText: UIViewRepresentable {
     let text: String
+    var style: UIFont.TextStyle = .subheadline
+    var secondary = false
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -244,7 +246,8 @@ private struct WrappingProductName: UIViewRepresentable {
 
     func updateUIView(_ label: UILabel, context: Context) {
         label.text = text
-        label.font = UIFont.preferredFont(forTextStyle: .subheadline,
+        label.textColor = secondary ? .secondaryLabel : .label
+        label.font = UIFont.preferredFont(forTextStyle: style,
                                           compatibleWith: label.traitCollection)
     }
 
@@ -278,18 +281,15 @@ private struct CareList: View {
                     if tasks.isEmpty { Text("お手入れ項目がありません。") }
                     ForEach(tasks) { task in
                         Section {
-                            NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { Text(task.name).font(.headline) }
+                            NavigationLink { TaskEditor(productID: task.productId, initial: task) } label: { WrappingCareText(text: task.name, style: .headline) }
                             // Independent List rows keep each metadata item measurable and scrollable.
-                            WrappingProductName(text: data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
+                            WrappingCareText(text: data.products.first(where: { $0.id == task.productId })?.name ?? "製品")
                                 .padding(.vertical, 8)
-                            Text("次回 \(task.nextDueAt)")
-                                .font(.subheadline).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                            Text("\(task.intervalDays)日ごと")
-                                .font(.caption).fixedSize(horizontal: false, vertical: true)
-                            Text(task.sourceKind).font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            WrappingCareText(text: "次回 \(task.nextDueAt)")
+                            WrappingCareText(text: "\(task.intervalDays)日ごと", style: .caption1)
+                            WrappingCareText(text: task.sourceKind, style: .caption1, secondary: true)
                             if let note = task.sourceNote, !note.isEmpty {
-                                Text(note).font(.caption).fixedSize(horizontal: false, vertical: true)
+                                WrappingCareText(text: note, style: .caption1)
                             }
                             Button("完了を記録") { Task { await store.complete(task) } }
                                 .buttonStyle(.borderless)

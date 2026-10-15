@@ -337,6 +337,26 @@ final class LargeTextInteractionTests: XCTestCase {
         return false // Always report the finding; never suppress an issue.
     }
 
+    func testCareTitleOpensEditorAndReturns() {
+        let app = launch(tab: 1, releaseLayout: true)
+        let title = app.buttons["フィルター確認（サンプル）"]
+        reach(title, in: app)
+        title.tap()
+        XCTAssertTrue(app.navigationBars["お手入れを編集"].waitForExistence(timeout: 10))
+        let name = app.textFields["お手入れ名"]
+        XCTAssertTrue(name.exists)
+        XCTAssertEqual(name.value as? String, "フィルター確認（サンプル）")
+        capture(app, name: "care-title-opens-editor")
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        XCTAssertTrue(back.isHittable)
+        back.tap()
+        XCTAssertTrue(app.navigationBars["お手入れ"].waitForExistence(timeout: 10))
+        reach(title, in: app)
+        XCTAssertEqual(title.label, "フィルター確認（サンプル）")
+        capture(app, name: "care-title-returned-to-same-task")
+        app.terminate()
+    }
+
     func testVisibleTaskProductClipping() {
         let app = launch(tab: 1, releaseLayout: true)
         let product = app.staticTexts["空気清浄機（サンプル）"]

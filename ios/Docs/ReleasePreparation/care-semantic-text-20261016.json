@@ -1,0 +1,107 @@
+{
+  "status": "care_semantic_multiline_renderer_focused_and_initial_audits_passed_not_deployed",
+  "parentHead": "fc80f686cc1db6455df8b01efd03ae449d1076f1",
+  "appSourceDigest": "fed08f5266d6056d02f0a3ebb7da50fe8d8ee80c",
+  "runs": [
+    {
+      "name": "neutral-control",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "xcresultRuntimeWarnings": 0,
+      "sourceDigest": "b9c9b9317e03ede75dc4bb5465f73687ecac3a0c",
+      "testHarnessDigest": "2830be3dbe0de880433eb75070ad03b84183fb1e6a22e7dba63634963babf6a0",
+      "selectedTest": "all",
+      "appearance": "dark",
+      "device": "iPhone-17e",
+      "textSize": "accessibility-extra-extra-extra-large",
+      "ownedSimulatorRemoved": true
+    },
+    {
+      "name": "care-dark-four",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "xcresultRuntimeWarnings": 0,
+      "sourceDigest": "fed08f5266d6056d02f0a3ebb7da50fe8d8ee80c",
+      "testHarnessDigest": "f0fe2d7af93734cbd520a8c007248fe62ded090bb93b37ada928105c12471f9f",
+      "selectedTest": "care-regression",
+      "appearance": "dark",
+      "device": "iPhone-17e",
+      "textSize": "accessibility-extra-extra-extra-large",
+      "ownedSimulatorRemoved": true
+    },
+    {
+      "name": "care-light-five",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "xcresultRuntimeWarnings": 0,
+      "sourceDigest": "fed08f5266d6056d02f0a3ebb7da50fe8d8ee80c",
+      "testHarnessDigest": "1bed94b18bca81d3d9496e4dfd6f0ac9be943aa41840c60fe9a2eb5cb717627b",
+      "selectedTest": "care-regression",
+      "appearance": "light",
+      "device": "iPhone-17e",
+      "textSize": "accessibility-extra-extra-extra-large",
+      "ownedSimulatorRemoved": true
+    },
+    {
+      "name": "five-initial-tabs-seven-categories",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "xcresultRuntimeWarnings": 0,
+      "sourceDigest": "fed08f5266d6056d02f0a3ebb7da50fe8d8ee80c",
+      "testHarnessDigest": "1bed94b18bca81d3d9496e4dfd6f0ac9be943aa41840c60fe9a2eb5cb717627b",
+      "selectedTest": "audit",
+      "appearance": "dark",
+      "device": "iPhone-17e",
+      "textSize": "accessibility-extra-extra-extra-large",
+      "ownedSimulatorRemoved": true
+    }
+  ],
+  "change": "Care title/product/due date/interval/source-kind/note use one measured multiline UILabel with semantic preferred text styles and label/secondaryLabel colors; existing List/navigation/actions retained.",
+  "appSourceSHA256": "3fb44c2eb423312c347c453eb7c6fbeb2c558d6da2e3e4609b08cf35077aa16b",
+  "beforeAppSourceSHA256": "ab29dd8a48a2acbf7c72c66e31276d6cd0b8d1245ab3596545c87d192e685039",
+  "claims": [
+    "Multiline UILabel sizes its height with the same renderer and proposed width; no font shrinking, line cap, fixed device width, accessible-label replacement or audit issue filtering.",
+    "Actual Care dark AX5: completion adds exactly one history and updates due date, export share control reachable, unfiltered product textClipped and visible due-date screen contrast pass (4 tests).",
+    "Same app source light AX5 adds accessible title/button editor round trip with full sample field value, then all four prior flows pass (5 tests).",
+    "Same app source dark AX5: one test actually visits all five initial tab viewports and runs contrast/dynamicType/elementDetection/hitRegion/sufficientElementDescription/textClipped/trait without issue suppression; all pass.",
+    "Official xcresult summaries independently checked counts, zero failures/skips/expected failures and empty structured runtimeWarnings for all four runs; four owned simulators removed.",
+    "Separate neutral UIKit-label stock List/eager ScrollView contrast2 passed; this diagnostic is not shipping UI proof."
+  ],
+  "limits": [
+    "Only iPhone17e iOS27 AX5 and stated viewports/flows. Initial full seven-category audit is dark only; light focused Care only. Not all screens, text sizes, rotations or forms.",
+    "Five-tab audit is one XCTest with five seven-category audits, not35 individual tests. Dark4/light5 repeat some flows and must not be treated as9 unique coverage areas.",
+    "UIKit semantic label measurement passes the stated audits; native translucent-bar overlap remains visible while scrolling. Not a claim to eliminate every offscreen/partly scrolled overlay.",
+    "Synthetic in-memory app only; no real cloud persistence, manual VoiceOver, physical phone, live Dynamic Type switching, purchases or final signed submission artifact proof.",
+    "Full sample field value asserted on editor entry; that single-line input may show an ellipsis at AX5. Editing/keyboard workflows are outside this new round-trip check.",
+    "Raw simulator console retains duplicate accessibility-loader class and debugger-version diagnostics where present; empty structured xcresult runtimeWarnings is not a claim of an empty console.",
+    "App source changed after the prior signed IPA; that IPA remains historical and a fresh signed artifact is needed. No production deployment, billing or Apple upload/submission/publication."
+  ],
+  "harness": {
+    "currentSelectorTests": 5,
+    "darkRunTests": 4,
+    "darkHarnessReconstructionSHA256Verified": true,
+    "lightAndInitialUseCurrentHarness": true
+  },
+  "snapshots": "Source and supporting files frozen after successful runs; measured app-source digest matched across dark/light/initial. Local.xcconfig, signing material, real credentials and xcuserdata excluded.",
+  "reviewedImages": [
+    "neutral stock List",
+    "dark Care due and product",
+    "light Care due and editor",
+    "all five dark initial tab images"
+  ],
+  "cleanup": {
+    "ownedSimulatorsRemoved": 4
+  },
+  "production": false,
+  "billing": false,
+  "appleSubmission": false,
+  "fixedManifestSHA256": "a2d1adeba21149e1bf221d63eb1874c4c17a67f5cf05e32cd97e711df1956632"
+}
