@@ -11,7 +11,9 @@ export const metadata: Metadata = {
 const section = { padding: '1.5rem 0', borderBottom: '1px solid var(--line)', scrollMarginTop: '1rem' };
 const paragraph = { lineHeight: 1.9, overflowWrap: 'anywhere' as const };
 const pending = [
-  '公開する運営者名、問い合わせ先、施行日',
+  ...(!draft.operator ? ['公開する運営者名'] : []),
+  ...(!draft.contact ? ['公開する問い合わせ先'] : []),
+  ...(!draft.effectiveDate ? ['施行日'] : []),
   '実際の退会処理と家族に残る記録の説明',
   '購入情報・操作ログ・バックアップの保存期間と削除条件',
   '各委託先の処理地域とApp Storeに申告する収集情報',
@@ -30,7 +32,7 @@ export default function ReleaseInformationPreview() {
     </nav>
     <section id="pending" style={section}>
       <h2>公開前に確定すること</h2><ul style={paragraph}>{pending.map(item => <li key={item} style={{ marginBlock: '.75rem' }}>{item}</li>)}</ul>
-      <dl style={paragraph}><dt>運営者名</dt><dd style={{ marginLeft: 0 }}>未確定</dd><dt>問い合わせ先</dt><dd style={{ marginLeft: 0 }}>未確定</dd><dt>施行日</dt><dd style={{ marginLeft: 0 }}>未確定</dd></dl>
+      <dl style={paragraph}><dt>運営者名</dt><dd style={{ marginLeft: 0 }}>{draft.operator ?? '未確定'}</dd><dt>問い合わせ先</dt><dd style={{ marginLeft: 0 }}>{draft.contact ?? '未確定'}</dd><dt>施行日</dt><dd style={{ marginLeft: 0 }}>{draft.effectiveDate ?? '未確定'}</dd></dl>
     </section>
     <section id="terms" style={section}>
       <h2>利用規約案</h2>{draft.terms.map(item => <article key={item.title} style={{ marginTop: '1.75rem' }}><h3 style={{ fontSize: '1.1rem', lineHeight: 1.6 }}>{item.title}</h3><p style={paragraph}>{item.body}</p></article>)}
@@ -40,7 +42,7 @@ export default function ReleaseInformationPreview() {
     </section>
     <section id="support" style={section}>
       <h2>サポート案</h2>
-      <p style={paragraph}>問い合わせ窓口は公開前に確定します。この画面から問い合わせを送信することはできません。</p>
+      <p style={paragraph}>{draft.contact ? <>問い合わせ先：{draft.contact}。<Link href="/support">使い方と問い合わせページを見る</Link></> : '問い合わせ窓口は公開前に確定します。'} この確認画面からメールが自動送信されることはありません。</p>
       <h3>問い合わせに添えてほしいこと</h3><p style={paragraph}>利用中のアプリのバージョン、iPhoneなどの機種、困っている操作、表示されたエラーをお知らせください。パスワード、確認コード、カード番号、保証書全体の画像は送らないでください。</p>
       <h3>購入と解約</h3><p style={paragraph}>購入機能は準備中です。提供開始後、Appleで購入した定期購入の管理・解約はAppleの設定画面で行います。退会だけでは定期購入は解約されません。</p>
       <h3>記録の書き出し</h3><p style={paragraph}>設定から保存したバックアップは、端末外でも利用者自身で管理してください。有料契約の終了だけを理由に、基本記録の閲覧・書き出しを止めない方針です。</p>

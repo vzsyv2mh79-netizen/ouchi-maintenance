@@ -1,8 +1,8 @@
 {
   "status": "draft_not_public_policy",
-  "version": "2026-10-15",
-  "operator": null,
-  "contact": null,
+  "version": "2026-10-16",
+  "operator": "滝浪イチロー",
+  "contact": "soccer16black@gmail.com",
   "effectiveDate": null,
   "terms": [
     {
@@ -39,7 +39,7 @@
     },
     {
       "title": "変更・終了と問い合わせ",
-      "body": "重要な料金・保存条件の変更やサービス終了は、事前に案内し、記録を取得できる期間を設ける方針です。具体的な通知期間と問い合わせ先は公開前に確定します。"
+      "body": "重要な料金・保存条件の変更やサービス終了は、事前に案内し、記録を取得できる期間を設ける方針です。問い合わせ先は本ページに記載します。具体的な通知期間は公開前に確定します。"
     }
   ],
   "privacy": [
@@ -73,11 +73,11 @@
     },
     {
       "title": "問い合わせと改定",
-      "body": "運営者名、問い合わせ窓口、施行日、改定時の通知方法は公開前に確定します。"
+      "body": "運営者名と問い合わせ窓口は本ページに記載します。施行日と改定時の通知方法は公開前に確定します。"
     }
   ],
   "mustResolveBeforePublication": [
-    "operator and working contact URL",
+    "formal public support URL, contact handling and effective date; operator name and email confirmed",
     "actual shared-household deletion behavior and transferable ownership wording",
     "live account closure and delayed Apple restoration resolution",
     "exact billing identifiers and lawful retention period; no guessed tax-law promise",
