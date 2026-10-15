@@ -71,11 +71,19 @@ test('actual private Storage removal verifies absence and persists exact leased 
  assert.ok(relations.get('maintenance_private.account_deletion_objects').columns.some(column=>column.name==='object_path'));
  console.log('Deletion metadata inventory (no customer values): '+JSON.stringify(inventory));
  let pausedFileID=null,releaseWrite,recordWriteArrival;
+ let dropStorageRemovalReplies=false,storageRemovalRepliesDropped=0;
  const writePermit=new Promise(resolve=>{releaseWrite=resolve;}),writeArrived=new Promise(resolve=>{recordWriteArrival=resolve;});
  const gateway=createServer(async(req,res)=>{
   const auth=req.url?.startsWith('/auth/v1/'),rest=req.url?.startsWith('/rest/v1/'),storage=req.url?.startsWith('/storage/v1/');if(!auth&&!rest&&!storage){res.writeHead(404).end();return;}
   if(storage&&req.method==='POST'&&pausedFileID&&req.url.includes(pausedFileID)){recordWriteArrival();await writePermit;if(req.destroyed||res.destroyed)return;}
-  const upstream=proxyRequest((auth?'http://127.0.0.1:9999':rest?'http://127.0.0.1:3002':'http://127.0.0.1:5002')+req.url.slice(storage?11:8),{method:req.method,headers:req.headers},r=>{res.writeHead(r.statusCode??502,r.headers);r.pipe(res);});upstream.on('error',()=>res.writeHead(502).end());req.pipe(upstream);
+  const dropRemoval=storage&&req.method==='DELETE'&&dropStorageRemovalReplies;
+  if(storage&&req.method==='GET'&&dropStorageRemovalReplies)dropStorageRemovalReplies=false;
+  const upstream=proxyRequest((auth?'http://127.0.0.1:9999':rest?'http://127.0.0.1:3002':'http://127.0.0.1:5002')+req.url.slice(storage?11:8),{method:req.method,headers:req.headers},r=>{
+   // Consume the actual successful Storage reply before destroying only its
+   // downstream acknowledgement. This does not fake an absent-object response.
+   if(dropRemoval&&r.statusCode>=200&&r.statusCode<300){storageRemovalRepliesDropped++;r.resume();r.once('end',()=>res.destroy());return;}
+   res.writeHead(r.statusCode??502,r.headers);r.pipe(res);
+  });upstream.on('error',()=>{if(!res.destroyed&&!res.headersSent)res.writeHead(502).end();});req.pipe(upstream);
  });await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(54321,'127.0.0.1',resolve);});
  try{
   const options={auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createAttachmentFetch()}},origin='http://127.0.0.1:54321';
@@ -519,14 +527,26 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   }
   assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,true);assert.equal((await admin.rpc('erase_maintenance_deletion_native_delivery_identities',args)).data,true);
   // Removing currently absent files cannot acknowledge a still-running upload.
-  await assert.rejects(()=>erase(admin,scope),/Object (acknowledgement unavailable|removal not confirmed)/);
+  await assert.rejects(()=>erase(admin,scope),/Object acknowledgement unavailable/);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   releaseWrite();const lateUploaded=await lateUpload;assert.equal(lateUploaded.error,undefined);assert.equal(lateUploaded.result.error,null);
   const lateDownloaded=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(lateDownloaded.error,null);assert.deepEqual(Buffer.from(await lateDownloaded.data.arrayBuffer()),lateBytes);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',lateAbsenceArgs)).data,false);
   const lateSettled=await admin.rpc('settle_maintenance_attachment_write',{target_attachment:lateFile,target_attempt:lateAttempt});assert.equal(lateSettled.error,null);assert.equal(lateSettled.data,true);
   const stillPending=await admin.rpc('read_maintenance_deletion_objects',args);assert.equal(stillPending.error,null);assert.ok(stillPending.data.some(item=>item.id===lateFile));
-  assert.deepEqual(await erase(admin,scope),{completed:stillPending.data.length,allObjectsConfirmed:true});
+  let unknownRemovalResults=0;const unknownRemovalPaths=[];
+  const observedErasureClient={rpc:(name,params)=>admin.rpc(name,params),storage:{from:bucket=>{
+   const api=admin.storage.from(bucket);return {
+    remove:async paths=>{try{const result=await api.remove(paths);if(result.error){unknownRemovalResults++;unknownRemovalPaths.push(...paths);}return result;}catch(error){unknownRemovalResults++;unknownRemovalPaths.push(...paths);throw error;}},
+    download:target=>api.download(target),
+   };
+  }}};
+  dropStorageRemovalReplies=true;
+  assert.deepEqual(await erase(observedErasureClient,scope),{completed:stillPending.data.length,allObjectsConfirmed:true});
+  assert.ok(storageRemovalRepliesDropped>0);assert.ok(unknownRemovalResults>0,'SDK must surface the actual lost removal acknowledgement');
+  assert.equal(dropStorageRemovalReplies,false,'Definitive Storage read must follow the ambiguous removal');
+  assert.ok(unknownRemovalPaths.every(path=>stillPending.data.some(item=>item.path===path)));
+  console.log('actual Storage committed removal with dropped HTTP acknowledgement recovered by definitive NoSuchKey and same leased SQL receipt; unresolved late upload still refused until canonical settlement');
   const lateRemoved=await admin.storage.from('ouchi-product-attachments').download(latePath);assert.equal(lateRemoved.data,null);assert.equal(lateRemoved.error.code,'NoSuchKey');
 const missing=await admin.storage.from('ouchi-product-attachments').download(path);assert.equal(missing.data,null);assert.ok(missing.error instanceof StorageApiError);assert.equal(missing.error.code,'NoSuchKey');assert.deepEqual((await admin.rpc('read_maintenance_deletion_objects',args)).data,[]);
   assert.deepEqual(await erase(admin,scope),{completed:0,allObjectsConfirmed:true});assert.equal((await user.auth.getUser()).error,null);

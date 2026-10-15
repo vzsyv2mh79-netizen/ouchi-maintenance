@@ -17,3 +17,11 @@ The dedicated disposable Family CI adds real GoTrue/PostgreSQL first-event, conc
 References checked 2026-10-15:
 - https://www.postgresql.org/docs/17/sql-createtrigger.html
 - https://www.postgresql.org/docs/17/functions-datetime.html
+
+## Lost Storage acknowledgements during account closure
+
+`eraseAccountDeletionObjects` handles a different frozen account-deletion inventory, not the aggregate removal-pending observation above. A Storage removal error or thrown response loss now leads to reconciliation of the same immutable path, rather than assuming presence or completion. It rechecks the current native lease before downloading. Only the pinned SDK's `StorageApiError` with `NoSuchKey`, followed by the canonical same-request/user/epoch/lease SQL acknowledgement, can advance that file. A remaining object, AccessDenied, an unknown read, cancellation, expired lease or refused acknowledgement leaves the batch unconfirmed. Final inventory reread is still required before reporting all objects confirmed; this is not whole-account completion.
+
+The preexisting canonical SQL write-quietness checks remain mandatory. A temporarily missing object cannot acknowledge an upload that may still finish later. The actual-service candidate deliberately keeps this refusal check, settles only the exact known synthetic upload through its original RPC, then drops a successful Storage DELETE reply and requires the SDK to expose that loss before recovery. It does not replace unknown send outcomes with timeout-based completion.
+
+Local verification: 21 related tests passed, including actual pinned SDK/default fetch over a loopback HTTP socket destroyed after the synthetic removal, definitive SDK NoSuchKey decoding, and same-scope acknowledgement. Local RPC/identity are synthetic. The disposable real Storage/PostgreSQL test is still a new-head CI candidate; its marker and result must be inspected before claiming it passed. No endpoint, worker schedule, production deletion or 30-day SLA is enabled.

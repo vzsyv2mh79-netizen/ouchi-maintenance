@@ -20,7 +20,12 @@ export async function eraseAccountDeletionObjects(db:SupabaseClient,scope:Deleti
  if(new Set(items.map(x=>x.id)).size!==items.length)throw Error('Duplicate deletion inventory');
  let completed=0;
  for(const item of items){
-  await guard();const removed=await db.storage.from('ouchi-product-attachments').remove([item.path]);if(removed.error)throw Error('Object removal not confirmed');
+  await guard();
+  // A lost response can follow a committed Storage removal. Its error is
+  // neither completion nor proof of presence. Reconcile the SAME frozen path
+  // under the current lease, then require definitive absence and durable SQL
+  // acknowledgement; AccessDenied, a timeout or a remaining object still stop.
+  try{await db.storage.from('ouchi-product-attachments').remove([item.path]);}catch{/* Outcome reconciled below. */}
   await guard();const missing=await db.storage.from('ouchi-product-attachments').download(item.path);
   if(missing.data||!(missing.error instanceof StorageApiError)||missing.error.code!=='NoSuchKey')throw Error('Object absence not confirmed');
   await guard();const saved=await db.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:item.id});if(saved.error||saved.data!==true)throw Error('Object acknowledgement unavailable');
