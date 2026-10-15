@@ -19,7 +19,7 @@ private actor HandoffScript {
         requests.append(request)
         if requests.count == failAt { throw URLError(.networkConnectionLost) }
         let state = requests.count > 2 ? finalState : "pending"
-        return (handoffBody(state), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (handoffBody(state), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
 }
 private actor DelayedHandoffReply {
@@ -34,12 +34,32 @@ private actor DelayedHandoffReply {
         await withCheckedContinuation { continuation in
             release = continuation; arrived = true; arrival?.resume(); arrival = nil
         }
-        return (handoffBody("completed"), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (handoffBody("completed"), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
     }
     func finish() { release?.resume(); release = nil }
 }
 
 final class HomeHandoffTests: XCTestCase {
+    func testCompletedResultRequiresPrivateJSONAndConsistentBoundedLength() async throws {
+        let bytes = handoffBody("completed")
+        let cases: [[String: String]] = [
+            [:],
+            ["Content-Type": "text/html", "Cache-Control": "no-store"],
+            ["Content-Type": "application/json", "Cache-Control": "public, max-age=3600"],
+            ["Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": "5000"],
+            ["Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": "-1"],
+            ["Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": "unknown"],
+            ["Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": String(bytes.count - 1)]
+        ]
+        for headers in cases {
+            let api = HomeHandoffAPI(transport: { request in
+                (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!)
+            })
+            do { _ = try await api.read(requestID: handoffRequest, homeID: handoffHome, epochID: handoffEpoch, token: "synthetic"); XCTFail("Unconfirmed private result must not report completed") }
+            catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+        }
+    }
+
     @MainActor func testInvalidRecipientDoesNotPersistOrPoisonTheValidRequest() async throws {
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         for invalidRecipient in [zero, handoffOwner] {
@@ -89,7 +109,7 @@ final class HomeHandoffTests: XCTestCase {
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer synthetic")
             let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
             XCTAssertEqual(body, ["homeID": handoffHome.uuidString.lowercased(), "recipientID": handoffRecipient.uuidString.lowercased()])
-            return (handoffBody(), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (handoffBody(), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
         })
         let result = try await api.create(requestID: handoffRequest, homeID: handoffHome, recipientID: handoffRecipient, epochID: handoffEpoch, token: "synthetic")
         XCTAssertEqual(result.state, .pending)
@@ -97,7 +117,7 @@ final class HomeHandoffTests: XCTestCase {
             let bad = HomeHandoffAPI(transport: { request in
                 let data = mode == 0 ? Data(repeating: 65, count: 4097) : mode == 1 ? handoffBody("invented") : mode == 2 ? handoffBody().replacingUUID() : handoffBody()
                 let url = mode == 3 ? URL(string: "https://example.invalid/redirect")! : request.url!
-                return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!)
             })
             do { _ = try await bad.read(requestID: handoffRequest, homeID: handoffHome, epochID: handoffEpoch, token: "synthetic"); XCTFail("Must reject foreign/malformed response") }
             catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }

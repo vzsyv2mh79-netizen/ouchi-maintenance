@@ -47,7 +47,7 @@ public struct HomeHandoffAPI: Sendable {
             let session = URLSession(configuration: configuration, delegate: HandoffRedirectBlocker(), delegateQueue: nil)
             defer { session.invalidateAndCancel() }
             let (bytes, response) = try await session.bytes(for: request)
-            guard let response = response as? HTTPURLResponse else { throw CloudError.malformedResponse }
+            guard let response = response as? HTTPURLResponse, response.expectedContentLength <= 4096 else { throw CloudError.malformedResponse }
             var data = Data()
             for try await byte in bytes {
                 try Task.checkCancellation()
@@ -85,6 +85,16 @@ public struct HomeHandoffAPI: Sendable {
         try Task.checkCancellation()
         guard response.url == url, data.count <= 4096 else { throw CloudError.malformedResponse }
         if response.statusCode == 401 { throw CloudError.authenticationRequired }
+        // A successful ownership result must satisfy the private handler's
+        // JSON/no-store contract. Never promote an HTML or cacheable response.
+        if response.statusCode == 200 {
+            guard response.expectedContentLength <= 4096, response.mimeType == "application/json",
+                  response.value(forHTTPHeaderField: "Cache-Control")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "no-store" else { throw CloudError.malformedResponse }
+            if let declared = response.value(forHTTPHeaderField: "Content-Length") {
+                guard !declared.isEmpty, declared.allSatisfy({ $0.isASCII && $0.isNumber }),
+                      Int(declared) == data.count else { throw CloudError.malformedResponse }
+            }
+        }
         if response.statusCode == 403,
            let refusal = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            Set(refusal.keys) == ["error", "code"],

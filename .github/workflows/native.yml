@@ -51,6 +51,8 @@ jobs:
         run: node ios/Tests/account-enrollment-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Native closure review actual HTTP and protected restart
         run: node ios/Tests/closure-review-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
+      - name: Native family handoff actual HTTP and protected restart
+        run: node ios/Tests/home-handoff-http.mjs --sdk "$(xcrun --sdk macosx --show-sdk-path)"
       - name: Verify synthetic core and local snapshot tests
         run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --catalog "$RUNNER_TEMP/ouchi-catalog.json"
       - name: Swift package tests
