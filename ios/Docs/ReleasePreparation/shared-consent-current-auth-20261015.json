@@ -42,12 +42,14 @@
     }
   },
   "localFixedReview": {
-    "manifest": "output/paired-current-auth-fixed-20261015/manifest.json",
-    "manifestSHA256": "09ad48f405ec5b853db48b6bd87fec607884d483868d19e080467846da2ba0fa",
-    "unchangedBaseInputs": 737,
+    "manifest": "output/paired-current-auth-fixed-20261015/manifest-v2.json",
+    "manifestSHA256": "6acbf4ebb3fa36800a485aaa3efb9afcb168f66e7b5dbf18ac34c260fa114ba9",
+    "unchangedBaseInputs": 736,
     "deltaFiles": 9,
     "privatePeerSourcesPublished": false,
-    "upstreamKakeiSourcesModified": false
+    "upstreamKakeiSourcesModified": false,
+    "unchangedBaseInputsRepeatedInDelta": 1,
+    "totalUnchangedBaseHashesVerified": 737
   },
   "limits": [
     "Real service composition is a private local review fixture, not an enabled shipping route",
