@@ -1,0 +1,57 @@
+{
+  "baseManifestLocation": "output/whole-family-implicit-owner-fixed-20261015/manifest.json",
+  "baseManifestSHA256": "9eb723100c8291f1a08f0d0a6765f6a931c903ce97d6118d740c45e18a10c663",
+  "inputSetCounts": {
+    "previous": 754,
+    "unchanged": 748,
+    "changedExisting": 6,
+    "new": 1,
+    "total": 755
+  },
+  "status": "fresh_actual_paired_family_faults_complete_not_deployed",
+  "result": {
+    "actualServices": {
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 88506.3865
+    },
+    "fixedSourceRegression": {
+      "passCount": 19,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "configuredLintExit": 0
+  },
+  "successfulActualLog": "logs/ouchi-family-faults-sdk-dispatch-services-20261016.log",
+  "claims": [
+    "Original implicit-owner family: owner attachment transferred, recipient attachment retained; solo actor attachment removed, whole shared Auth coordinator completed.",
+    "Actual PostgreSQL root-row wait cancellation returned backend to idle with no open transaction and no callback entry; parent controller remained usable.",
+    "Actual Storage SDK copy succeeded, then fixture deliberately lost its provider reply. Exactly one upload dispatch; two activation attempts, one fully rolled back on changed real recipient factor.",
+    "Late factor change, transfer rows and quotas rolled back together. Original household and file inventory proof digests and source bytes retained; same signed request resumed.",
+    "Reservation, activation, source removal, family completion and global family checkpoint replies lost; native inventory remained uncaptured and solo file intact at checkpoint interruption.",
+    "Original coordinator subsequently captured canonical inventory, deleted solo file, recovered actual Storage/Auth DELETE response loss, remained pending on failed post-Auth readback, then completed.",
+    "Recipient canonical RPC and actual Storage reads, family care/history, unrelated private bytes/Auth and Kakei family record200 retained after actor Auth erasure."
+  ],
+  "limits": [
+    "Dedicated fresh whole-family entry, not success of the separate legacy standalone family scenario suite. Earlier failed runs preserved in raw logs.",
+    "Implicit owner and two current-epoch participants only; explicit old-owner membership and former-uploader variants pending.",
+    "Copy reply loss is injected after real SDK success, not dropped copy HTTP transport. SQL wait cancellation proves rollback/quiescence only; Storage transport cancellation pending.",
+    "Live-only original root lease renewal used without changing original scope or nonce; expired/foreign renewal negative test still pending.",
+    "Management policy injected, Kakei reduced review schema and synthetic inventory/enrollment/retention/operator role; no shipping intake/full writer registry/least privilege proof.",
+    "Private paired assembly stays local; public CI does not execute this nonempty paired case. No private peer source modified or published.",
+    "No production migration/grants/customer deletion, live billing, Apple upload/submission/publication."
+  ],
+  "snapshotTiming": "Full755 source frozen after successful actual execution; fixed-source19 tests and configured lint replayed afterwards.",
+  "cleanup": {
+    "VM": "Stopped verified",
+    "successfulProjectContainersAndVolumesRemoved": true
+  },
+  "privateKakeiSourcesModified": false,
+  "legacyConsoleNote": "Initial diagnostic configuration contains the previous generic no-actor-transfer label. It is retained as raw data; the dedicated successful case and executed assertions define the bounded claim.",
+  "fixedManifestSHA256": "5af286ca8932969483ae0f79b6ceb62b2c97ad4ec19b4973e5cca5fe78065d23",
+  "parentPublicHead": "651ceba83f6acedec8a52b39fb8155e4bbde91c6",
+  "publicAssembly": "Ouchi-owned scene builder only; private paired fixture assembly remains in fixed local source"
+}

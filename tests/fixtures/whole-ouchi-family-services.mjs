@@ -52,7 +52,8 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   return JSON.parse(JSON.stringify({members,products,files,writes}));
  };
  const initialInventory=await inventory(db);let root,native,transaction,controller,plan,scope,consentPlan,consents,committed,ports,issued=false;
- const events=[];const key=randomBytes(32);let preparations=0,activations=0,removals=0,finishes=0;
+ const events=[];const key=randomBytes(32);let preparations=0,copies=0,activations=0,removals=0,finishes=0,tamperActivation=true,lastActivationFailure=null,originalProofDigest=null;
+ const proofDigest=async()=>createHash('sha256').update(JSON.stringify({household:(await db.query('select actor_id,token,revoked_at from maintenance_private.household_handoff_consents where home_id=$1 order by actor_id',[home])).rows,inventory:(await db.query('select actor_id,token,revoked_at from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id',[root.requestID,home])).rows})).digest('hex');
  let lockOrderProved=false;
  const locks=async tx=>{await tx.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);for(const id of [actor.user,recipient.user].sort())await tx.query('select pg_advisory_xact_lock(hashtext($1))',[id]);};
  const frozenAuthority=async(tx,s,p,signal)=>{
@@ -93,6 +94,16 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   signal.throwIfAborted();const found=await identity(tokens.get(claim.actorID),tx);
   return !!found&&found.userID===claim.actorID&&found.sessionID===claim.sessionID&&found.epochID===claim.epochID&&found.aal===claim.aal&&found.authenticatedAt===claim.authenticatedAt&&found.authStateDigest===claim.authStateDigest;
  };
+ // Count only SDK side-effect dispatches, never an orchestrator attempt
+ // refused by current authority BEFORE it reaches Storage.
+ const countedClientForSignal=async signal=>{
+  const client=await clientForSignal(signal);
+  return {storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');const api=client.storage.from(bucket);return {
+   download:(...args)=>api.download(...args),
+   upload:async(path,...args)=>{assert.ok(normalizeFamilyAttachmentPlan(plan).files.some(f=>f.destination.path===path&&f.source.path!==path));copies++;return api.upload(path,...args);},
+   remove:async paths=>{assert.equal(paths.length,1);assert.ok(normalizeFamilyAttachmentPlan(plan).files.some(f=>f.source.path===paths[0]&&f.destination.path!==paths[0]));removals++;return api.remove(paths);}
+  };}}};
+ };
  const completed=async(tx,signal)=>{
   if(!await committed(tx,scope,signal))return false;
   const row=(await tx.query(`select exists(select 1 from maintenance_private.family_attachment_completion_receipts r
@@ -121,7 +132,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    if(!row||row.user_id!==recipient.user||row.app_epoch_id!==recipient.epoch||row.captured_owner_id!==recipient.user||row.object_path!==f.destination.path||row.sha256!==sha||Number(row.size_bytes)!==bytes.length||row.mime!=='image/png'||row.state!=='stored'||!w||w.state!=='settled'||!w.settled_at||w.owner_id!==recipient.user||w.uploader_id!==recipient.user||w.app_epoch_id!==recipient.epoch)return false;
   }return true;
  };
- return {home,product,task,source,stats:()=>({preparations,activations,removals,finishes,events:[...events]}),
+ return {home,product,task,source,stats:()=>({preparations,copies,activations,removals,finishes,events:[...events]}),
   async setup(context){({scope:root,native,transaction,controller}=context);
    const originalTransaction=transaction;transaction=async(work,...args)=>{try{return await originalTransaction(async tx=>{await locks(tx);return work(tx);},...args);}catch(e){console.log('whole Ouchi family transaction refused',e.message,e.where??'');throw e;}};
    scope={requestID:root.requestID,homeID:home,userID:actor.user,ownerEpoch:actor.epoch,nativeRequestID:native.requestID,nativeLease:native.leaseToken,controllerScope:root};
@@ -130,13 +141,21 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    consents=createFamilyAttachmentInventoryConsent({key:randomBytes(32),store:{transaction,target:async(tx,request,h,who)=>{assert.equal(request,root.requestID);assert.equal(h,home);assert.ok([actor.user,recipient.user].includes(who));await locks(tx);return {scope,plan,inventory:await inventory(tx)};},records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])},identifyActor:async(token,signal)=>{signal.throwIfAborted();return ok(await admin.auth.getUser(token)).user.id;},verifyIdentity:identity,verifyActor,currentAuthority:(tx,s,p,i,d,signal)=>frozenAuthority(tx,s,p,signal)});
    committed=createCommittedHouseholdConsentVerifier({key,verifyCommittedInventory:consents.authorizeCommittedActivation});
    const status=createFamilyAttachmentStatus({transaction,authorize:consents.authorize}),journal=createFamilyAttachmentJournal({transaction,authorize:consents.authorize});
-   const storage=createFamilyAttachmentStoragePorts({clientForSignal,guard:async(s,p,f,op,signal)=>{const state=await status(s,p,signal);return op==='cleanup'?state.state==='activated':state.state==='prepared'||state.state==='activated';}});
-   const completionStorage=createFamilyAttachmentStoragePorts({clientForSignal,guard:(s,p,f,op,signal)=>frozenAuthority(db,s,p,signal)});
+   const storage=createFamilyAttachmentStoragePorts({clientForSignal:countedClientForSignal,guard:async(s,p,f,op,signal)=>{const state=await status(s,p,signal);return op==='cleanup'?state.state==='activated':state.state==='prepared'||state.state==='activated';}});
+   const completionStorage=createFamilyAttachmentStoragePorts({clientForSignal:countedClientForSignal,guard:(s,p,f,op,signal)=>frozenAuthority(db,s,p,signal)});
    const completion=createFamilyAttachmentCompletion({transaction,verifyCommittedConsent:committed,verifyReadAuthority:frozenAuthority,verifyWriteAuthority:frozenAuthority,storage:completionStorage});
    ports={...storage,plan:async()=>plan,guard:async(s,signal)=>await frozenAuthority(db,s,plan,signal),status:async(...args)=>await completed(db,args[2])?completion.status(...args):status(...args),
     prepare:async(...args)=>{preparations++;await journal.prepare(...args);throw Error('Successful Ouchi family reservation reply lost');},
-    activate:async(s,p,digest,proof,signal)=>{activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:consents.authorizeActivation});await transaction(tx=>createHouseholdHandoffPort(key,activation)(root,native.leaseToken,home,tx));throw Error('Successful Ouchi family activation reply lost');},
-    removeSource:async(...args)=>{await storage.removeSource(...args);removals++;throw Error('Successful Ouchi family source removal reply lost');},
+    writeDestination:async(...args)=>{await storage.writeDestination(...args);throw Error('Successful Ouchi family copy upload reply lost');},
+    activate:async(s,p,digest,proof,signal)=>{
+     activations++;const activation=createFamilyAttachmentActivation({scope:s,plan,proof,signal,authorize:consents.authorizeActivation});
+     try{await transaction(async tx=>{
+      await createHouseholdHandoffPort(key,activation)(root,native.leaseToken,home,tx);
+      if(tamperActivation){tamperActivation=false;assert.equal((await tx.query("update auth.mfa_factors set friendly_name=$1 where id=(select id from auth.mfa_factors where user_id=$2 and status::text='verified' and factor_type::text='totp' order by id limit 1) returning id",['Synthetic late Ouchi family drift',recipient.user])).rowCount,1);}
+     },signal);}catch(e){lastActivationFailure=e;throw e;}
+     throw Error('Successful Ouchi family activation reply lost');
+    },
+    removeSource:async(...args)=>{await storage.removeSource(...args);throw Error('Successful Ouchi family source removal reply lost');},
     finish:async(...args)=>{finishes++;await completion.finish(...args);throw Error('Successful Ouchi family completion reply lost');}};
    for(const name of Object.keys(ports)){const original=ports[name];ports[name]=async(...args)=>{try{const result=await original(...args);if(result===false&&events.length<20)events.push({stage:name,message:'false'});return result;}catch(e){if(events.length<20)events.push({stage:name,message:String(e.message).slice(0,180)});console.log('whole Ouchi family port outcome',name,e.message);throw e;}};}
   },
@@ -149,10 +168,27 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    for(const person of [actor,recipient]){
     const token=tokens.get(person.user);assert.equal((await consents.issue({requestID:root.requestID,homeID:home,accessToken:token,confirmation:'写真・保証書の一覧と受取先を確認して引き継ぎに同意する',signal:controller.signal})).status,'accepted');
     assert.equal((await issuer({requestID:root.requestID,householdID:home,accessToken:token,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
-   }issued=true;
+   }issued=true;originalProofDigest=await proofDigest();
+  },
+  async verifyAbortBoundary(){
+   const probe=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:2000,query_timeout:6500});await probe.connect();const cancel=new AbortController();let entered=false;
+   try{await probe.query('begin');await probe.query('select request_id from private.kb_shared_deletion_journal where request_id=$1 for update',[root.requestID]);
+    const pid=(await db.query('select pg_backend_pid() pid')).rows[0].pid;const timer=setTimeout(()=>cancel.abort(),50);
+    try{await assert.rejects(transaction(async()=>{entered=true;},cancel.signal),e=>e.name==='AbortError');}finally{clearTimeout(timer);}
+    assert.equal(entered,false);const quiet=(await probe.query('select state,xact_start from pg_stat_activity where pid=$1',[pid])).rows[0];assert.equal(quiet.state,'idle');assert.equal(quiet.xact_start,null);
+   }finally{await probe.query('rollback');await probe.end();}
+   console.log('whole Ouchi family: cancellation during actual root-row lock wait rolled back to idle; callback never entered, original controller remains usable');
+  },
+  async verifyRefusedActivation(){
+   assert.equal(lastActivationFailure?.code,'CURRENT_TRANSACTION_VERIFICATION_REQUIRED');assert.deepEqual(await inventory(db),initialInventory);assert.deepEqual(await snapshot(db),initialSnapshot);
+   assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,actor.user);
+   assert.equal((await db.query('select count(*)::int n from maintenance_private.family_attachment_activation_receipts where request_id=$1 and home_id=$2',[root.requestID,home])).rows[0].n,0);
+   assert.equal((await db.query('select count(*)::int n from auth.mfa_factors where user_id=$1 and friendly_name=$2',[recipient.user,'Synthetic late Ouchi family drift'])).rows[0].n,0);
+   assert.equal(await proofDigest(),originalProofDigest);assert.deepEqual({preparations,copies,activations,removals,finishes},{preparations:1,copies:1,activations:1,removals:0,finishes:0});
+   for(const f of source){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);}
   },
   async verifyRetained(){assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,recipient.user);assert.deepEqual(await snapshot(db),initialSnapshot);
    for(const f of normalizeFamilyAttachmentPlan(plan).files){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.destination.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);const read=ok(await admin.rpc('read_maintenance_attachment',{target_user:recipient.user,verified_session:recipient.session,expected_epoch:recipient.epoch,attachment_id:f.id}));assert.equal(read.user,recipient.user);if(f.source.path!==f.destination.path){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.error?.code,'NoSuchKey');}}
-   assert.deepEqual({preparations,activations,removals,finishes},{preparations:1,activations:1,removals:1,finishes:1});
+   assert.deepEqual({preparations,copies,activations,removals,finishes},{preparations:1,copies:1,activations:2,removals:1,finishes:1});assert.equal(await proofDigest(),originalProofDigest);
   }};
 }
