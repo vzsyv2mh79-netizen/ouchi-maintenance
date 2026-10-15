@@ -13,11 +13,13 @@ import {createHouseholdHandoffPort,snapshotDigest} from './handoff-controller-co
 import {createHandoffConsentIssuer,handoffPlanDigest,createCommittedHouseholdConsentVerifier} from './handoff-controller-compatibility/handoff-consent.mjs';
 
 // Private disposable integration only. Real signed Auth/MFA is mandatory. No
-// production grant/route or peer source modification. Explicit owner membership
-// and former-uploader cases are not claimed by this two-file initial scene.
+// production grant/route or peer source modification. The explicit-owner variant
+// requires a phase-bound removal of only the original owner's member row.
+// Former-uploader cases remain outside this two-file scene.
 export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,origin,bytes,clientForSignal,createSharedConsentIdentityVerifier,sharedIdentityOptions,tokens}){
  assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
  for(const f of [clientForSignal,createSharedConsentIdentityVerifier])assert.equal(typeof f,'function');
+ const explicitOwner=process.env.OUCHI_WHOLE_FAMILY_EXPLICIT_OWNER==='true';
  const home=randomUUID(),product=randomUUID(),task=randomUUID(),sha=createHash('sha256').update(bytes).digest('hex');
  const ok=r=>{assert.equal(r.error,null);return r.data;};
  const actorToken=tokens.get(actor.user),actorClaims=JSON.parse(Buffer.from(actorToken.split('.')[1],'base64url'));
@@ -27,6 +29,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   await db.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify(actorClaims),actor.user]);
   await db.query('insert into public.homes(id,owner_id,name,kind) values($1,$2,$3,$4)',[home,actor.user,'Synthetic retained Ouchi family','home']);
   await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,recipient.user,'Synthetic receiver']);
+  if(explicitOwner)await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,actor.user,'Synthetic original owner member']);
   await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[product,home,'air','Synthetic retained family product']);
   await db.query('insert into public.maintenance_tasks(id,"productId",name,kind,"intervalDays","nextDueAt","sourceKind") values($1,$2,$3,$4,30,$5,$6)',[task,product,'Synthetic retained care',"\u6383\u9664",'2030-01-01',"\u30e6\u30fc\u30b6\u30fc\u8a2d\u5b9a"]);
   await db.query('insert into public.maintenance_history("taskId","productId","completedAt") values($1,$2,$3)',[task,product,'2026-01-01']);await db.query('commit');
@@ -52,6 +55,32 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   return JSON.parse(JSON.stringify({members,products,files,writes}));
  };
  const initialInventory=await inventory(db);let root,native,transaction,controller,plan,scope,consentPlan,consents,committed,ports,issued=false;
+ assert.equal(initialInventory.members.some(m=>m.user_id===actor.user),explicitOwner);
+ const retainedSnapshotMatches=async tx=>{
+  const row=(await tx.query(`select n.records_erased,
+   n.user_id=$2 and n.app_epoch_id=$3 and coalesce(n.lease_token,n.completion_lease)=$4
+    and n.state in('running','complete') original_native
+   from maintenance_private.account_deletion_requests n where n.id=$1`,[native.requestID,actor.user,actor.epoch,native.leaseToken])).rows[0];
+  let expected=initialSnapshot;
+  if(row?.records_erased===true){
+   if(row.original_native!==true)return false;
+   const fixed={...root};delete fixed.leaseToken;
+   const proof=(await tx.query(`select exists(select 1 from private.kb_shared_deletion_journal j
+    join maintenance_private.shared_family_stage_contexts f on f.request_id=j.request_id
+    where j.request_id=$1 and j.user_id=$2 and j.scope=$3::jsonb and f.scope=$4::jsonb
+     and f.receipt=j.receipts->'handoff-family' and f.receipt->>'durable'='true'
+     and f.receipt->>'stage'='handoff-family' and f.coverage_digest=f.receipt->>'familyCoverageDigest'
+     and ((j.status='processing' and j.lease_token=$5 and j.lease_until>clock_timestamp())
+      or (j.status='complete' and j.receipts->'complete'->>'durable'='true'
+       and j.receipts->'complete'->>'stage'='complete'
+       and ((j.receipts->'complete')-'durable'-'stage')=j.scope))) current`,[root.requestID,actor.user,fixed,root,root.leaseToken])).rows[0];
+   if(proof.current!==true)return false;
+   // Keep the historical signed snapshot unchanged. Only the exact retiring
+   // principal's membership may disappear after canonical record erasure.
+   expected={...initialSnapshot,members:initialSnapshot.members.filter(m=>m.user_id!==actor.user)};
+  }
+  return same(await snapshot(tx),expected);
+ };
  const events=[];const key=randomBytes(32);let preparations=0,copies=0,activations=0,removals=0,finishes=0,tamperActivation=true,lastActivationFailure=null,originalProofDigest=null;
  const proofDigest=async()=>createHash('sha256').update(JSON.stringify({household:(await db.query('select actor_id,token,revoked_at from maintenance_private.household_handoff_consents where home_id=$1 order by actor_id',[home])).rows,inventory:(await db.query('select actor_id,token,revoked_at from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id',[root.requestID,home])).rows})).digest('hex');
  let lockOrderProved=false;
@@ -120,8 +149,8 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   await locks(tx);
   const receiver=(await tx.query('select e.epoch_id from maintenance_private.app_epochs e join maintenance_private.account_access a using(user_id) where e.user_id=$1 and e.epoch_id=$2 and e.enabled and a.enabled for update of e,a',[recipient.user,recipient.epoch])).rows;
   if(receiver.length!==1||(await tx.query("select 1 from maintenance_private.account_deletion_requests where user_id=$1 and state<>'complete'",[recipient.user])).rows.length)return false;
-  if(!same(await snapshot(tx),initialSnapshot))return false;
-  if((await tx.query('select 1 from public.home_members m join public.homes h on h.id=m."homeId" where m.user_id=$1 and h.owner_id<>$1',[actor.user])).rows.length)return false;
+  if(!await retainedSnapshotMatches(tx))return false;
+  if((await tx.query('select 1 from public.home_members m join public.homes h on h.id=m."homeId" where m.user_id=$1 and h.owner_id<>$1 and h.id<>$2',[actor.user,home])).rows.length)return false;
   const owner=(await tx.query('select owner_id from public.homes where id=$1',[home])).rows[0]?.owner_id;
   const other=(await tx.query('select id from public.homes h where h.owner_id=$1 and exists(select 1 from public.home_members m where m."homeId"=h.id and m.user_id<>$1) order by id',[actor.user])).rows.map(x=>x.id);
   if(!same(other,owner===actor.user?[home]:[]))return false;
@@ -136,7 +165,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
   async setup(context){({scope:root,native,transaction,controller}=context);
    const originalTransaction=transaction;transaction=async(work,...args)=>{try{return await originalTransaction(async tx=>{await locks(tx);return work(tx);},...args);}catch(e){console.log('whole Ouchi family transaction refused',e.message,e.where??'');throw e;}};
    scope={requestID:root.requestID,homeID:home,userID:actor.user,ownerEpoch:actor.epoch,nativeRequestID:native.requestID,nativeLease:native.leaseToken,controllerScope:root};
-   consentPlan={protocolVersion:2,requestID:root.requestID,userID:actor.user,inventoryDigest:root.inventoryDigest,appRequestID:native.requestID,appScopeID:actor.epoch,householdID:home,successorID:recipient.user,memberIDs:[recipient.user],familyRecordIDs:[product],familySnapshotDigest:snapshotDigest(initialSnapshot)};
+   consentPlan={protocolVersion:2,requestID:root.requestID,userID:actor.user,inventoryDigest:root.inventoryDigest,appRequestID:native.requestID,appScopeID:actor.epoch,householdID:home,successorID:recipient.user,memberIDs:initialInventory.members.map(m=>m.user_id),familyRecordIDs:[product],familySnapshotDigest:snapshotDigest(initialSnapshot)};
    plan={requestID:root.requestID,homeID:home,ownerID:actor.user,ownerEpoch:actor.epoch,recipientID:recipient.user,recipientEpoch:recipient.epoch,snapshotDigest:consentPlan.familySnapshotDigest,files:source.map(f=>({id:f.id,mime:'image/png',size:bytes.length,sha256:sha,source:{userID:f.user,epoch:f.epoch,path:f.path}}))};
    consents=createFamilyAttachmentInventoryConsent({key:randomBytes(32),store:{transaction,target:async(tx,request,h,who)=>{assert.equal(request,root.requestID);assert.equal(h,home);assert.ok([actor.user,recipient.user].includes(who));await locks(tx);return {scope,plan,inventory:await inventory(tx)};},records:async(tx,s)=>(await tx.query('select actor_id as "actorID",token,revoked_at as "revokedAt" from maintenance_private.family_attachment_inventory_consents where request_id=$1 and home_id=$2 order by actor_id for update',[s.requestID,s.homeID])).rows,record:(tx,s,p,r)=>tx.query('insert into maintenance_private.family_attachment_inventory_consents values($1,$2,$3,$4,null)',[s.requestID,s.homeID,r.actorID,r.token])},identifyActor:async(token,signal)=>{signal.throwIfAborted();return ok(await admin.auth.getUser(token)).user.id;},verifyIdentity:identity,verifyActor,currentAuthority:(tx,s,p,i,d,signal)=>frozenAuthority(tx,s,p,signal)});
    committed=createCommittedHouseholdConsentVerifier({key,verifyCommittedInventory:consents.authorizeCommittedActivation});
@@ -187,7 +216,7 @@ export async function createWholeOuchiFamilyServices({db,actor,recipient,admin,o
    assert.equal(await proofDigest(),originalProofDigest);assert.deepEqual({preparations,copies,activations,removals,finishes},{preparations:1,copies:1,activations:1,removals:0,finishes:0});
    for(const f of source){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);}
   },
-  async verifyRetained(){assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,recipient.user);assert.deepEqual(await snapshot(db),initialSnapshot);
+  async verifyRetained(){assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,recipient.user);assert.equal(await retainedSnapshotMatches(db),true);
    for(const f of normalizeFamilyAttachmentPlan(plan).files){const blob=ok(await admin.storage.from('ouchi-product-attachments').download(f.destination.path));assert.deepEqual(Buffer.from(await blob.arrayBuffer()),bytes);const read=ok(await admin.rpc('read_maintenance_attachment',{target_user:recipient.user,verified_session:recipient.session,expected_epoch:recipient.epoch,attachment_id:f.id}));assert.equal(read.user,recipient.user);if(f.source.path!==f.destination.path){const missing=await admin.storage.from('ouchi-product-attachments').download(f.source.path);assert.equal(missing.error?.code,'NoSuchKey');}}
    assert.deepEqual({preparations,copies,activations,removals,finishes},{preparations:1,copies:1,activations:2,removals:1,finishes:1});assert.equal(await proofDigest(),originalProofDigest);
   }};
