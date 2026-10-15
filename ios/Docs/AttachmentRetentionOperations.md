@@ -24,4 +24,64 @@ References checked 2026-10-15:
 
 The preexisting canonical SQL write-quietness checks remain mandatory. A temporarily missing object cannot acknowledge an upload that may still finish later. The actual-service candidate deliberately keeps this refusal check, settles only the exact known synthetic upload through its original RPC, then drops a successful Storage DELETE reply and requires the SDK to expose that loss before recovery. It does not replace unknown send outcomes with timeout-based completion.
 
-Local verification: 21 related tests passed, including actual pinned SDK/default fetch over a loopback HTTP socket destroyed after the synthetic removal, definitive SDK NoSuchKey decoding, and same-scope acknowledgement. Local RPC/identity are synthetic. The disposable real Storage/PostgreSQL test is still a new-head CI candidate; its marker and result must be inspected before claiming it passed. No endpoint, worker schedule, production deletion or 30-day SLA is enabled.
+Local verification: 21 related tests passed, including actual pinned SDK/default fetch over a loopback HTTP socket destroyed after the synthetic removal, definitive SDK NoSuchKey decoding, and same-scope acknowledgement. Local RPC/identity are synthetic. The disposable real Storage/PostgreSQL test passed at b3a6d7b (workflow38675062288, job116226675558); its raw marker and one enclosing passed test were reviewed. That proof concerns the account-deletion path only. No endpoint, worker schedule, production deletion or 30-day SLA is enabled.
+
+## Accepted-removal cleanup candidate — 2026-10-15
+
+The CLI-created `20261015041238_ouchi_attachment_cleanup_lease.sql`,
+`attachment-cleanup.ts` and `attachment-cleanup-store.ts` prepare a dormant
+backend batch for already accepted removals. No role, grant, route, credentials
+or schedule is created. All five new private functions are invoker functions
+with empty search paths; PUBLIC/anon/authenticated/service_role execution is
+revoked. A separately reviewed bounded private-query role and Storage transport
+are required before deployment. One fresh service instance handles at most 25
+immutable approvals; batch errors expose aggregate counts, not identities/paths.
+
+Only a known original acceptance time, tracked quiet writes, an immutable
+canonical path and current uploader/captured-owner enrollment can be claimed.
+Legacy unknown times/tracking, unsettled writes, disabled accounts and changed
+epochs remain deferred. Logout does not revoke an already accepted deletion.
+The SQL claim takes the same sorted principal locks as uploads before row locks.
+An exact lease retry does not extend its five-minute technical lease; takeover
+requires a new nonce after expiry. Expiry is never disappearance evidence.
+
+Every step checks the exact claim and current SQL lease. Storage failure may
+have committed: only the pinned SDK's definitive NoSuchKey can precede the
+current-lease SQL acknowledgement. SQL independently rechecks exact mapping,
+quiet writes, active principals and Storage metadata absence before setting
+removed and releasing quota. It clears the cleanup lease at that point. A lost
+completion reply remains unconfirmed to this batch; a future scan omits the
+already removed row. No counter proves whole-account or provider/backup erasure.
+
+A reproduced retirement bug omitted removed metadata from a new account-deletion
+inventory, leaving it behind after record erasure and blocking identity cleanup.
+The replacement capture function retains the same scope/lease/family checks and
+existing execute privileges, and includes removed metadata in NEW inventories.
+Those entries start unconfirmed and need fresh definitive absence before record
+erasure. A previously captured inventory is never expanded or repaired here;
+legacy frozen plans need separate review. Unresolved writes still prevent erasure.
+
+Local verification: 20 related cases passed, including actual pinned SDK/default
+fetch over a dropped loopback DELETE reply, exact private SQL binding, stale
+lease/mapping refusals, no client/service-role entry point, fresh retirement
+recapture and legacy-plan immutability. SQL uses full-schema PGlite and synthetic
+Auth/Storage metadata. A separate disposable actual Auth/PostgreSQL/Storage
+helper is prepared: accept then log out, race lease claims, expire the old nonce,
+drop actual successful Storage replies, require SDK NoSuchKey before quota
+release, retain an unsettled write plus foreign bytes/Auth, then recapture removed
+metadata into a new native inventory. New-head CI is pending; no actual-service
+success for this cleanup candidate is claimed yet. Native intake/coverage remain
+explicit operator fixtures.
+
+Live read-only history was reconciled again: 98 canonical files, seven matching
+applied source hashes, 91 pending and eight foreign history rows preserved, no
+conflicts. Automatic apply/history repair remain false. Local staged advisors
+could not connect to 127.0.0.1:54322; the candidate has no advisor approval.
+Before activation, review full staged schema/effective privileges and frozen
+plans, dedicated role/TLS/provider bounds, all-writer admission, actual services,
+private app budget, scheduling/alert ownership/backoff and finite receipt/log/
+backup retention. No 30-day SLA or automatic expiry-based deletion is adopted.
+
+Locking references checked:
+- https://www.postgresql.org/docs/17/sql-select.html
+- https://www.postgresql.org/docs/17/explicit-locking.html
