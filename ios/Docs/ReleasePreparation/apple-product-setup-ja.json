@@ -1,0 +1,92 @@
+{
+  "status": "preparation_only_not_created_or_submitted",
+  "checkedAt": "2026-10-16",
+  "bundleId": "jp.ouchi.maintenance",
+  "appStoreAppId": "6823150600",
+  "liveObservation": {
+    "inAppPurchases": "Creation empty state; no product rows displayed",
+    "subscriptions": "No subscription groups displayed; create group prompt",
+    "build": "Upload tools prompt; no uploaded build displayed",
+    "listingText": "Promotion, description, keywords and support URL empty",
+    "streamlinedPurchasing": "on; evaluate account-linking behavior before sale; not changed"
+  },
+  "products": [
+    {
+      "productId": "ouchi.premium.monthly",
+      "type": "autoRenewableSubscription",
+      "referenceName": "Ouchi Premium monthly",
+      "displayName": "おうちメンテ プレミアム（月額）",
+      "duration": "1 month",
+      "groupReferenceName": "Ouchi Premium",
+      "level": 1,
+      "proposedPriceJPY": 300,
+      "storePriceConfirmed": false,
+      "description": null,
+      "saleReady": false,
+      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits."
+    },
+    {
+      "productId": "ouchi.premium.annual",
+      "type": "autoRenewableSubscription",
+      "referenceName": "Ouchi Premium annual",
+      "displayName": "おうちメンテ プレミアム（年額）",
+      "duration": "1 year",
+      "groupReferenceName": "Ouchi Premium",
+      "level": 1,
+      "proposedPriceJPY": 3000,
+      "storePriceConfirmed": false,
+      "description": null,
+      "saleReady": false,
+      "descriptionBlockedBy": "Continuous premium benefits, service delivery, capacity and retention must be finalized; do not enter speculative benefits."
+    },
+    {
+      "productId": "ouchi.tip.small",
+      "type": "consumable",
+      "referenceName": "Ouchi Support Tip small",
+      "displayName": "応援チップ（小）",
+      "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
+      "proposedPriceJPY": 100,
+      "storePriceConfirmed": false,
+      "saleReady": false
+    },
+    {
+      "productId": "ouchi.tip.medium",
+      "type": "consumable",
+      "referenceName": "Ouchi Support Tip medium",
+      "displayName": "応援チップ（中）",
+      "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
+      "proposedPriceJPY": 300,
+      "storePriceConfirmed": false,
+      "saleReady": false
+    },
+    {
+      "productId": "ouchi.tip.large",
+      "type": "consumable",
+      "referenceName": "Ouchi Support Tip large",
+      "displayName": "応援チップ（大）",
+      "description": "開発への任意の応援です。1回限りで、定期購入や機能の追加はありません。",
+      "proposedPriceJPY": 1000,
+      "storePriceConfirmed": false,
+      "saleReady": false
+    }
+  ],
+  "setupOrder": [
+    "Owner creates three consumable tips using the exact product IDs and verified Japanese store price points; leave unsubmitted.",
+    "Finalize actual subscription benefits and operational limits before filling subscription descriptions or offering purchases.",
+    "Owner creates one Ouchi Premium subscription group; monthly and annual products use the same group and level 1.",
+    "Select distribution territories only after owner decision; no automatic worldwide selection.",
+    "Record store-supplied product metadata and displayed prices, then run signed Sandbox lifecycle tests using a test account.",
+    "Review screenshots, live terms/privacy/support URLs, actual benefits and account-linking/restoration before first product/app submission."
+  ],
+  "safeguards": [
+    "No product creation, store submission, paid infrastructure or real purchase performed by this file.",
+    "Product IDs must match Web, native catalog policy and local StoreKit catalog; cannot silently rename one side.",
+    "Local StoreKit prices do not prove available Japanese App Store price points.",
+    "Do not enable Apple Family Sharing for purchases until purchaser ownership and entitlement-sharing design is reviewed; app household sharing is a separate feature.",
+    "Streamlined purchases outside the app need account binding and recovery validation; enabled store setting alone is not proof of compatibility."
+  ],
+  "sources": [
+    "https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/create-consumable-or-non-consumable-in-app-purchases/",
+    "https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions/"
+  ]
+}
