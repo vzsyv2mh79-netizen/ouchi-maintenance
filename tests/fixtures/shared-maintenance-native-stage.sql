@@ -124,6 +124,19 @@ begin
   elsif tbl='account_access' then return prior->>'user_id'=u::text and prior->>'enabled'='false';end if;
  end if;
  if c.stage<>'eraseRecords' or op<>'DELETE' then return false;end if;
+ -- The canonical parent DELETE cascades its settled write-attempt row. Keep
+ -- this exception bound to the original acknowledged object, uploader/epoch,
+ -- actor-owned write and physically absent Storage metadata. No started write,
+ -- unrelated row, insert/update or broad stopped-principal exemption is allowed.
+ if sch='maintenance_private' and tbl='attachment_write_attempts' then
+  return prior->>'owner_id'=u::text and prior->>'state'='settled'
+   and prior->>'settled_at' is not null
+   and exists(select 1 from maintenance_private.account_deletion_objects o
+    where o.request_id=c.native_request and o.attachment_id=(prior->>'attachment_id')::uuid
+    and o.uploader_id::text=prior->>'uploader_id' and o.uploader_epoch::text=prior->>'app_epoch_id'
+    and o.absence_confirmed
+    and not exists(select 1 from storage.objects z where z.bucket_id=o.bucket and z.name=o.object_path));
+ end if;
  if sch='maintenance_private' and tbl='product_attachments' then
   return exists(select 1 from maintenance_private.account_deletion_objects o where o.request_id=c.native_request
    and o.attachment_id=(prior->>'id')::uuid and o.absence_confirmed)
