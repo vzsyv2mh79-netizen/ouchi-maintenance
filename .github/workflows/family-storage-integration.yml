@@ -48,6 +48,8 @@ jobs:
       - name: Grant disposable Storage server access
         run: docker compose -p ouchi-identity-ci -f tests/fixtures/auth/compose.yml exec -T db psql -U postgres -d auth_test -v ON_ERROR_STOP=1 < tests/fixtures/auth/storage-bootstrap.sql
       - name: Check canonical candidate security with pinned Supabase advisors
+        env:
+          OUCHI_CANDIDATE_SECURITY_TEST: 'true'
         run: |
           set -euo pipefail
           tool_dir="$(mktemp -d "$RUNNER_TEMP/ouchi-advisors.XXXXXX")"
@@ -60,10 +62,11 @@ jobs:
           status=0
           timeout 120s "$tool_dir/supabase" db advisors \
             --db-url 'postgresql://postgres:synthetic-ci-only@127.0.0.1:54323/auth_test?sslmode=disable' \
-            --type security --level info --fail-on error --output-format json \
+            --type security --level info --fail-on warn --output-format json \
             > "$RUNNER_TEMP/ouchi-candidate-security-advisors.json" || status=$?
           cat "$RUNNER_TEMP/ouchi-candidate-security-advisors.json"
-          exit "$status"
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          node tests/fixtures/auth/candidate-security-advisors.mjs "$RUNNER_TEMP/ouchi-candidate-security-advisors.json"
       - name: Verify pre-existing free records and sessions survive additive migration
         env:
           OUCHI_UPGRADE_PRESERVATION_TEST: 'true'
