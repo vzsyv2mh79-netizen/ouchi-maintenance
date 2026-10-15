@@ -208,7 +208,7 @@ private struct HomePicker: View {
 
 private struct AdaptiveNavigationTitle: ViewModifier {
     @Environment(\.dynamicTypeSize) private var textSize
-    var forceInline = false
+    var forceInline = true
     func body(content: Content) -> some View {
         readableScrollEdges(content)
             .navigationBarTitleDisplayMode(forceInline || textSize.isAccessibilitySize ? .inline : .automatic)

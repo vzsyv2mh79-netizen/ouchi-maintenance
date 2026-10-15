@@ -15,6 +15,7 @@ import time
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--device', choices=['iphone', 'ipad'], default='iphone')
+parser.add_argument('--iphone-size', choices=['large', 'medium'], default='large')
 parser.add_argument('--appearances', nargs='+', choices=['light', 'dark'], default=['light'])
 parser.add_argument('--text-sizes', nargs='+', choices=['large', 'accessibility-extra-large', 'accessibility-extra-extra-extra-large'], default=['large'])
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
@@ -34,6 +35,7 @@ def run(*command, **kwargs):
 
 manifest = {'status': 'native_sample_review_not_submission_images', 'sourceDigest': source_hash,
             'bundle': bundle, 'device': args.device, 'appearances': args.appearances, 'imageFormat': 'jpeg', 'textSizes': args.text_sizes, 'syntheticDataOnly': True, 'releaseBuild': False,
+            'iphoneSize': args.iphone_size if args.device == 'iphone' else None,
             'officialSpecifications': 'https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/',
             'remaining': ['Visual review', 'Family sharing detail capture', 'Final signed release build captures',
                           'Required iPad capture if iPad support retained'], 'captures': []}
@@ -67,7 +69,7 @@ try:
         assert built['OUCHI_REVIEW_BUILD_ID'] == source_hash
         assert built['OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED'] is False
         device = subprocess.check_output(['xcrun', 'simctl', 'create', 'おうちメンテ紹介画面サンプル',
-            {'iphone': 'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro',
+            {'iphone': 'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max' if args.iphone_size == 'large' else 'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro',
              'ipad': 'com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB'}[args.device], args.runtime], text=True).strip()
         manifest['simulatorUDID'] = device
         run('xcrun', 'simctl', 'boot', device)

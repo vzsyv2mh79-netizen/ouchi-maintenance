@@ -159,6 +159,12 @@ final class LargeTextInteractionTests: XCTestCase {
         XCTAssertEqual(chooser.label, "住まいを切り替える")
         XCTAssertEqual(chooser.value as? String, "サンプルのわが家")
         XCTAssertTrue(app.navigationBars["おうちメンテ"].exists)
+        let visibleTitle = app.navigationBars.staticTexts["おうちメンテ"].firstMatch
+        XCTAssertTrue(visibleTitle.waitForExistence(timeout: 10))
+        XCTAssertTrue(visibleTitle.isHittable, "The root title must be rendered, not only the navigation bar's label")
+        XCTAssertGreaterThan(visibleTitle.frame.width, 0)
+        XCTAssertGreaterThan(visibleTitle.frame.height, 0)
+        XCTAssertTrue(app.navigationBars.firstMatch.frame.contains(visibleTitle.frame), "The complete title stays inside the navigation bar")
         capture(app, name: "home-menu-reselected")
         app.terminate()
     }
