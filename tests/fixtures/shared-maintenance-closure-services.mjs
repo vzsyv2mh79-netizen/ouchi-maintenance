@@ -57,6 +57,22 @@ export async function verifyDisposableSharedClosureMetadata({db,account,admin,or
  await seedSharedNativeDevices(db,[[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]]);
  const keptDevices=await deviceRows(db,bystander.user);
  assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length>0));
+ // Canonical RPC callers must also retain uncertain send outcomes; do not
+ // rely solely on the optional shared-stage wrapper's preflight.
+ const call=kind=>db.query(`select public.erase_maintenance_deletion_${kind}($1,$2,$3,$4) erased`,[native.requestID,actor.user,actor.epoch,native.leaseToken]).then(r=>r.rows[0].erased);
+ await db.query("update public.maintenance_push_subscriptions set claim_token=$1,claimed_until=clock_timestamp()-interval '1 hour' where user_id=$2",[randomUUID(),actor.user]);
+ let pendingDevices=await deviceRows(db,actor.user);
+ assert.equal(await call('web_push'),false);assert.equal(await call('records'),false);
+ assert.deepEqual(await deviceRows(db,actor.user),pendingDevices);
+ await db.query('update public.maintenance_push_subscriptions set claim_token=null,claimed_until=null where user_id=$1',[actor.user]);
+ const pendingJob=(await deviceRows(db,actor.user))['maintenance_private.native_notification_jobs'].find(row=>row.state==='pending');
+ assert.ok(pendingJob);
+ await db.query("update maintenance_private.native_notification_jobs set state='unknown',lease_id=$1,lease_until=clock_timestamp()-interval '1 hour',send_started_at=clock_timestamp()-interval '2 hours' where id=$2",[randomUUID(),pendingJob.id]);
+ pendingDevices=await deviceRows(db,actor.user);
+ assert.equal(await call('native_push'),false);assert.equal(await call('records'),false);
+ assert.deepEqual(await deviceRows(db,actor.user),pendingDevices);
+ await db.query("update maintenance_private.native_notification_jobs set state='pending',lease_id=null,lease_until=null,send_started_at=null where id=$1",[pendingJob.id]);
+ assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
  if(approved)await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-shared-boundary-test',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[native.requestID]);
  await db.query('select maintenance_private.freeze_household_scope($1,$2)',[shared,native.leaseToken]);
  const args=[native.requestID,actor.user,actor.epoch,native.leaseToken];
