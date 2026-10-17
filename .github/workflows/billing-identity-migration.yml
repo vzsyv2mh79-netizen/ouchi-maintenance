@@ -2,7 +2,7 @@ name: Additive billing identity migration checks
 on:
   pull_request:
     branches: [main, feat/sandbox-billing-foundation]
-    paths: ['supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/account-deletion-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/billing-identity-migration.yml']
+    paths: ['supabase/migrations/**', 'tests/billing-identity-server.integration.mjs', 'tests/billing-retirement-race.integration.mjs', 'tests/billing-restore-writer-race.integration.mjs', 'tests/billing-restore-cancel-race.integration.mjs', 'tests/billing-restore-dispatch-race.integration.mjs', 'tests/account-deletion-storage.integration.mjs', 'lib/account-deletion-objects.ts', 'lib/account-deletion-worker.ts', 'lib/account-deletion-worker-store.ts', 'lib/closure-reauth-erasure.ts', 'scripts/maintenance-migration-plan.mjs', 'supabase/maintenance-migration-order.json', 'tests/fixtures/auth/**', 'tests/fixtures/deletion/**', '.github/workflows/billing-identity-migration.yml']
   workflow_dispatch:
 permissions:
   contents: read

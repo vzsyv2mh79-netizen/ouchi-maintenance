@@ -1,3 +1,4 @@
+import {maintenanceMigrationCatalog} from '../scripts/maintenance-migration-plan.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import {createServer,request as proxyRequest} from 'node:http';import {randomUUID,createHmac,createHash,X509Certificate} from 'node:crypto';import {execFileSync} from 'node:child_process';import {createClient,StorageApiError} from '@supabase/supabase-js';import {readFileSync} from 'node:fs';import ts from 'typescript';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-objects.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace("'@supabase/supabase-js'",JSON.stringify(import.meta.resolve('@supabase/supabase-js')));
 const {eraseAccountDeletionObjects:erase}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -57,10 +58,21 @@ const {storedDeletionDependencies,storedDeletionCompletion}=await import('data:t
 const {handleAccountDeletionRequest}=await import(attachmentModule('account-deletion-request'));
 const {deletionRequestDependencies}=await import(attachmentModule('account-deletion-request-store'));
 test('actual private Storage removal verifies absence and persists exact leased deletion progress',{skip:process.env.OUCHI_DELETION_STORAGE_TEST!=='true',timeout:60000},async()=>{
- // Apply the canonical lifecycle release candidates only in this disposable instance.
- for(const file of ["supabase/migrations/20261014061605_ouchi_account_closure_review.sql", "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql", "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql", "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql", "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql", "supabase/migrations/20261014231227_ouchi_closure_actor_context_compatibility.sql"]){
+ // The earlier workflow steps deliberately exercise a historical schema.
+ // Upgrade this disposable instance to the complete pinned candidate catalog
+ // before calling the current worker; missing required stages must not be faked.
+ const workflow=readFileSync('.github/workflows/billing-identity-migration.yml','utf8');
+ const baseline=workflow.match(/for file in ([^;]+); do/);
+ assert.ok(baseline,'Explicit disposable baseline required');
+ const applied=new Set(baseline[1].trim().split(/\s+/).filter(file=>file.startsWith('supabase/migrations/')));
+ const catalog=maintenanceMigrationCatalog();
+ assert.ok([...applied].every(file=>catalog.some(row=>row.file===file)));
+ for(const {file} of catalog){
+  if(applied.has(file))continue;
   execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1'],{input:readFileSync(file,'utf8')+"\nnotify pgrst, 'reload schema';",timeout:10000,stdio:['pipe','pipe','pipe']});
+  applied.add(file);
  }
+ assert.equal(applied.size,catalog.length);
  // Metadata only, inside the opt-in disposable database. No row/customer values.
  const inventoryText=execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:readFileSync('tests/fixtures/deletion/schema-inventory.sql','utf8'),encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']});
  const inventory=JSON.parse(inventoryText.trim());assert.ok(Array.isArray(inventory));
@@ -92,6 +104,11 @@ test('actual private Storage removal verifies absence and persists exact leased 
   const userID=signup.data.user.id,claims=JSON.parse(Buffer.from(signup.data.session.access_token.split('.')[1],'base64url'));
   const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),unsigned=encode({alg:'HS256',typ:'JWT'})+'.'+encode({role:'service_role',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300});const service=unsigned+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(unsigned).digest('base64url');
   const admin=createClient(origin,service,options),epoch=await admin.rpc('current_maintenance_purchase_account',{target_user:userID,verified_session:claims.session_id});assert.equal(epoch.error,null);assert.ok(epoch.data);
+  const workerStageResults=[];
+  const workerAdmin=new Proxy(admin,{get(target,name){
+   if(name!=='rpc')return Reflect.get(target,name);
+   return async(rpcName,rpcArgs)=>{const result=await target.rpc(rpcName,rpcArgs);workerStageResults.push({name:rpcName,error:result.error?.code??null,accepted:result.data===true});return result;};
+  }});
   // Readiness probe has no matching request/lease and cannot erase any scope.
   const absentMarkerScope={target_request:randomUUID(),target_user:randomUUID(),target_epoch:randomUUID(),target_lease:randomUUID()};let markerReadiness;
   for(let attempt=0;attempt<25;attempt++){
@@ -273,26 +290,30 @@ test('actual private Storage removal verifies absence and persists exact leased 
   assert.equal((await admin.rpc('enqueue_maintenance_native_daily_job',{registration_id:scheduledRegistration.data})).data,queued.data);
   const queuedLease=await admin.rpc('claim_maintenance_native_push_job',{target_job:queued.data});assert.equal(queuedLease.error,null);assert.ok(queuedLease.data);
   const countedArgs={target_job:queued.data,target_lease:queuedLease.data};assert.equal((await admin.rpc('count_maintenance_native_job_due',countedArgs)).data,1);
+  // Use the disposable DB clock for synthetic delivery; a VM/host clock
+  // difference must not accidentally turn a valid registration into future data.
+  // Runtime dispatch still rejects a registration later than its injected clock.
+  const fixturePushClock=()=>Number(execFileSync('docker',['compose','-p','ouchi-identity-ci','-f','tests/fixtures/auth/compose.yml','exec','-T','db','psql','-U','postgres','-d','auth_test','-v','ON_ERROR_STOP=1','-At'],{input:'select floor(extract(epoch from clock_timestamp())*1000)::bigint;',encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']}).trim());
   // Formal Production APNs job pipeline, but synthetic sender only.
   const distributionArgs={target_user:otherSignup.data.user.id,verified_session:otherClaims.session_id,expected_epoch:otherEpoch.data,push_environment:'Production',purchase_environment:'Sandbox'};
   const distributionRegistration=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9b'.repeat(32)});assert.equal(distributionRegistration.error,null);
-  let distributionSends=0;const scopedPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{distributionSends++;assert.equal(input.deviceToken,'9b'.repeat(32));assert.equal(input.dueCount,1);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';});
+  let distributionSends=0;const scopedPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{distributionSends++;assert.equal(input.deviceToken,'9b'.repeat(32));assert.equal(input.dueCount,1);assert.equal(input.bundleId,'jp.ouchi.maintenance');return 'accepted';},fixturePushClock);
   const scopedPage=await scopedPipeline.page(null,25);assert.deepEqual(scopedPage,[distributionRegistration.data]);
   const distributionRun=await runNativePushBatch(scopedPipeline);assert.equal(distributionRun.status,'complete');assert.equal(distributionRun.accepted,1);assert.equal(distributionRun.unconfirmed,0);assert.equal(distributionSends,1);
   const distributionRepeat=await runNativePushBatch(scopedPipeline);assert.equal(distributionRepeat.accepted,0);assert.equal(distributionSends,1);
-  assert.deepEqual(await storedScopedNativePushBatch(admin,{push:'Production',purchase:'Production'},async()=>{throw Error('Wrong scope send');}).page(null,25),[]);
+  assert.deepEqual(await storedScopedNativePushBatch(admin,{push:'Production',purchase:'Production'},async()=>{throw Error('Wrong scope send');},fixturePushClock).page(null,25),[]);
   const uncertainRegistration=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9c'.repeat(32)});assert.equal(uncertainRegistration.error,null);
-  let uncertainSends=0;const uncertainPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{assert.equal(input.deviceToken,'9c'.repeat(32));uncertainSends++;return 'delivery-unknown';});
+  let uncertainSends=0;const uncertainPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async input=>{assert.equal(input.deviceToken,'9c'.repeat(32));uncertainSends++;return 'delivery-unknown';},fixturePushClock);
   assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1);assert.equal((await runNativePushBatch(uncertainPipeline)).accepted,0);assert.equal(uncertainSends,1,'uncertain delivery is never resent');
   assert.equal((await admin.rpc('disable_maintenance_native_scoped_push',{...distributionArgs,registration_id:distributionRegistration.data})).data,true);
   const replacedDistribution=await admin.rpc('register_maintenance_native_scoped_push',{...distributionArgs,token:'9b'.repeat(32)});assert.equal(replacedDistribution.error,null);assert.notEqual(replacedDistribution.data,distributionRegistration.data);
-  let replacementSends=0;const replacementPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async()=>{replacementSends++;return 'accepted';});assert.equal((await runNativePushBatch(replacementPipeline)).accepted,0);assert.equal(replacementSends,0,'accepted guard survives stop deleting the old job and re-registration');
+  let replacementSends=0;const replacementPipeline=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async()=>{replacementSends++;return 'accepted';},fixturePushClock);assert.equal((await runNativePushBatch(replacementPipeline)).accepted,0);assert.equal(replacementSends,0,'accepted guard survives stop deleting the old job and re-registration');
   assert.equal((await admin.rpc('prune_maintenance_native_delivery_identities',{batch_size:500})).data,0,'current daily identities remain');
   const sweepScope={target_push_environment:'Production',target_purchase_environment:'Sandbox'};
   const simultaneousClaims=await Promise.all(Array.from({length:4},()=>admin.rpc('claim_maintenance_native_delivery_sweep',sweepScope)));for(const value of simultaneousClaims)assert.equal(value.error,null);const activeSweeps=simultaneousClaims.filter(value=>value.data!==null);assert.equal(activeSweeps.length,1,'concurrent actual PostgreSQL claims have one owner');const sweepLease=activeSweeps[0].data;
   const sweepArgs={...sweepScope,target_cycle:sweepLease.cycle,target_lease:sweepLease.lease};assert.equal((await admin.rpc('maintenance_native_delivery_sweep_current',sweepArgs)).data,true);assert.equal((await admin.rpc('maintenance_native_delivery_sweep_current',{...sweepArgs,target_purchase_environment:'Production'})).data,false);
   assert.equal((await admin.rpc('checkpoint_maintenance_native_delivery_sweep',{...sweepArgs,expected_cursor:null,next_cursor:null,result_status:'partial'})).data,true);
-  let sweepSends=0;const sweepBatch=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async()=>{sweepSends++;return 'accepted';});const coordinated=await runStoredNativeDeliverySweep(admin,admin,{push:'Production',purchase:'Sandbox'},sweepBatch);assert.equal(coordinated.status,'complete');assert.equal(coordinated.visited,2);assert.equal(coordinated.cleaned,0);assert.equal(sweepSends,0,'completed and uncertain destination identities do not resend');assert.equal((await runStoredNativeDeliverySweep(admin,admin,{push:'Production',purchase:'Sandbox'},sweepBatch)).status,'idle');assert.equal((await admin.rpc('checkpoint_maintenance_native_delivery_sweep',{...sweepArgs,expected_cursor:null,next_cursor:null,result_status:'complete'})).data,false,'stale sweep lease cannot checkpoint');
+  let sweepSends=0;const sweepBatch=storedScopedNativePushBatch(admin,{push:'Production',purchase:'Sandbox'},async()=>{sweepSends++;return 'accepted';},fixturePushClock);const coordinated=await runStoredNativeDeliverySweep(admin,admin,{push:'Production',purchase:'Sandbox'},sweepBatch);assert.equal(coordinated.status,'complete');assert.equal(coordinated.visited,2);assert.equal(coordinated.cleaned,0);assert.equal(sweepSends,0,'completed and uncertain destination identities do not resend');assert.equal((await runStoredNativeDeliverySweep(admin,admin,{push:'Production',purchase:'Sandbox'},sweepBatch)).status,'idle');assert.equal((await admin.rpc('checkpoint_maintenance_native_delivery_sweep',{...sweepArgs,expected_cursor:null,next_cursor:null,result_status:'complete'})).data,false,'stale sweep lease cannot checkpoint');
   console.log('Native delivery sweep actual Auth/PostgreSQL: four concurrent claims yield one owner, scoped lease/cursor checkpoint, mandatory cleanup, accepted/unknown no resend, complete cadence and stale receipt refusal; synthetic sender only.');
   console.log('Native daily identity actual Auth/PostgreSQL: accepted guard survives explicit stop/job deletion and same-token re-registration, uncertain attempts stay fenced; synthetic sender only.');
   console.log('Scoped native Production job actual Auth/PostgreSQL: independent Sandbox purchase scope, page/enqueue/lease/count/start/receipt, accepted/unknown no repeat sends and wrong-purchase empty page. Synthetic sender only; no Apple push or signature.');
@@ -515,7 +536,7 @@ assert.equal(paidResult.status,200);assert.deepEqual(await paidResult.json(),{sa
   assert.equal((await admin.rpc('erase_maintenance_deletion_reconciliation',args)).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_records',args)).data,false);
   assert.equal((await admin.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:file})).data,false);
-  const blocked=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
+  const blocked=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>false,finalizeIdentityAndRetention:async()=>{throw Error('must not finalize');},markComplete:async()=>{throw Error('must not complete');}}));assert.deepEqual(blocked,{state:'pending'});assert.ok((await admin.storage.from('ouchi-product-attachments').download(path)).data);
   assert.equal((await admin.rpc('maintenance_native_push_allowed',{registration_id:nativeRegistered.data})).data,false);
   assert.equal((await admin.rpc('erase_maintenance_deletion_native_push',args)).data,false,'unknown native sends must remain until an exact late acknowledgement');
   const unresolved=JSON.parse(recoverySql(`select coalesce(jsonb_agg(jsonb_build_object('id',j.id,'lease',j.lease_id)),'[]'::jsonb) from maintenance_private.native_notification_jobs j join maintenance_private.native_notification_devices d on d.id=j.device_id where d.user_id='${userID}' and (j.state='unknown' or (j.state='claimed' and j.send_started_at is not null));`).trim());
@@ -596,13 +617,27 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
    recoverySql(`insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id,state,cancelled_at) values('${actor}','${actorEpoch}','${randomUUID()}','${state}',${state==='cancelled'?'clock_timestamp()':'null'});`);
   }
   const foreignReviewsBefore=recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${otherSignup.data.user.id}';`).trim();
-  let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1);assert.equal(completed,0);
+  // A current review awaiting an operator must stop every worker stage.
+  // This fixture's review rows are synthetic metadata, not production approval.
+  const blockedReviewSnapshot=recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${userID}';`).trim();
+  let blockedTailCalls=0;
+  const blockedReview=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>{blockedTailCalls++;return true;},finalizeIdentityAndRetention:async()=>{blockedTailCalls++;return true;},markComplete:async()=>{blockedTailCalls++;return true;}}));
+  assert.deepEqual(blockedReview,{state:'pending'});assert.equal(blockedTailCalls,0);
+  assert.equal(recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${userID}';`).trim(),blockedReviewSnapshot);
+  // Explicit privileged fixture setup: the operator-reviewed current state.
+  // Real operator review/sealing is tested separately, never inferred here.
+  assert.throws(()=>recoverySql(`update maintenance_private.account_closure_reviews set state='retirement_queued' where user_id='${userID}' and app_epoch_id='${epoch.data}' and state='review_required';`),/Verified cancellation required/);
+  // Replace only the disposable seed row, without disabling its update guard.
+  // This is a cleanup-stage fixture, not evidence of operator authorization.
+  recoverySql(`with removed as(delete from maintenance_private.account_closure_reviews where user_id='${userID}' and app_epoch_id='${epoch.data}' and state='review_required' returning review_request_id,user_id,app_epoch_id,submission_id,requested_at) insert into maintenance_private.account_closure_reviews(review_request_id,user_id,app_epoch_id,submission_id,requested_at,state) select review_request_id,user_id,app_epoch_id,submission_id,requested_at,'retirement_queued' from removed;`);
+  workerStageResults.length=0;
+  let finalized=0,completed=0;const partial=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>{finalized++;return false;},markComplete:async()=>{completed++;return true;}}));assert.deepEqual(partial,{state:'pending'});assert.equal(finalized,1,JSON.stringify(workerStageResults));assert.equal(completed,0);
   assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${reauthMarker}';`).trim(),'0');
   assert.equal(recoverySql(`select count(*) from auth.sessions where user_id='${userID}' and user_agent='${reauthAgent}';`).trim(),'0');
   assert.equal((await user.auth.getUser()).error,null,'stored record erasure retains the original shared Auth session');
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_closure_reviews where user_id='${userID}';`).trim(),'0');
   assert.equal(recoverySql(`select jsonb_agg(to_jsonb(r) order by submission_id) from maintenance_private.account_closure_reviews r where user_id='${otherSignup.data.user.id}';`).trim(),foreignReviewsBefore);
-  console.log('Actual stored deletion adapter: mandatory closure metadata erasure removes all owned review generations and process-loss password session before records; foreign reviews and original Auth retained, identity/retention still pending.');
+  console.log('Actual stored deletion adapter: mandatory closure metadata erasure removes all owned review generations and process-loss password session after scoped records; foreign reviews and original Auth retained, identity/retention still pending.');
   assert.equal(recoverySql(`select count(*) from maintenance_private.account_deletion_objects where request_id='${scope.requestID}';`).trim(),'0');
   assert.equal((await admin.rpc('read_maintenance_deletion_progress',progressArgs)).data.state,'running');
   assert.equal(recoverySql(`select count(*) from maintenance_private.enrollment_consents where request_id='${deletionConsent}';`).trim(),'0');
@@ -642,7 +677,9 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await guard.from('homes').select('id').eq('id',guardHome)).data.length,1);
   assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:freshSession})).data,null);
   assert.deepEqual((await freshGuard.from('homes').select('id').eq('id',guardHome)).data,[]);
-  assert.equal((await freshGuard.from('homes').insert({id:randomUUID(),owner_id:guardID,name:'Must refuse implicit enrollment'})).error?.code,'42501');
+  const implicitWrite=await freshGuard.from('homes').insert({id:randomUUID(),owner_id:guardID,name:'Must refuse implicit enrollment'});
+  assert.equal(implicitWrite.error?.code,'P0001');
+  assert.equal(implicitWrite.error?.message,'App account closed');
   recoverySql(`begin;delete from maintenance_private.app_session_epochs where user_id='${guardID}';delete from maintenance_private.app_epochs where user_id='${guardID}';delete from maintenance_private.account_access where user_id='${guardID}';commit;`);
   for(const sessionID of [guardSession,freshSession])assert.equal((await admin.rpc('current_maintenance_purchase_account',{target_user:guardID,verified_session:sessionID})).data,null);
   assert.deepEqual((await guard.from('homes').select('id').eq('id',guardHome)).data,[]);
@@ -722,13 +759,13 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal((await admin.rpc('erase_maintenance_deletion_identity',identityArgs)).data,true);
   assert.equal((await admin.rpc('maintenance_deletion_identity_is_erased',identityArgs)).data,true);
   let recoveryTail=0,recoveryComplete=0;
-  const resumed=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>{recoveryTail++;return false;},markComplete:async()=>{recoveryComplete++;return true;}}));
+  const resumed=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>{recoveryTail++;return false;},markComplete:async()=>{recoveryComplete++;return true;}}));
   assert.deepEqual(resumed,{state:'pending'});assert.equal(recoveryTail,1);assert.equal(recoveryComplete,0);
   const resumedMarker=randomUUID();
   recoverySql(`insert into maintenance_private.closure_reauth_markers(marker_id,user_id,original_session,app_epoch,closed_at) values('${resumedMarker}','${userID}','${originalSession}','${epoch.data}',clock_timestamp());`);
   recoverySql(`insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values('${userID}','${priorEpoch}','${randomUUID()}');`);
   let resumedCompletionCalls=0;
-  const resumedCompletion=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{resumedCompletionCalls++;assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${resumedMarker}';`).trim(),'0');assert.equal(recoverySql(`select count(*) from maintenance_private.account_closure_reviews where user_id='${userID}';`).trim(),'0');return false;}}));
+  const resumedCompletion=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>{throw Error('must not replay erased stages');},finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{resumedCompletionCalls++;assert.equal(recoverySql(`select count(*) from maintenance_private.closure_reauth_markers where marker_id='${resumedMarker}';`).trim(),'0');assert.equal(recoverySql(`select count(*) from maintenance_private.account_closure_reviews where user_id='${userID}';`).trim(),'0');return false;}}));
   assert.deepEqual(resumedCompletion,{state:'pending'});assert.equal(resumedCompletionCalls,1);
   console.log('Actual stored resumed completion: identity checkpoint skips erased records but still erases retained marker and review metadata before completion delegate; no retention approval or completion fabricated.');
   console.log('Actual atomic identity erasure: exact live lease and strict policy, absence preflight, identity/session links removed, durable checkpoint resumes mandatory retention without replay, wrong lease/browser denied; no completion.');
@@ -748,7 +785,7 @@ const missing=await admin.storage.from('ouchi-product-attachments').download(pat
   assert.equal(await deletionCompletion(scope),true);
   const completedExpiry=recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim();
   assert.equal(await deletionCompletion(scope),true);assert.equal(recoverySql(`select receipt_expires_at from maintenance_private.account_deletion_requests where id='${scope.requestID}';`).trim(),completedExpiry);
-  const afterCommit=await runAccountDeletion(scope,storedDeletionDependencies(admin,{eraseNativeDevices:async()=>{throw Error('must not replay');},finalizeIdentityAndRetention:async()=>{throw Error('must not replay');},markComplete:async()=>{throw Error('must not replay');}}));assert.deepEqual(afterCommit,{state:'complete'});
+  const afterCommit=await runAccountDeletion(scope,storedDeletionDependencies(workerAdmin,{eraseNativeDevices:async()=>{throw Error('must not replay');},finalizeIdentityAndRetention:async()=>{throw Error('must not replay');},markComplete:async()=>{throw Error('must not replay');}}));assert.deepEqual(afterCommit,{state:'complete'});
   recoverySql(`update maintenance_private.account_deletion_requests set receipt_expires_at=receipt_expires_at+interval '1 minute' where id='${scope.requestID}';`);
   assert.equal((await admin.rpc('maintenance_deletion_completion_is_confirmed',identityArgs)).data,false,'expiry flag must match sealed evidence');
   assert.equal((await admin.rpc('read_maintenance_session_deletion_progress',{target_user:userID,verified_session:originalSession,target_request:scope.requestID})).data,null,'unproved completion never shown');
