@@ -15,7 +15,7 @@ async function fixture({files=false,asOwner=true}={}){
  const coverage=createClosureReviewCoverage({connect:f.connect}),reviewed=createReviewedRetirement({connect:f.connect}),scope={planID:randomUUID(),reviewRequestID:f.input.reviewRequestID,userID:f.input.userID,epochID:f.input.epochID};
  await coverage.capture({...scope,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'},f.signal);
  const page=await coverage.page({...scope,afterKey:null},f.signal);assert.equal(page.hasMore,false);
- for(const row of page.items)if(row.kind==='text')await coverage.recordTextDecision({...scope,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_PERSON_INFORMATION'},f.signal);
+ for(const row of page.items)if(row.kind==='text')await coverage.recordTextDecision({...scope,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},f.signal);
  const sealEventID=randomUUID();await coverage.seal({...scope,eventID:sealEventID,evidenceDigest:'b'.repeat(64),confirmation:'CONFIRM_COMPLETE_APP_SCOPED_REVIEW'},f.signal);
  const operation={...scope,eventID:randomUUID(),sealEventID},execute={...operation,confirmation:'EXECUTE_REVIEWED_APP_RETIREMENT_PRESERVING_FAMILY_RECORDS'};
  return {...f,coverage,reviewed,scope,operation,execute};

@@ -27,7 +27,7 @@ test('current family sees household file without uploader identity; measured ins
 test('household decision events are exact and ordered; retry cannot revive older approval or execute retention/removal',async()=>{
  const f=await fixture();try{
   const input=await f.readInput(),inspectionID=randomUUID();await f.review.inspectFile({...input,inspectionID},f.signal);
-  const decision={...f.scope,fileID:input.fileID,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_PERSON_INFORMATION'};
+  const decision={...f.scope,fileID:input.fileID,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'};
   await f.review.recordFileDecision(decision,f.signal);assert.equal((await f.review.readFileDecision(input,f.signal)).current,true);
   const later={...decision,decisionID:randomUUID(),action:'needs_review',confirmation:'REQUIRE_ADDITIONAL_FILE_REVIEW'};await f.review.recordFileDecision(later,f.signal);await f.review.recordFileDecision(decision,f.signal);
   const current=await f.review.readFileDecision(input,f.signal);assert.equal(current.decisionID,later.decisionID);assert.equal(current.action,'needs_review');assert.equal(current.householdRetentionExecuted,false);assert.equal(current.accountErasureConfirmed,false);
@@ -50,7 +50,7 @@ test('lost inspection COMMIT is recovered with the same immutable ID, and a miss
  const f=await fixture();try{
   const input=await f.readInput(),inspectionID=randomUUID();f.loseNextCommit();await assert.rejects(f.review.inspectFile({...input,inspectionID},f.signal),/commit acknowledgement lost/);
   await f.review.inspectFile({...input,inspectionID},f.signal);assert.equal((await f.db.query('select count(*)::int n from maintenance_private.closure_household_file_inspections')).rows[0].n,1);
-  const decision={...f.scope,fileID:input.fileID,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_PERSON_INFORMATION'};
+  const decision={...f.scope,fileID:input.fileID,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'};
   await f.review.recordFileDecision(decision,f.signal);await f.db.query('update public.homes set owner_id=null where id=$1',[home]);
   assert.equal((await f.review.readFileDecision(input,f.signal)).current,false);await assert.rejects(f.review.recordFileDecision({...decision,decisionID:randomUUID()},f.signal),/Remaining family required/);
  }finally{await f.db.close();}

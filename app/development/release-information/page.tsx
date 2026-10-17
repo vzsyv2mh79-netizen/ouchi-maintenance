@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import draft from '@/ios/Docs/ReleasePreparation/legal-drafts-ja.json';
+import draft from '@/content/release-information-draft.json';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ const pending = [
   ...(!draft.operator ? ['公開する運営者名'] : []),
   ...(!draft.contact ? ['公開する問い合わせ先'] : []),
   ...(!draft.effectiveDate ? ['施行日'] : []),
-  '実際の退会処理と家族に残る記録の説明',
+  '退会者の投稿を含む削除対象と、家族に残せる記録の区分',
   '購入情報・操作ログ・バックアップの保存期間と削除条件',
   '各委託先の処理地域とApp Storeに申告する収集情報',
   '写真の保管枠、契約終了後の扱い、サービス終了時の案内期間',
@@ -33,6 +33,15 @@ export default function ReleaseInformationPreview() {
     <section id="pending" style={section}>
       <h2>公開前に確定すること</h2><ul style={paragraph}>{pending.map(item => <li key={item} style={{ marginBlock: '.75rem' }}>{item}</li>)}</ul>
       <dl style={paragraph}><dt>運営者名</dt><dd style={{ marginLeft: 0 }}>{draft.operator ?? '未確定'}</dd><dt>問い合わせ先</dt><dd style={{ marginLeft: 0 }}>{draft.contact ?? '未確定'}</dd><dt>施行日</dt><dd style={{ marginLeft: 0 }}>{draft.effectiveDate ?? '未確定'}</dd></dl>
+    </section>
+    <section aria-labelledby="decisions-title" style={section}>
+      <h2 id="decisions-title">確認する運用条件</h2>
+      <p style={paragraph}>以下は公開前の確認事項です。正式な約束や、提供開始済みの有料特典ではありません。</p>
+      {draft.reviewItems.map(item => <article key={item.title} style={{ marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.1rem', lineHeight: 1.6 }}>{item.title}</h3>
+        <p style={paragraph}>{item.detail}</p><p style={paragraph}><strong>{item.status}</strong></p>
+      </article>)}
+      <p style={paragraph}>確認した公式資料：{draft.sources.map((source, index) => <span key={source.url}>{index > 0 ? ' ／ ' : ''}<a href={source.url} target="_blank" rel="noreferrer">{source.label}</a></span>)}</p>
     </section>
     <section id="terms" style={section}>
       <h2>利用規約案</h2>{draft.terms.map(item => <article key={item.title} style={{ marginTop: '1.75rem' }}><h3 style={{ fontSize: '1.1rem', lineHeight: 1.6 }}>{item.title}</h3><p style={paragraph}>{item.body}</p></article>)}

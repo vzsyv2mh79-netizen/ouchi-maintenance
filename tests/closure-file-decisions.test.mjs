@@ -6,7 +6,7 @@ import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-sch
 import {owner,recipient,home,product,rs,re,oe} from './fixtures/home-handoff-identifiers.mjs';
 import {createClosureOperatorReview} from '../lib/closure-operator-review.mjs';
 const bytes=Buffer.from('%PDF-1.7\nSynthetic review file\n'),hash=createHash('sha256').update(bytes).digest('hex');
-const confirmations={needs_review:'REQUIRE_ADDITIONAL_FILE_REVIEW',erase_personal_file:'ERASE_REVIEWED_PERSONAL_FILE',retain_family_copy:'RETAIN_REVIEWED_FAMILY_FILE_WITHOUT_DEPARTING_PERSON_INFORMATION'};
+const confirmations={needs_review:'REQUIRE_ADDITIONAL_FILE_REVIEW',erase_personal_file:'ERASE_REVIEWED_PERSONAL_FILE',retain_family_copy:'RETAIN_REVIEWED_FAMILY_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'};
 async function fixture(){
  const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
  for(const name of ['20261014061605_ouchi_account_closure_review.sql','20261016114527_ouchi_closure_operator_review.sql','20261016115343_ouchi_reviewed_field_redaction.sql','20261016120051_ouchi_shared_member_closure_review.sql','20261016120728_ouchi_legacy_closure_review_scope.sql','20261016121802_ouchi_closure_field_inventory.sql','20261016123247_ouchi_closure_text_review_snapshot.sql','20261016131437_ouchi_ownerless_home_management.sql','20261016144839_ouchi_closure_file_review_inventory.sql','20261016150215_ouchi_closure_file_review_decisions.sql'])await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));

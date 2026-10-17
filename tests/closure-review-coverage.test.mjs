@@ -12,7 +12,7 @@ async function fixture(){
  const capture=()=>coverage.capture({...scope,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'},f.signal);
  const sealInput={...scope,eventID:randomUUID(),evidenceDigest:'b'.repeat(64),confirmation:'CONFIRM_COMPLETE_APP_SCOPED_REVIEW'};
  async function pages(s=scope){let afterKey=null,rows=[];do{const p=await coverage.page({...s,afterKey},f.signal);rows.push(...p.items);afterKey=p.nextCursor;}while(afterKey);return rows;}
- async function approve(s=scope){for(const row of await pages(s)){if(row.kind!=='text')continue;const full=await coverage.readText({...s,itemKey:row.item_key},f.signal);assert.equal(full.digest,row.content_digest);await coverage.recordTextDecision({...s,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_PERSON_INFORMATION'},f.signal);}}
+ async function approve(s=scope){for(const row of await pages(s)){if(row.kind!=='text')continue;const full=await coverage.readText({...s,itemKey:row.item_key},f.signal);assert.equal(full.digest,row.content_digest);await coverage.recordTextDecision({...s,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},f.signal);}}
  return {...f,coverage,scope,capture,sealInput,pages,approve};
 }
 test('one complete snapshot includes household scope, all text including nicknames/category, and personal files; no raw text is duplicated',async()=>{
@@ -44,7 +44,7 @@ test('new/deleted fields, new files, family scope and later file decisions inval
 });
 test('a newer needs-review text decision wins over older approval retries; replacement is explicit and old plan never revives',async()=>{
  const f=await fixture();try{
-  await f.capture();await f.approve();const row=(await f.pages()).find(r=>r.kind==='text'),decision={...f.scope,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_PERSON_INFORMATION'};
+  await f.capture();await f.approve();const row=(await f.pages()).find(r=>r.kind==='text'),decision={...f.scope,itemKey:row.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'};
   await f.coverage.recordTextDecision(decision,f.signal);await f.coverage.recordTextDecision({...decision,eventID:randomUUID(),action:'needs_review',confirmation:'REQUIRE_ADDITIONAL_TEXT_REVIEW'},f.signal);await f.coverage.recordTextDecision(decision,f.signal);
   await assert.rejects(f.coverage.seal(f.sealInput,f.signal),/Complete current explicit review/);const next={...f.scope,planID:randomUUID()};
   await assert.rejects(f.coverage.capture({...next,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'},f.signal),/explicitly replaced/);
@@ -58,7 +58,7 @@ test('staged verified copy binds source approval; an active household file requi
   await f.db.query("update maintenance_private.household_attachments set state='active' where id=$1",[f.input.destinationID]);
   const hs={reviewRequestID:f.scope.reviewRequestID,userID:f.scope.userID,epochID:f.scope.epochID},hr=createClosureHouseholdFileReview({connect:f.connect,readFileBytes:async file=>f.objects.get(file.objectPath)});
   const row=(await hr.fileInventory({...hs,afterFile:null},f.signal)).items[0],inspectionID=randomUUID();await hr.inspectFile({...hs,fileID:row.attachment_id,expectedMetadataDigest:row.metadata_digest,inspectionID},f.signal);
-  await hr.recordFileDecision({...hs,fileID:row.attachment_id,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_PERSON_INFORMATION'},f.signal);
+  await hr.recordFileDecision({...hs,fileID:row.attachment_id,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},f.signal);
   const next={...f.scope,planID:randomUUID()};await f.coverage.capture({...next,replacesPlanID:f.scope.planID,confirmation:'REPLACE_COMPLETE_SCOPED_REVIEW'},f.signal);await f.approve(next);
   assert.equal((await f.coverage.seal({...f.sealInput,planID:next.planID,eventID:randomUUID()},f.signal)).current,true);assert.equal(f.objects.has(m.destination.objectPath),true);assert.equal(f.objects.has(f.sourcePath),true);await f.db.query("update maintenance_private.household_copy_writes set phase='issued',acknowledged_at=null where intent_id=$1",[f.input.intentID]);assert.equal((await f.coverage.status(next,f.signal)).current,false);
  }finally{await f.db.close();}
@@ -84,7 +84,7 @@ test('snapshot paging is immutable across later writes and oversized text cannot
   await f.db.query('insert into public.products(id,"homeId","categoryId",name) select gen_random_uuid(),$1,$2,$3||g::text from generate_series(1,30) g',[home,'air','Synthetic page ']);
   await f.db.query('update public.products set memo=$1 where id=$2',['x'.repeat(65537),product]);const captured=await f.capture(),rows=await f.pages();assert.equal(rows.length,captured.itemCount);assert.equal(rows.length>50,true);
   const memo=rows.find(r=>r.record_id===product&&r.field_name==='memo');await assert.rejects(f.coverage.readText({...f.scope,itemKey:memo.item_key},f.signal),/separate bounded review/);
-  await assert.rejects(f.coverage.recordTextDecision({...f.scope,itemKey:memo.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_PERSON_INFORMATION'},f.signal),/separate bounded review/);
+  await assert.rejects(f.coverage.recordTextDecision({...f.scope,itemKey:memo.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},f.signal),/separate bounded review/);
   await f.db.query('update public.products set memo=$1 where id=$2',['Later edit',product]);assert.deepEqual(await f.pages(),rows);assert.equal((await f.coverage.status(f.scope,f.signal)).current,false);
  }finally{await f.db.close();}
 });
@@ -93,7 +93,7 @@ test('a residual file from a former home creates an unresolved scope gap until e
  const f=await fixture();try{
   await f.port.prepare(f.input,f.signal);await f.port.copy(f.operation,f.signal);await f.db.query("update maintenance_private.household_attachments set state='active' where id=$1",[f.input.destinationID]);
   const hs={reviewRequestID:f.scope.reviewRequestID,userID:f.scope.userID,epochID:f.scope.epochID},hr=createClosureHouseholdFileReview({connect:f.connect,readFileBytes:async file=>f.objects.get(file.objectPath)}),row=(await hr.fileInventory({...hs,afterFile:null},f.signal)).items[0],inspectionID=randomUUID();
-  await hr.inspectFile({...hs,fileID:row.attachment_id,expectedMetadataDigest:row.metadata_digest,inspectionID},f.signal);await hr.recordFileDecision({...hs,fileID:row.attachment_id,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_PERSON_INFORMATION'},f.signal);
+  await hr.inspectFile({...hs,fileID:row.attachment_id,expectedMetadataDigest:row.metadata_digest,inspectionID},f.signal);await hr.recordFileDecision({...hs,fileID:row.attachment_id,inspectionID,decisionID:randomUUID(),action:'retain_household_file',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_HOUSEHOLD_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},f.signal);
   await f.db.query('delete from public.home_members where user_id=$1',[recipient]);await f.capture();const rows=await f.pages();assert.ok(rows.some(r=>r.kind==='scope_gap'));await assert.rejects(f.coverage.seal(f.sealInput,f.signal),/Complete current explicit review/);
   await f.reviewPort.recordLegacyContext({reviewRequestID:f.scope.reviewRequestID,userID:f.scope.userID,epochID:f.scope.epochID,eventID:randomUUID(),homeID:home,action:'confirmed',evidenceDigest:'a'.repeat(64),confirmation:'CONFIRM_REVIEWED_LEGACY_CONTEXT'},f.signal);
   assert.equal((await f.coverage.status(f.scope,f.signal)).current,false);const next={...f.scope,planID:randomUUID()};await f.coverage.capture({...next,replacesPlanID:f.scope.planID,confirmation:'REPLACE_COMPLETE_SCOPED_REVIEW'},f.signal);assert.equal((await f.pages(next)).some(r=>r.kind==='scope_gap'),false);await f.approve(next);assert.equal((await f.coverage.seal({...f.sealInput,planID:next.planID,eventID:randomUUID()},f.signal)).state,'sealed');
