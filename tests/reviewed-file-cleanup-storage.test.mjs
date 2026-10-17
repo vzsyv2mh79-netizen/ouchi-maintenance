@@ -49,7 +49,7 @@ test('lost DELETE response is reconciled with exact source probe without repeate
 });
 test('generic errors are never absence; only explicit NoSuchKey status shape is accepted',async()=>{
  const original=globalThis.fetch;try{
-  for(const response of [new Response('not found',{status:404}),Response.json({code:'NoSuchBucket'},{status:404}),Response.json({code:'AccessDenied'},{status:403}),Response.json({code:'NoSuchKey'},{status:400}),Response.json({code:'NoSuchKey',statusCode:'500'},{status:400}),Response.json({code:'NoSuchKey'},{status:500})]){
+  for(const response of [new Response('not found',{status:404}),Response.json({code:'NoSuchBucket'},{status:404}),Response.json({code:'AccessDenied'},{status:403}),Response.json({code:'NoSuchKey'},{status:400}),Response.json({code:'NoSuchKey',statusCode:'500'},{status:400}),Response.json({code:'NoSuchKey'},{status:500}),Response.json({code:'NoSuchKey',statusCode:'500'},{status:404}),Response.json({code:'NoSuchKey',statusCode:'404'},{status:503})]){
    const f=fixture();delete f.manifest.retained;globalThis.fetch=async()=>response;await assert.rejects(f.port.cleanup(f.manifest,f.signal),/read unconfirmed/);
   }
   for(const status of [400,404]){const f=fixture();delete f.manifest.retained;globalThis.fetch=async()=>Response.json({code:'NoSuchKey',statusCode:'404'},{status});assert.equal((await f.port.cleanup(f.manifest,f.signal)).deleteAcknowledged,false);}

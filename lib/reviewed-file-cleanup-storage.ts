@@ -34,8 +34,9 @@ export function createReviewedFileCleanupStorage({projectID,secretKey}:{projectI
   if(!(signal instanceof AbortSignal))throw Error('Bounded cleanup signal required');signal.throwIfAborted();
   const prefix=origin+'/storage/v1/object/'+bucket;
   const client=createClient(origin,secretKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:async(input,init)=>{
-   const url=typeof input==='string'?input:input instanceof URL?input.href:input.url,method=init?.method??'GET';
-   const read=method==='GET'&&(url===prefix+'/'+m.source.objectPath||(m.retained&&url===prefix+'/'+m.retained.objectPath));
+   const url=typeof input==='string'?input:input instanceof URL?input.href:input.url,method=init?.method??(input instanceof Request?input.method:'GET');
+   if(input instanceof Request&&input.body!==null)throw Error('Exact reviewed cleanup Storage operation required');
+   const read=method==='GET'&&init?.body==null&&(url===prefix+'/'+m.source.objectPath||(m.retained&&url===prefix+'/'+m.retained.objectPath));
    let remove=false;
    if(method==='DELETE'&&url===prefix&&typeof init?.body==='string'){
     const body=JSON.parse(init.body);
@@ -46,7 +47,8 @@ export function createReviewedFileCleanupStorage({projectID,secretKey}:{projectI
   }}}).storage.from(bucket);
   async function inspect(file:ObjectDescriptor){
    const {data,error}=await client.download(file.objectPath,{}, {signal,cache:'no-store'});signal.throwIfAborted();
-   if(error instanceof StorageApiError&&error.code==='NoSuchKey'&&(error.status===404||(error.status===400&&error.statusCode==='404')))return false;
+   if(error instanceof StorageApiError&&error.code==='NoSuchKey'
+    &&((error.status===404&&(error.statusCode===undefined||error.statusCode==='404'))||(error.status===400&&error.statusCode==='404')))return false;
    if(error||!(data instanceof Blob))throw Error('Cleanup Storage read unconfirmed');
    if(data.size!==file.sizeBytes||data.type!==file.mime||createHash('sha256').update(new Uint8Array(await data.arrayBuffer())).digest('hex')!==file.sha256)throw Error('Cleanup Storage content mismatch');
    signal.throwIfAborted();return true;
