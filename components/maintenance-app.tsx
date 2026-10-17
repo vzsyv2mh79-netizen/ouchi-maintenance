@@ -137,9 +137,12 @@ export function MaintenanceApp() {
         const saved = await navigator.locks.request(storageKey, write);
         if (!saved) return;
       }
-      if (generation.current === currentGeneration) { setModal(null); setEditProduct(null); setEditTask(null); setToast(message); }
+      if (generation.current === currentGeneration) { setModal(null); setEditProduct(null); setEditTask(null); setToast(message); return true; }
     } catch (cause) {
       if (generation.current === currentGeneration) {
+        if (cloudUser && cause && typeof cause === 'object' && 'code' in cause && cause.code === '23503') {
+          setToast("関連する記録があるため削除できません。製品の「写真・保証書」で、保存済み・家族共有・削除確認待ちのファイルを先に確認してください。"); return;
+        }
         if (cause instanceof Error && cause.message === "このバックアップはすでに復元されています。") {
           setToast(cause.message); return;
         }
@@ -169,7 +172,7 @@ export function MaintenanceApp() {
 
   const removeProduct = (product: Product) => {
     if (!window.confirm(`「${product.name}」と関連するお手入れ・履歴を削除しますか？`)) return;
-    void commitChange({ ...data, products: data.products.filter(p => p.id !== product.id), tasks: data.tasks.filter(t => t.productId !== product.id), history: data.history.filter(h => h.productId !== product.id) }, () => deleteRecord("products", product.id), "製品を削除しました").then(() => setSelectedProduct(null));
+    void commitChange({ ...data, products: data.products.filter(p => p.id !== product.id), tasks: data.tasks.filter(t => t.productId !== product.id), history: data.history.filter(h => h.productId !== product.id) }, () => deleteRecord("products", product.id), "製品を削除しました").then(saved => { if (saved) setSelectedProduct(null); });
   };
   const removeTask = (task: MaintenanceTask) => {
     if (!window.confirm(`「${task.name}」と関連する履歴を削除しますか？`)) return;
@@ -196,7 +199,7 @@ export function MaintenanceApp() {
     : tab === "tasks" ? <TasksPage data={view} onComplete={completeTask} onOpenProduct={openProduct} />
     : tab === "products" ? <ProductsPage data={view} onAdd={() => setModal("product")} onOpenProduct={openProduct} />
     : tab === "history" ? <HistoryPage data={view} onOpenProduct={openProduct} />
-    : <SettingsPage account={cloudUser} key={cloudUser ?? "local"} homeControls={<HomeControls home={currentHome} cloud={!!cloudUser} busy={busy} canDelete={data.homes.length > 1} onCreate={addHome} onUpdate={renameHome} onDelete={deleteHome} onRefresh={() => commitChange(data, async () => {}, "記録を更新しました")} />} backupData={data} onImport={(local) => { void commitChange(data, () => importLocalData(local, currentHome.id), "端末の記録をクラウドに追加しました"); }} onRestore={(restored) => { void commitChange(restored, () => restoreCloudBackup(restored), "バックアップを復元しました"); }} cloud={!!cloudUser} busy={busy} data={view} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
+    : <SettingsPage account={cloudUser} key={cloudUser ?? "local"} homeControls={<HomeControls home={currentHome} cloud={!!cloudUser} busy={busy} canDelete={data.homes.length > 1} onCreate={addHome} onUpdate={renameHome} onDelete={deleteHome} onRefresh={async () => { await commitChange(data, async () => {}, "記録を更新しました"); }} />} backupData={data} onImport={(local) => { void commitChange(data, () => importLocalData(local, currentHome.id), "端末の記録をクラウドに追加しました"); }} onRestore={(restored) => { void commitChange(restored, () => restoreCloudBackup(restored), "バックアップを復元しました"); }} cloud={!!cloudUser} busy={busy} data={view} onReset={() => { if (window.confirm("現在の製品・履歴をすべて消してデモデータに戻しますか？")) { void commitChange(createSeedData(), async () => {}, "デモデータを復元しました");  } }} onClear={() => { if (window.confirm("現在の製品・履歴をすべて消して、空の状態から始めますか？")) { void commitChange({ ...data, products: [], tasks: [], history: [] }, async () => {}, "空の状態にしました");  } }} />;
 
   if (!ready || loadError) return <div className="page narrow"><h1>おうちメンテ</h1><p role="status">{loadError ? "記録を読み込めませんでした。通信状態を確認して再読み込みしてください。" : "記録を読み込み中…"}</p>{loadError && <><button className="primary-button" onClick={() => window.location.reload()}>再読み込み</button><CloudAccount disabled={busy} /></>}</div>;
   return (

@@ -18,10 +18,10 @@ function metadata(value:unknown,id:string){
  */
 export async function readHouseholdAttachmentResponse(request:Request,db:SupabaseClient){
  const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'},query=new URL(request.url).searchParams;
- const attachment=query.get('attachmentId'),product=query.get('productId'),after=query.get('after');
- if(request.method!=='GET'||query.get('scope')!=='household'||[...query.keys()].some(k=>!['scope','attachmentId','productId','after','page'].includes(k)||query.getAll(k).length!==1)
+ const attachment=query.get('attachmentId'),product=query.get('productId'),after=query.get('after'),pending=query.has('pending');
+ if(request.method!=='GET'||query.get('scope')!=='household'||[...query.keys()].some(k=>!['scope','attachmentId','productId','after','page','pending'].includes(k)||query.getAll(k).length!==1)
   ||(query.has('page')&&query.get('page')!=='true')||((attachment===null)===(product===null))||(attachment!==null&&!uuid(attachment))||(product!==null&&!uuid(product))
-  ||(after!==null&&(!product||!uuid(after)))||(attachment&&query.has('page')))return Response.json({error:'添付を確認してください。'},{status:400,headers});
+  ||(after!==null&&(!product||!uuid(after)))||(attachment&&query.has('page'))||(pending&&(query.get('pending')!=='true'||product===null)))return Response.json({error:'添付を確認してください。'},{status:400,headers});
  try{
   const bearer=request.headers.get('authorization');if(!bearer||!/^Bearer [^\s,]{1,16384}$/.test(bearer))return Response.json({error:'ログインしてください。'},{status:401,headers});
   const token=bearer.slice(7),verified=await db.auth.getUser(token),user=verified.data.user?.id;
@@ -31,12 +31,12 @@ export async function readHouseholdAttachmentResponse(request:Request,db:Supabas
   if(binding.error||!uuid(binding.data))return Response.json({error:'登録を確認できません。'},{status:401,headers});
   const scope={target_user:user,verified_session:session.sessionID,expected_epoch:binding.data};
   if(product){
-   const result=await db.rpc('page_maintenance_household_attachments',{...scope,target_product:product,after_attachment:after});
+   const result=await db.rpc(pending?'page_maintenance_household_attachment_removals':'page_maintenance_household_attachments',{...scope,target_product:product,after_attachment:after});
    const rows=result.data?.items,next=result.data?.next;
    if(result.error||!Array.isArray(rows)||rows.length>25||!(next===null||(uuid(next)&&rows.length===25&&next===rows.at(-1)?.id)))throw Error('Household file list unavailable');
    let prior=after;const items=rows.map((f:{id:string;size:number;mime:string;createdAt:string})=>{
     if(!f||Object.keys(f).sort().join(',')!=='createdAt,id,mime,size'||!uuid(f.id)||(prior!==null&&f.id<=prior)||!Number.isSafeInteger(f.size)||f.size<1||f.size>5242880||!Object.hasOwn(formats,f.mime)||typeof f.createdAt!=='string'||!Number.isFinite(Date.parse(f.createdAt)))throw Error('Household file list invalid');
-    prior=f.id;return {...f,scope:'household'};
+    prior=f.id;return {...f,scope:'household',...(pending?{removalPending:true}:{})};
    });
    request.signal.throwIfAborted();return Response.json({items,next},{headers});
   }

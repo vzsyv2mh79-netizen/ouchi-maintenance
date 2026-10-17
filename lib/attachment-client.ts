@@ -1,4 +1,4 @@
-export type AttachmentItem={id:string;size:number;mime:string;createdAt:string;scope?:'household'};
+export type AttachmentItem={id:string;size:number;mime:string;createdAt:string;scope?:'household';removalPending?:true};
 export type AttachmentBinding={account:string;epoch:string};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validID=(value:unknown):value is string=>typeof value==='string'&&uuid.test(value)&&value!=='00000000-0000-0000-0000-000000000000';
@@ -24,12 +24,13 @@ export async function attachmentBinding(token:string,signal:AbortSignal):Promise
  if(!validID(value.account)||!validID(value.epoch)||value.account.toLowerCase()===value.epoch.toLowerCase())throw Error('登録状態を確認できません。');
  return {account:value.account.toLowerCase(),epoch:value.epoch.toLowerCase()};
 }
-export async function attachmentPage(product:string,after:string|null,token:string,signal:AbortSignal,scope:'personal'|'household'='personal'):Promise<{items:AttachmentItem[];next:string|null}>{
+export async function attachmentPage(product:string,after:string|null,token:string,signal:AbortSignal,scope:'personal'|'household'='personal',pending=false):Promise<{items:AttachmentItem[];next:string|null}>{
  if(!validID(product)||(after!==null&&!validID(after)))throw Error('製品を確認してください。');
  if(!['personal','household'].includes(scope))throw Error('ファイルの種類を確認してください。');
- const query=new URLSearchParams({productId:product.toLowerCase(),page:'true'});if(scope==='household')query.set('scope','household');if(after)query.set('after',after.toLowerCase());
+ if(typeof pending!=='boolean'||pending&&scope!=='household')throw Error('削除確認待ちの対象を確認してください。');
+ const query=new URLSearchParams({productId:product.toLowerCase(),page:'true'});if(scope==='household')query.set('scope','household');if(pending)query.set('pending','true');if(after)query.set('after',after.toLowerCase());
  const {bytes}=await read(query,token,signal,32768);const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
- if(!Array.isArray(value.items)||value.items.length>25||value.items.some((item:AttachmentItem)=>!item||Object.keys(item).sort().join(',')!==(scope==='household'?'createdAt,id,mime,scope,size':'createdAt,id,mime,size')||(scope==='household'?item.scope!=='household':item.scope!==undefined)||!validID(item.id)||!Number.isSafeInteger(item.size)||item.size<1||item.size>5242880||!['image/jpeg','image/png','application/pdf'].includes(item.mime)||typeof item.createdAt!=='string'||item.createdAt.length>64||!Number.isFinite(Date.parse(item.createdAt))))throw Error('一覧を確認できません。');
+ if(!Array.isArray(value.items)||value.items.length>25||value.items.some((item:AttachmentItem)=>!item||Object.keys(item).sort().join(',')!==(scope==='household'?(pending?'createdAt,id,mime,removalPending,scope,size':'createdAt,id,mime,scope,size'):'createdAt,id,mime,size')||(scope==='household'?item.scope!=='household':item.scope!==undefined)||(pending?item.removalPending!==true:item.removalPending!==undefined)||!validID(item.id)||!Number.isSafeInteger(item.size)||item.size<1||item.size>5242880||!['image/jpeg','image/png','application/pdf'].includes(item.mime)||typeof item.createdAt!=='string'||item.createdAt.length>64||!Number.isFinite(Date.parse(item.createdAt))))throw Error('一覧を確認できません。');
  const items:AttachmentItem[]=value.items.map((item:AttachmentItem)=>({...item,id:item.id.toLowerCase()}));
  if(new Set(items.map(item=>item.id)).size!==items.length||items.some((item,index)=>index>0&&item.id<=items[index-1].id||after!==null&&item.id<=after.toLowerCase())||value.next!==null&&(!validID(value.next)||items.length!==25||value.next.toLowerCase()!==items.at(-1)?.id))throw Error('一覧の順序を確認できません。');
  return {items,next:value.next?.toLowerCase()??null};
@@ -52,9 +53,11 @@ export async function uploadAttachment(input:{product:string;id:string;epoch:str
  const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
  if(value.saved!==true||typeof value.attachmentId!=='string'||value.attachmentId.toLowerCase()!==input.id.toLowerCase())throw Error('保存結果を確認できません。同じファイルで再確認してください。');
 }
-export async function removeAttachment(id:string,epoch:string,confirmed:boolean,token:string,signal:AbortSignal){
+export async function removeAttachment(id:string,epoch:string,confirmed:boolean,token:string,signal:AbortSignal,scope:'personal'|'household'='personal'){
+ if(!['personal','household'].includes(scope))throw Error('削除するファイルの対象を確認してください。');
  if(!confirmed||!validID(id))throw Error('削除するファイルを確認してください。');
- const {bytes}=await read(new URLSearchParams({attachmentId:id.toLowerCase()}),token,signal,4096,{method:'DELETE',epoch});
+ const query=new URLSearchParams({attachmentId:id.toLowerCase()});if(scope==='household')query.set('scope','household');
+ const {bytes}=await read(query,token,signal,4096,{method:'DELETE',epoch});
  const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
- if(value.removed!==true||typeof value.attachmentId!=='string'||value.attachmentId.toLowerCase()!==id.toLowerCase())throw Error('削除結果を確認できません。同じファイルで再確認してください。');
+ if((scope==='household'?value.scope!=='household':value.scope!==undefined)||value.removed!==true||typeof value.attachmentId!=='string'||value.attachmentId.toLowerCase()!==id.toLowerCase())throw Error('削除結果を確認できません。同じファイルで再確認してください。');
 }

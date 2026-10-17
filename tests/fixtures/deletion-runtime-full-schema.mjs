@@ -19,7 +19,7 @@ export async function seedFullSchemaDeletion({databaseFactory,dbOptions,authPort
   async function actor(){
    const response=await fetch('http://127.0.0.1:'+authPort+'/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:randomUUID()+'@example.invalid',password:randomUUID()+'aA7!'})});assert.equal(response.ok,true);
    const value=await response.json(),session=JSON.parse(Buffer.from(value.access_token.split('.')[1],'base64url')).session_id,id=value.user.id,epoch=randomUUID();
-   await db.query('insert into maintenance_private.app_epochs values($1,$2,true)',[id,epoch]);await db.query('insert into maintenance_private.account_access values($1,true)',[id]);await db.query('insert into maintenance_private.app_session_epochs values($1,$2,$3)',[session,id,epoch]);return {id,session,epoch};
+   await db.query('insert into maintenance_private.app_epochs values($1,$2,true)',[id,epoch]);await db.query('insert into maintenance_private.account_access values($1,true)',[id]);await db.query('insert into maintenance_private.app_session_epochs values($1,$2,$3)',[session,id,epoch]);return {id,session,epoch,token:value.access_token};
   }
   const departing=await actor(),family=await actor(),home=randomUUID(),product=randomUUID();
   await db.query('insert into public.homes(id,owner_id,name) values($1,$2,$3)',[home,departing.id,'Synthetic family home']);await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,family.id,'Remaining synthetic family']);
@@ -42,7 +42,7 @@ export async function seedFullSchemaDeletion({databaseFactory,dbOptions,authPort
   const coverage=ports.coverage,planID=randomUUID(),coverageScope={...scope,planID};await coverage.capture({...coverageScope,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'},signal);const page=await coverage.page({...coverageScope,afterKey:null},signal);assert.equal(page.hasMore,false);
   for(const item of page.items)if(item.kind==='text')await coverage.recordTextDecision({...coverageScope,itemKey:item.item_key,eventID:randomUUID(),action:'retain_reviewed',evidenceDigest:'a'.repeat(64),confirmation:'RETAIN_REVIEWED_TEXT_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'},signal);
   const sealEventID=randomUUID();await coverage.seal({...coverageScope,eventID:sealEventID,evidenceDigest:'b'.repeat(64),confirmation:'CONFIRM_COMPLETE_APP_SCOPED_REVIEW'},signal);const requestID=randomUUID();await createReviewedRetirement({connect}).execute({...coverageScope,eventID:requestID,sealEventID,confirmation:'EXECUTE_REVIEWED_APP_RETIREMENT_PRESERVING_FAMILY_RECORDS'},signal);
-  return {db,bytes,sourcePath,manifest,cleanupInput:{requestID},identities:{departing:departing.id,family:family.id,home,product},actualGoTrue:true};
+  return {db,bytes,sourcePath,manifest,cleanupInput:{requestID},identities:{departing:departing.id,family:family.id,home,product},familyBinding:family,actualGoTrue:true};
  }catch(error){await db.close();throw error;}
 }
 

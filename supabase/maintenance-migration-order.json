@@ -536,6 +536,10 @@
     {
       "file": "supabase/migrations/20261017060229_ouchi_ordinary_deletion_capacity_minimization.sql",
       "source_sha256": "9170a8cf55281edd84db23a1790e430ca953255fb95c126eeedc46e6a02ede66"
+    },
+    {
+      "file": "supabase/migrations/20261017064517_ouchi_household_attachment_removal.sql",
+      "source_sha256": "c73b2fc697627ddc589f55f72b0f69f72cc50085cc4721bd6ae0c6a285cc574a"
     }
   ]
 }

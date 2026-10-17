@@ -389,12 +389,16 @@
     "typedAbsenceAlsoRequiresDefinitiveHTTPStatus": true,
     "nativeAndWebRetainedReadClientsPrepared": true,
     "reviewedAndOrdinaryRetirementRuntimeVerifiedWithSyntheticChecker": true,
-    "sourcePins": 134,
-    "familyRetainedFileRemovalUXPrepared": false,
+    "sourcePins": 135,
+    "familyRetainedFileRemovalUXPrepared": true,
     "orphanAndServiceExitRetentionApproved": false,
     "physicalCapacityReleasePrepared": false,
     "allocatedAppBudgetApproved": false,
     "productionEnabled": false,
-    "notACommercialPromise": true
+    "notACommercialPromise": true,
+    "familyRetainedFileRemovalActualServicesVerified": true,
+    "familyRetainedFileRemovalProductionEnabled": false,
+    "nativeRemovalInteractiveReviewComplete": false,
+    "householdReceiptScope": "content-free product/home-scoped receipt; cascades with parent; no actor or uploader"
   }
 }

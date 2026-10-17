@@ -49,3 +49,16 @@ test('household download never falls back to personal path or a write request',a
  await withFetch(async(url,options)=>{assert.equal(new URL(url,'https://example.invalid').searchParams.get('scope'),'household');assert.equal(options.method,'GET');return new Response(bytes,{headers:{'content-type':'image/png','content-disposition':`attachment; filename="ouchi-attachment-${id}.png"`}});},async()=>assert.equal((await downloadAttachment(id,'synthetic',signal(),'household')).blob.size,8));
  await withFetch(async()=>assert.fail('Invalid namespace must stop before network'),async()=>{await assert.rejects(attachmentPage(id,null,'synthetic',signal(),'foreign'));await assert.rejects(downloadAttachment(id,'synthetic',signal(),'foreign'));});
 });
+test('pending household pages cannot be confused with readable or personal files',async()=>{
+ const item={id,size:8,mime:'image/png',createdAt:'2026-10-17T00:00:00Z',scope:'household',removalPending:true};
+ await withFetch(async(url)=>{const q=new URL(url,'https://example.invalid').searchParams;assert.equal(q.get('scope'),'household');assert.equal(q.get('pending'),'true');assert.equal(q.get('page'),'true');return Response.json({items:[item],next:null});},async()=>assert.equal((await attachmentPage(id,null,'synthetic',signal(),'household',true)).items[0].removalPending,true));
+ for(const wrong of [{...item,removalPending:false},{...item,scope:'personal'},Object.fromEntries(Object.entries(item).filter(([key])=>key!=='removalPending'))])await withFetch(async()=>Response.json({items:[wrong],next:null}),async()=>assert.rejects(attachmentPage(id,null,'synthetic',signal(),'household',true)));
+ await withFetch(async()=>Response.json({items:[item],next:null}),async()=>assert.rejects(attachmentPage(id,null,'synthetic',signal(),'household')));
+ await withFetch(async()=>assert.fail('Personal pending query entered transport'),async()=>assert.rejects(attachmentPage(id,null,'synthetic',signal(),'personal',true)));
+});
+test('household deletion carries its exact namespace and epoch and refuses mismatched receipts',async()=>{
+ await withFetch(async(url,options)=>{const q=new URL(url,'https://example.invalid').searchParams;assert.equal(q.get('scope'),'household');assert.equal(q.get('attachmentId'),id);assert.equal(options.method,'DELETE');assert.equal(options.headers['X-Ouchi-App-Epoch'],epoch);return Response.json({removed:true,attachmentId:id,scope:'household'});},async()=>removeAttachment(id,epoch,true,'synthetic',signal(),'household'));
+ for(const receipt of [{removed:true,attachmentId:id},{removed:true,attachmentId:account,scope:'household'},{removed:false,attachmentId:id,scope:'household'}])await withFetch(async()=>Response.json(receipt),async()=>assert.rejects(removeAttachment(id,epoch,true,'synthetic',signal(),'household')));
+ await withFetch(async()=>Response.json({removed:true,attachmentId:id,scope:'household'}),async()=>assert.rejects(removeAttachment(id,epoch,true,'synthetic',signal())));
+ await withFetch(async()=>assert.fail('Invalid scope entered transport'),async()=>assert.rejects(removeAttachment(id,epoch,true,'synthetic',signal(),'foreign')));
+});

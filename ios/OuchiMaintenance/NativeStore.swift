@@ -961,13 +961,13 @@ struct FormalChannelSelection {
             return nil
         }
     }
-    func pageDevelopmentAttachments(product: UUID, after: UUID? = nil, scope: AttachmentAPI.Scope = .personal) async -> DevelopmentAttachmentAPI.AttachmentPage? {
+    func pageDevelopmentAttachments(product: UUID, after: UUID? = nil, scope: AttachmentAPI.Scope = .personal, pending: Bool = false) async -> DevelopmentAttachmentAPI.AttachmentPage? {
         guard attachmentServiceConfigured, let session,
               household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return nil }
         let expected = generation, home = homeID
         do {
             let credentials = try await session.credentials()
-            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token, scope: scope)
+            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token, scope: scope, pending: pending)
             guard expected == generation, home == homeID else { return nil }
             return items
         } catch {
@@ -1033,6 +1033,29 @@ struct FormalChannelSelection {
             return true
         } catch {
             if expected == generation, home == homeID { message = "削除完了を確認できません。同じファイルで再確認してください。保存した人か住まいの所有者が操作できます。" }
+            return false
+        }
+    }
+    func removeHouseholdAttachment(_ attachment: UUID, product: UUID, confirmed: Bool) async -> Bool {
+        guard attachmentServiceConfigured, confirmed, !busy, let session,
+              household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { return false }
+        let expected = generation, home = homeID, revision = accountBindingRevision
+        busy = true; message = nil
+        defer { if expected == generation { busy = false } }
+        do {
+            let credentials = try await session.credentials()
+            let api = AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured)
+            let binding = try await api.binding(token: credentials.access_token)
+            guard !Task.isCancelled, expected == generation, home == homeID, revision == accountBindingRevision,
+                  binding.account == credentials.user.id else { return false }
+            try await api.remove(attachment: attachment, token: credentials.access_token, confirmed: true, expectedEpoch: binding.epoch, scope: .household)
+            let latest = try await api.binding(token: credentials.access_token)
+            guard !Task.isCancelled, expected == generation, home == homeID, revision == accountBindingRevision,
+                  latest.account == binding.account, latest.epoch == binding.epoch else { return false }
+            clearDevelopmentAttachmentExport(); message = "家族で引き継いだファイルの削除を確認しました。"
+            return true
+        } catch {
+            if expected == generation, home == homeID, revision == accountBindingRevision { message = "削除完了を確認できません。家族共有の削除確認待ちから、同じファイルを再確認してください。" }
             return false
         }
     }
@@ -2341,7 +2364,7 @@ struct FormalChannelSelection {
               creating ? !data.tasks.contains(where: { $0.id == value.id }) : data.tasks.contains(where: { $0.id == value.id && $0.productId == value.productId }) else { return false }
         return await save { api, token in try await api.saveTask(value, creating: creating, token: token) }
     }
-    private func save(_ mutation: (HouseholdAPI, String) async throws -> Void) async -> Bool {
+    private func save(failureHint: String? = nil, _ mutation: (HouseholdAPI, String) async throws -> Void) async -> Bool {
         guard !busy, let api, let session else { return false }
         busy = true; message = nil
         let expected = generation
@@ -2361,6 +2384,7 @@ struct FormalChannelSelection {
         } catch {
             if expected == generation {
                 message = error as? CloudError == .invalidInput ? "入力内容を確認してください。周期は1〜3650日、日付はYYYY-MM-DDで入力してください。" : "保存結果を確認できません。再読み込みして記録を確認してください。"
+                if let failureHint { message = (message ?? "") + failureHint }
                 busy = false
             }
             return false
@@ -2370,7 +2394,7 @@ struct FormalChannelSelection {
     func deleteProduct(_ product: Appliance) async -> Bool {
         guard product.homeId == homeID,
               household?.products(in: homeID).contains(where: { $0.id == product.id }) == true else { return false }
-        return await save { api, token in try await api.deleteRecord(.product, id: product.id, token: token) }
+        return await save(failureHint: "削除できない場合は、製品の写真・保証書で保存済み・家族共有・削除確認待ちのファイルを先に確認してください。") { api, token in try await api.deleteRecord(.product, id: product.id, token: token) }
     }
     func deleteTask(_ task: CareTask) async -> Bool {
         guard household?.tasks(in: homeID).contains(where: { $0.id == task.id && $0.productId == task.productId }) == true else { return false }
@@ -2386,7 +2410,7 @@ struct FormalChannelSelection {
     func deleteHome(id: String) async -> Bool {
         guard let data = household, data.homes.count > 1,
               data.homes.first(where: { $0.id == id })?.role == "owner" else { return false }
-        let success = await save { api, token in try await api.deleteRecord(.home, id: id, token: token) }
+        let success = await save(failureHint: "削除できない場合は、各製品の写真・保証書で保存済み・家族共有・削除確認待ちのファイルを先に確認してください。") { api, token in try await api.deleteRecord(.home, id: id, token: token) }
         if success, household?.homes.contains(where: { $0.id == homeID }) != true {
             clearFamily()
             homeID = household?.homes.first?.id ?? ""

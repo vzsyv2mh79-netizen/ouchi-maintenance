@@ -2,6 +2,44 @@ import XCTest
 @testable import OuchiCore
 
 final class HouseholdAttachmentAPITests: XCTestCase {
+    func testHouseholdRemovalRequiresExactScopeAndEpoch() async throws {
+        let file = UUID(), epoch = UUID()
+        let api = AttachmentAPI(transport: { request in
+            XCTAssertEqual(request.httpMethod, "DELETE")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Ouchi-App-Epoch"), epoch.uuidString.lowercased())
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            XCTAssertEqual(query.first(where: { $0.name == "scope" })?.value, "household")
+            XCTAssertEqual(query.first(where: { $0.name == "attachmentId" })?.value, file.uuidString.lowercased())
+            let body = Data("{\"removed\":true,\"attachmentId\":\"\(file.uuidString)\",\"scope\":\"household\"}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        try await api.remove(attachment: file, token: "synthetic", confirmed: true, expectedEpoch: epoch, scope: .household)
+        for marker in ["", ",\"scope\":\"personal\""] {
+            let rejected = AttachmentAPI(transport: { request in
+                let body = Data("{\"removed\":true,\"attachmentId\":\"\(file.uuidString)\"\(marker)}".utf8)
+                return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            })
+            do { try await rejected.remove(attachment: file, token: "synthetic", confirmed: true, expectedEpoch: epoch, scope: .household); XCTFail("Unconfirmed household receipt accepted") }
+            catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+        }
+    }
+    func testHouseholdPendingListRequiresPendingMarkerAndCannotBeReadAsActive() async throws {
+        let file = UUID(), product = UUID()
+        let api = AttachmentAPI(transport: { request in
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            XCTAssertEqual(query.first(where: { $0.name == "pending" })?.value, "true")
+            let body = Data("{\"items\":[{\"id\":\"\(file.uuidString)\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"2026-10-17T00:00:00Z\",\"scope\":\"household\",\"removalPending\":true}],\"next\":null}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        let page = try await api.page(product: product, token: "synthetic", scope: .household, pending: true)
+        XCTAssertEqual(page.items.first?.removalPending, true)
+        let missingMarker = AttachmentAPI(transport: { request in
+            let body = Data("{\"items\":[{\"id\":\"\(file.uuidString)\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"2026-10-17T00:00:00Z\",\"scope\":\"household\"}],\"next\":null}".utf8)
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        do { _ = try await missingMarker.page(product: product, token: "synthetic", scope: .household, pending: true); XCTFail("Active list accepted as pending") }
+        catch { XCTAssertEqual(error as? CloudError, .malformedResponse) }
+    }
     func testHouseholdPageUsesReadNamespaceAndRequiresHouseholdMarker() async throws {
         let product = UUID(), file = UUID()
         let body = Data("{\"items\":[{\"id\":\"\(file.uuidString.lowercased())\",\"size\":8,\"mime\":\"image/png\",\"createdAt\":\"2026-10-17T00:00:00Z\",\"scope\":\"household\"}],\"next\":null}".utf8)

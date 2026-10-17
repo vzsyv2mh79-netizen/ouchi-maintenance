@@ -1740,6 +1740,38 @@ private struct AttachmentView: View {
     @State private var householdAttachments: [AttachmentAPI.StoredAttachment] = []
     @State private var nextHouseholdAttachment: UUID?
     @State private var householdListingLoading = false
+    @State private var householdRemovals: [AttachmentAPI.StoredAttachment] = []
+    @State private var nextHouseholdRemoval: UUID?
+    @State private var householdRemovalsLoading = false
+    @State private var householdRemovalID: UUID?
+    @State private var confirmHouseholdRemoval = false
+    private func loadHouseholdRemovalPage(reset: Bool) async {
+        guard !householdRemovalsLoading, let product = UUID(uuidString: productID) else { return }
+        let selection = selectionBinding, expected = listingGeneration
+        let cursor = reset ? nil : nextHouseholdRemoval
+        householdRemovalsLoading = true
+        let page = await store.pageDevelopmentAttachments(product: product, after: cursor, scope: .household, pending: true)
+        guard !Task.isCancelled, selection == selectionBinding, expected == listingGeneration else { return }
+        householdRemovalsLoading = false
+        guard let page else { return }
+        let existing = reset ? [] : householdRemovals
+        guard Set(existing.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))) else { status = "一覧が更新されました。削除確認待ちを確認し直してください。"; return }
+        householdRemovals = existing + page.items; nextHouseholdRemoval = page.next
+    }
+    private func removeHouseholdFile(_ id: UUID) async {
+        guard let product = UUID(uuidString: productID), hasSelectedProduct,
+              householdAttachments.contains(where: { $0.id == id }) || householdRemovals.contains(where: { $0.id == id }) else { return }
+        let selection = selectionBinding, expected = listingGeneration
+        let removed = await store.removeHouseholdAttachment(id, product: product, confirmed: true)
+        guard !Task.isCancelled, selection == selectionBinding, expected == listingGeneration else { return }
+        if removed {
+            householdAttachments.removeAll(where: { $0.id == id })
+            householdRemovals.removeAll(where: { $0.id == id })
+        }
+        // SQL keeps accepted removals across restarts and changes in family membership.
+        await loadHouseholdAttachmentPage(reset: true)
+        await loadHouseholdRemovalPage(reset: true)
+    }
     private func loadHouseholdAttachmentPage(reset: Bool) async {
         guard !householdListingLoading, let product = UUID(uuidString: productID) else { return }
         let selected = productID, home = store.homeID, expected = listingGeneration, revision = store.accountBindingRevision
@@ -1841,7 +1873,13 @@ private struct AttachmentView: View {
                 loadMore: { Task { await loadHouseholdAttachmentPage(reset: false) } },
                 download: { attachment in
                     Task { store.clearDevelopmentAttachmentExport(); guard store.attachmentExportURL == nil else { return }; await store.exportDevelopmentAttachment(attachment.id, scope: .household) }
-                })
+                }, remove: { attachment in householdRemovalID = attachment.id; confirmHouseholdRemoval = true })
+            HouseholdRemovalPendingSection(attachments: householdRemovals,
+                loading: householdRemovalsLoading, busy: store.busy,
+                hasSelectedProduct: hasSelectedProduct, hasMore: nextHouseholdRemoval != nil,
+                reload: { Task { await loadHouseholdRemovalPage(reset: true) } },
+                loadMore: { Task { await loadHouseholdRemovalPage(reset: false) } },
+                retry: { item in Task { await removeHouseholdFile(item.id) } })
             if let file = store.attachmentExportURL {
                 Section("取得したファイル") { ShareLink("取得したファイルを共有・保存", item: file) }
             }
@@ -1937,7 +1975,16 @@ private struct AttachmentView: View {
             }
             Button("キャンセル", role: .cancel) { removalID = nil }
         } message: { Text("元に戻せません。保存した人か住まいの所有者が削除できます。購入が終了していても削除できます。") }
+        .confirmationDialog("家族で引き継いだファイルを削除しますか？", isPresented: $confirmHouseholdRemoval, titleVisibility: .visible) {
+            Button("家族共有のファイルを削除", role: .destructive) {
+                guard let id = householdRemovalID else { return }; householdRemovalID = nil
+                Task { await removeHouseholdFile(id) }
+            }
+            Button("キャンセル", role: .cancel) { householdRemovalID = nil }
+        } message: { Text("家族全員が取得できなくなります。必要なファイルは先に保存してください。元に戻せません。契約終了後も、参加中の家族が削除できます。") }
         .task(id: selectionBinding) {
+            householdRemovals = []; nextHouseholdRemoval = nil; householdRemovalsLoading = false
+            householdRemovalID = nil; confirmHouseholdRemoval = false
             savedAttachments = []; householdAttachments = []; nextAttachment = nil; nextHouseholdAttachment = nil; householdListingLoading = false; listingLoading = false; store.clearDevelopmentAttachmentExport()
             confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil
             listingGeneration += 1
@@ -1965,8 +2012,13 @@ private struct AttachmentView: View {
             guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
             attachmentUsage = usage
             await loadAttachmentPage(reset: true)
+            guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
+            await loadHouseholdRemovalPage(reset: true)
         }
         .onChange(of: store.homeID) { _, _ in
+            householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false
+            householdRemovals = []; nextHouseholdRemoval = nil; householdRemovalsLoading = false
+            householdRemovalID = nil; confirmHouseholdRemoval = false
             choosingFile = false; fileSelectionBinding = nil
             listingGeneration += 1; listingLoading = false; nextAttachment = nil; savedAttachments = []
             if bytes == nil, fixedProductID == nil { productID = "" }
@@ -1976,6 +2028,8 @@ private struct AttachmentView: View {
             status = "住まいを変更しました。添付先の製品を確認してください。"
         }
         .onChange(of: store.accountBindingRevision) { _, _ in
+            householdRemovals = []; nextHouseholdRemoval = nil; householdRemovalsLoading = false
+            householdRemovalID = nil; confirmHouseholdRemoval = false
             choosingFile = false; fileSelectionBinding = nil
             listingGeneration += 1; listingLoading = false; nextAttachment = nil
             bytes = nil; filename = ""; mime = ""; attachmentID = UUID()
@@ -1985,7 +2039,7 @@ private struct AttachmentView: View {
             store.clearDevelopmentAttachmentExport()
             status = "アカウントの状態が変わりました。保存先とファイルをもう一度確認してください。"
         }
-        .onDisappear { choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+        .onDisappear { householdRemovals = []; nextHouseholdRemoval = nil; householdRemovalsLoading = false; householdRemovalID = nil; confirmHouseholdRemoval = false; choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }
 
@@ -2109,6 +2163,7 @@ struct RetainedAttachmentSection: View {
     let reload: () -> Void
     let loadMore: () -> Void
     let download: (AttachmentAPI.StoredAttachment) -> Void
+    var remove: ((AttachmentAPI.StoredAttachment) -> Void)? = nil
     var body: some View {
         Section("家族で引き継いだファイル") {
             Text("住まいで引き継いだファイルは、参加中の家族が契約に関係なく取得できます。")
@@ -2123,11 +2178,47 @@ struct RetainedAttachmentSection: View {
                     }
                 }.disabled(busy)
                 .accessibilityIdentifier("retained-files.download." + attachment.id.uuidString.lowercased())
+                if let remove {
+                    Button("引き継いだファイルを削除", role: .destructive) { remove(attachment) }
+                        .disabled(busy || loading)
+                        .accessibilityIdentifier("retained-files.remove." + attachment.id.uuidString.lowercased())
+                }
             }
             if hasMore {
                 Button("引き継いだファイルの続きを表示", action: loadMore)
                     .disabled(loading || busy)
                     .accessibilityIdentifier("retained-files.more")
+            }
+        }
+    }
+}
+
+struct HouseholdRemovalPendingSection: View {
+    let attachments: [AttachmentAPI.StoredAttachment]
+    let loading: Bool
+    let busy: Bool
+    let hasSelectedProduct: Bool
+    let hasMore: Bool
+    let reload: () -> Void
+    let loadMore: () -> Void
+    let retry: (AttachmentAPI.StoredAttachment) -> Void
+    var body: some View {
+        Section("家族共有の削除確認待ち") {
+            Text("通信が途切れた場合も、同じファイルの削除を再確認できます。参加中の家族が引き継いで確認できます。")
+            Button(loading ? "確認中…" : "削除確認待ちを確認", action: reload)
+                .disabled(loading || busy || !hasSelectedProduct)
+                .accessibilityIdentifier("retained-removals.reload")
+            ForEach(attachments) { item in
+                VStack(alignment: .leading) {
+                    Text(item.mime == "application/pdf" ? "PDFの削除確認待ち" : "写真の削除確認待ち")
+                    Text("\(item.size)バイト・\(item.createdAt)").font(.caption)
+                    Button("同じファイルの削除を再確認") { retry(item) }.disabled(busy || loading)
+                        .accessibilityIdentifier("retained-removals.retry." + item.id.uuidString.lowercased())
+                }
+            }
+            if hasMore {
+                Button("削除確認待ちの続きを表示", action: loadMore).disabled(loading || busy)
+                    .accessibilityIdentifier("retained-removals.more")
             }
         }
     }
@@ -2139,16 +2230,31 @@ struct RetainedAttachmentPreview: View {
     @State private var loaded = false
     @State private var more = true
     @State private var result = ""
+    @State private var sampleRemovalID: UUID?
+    @State private var confirmingSampleRemoval = false
+    @State private var pendingIDs: Set<UUID> = []
+    @State private var removedIDs: Set<UUID> = []
     var body: some View {
         NavigationStack {
             Form {
                 Section { Text("表示確認用サンプル・通信なし").accessibilityIdentifier("retained-files.sample") }
-                RetainedAttachmentSection(attachments: loaded ? fixtures : [], loading: false,
+                RetainedAttachmentSection(attachments: loaded ? fixtures.filter { !pendingIDs.contains($0.id) && !removedIDs.contains($0.id) } : [], loading: false,
                     busy: false, hasSelectedProduct: true, hasMore: loaded && more,
                     reload: { loaded = true }, loadMore: { more = false; result = "サンプルの続きを確認しました" },
-                    download: { item in result = item.mime == "application/pdf" ? "サンプルPDFの取得操作を確認しました" : "サンプル写真の取得操作を確認しました" })
+                    download: { item in result = item.mime == "application/pdf" ? "サンプルPDFの取得操作を確認しました" : "サンプル写真の取得操作を確認しました" },
+                    remove: { item in sampleRemovalID = item.id; confirmingSampleRemoval = true })
+                HouseholdRemovalPendingSection(attachments: fixtures.filter { pendingIDs.contains($0.id) }, loading: false,
+                    busy: false, hasSelectedProduct: true, hasMore: false, reload: {}, loadMore: {},
+                    retry: { item in pendingIDs.remove(item.id); removedIDs.insert(item.id); result = "サンプルの削除結果の再確認を完了しました" })
                 if !result.isEmpty { Section { Text(result).accessibilityIdentifier("retained-files.result") } }
             }.navigationTitle("写真・保証書").navigationBarTitleDisplayMode(.inline)
+                .confirmationDialog("家族共有のファイルを削除しますか？", isPresented: $confirmingSampleRemoval, titleVisibility: .visible) {
+                    Button("削除後の通信断を確認", role: .destructive) {
+                        if let id = sampleRemovalID { pendingIDs.insert(id) }; sampleRemovalID = nil
+                        result = "表示確認用に削除確認待ちを再現しました"
+                    }
+                    Button("キャンセル", role: .cancel) { sampleRemovalID = nil }
+                } message: { Text("表示確認用サンプルです。実際のファイルを削除せず、削除確認待ちと再確認の画面を確認できます。") }
         }
     }
 }

@@ -312,18 +312,20 @@ public struct AttachmentAPI: Sendable {
         public let mime: String
         public let createdAt: String
         public let scope: Scope?
+        public let removalPending: Bool?
     }
     public struct AttachmentPage: Sendable {
         public let items: [StoredAttachment]
         public let next: UUID?
     }
-    public func page(product: UUID, after: UUID? = nil, token: String, scope: Scope = .personal) async throws -> AttachmentPage {
+    public func page(product: UUID, after: UUID? = nil, token: String, scope: Scope = .personal, pending: Bool = false) async throws -> AttachmentPage {
         let nilID = "00000000-0000-0000-0000-000000000000"
-        guard product.uuidString != nilID, after?.uuidString != nilID else { throw CloudError.invalidInput }
+        guard product.uuidString != nilID, after?.uuidString != nilID, !pending || scope == .household else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "productId", value: product.uuidString.lowercased()), URLQueryItem(name: "page", value: "true")]
         if scope == .household { components.queryItems?.append(URLQueryItem(name: "scope", value: "household")) }
+        if pending { components.queryItems?.append(URLQueryItem(name: "pending", value: "true")) }
         if let after { components.queryItems?.append(URLQueryItem(name: "after", value: after.uuidString.lowercased())) }
         let url = components.url!
         var request = URLRequest(url: url)
@@ -338,7 +340,7 @@ public struct AttachmentAPI: Sendable {
         let plainDates = ISO8601DateFormatter()
         guard value.items.count <= 25, Set(value.items.map(\.id)).count == value.items.count,
               value.items.allSatisfy({ item in
-                  (scope == .household ? item.scope == .household : item.scope == nil) && item.id.uuidString != nilID && item.size > 0 && item.size <= 5242880 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil) && (after == nil || item.id.uuidString > after!.uuidString)
+                  (scope == .household ? item.scope == .household : item.scope == nil) && (pending ? item.removalPending == true : item.removalPending == nil) && item.id.uuidString != nilID && item.size > 0 && item.size <= 5242880 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil) && (after == nil || item.id.uuidString > after!.uuidString)
               }), value.items.map({ $0.id.uuidString }) == value.items.map({ $0.id.uuidString }).sorted(),
               value.next == nil || (value.items.count == 25 && value.next == value.items.last?.id) else { throw CloudError.malformedResponse }
         return AttachmentPage(items: value.items, next: value.next)
@@ -361,7 +363,7 @@ public struct AttachmentAPI: Sendable {
         let dates = ISO8601DateFormatter(); dates.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let plainDates = ISO8601DateFormatter()
         guard Set(items.map(\.id)).count == items.count, items.allSatisfy({ item in
-            item.scope == nil && item.id.uuidString != "00000000-0000-0000-0000-000000000000" && item.size > 0 && item.size <= 5 * 1024 * 1024 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil)
+            item.scope == nil && item.removalPending == nil && item.id.uuidString != "00000000-0000-0000-0000-000000000000" && item.size > 0 && item.size <= 5 * 1024 * 1024 && ["image/png", "image/jpeg", "application/pdf"].contains(item.mime) && item.createdAt.utf8.count <= 64 && (dates.date(from: item.createdAt) != nil || plainDates.date(from: item.createdAt) != nil)
         }) else { throw CloudError.malformedResponse }
         return items
     }
@@ -398,11 +400,12 @@ public struct AttachmentAPI: Sendable {
         return DownloadedFile(bytes: body, mime: mime, fileExtension: fileExtension)
     }
     /// Deletion remains available after paid access expires; server verifies scope.
-    public func remove(attachment: UUID, token: String, confirmed: Bool, expectedEpoch: UUID? = nil) async throws {
+    public func remove(attachment: UUID, token: String, confirmed: Bool, expectedEpoch: UUID? = nil, scope: Scope = .personal) async throws {
         guard confirmed, attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
         components.queryItems = [URLQueryItem(name: "attachmentId", value: attachment.uuidString.lowercased())]
+        if scope == .household { components.queryItems?.append(URLQueryItem(name: "scope", value: "household")) }
         let url = components.url!
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -411,9 +414,9 @@ public struct AttachmentAPI: Sendable {
         let (body, response) = try await perform(request)
         guard response.url == url, body.count <= 4096 else { throw CloudError.malformedResponse }
         guard response.statusCode == 200 else { throw CloudError.rejected(response.statusCode) }
-        struct Result: Decodable { let removed: Bool; let attachmentId: UUID }
+        struct Result: Decodable { let removed: Bool; let attachmentId: UUID; let scope: Scope? }
         let value = try JSONDecoder().decode(Result.self, from: body)
-        guard value.removed, value.attachmentId == attachment else { throw CloudError.malformedResponse }
+        guard value.removed, value.attachmentId == attachment, (scope == .household ? value.scope == .household : value.scope == nil) else { throw CloudError.malformedResponse }
     }
     /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
     public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool, expectedEpoch: UUID? = nil) async throws {

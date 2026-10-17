@@ -2,21 +2,23 @@
 import {useEffect,useRef,useState} from 'react';
 import {browserAttachmentAuth} from '@/lib/attachment-auth-lifecycle';
 import {getSupabase} from '@/lib/supabase';
-import {attachmentBinding,attachmentPage,downloadAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
+import {attachmentBinding,attachmentPage,downloadAttachment,removeAttachment,type AttachmentItem,type AttachmentBinding} from '@/lib/attachment-client';
 import {browserPendingAttachments,browserPendingAttachmentRemovals,type PendingWebAttachment} from '@/lib/pending-attachment-store';
 import {prepareAttachmentImage} from '@/lib/attachment-image-preparation';
 import {sendPendingAttachment,AttachmentScopeChanged} from '@/lib/attachment-upload-flow';
 import {sendPendingAttachmentRemoval} from '@/lib/attachment-removal-flow';
 
 export function AttachmentControls({product,account}:{product:string;account:string}){
+ const [householdPending,setHouseholdPending]=useState<AttachmentItem[]>([]),[householdPendingNext,setHouseholdPendingNext]=useState<string|null>(null);
  const [householdItems,setHouseholdItems]=useState<AttachmentItem[]>([]),[householdNext,setHouseholdNext]=useState<string|null>(null);
  const [items,setItems]=useState<AttachmentItem[]>([]),[next,setNext]=useState<string|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const operation=useRef<AbortController|null>(null),binding=useRef<string|null>(null);
  const [file,setFile]=useState<File|null>(null),[pending,setPending]=useState<PendingWebAttachment|null>(null);
  useEffect(()=>{
+  setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setFile(null);setPending(null);setBusy(false);setMessage('');
   const client=getSupabase();
   let previousToken:string|null|undefined;
-  const subscription=client?.auth.onAuthStateChange((event,session)=>{const nextToken=session?.access_token??null,changed=previousToken!==undefined&&previousToken!==nextToken;previousToken=nextToken;if(session?.user.id!==account||event==='SIGNED_OUT'||(event==='SIGNED_IN'&&changed)){operation.current?.abort();binding.current=null;setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setFile(null);setPending(null);setMessage('アカウントが変わりました。画面を開き直してください。');}}).data.subscription;
+  const subscription=client?.auth.onAuthStateChange((event,session)=>{const nextToken=session?.access_token??null,changed=previousToken!==undefined&&previousToken!==nextToken;previousToken=nextToken;if(session?.user.id!==account||event==='SIGNED_OUT'||(event==='SIGNED_IN'&&changed)){operation.current?.abort();binding.current=null;setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setFile(null);setPending(null);setMessage('アカウントが変わりました。画面を開き直してください。');}}).data.subscription;
   return ()=>{operation.current?.abort();operation.current=null;binding.current=null;subscription?.unsubscribe();};
  },[product,account]);
  async function run(action:(token:string,signal:AbortSignal,current:AttachmentBinding)=>Promise<void>){
@@ -27,10 +29,10 @@ export function AttachmentControls({product,account}:{product:string;account:str
    await browserAttachmentAuth.ready(account);controller.signal.throwIfAborted();
    const token=session.data.session.access_token,current=await attachmentBinding(token,controller.signal);controller.signal.throwIfAborted();
    if(current.account!==account.toLowerCase())throw Error('アカウントを確認してください。');
-   if(binding.current&&binding.current!==current.epoch){setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setFile(null);setPending(null);binding.current=null;throw Error('登録状態が変わりました。一覧を確認し直してください。');}
+   if(binding.current&&binding.current!==current.epoch){setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setFile(null);setPending(null);binding.current=null;throw Error('登録状態が変わりました。一覧を確認し直してください。');}
    binding.current=current.epoch;
    await action(token,controller.signal,current);
-  }catch(error){if(!controller.signal.aborted){if(error instanceof AttachmentScopeChanged){binding.current=null;setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setFile(null);setPending(null);}setMessage(error instanceof Error?error.message:'通信を確認してください。');}}
+  }catch(error){if(!controller.signal.aborted){if(error instanceof AttachmentScopeChanged){binding.current=null;setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setFile(null);setPending(null);}setMessage(error instanceof Error?error.message:'通信を確認してください。');}}
   finally{if(operation.current===controller){operation.current=null;setBusy(false);}}
  }
  function load(after:string|null){void run(async(token,signal)=>{
@@ -45,6 +47,21 @@ export function AttachmentControls({product,account}:{product:string;account:str
   if(after&&page.items.some(item=>householdItems.some(existing=>existing.id===item.id)))throw Error('一覧が更新されました。一覧を確認し直してください。');
   setHouseholdItems(after?[...householdItems,...page.items]:page.items);setHouseholdNext(page.next);if(!after&&!page.items.length)setMessage('家族で引き継いだファイルはありません。');
  });}
+ function loadHouseholdPending(after:string|null){void run(async(token,signal)=>{
+  const page=await attachmentPage(product,after,token,signal,'household',true),current=await attachmentBinding(token,signal);signal.throwIfAborted();
+  if(current.account!==account.toLowerCase()||current.epoch!==binding.current)throw new AttachmentScopeChanged();
+  if(after&&page.items.some(item=>householdPending.some(existing=>existing.id===item.id)))throw Error('一覧が更新されました。削除確認待ちを確認し直してください。');
+  setHouseholdPending(after?[...householdPending,...page.items]:page.items);setHouseholdPendingNext(page.next);
+ });}
+ function removeHousehold(id:string,retry=false){
+  if(!(retry?householdPending:householdItems).some(item=>item.id===id))return;
+  if(!retry&&!window.confirm('家族で引き継いだファイルを削除しますか？参加中の家族も取り出せなくなります。必要な資料は先に保存してください。'))return;
+  void run(async(token,signal,current)=>{
+   await removeAttachment(id,current.epoch,true,token,signal,'household');signal.throwIfAborted();
+   const latest=await attachmentBinding(token,signal);signal.throwIfAborted();if(latest.account!==current.account||latest.epoch!==current.epoch)throw new AttachmentScopeChanged();
+   setHouseholdItems(items=>items.filter(item=>item.id!==id));setHouseholdPending(items=>items.filter(item=>item.id!==id));setMessage('家族共有ファイルの削除を確認しました。');
+  });
+ }
  function download(id:string,scope:'personal'|'household'='personal'){void run(async(token,signal)=>{
   const file=await downloadAttachment(id,token,signal,scope);const current=await attachmentBinding(token,signal);signal.throwIfAborted();
   if(current.account!==account.toLowerCase()||current.epoch!==binding.current)throw new AttachmentScopeChanged();
@@ -76,7 +93,7 @@ export function AttachmentControls({product,account}:{product:string;account:str
    const value=await browserPendingAttachments.stage({...current,product,id:crypto.randomUUID(),blob:prepared,mime:prepared.type});signal.throwIfAborted();
    setPending(value);setFile(null);
    await sendPendingAttachment({...current,product:product.toLowerCase()},value.id,token,signal);signal.throwIfAborted();
-   setPending(null);setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setMessage('保存を確認しました。一覧からファイルを取得できます。');
+   setPending(null);setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setMessage('保存を確認しました。一覧からファイルを取得できます。');
   });
  }
  function retry(){
@@ -84,7 +101,7 @@ export function AttachmentControls({product,account}:{product:string;account:str
   const expectedID=pending.id;
   void run(async(token,signal,current)=>{
    await sendPendingAttachment({...current,product:product.toLowerCase()},expectedID,token,signal);signal.throwIfAborted();
-   setPending(null);setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setMessage('保存を確認しました。');
+   setPending(null);setItems([]);setNext(null);setHouseholdItems([]);setHouseholdNext(null);setHouseholdPending([]);setHouseholdPendingNext(null);setMessage('保存を確認しました。');
   });
  }
  return <section className="settings-group attachment-controls" aria-label="写真・保証書" aria-busy={busy}><h2>写真・保証書</h2><p>新規保存には有料プランが必要です。保存済みのファイルは、契約終了後も取り出せます。通常の保存ファイルは、保存した本人または住まいの所有者が契約終了後も削除できます。住まいへのアクセス権が必要です。</p><p>JPEG・PNG・PDF、1ファイル約5MBまで。写真は24メガピクセル以下で、変換後も約5MB以下である必要があります。撮影情報を除いたコピーを保存します（JPEGは再圧縮されます）。写っている氏名・住所やPDFの内容は変更しません。保存結果を確認できるまで、このブラウザにファイルを保持します。</p>
@@ -96,7 +113,11 @@ export function AttachmentControls({product,account}:{product:string;account:str
   {pending?<div><p>{pending.product===product.toLowerCase()?'確認待ちのファイルがあります。':'別の製品への保存が確認待ちです。'}</p><button className="secondary-button" disabled={busy||pending.product!==product.toLowerCase()} onClick={retry}>同じファイルで保存結果を再確認</button></div>:null}
   <button className="secondary-button" disabled={busy} onClick={()=>load(null)}>{busy?'確認中…':'保存済みファイルを確認'}</button>{items.map(item=><div className="attachment-file" key={item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · {new Date(item.createdAt).toLocaleDateString('ja-JP')}</p><div className="attachment-actions"><button className="text-button" disabled={busy} onClick={()=>download(item.id)}>ファイルを保存</button><button className="text-button" disabled={busy} onClick={()=>remove(item.id)}>ファイルを削除</button></div></div>)}{next?<button className="secondary-button" disabled={busy} onClick={()=>load(next)}>続きを表示</button>:null}<h3>家族で引き継いだファイル</h3><p>住まいで引き継いだファイルは、参加中の家族が契約に関係なく取得できます。</p>
   <button className="secondary-button" disabled={busy} onClick={()=>loadHousehold(null)}>引き継いだファイルを確認</button>
-  {householdItems.map(item=><div className="attachment-file attachment-file--household" key={'household:'+item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · {new Date(item.createdAt).toLocaleDateString('ja-JP')} · 家族共有</p><button className="text-button" disabled={busy} onClick={()=>download(item.id,'household')}>引き継いだファイルを保存</button></div>)}
+  {householdItems.map(item=><div className="attachment-file attachment-file--household" key={'household:'+item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · {new Date(item.createdAt).toLocaleDateString('ja-JP')} · 家族共有</p><button className="text-button" disabled={busy} onClick={()=>removeHousehold(item.id)}>引き継いだファイルを削除</button><button className="text-button" disabled={busy} onClick={()=>download(item.id,'household')}>引き継いだファイルを保存</button></div>)}
   {householdNext?<button className="secondary-button" disabled={busy} onClick={()=>loadHousehold(householdNext)}>引き継いだファイルの続きを表示</button>:null}
+  <h3>家族共有の削除確認待ち</h3><p>通信が途切れた場合も、ここから同じ家族共有ファイルの削除を再確認できます。</p>
+  <button className="secondary-button" disabled={busy} onClick={()=>loadHouseholdPending(null)}>削除確認待ちを確認</button>
+  {householdPending.map(item=><div className="attachment-file" key={'pending-household:'+item.id}><p>{item.mime==='application/pdf'?'PDF':'写真'} · {Math.ceil(item.size/1024)} KB · 家族共有の削除確認待ち</p><button className="text-button" disabled={busy} onClick={()=>removeHousehold(item.id,true)}>同じファイルの削除を再確認</button></div>)}
+  {householdPendingNext?<button className="secondary-button" disabled={busy} onClick={()=>loadHouseholdPending(householdPendingNext)}>削除確認待ちの続きを表示</button>:null}
   {message?<p role="status">{message}</p>:null}</section>;
 }
