@@ -1,6 +1,18 @@
 # Account deletion release gate
 
-Status: design, not enabled. Existing development closure is not a release-complete deletion feature.
+Status: implementation prepared, not enabled in production. Existing development closure is not a release-complete deletion feature.
+
+## Current release boundary
+
+The sections below retain implementation-stage notes and their original verification scopes. They are not a declaration that production deletion is available. The current private operator workflow provides scoped inventory and coverage capture, measured file inspection, explicit account-content classifications, previewed text redaction, coverage sealing, copy-only staging, and previewed retirement queueing. The underlying SQL independently authenticates the operator and rechecks current scope; a preview digest binds input and does not prove human approval or authorize later mutation.
+
+`scripts/queue-maintenance-reviewed-retirement.mjs` separates preview, queue and historical-status reads. Queueing can activate inspected family copies, remove the departing account's memberships, detach management of shared homes, disable Ouchi access and create one scoped deletion job. It is not completed erasure. This command does not run a worker, but a separately enabled worker can process a queued job. An uncertain reply requires the same original request and event, not a new deletion request. Missing historical queue metadata remains unknown, including after later minimization; it is not proof that retirement never happened or that deletion completed.
+
+The operator's file inspection and copy commands do not infer authorship or classify customer content automatically. File inspection verifies bytes without approving retention. Copying verifies staged bytes without activating them, deleting the original or accepting retirement. Human review must exclude the departing account's associated content as well as personal information, including in shared posts. A legacy decision without the current account-content acknowledgement does not qualify.
+
+The prepared one-job dispatcher and reviewed-file prelude still require a complete runtime composition, reviewed credentials and activation, an adopted finite retention/checking policy, monitoring and recovery procedures. There is no enabled production deletion endpoint or schedule for this workflow. The shared Auth identity is preserved for other applications. Local synthetic tests, including actual PostgreSQL and separate Auth/Storage service rehearsals, do not establish managed TLS, real operator review, final retention or customer erasure.
+
+Publication additionally requires a declared completion deadline and status-confirmation path, public terms/privacy wording consistent with the enabled implementation, final native/Web account and family tests, and actual store testing. No new policy, credentials, customer deletion or paid infrastructure is authorized by this document.
 
 Source: https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion (checked 2026-10-11).
 
@@ -27,7 +39,7 @@ The shared Supabase Auth identity must not be globally deleted as a shortcut. Ot
 ## Implementation sequence
 
 1. Add a durable private deletion request and immutable app epoch scope. No client-supplied arbitrary user/object IDs. Live verified session plus reauthentication are required to enqueue.
-2. Under the immutable epoch and current deletion lease, revoke app access and capture exact storage paths before erasing any application records. Block family access to a closed owner’s homes. Upload reservation and finalization must share the enrollment/home locking protocol before production activation.
+2. Under the immutable epoch and current deletion lease, revoke the departing account's app access and capture exact storage paths before erasing any application records. Preserve reviewed family records and detach shared-home management so remaining family members can continue and later claim management; do not require a recipient's response for the departing account to proceed. Upload reservation and finalization must share the enrollment/home locking protocol before production activation.
 3. Worker removes captured objects through Storage, verifies actual absence, and durably acknowledges each object. Only then erase owned household records. Cancel dependent delivery/recovery work and purge remaining app identity links according to the documented retention policy. Idempotent retry must never touch a later enrollment. Storage metadata DELETE alone does not erase file bytes.
 4. Expose authenticated progress separate from purchase entitlement. Never report deleted until every required operation is acknowledged.
 5. Wire native UI and test shared-family impact, session races, storage outage, duplicate requests, restore attempts and retained Apple notifications.
