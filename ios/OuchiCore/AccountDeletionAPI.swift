@@ -8,7 +8,7 @@ private final class DeletionRedirectBlocker: NSObject, URLSessionTaskDelegate, @
 }
 
 /// Prepared client only. No deletion screen or production server route is enabled.
-public enum AccountDeletionError: Error, Equatable { case familyHandoffRequired }
+public enum AccountDeletionError: Error, Equatable { case familyHandoffRequired, familyReviewRequired }
 
 public struct AccountDeletionAPI: Sendable {
     private let transport: HouseholdAPI.Transport
@@ -87,6 +87,11 @@ public struct AccountDeletionAPI: Sendable {
                refusal["code"] as? String == "family_handoff_required",
                refusal["error"] as? String == "Family handoff required" {
                 throw AccountDeletionError.familyHandoffRequired
+            }
+            if let refusal, Set(refusal.keys) == ["error", "code"],
+               refusal["code"] as? String == "family_review_required",
+               refusal["error"] as? String == "Family review required" {
+                throw AccountDeletionError.familyReviewRequired
             }
         }
         guard response.statusCode == (body == nil ? 200 : 202) else { throw CloudError.rejected(response.statusCode) }

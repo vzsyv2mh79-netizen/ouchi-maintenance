@@ -14,6 +14,8 @@ export function withClosureReauthenticationErasure(deps:DeletionDependencies,db:
   if(result.error||typeof result.data!=='boolean')throw Error('Closure metadata erasure unavailable');
   return result.data===true&&!signal?.aborted;
  };
- return {...deps,eraseRecords:async scope=>await erase(scope)&&await deps.eraseRecords(scope)===true,
+ // Reviewed file/coverage metadata references the closure review. Remove it
+ // through the scoped record stage before cascading the parent review.
+ return {...deps,eraseRecords:async scope=>await deps.eraseRecords(scope)===true&&await erase(scope),
   markComplete:async scope=>await erase(scope)&&await deps.markComplete(scope)===true};
 }

@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { browserAttachmentAuth } from "@/lib/attachment-auth-lifecycle";
 import { EnrollmentControls } from './enrollment-controls';
+import {AccountClosureControls} from './account-closure-controls';
+import {ClosureSavedReadControls} from './closure-saved-read-controls';
 
 import {AttachmentRemovalRecovery} from "./attachment-removal-recovery";
 
@@ -14,6 +16,11 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
   const [reset, setReset] = useState(false);
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [closureBusy, setClosureBusy] = useState(false);
+  const [custodyBusy, setCustodyBusy] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const observedAccount = useRef<string | null>(null);
+  const reviewMode = process.env.NEXT_PUBLIC_OUCHI_ACCOUNT_REVIEW_ENABLED === "true";
   const [eraseOpen, setEraseOpen] = useState(false);
   const [eraseText, setEraseText] = useState("");
   const [message, setMessage] = useState("");
@@ -21,6 +28,12 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
   useEffect(() => {
     if (!client) return;
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      const nextAccount = session?.user.id ?? null;
+      if (observedAccount.current !== nextAccount) {
+        observedAccount.current = nextAccount;
+        setEraseOpen(false); setEraseText(""); setPassword(""); setMessage(""); setClosureBusy(false); setCustodyBusy(false);
+      }
+      setAuthReady(true);
       setUserEmail(session?.user.email ?? null);
       setUserID(session?.user.id ?? null);
     });
@@ -37,7 +50,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
     setBusy(true); setMessage("");
     try {
       await clearPendingBeforeLogout();
-      const { error } = await client.auth.signOut();
+      const { error } = await client.auth.signOut({ scope: "local" });
       if (error) throw error;
     } catch { setMessage("ログアウトを完了できませんでした。このブラウザの確認待ちファイルは消去された場合があります。再度ログアウトしてください。"); }
     finally { setBusy(false); }
@@ -73,7 +86,7 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
     }
     finally { setBusy(false); }
   };
-  return <section className="settings-group"><h2>クラウド保存</h2>{userEmail ? <><p>{userEmail}</p>{userID && <EnrollmentControls key={userID} account={userID} disabled={busy || disabled} />}{process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true" && <>{userID && <AttachmentRemovalRecovery key={userID} account={userID} disabled={busy || disabled} />}<p>ログアウトすると、このブラウザの確認待ちの写真・保証書と削除確認用の記録を消去します。保存済みのクラウドファイルは残り、削除依頼は取り消されません。</p></>}<button className="secondary-button" disabled={busy || disabled} onClick={logout}>ログアウト</button><button className="text-button" disabled={busy || disabled} onClick={() => setEraseOpen(!eraseOpen)}>このアプリのクラウド記録を削除</button>{eraseOpen && <div><p>所有するすべての住まい・製品・お手入れ・履歴を削除し、参加中の家族共有から退出します。あなたが所有する住まいの記録は、参加家族も使えなくなります。元に戻せません。必要な記録は先にバックアップしてください。</p><p>他のアプリでも使う可能性があるログインアカウントと、端末内の記録は残ります。</p><label><span>確認のため「削除」と入力</span><input value={eraseText} onChange={event => setEraseText(event.target.value)} autoComplete="off" /></label><button className="secondary-button" disabled={busy || disabled || eraseText !== "削除"} onClick={async () => {
+  return <section className="settings-group"><h2>クラウド保存</h2>{userEmail ? <><p>{userEmail}</p>{userID && <EnrollmentControls key={userID} account={userID} disabled={busy || disabled || closureBusy || custodyBusy} />}{process.env.NEXT_PUBLIC_OUCHI_ATTACHMENTS_ENABLED === "true" && <>{userID && <AttachmentRemovalRecovery key={userID} account={userID} disabled={busy || disabled || closureBusy || custodyBusy} />}<p>ログアウトすると、このブラウザの確認待ちの写真・保証書と削除確認用の記録を消去します。保存済みのクラウドファイルは残り、削除依頼は取り消されません。</p></>}<button className="secondary-button" disabled={busy || disabled || closureBusy || custodyBusy} onClick={logout}>ログアウト</button>{reviewMode ? <AccountClosureControls key={userID ?? ""} account={userID ?? ""} disabled={busy || disabled || custodyBusy} onBusyChange={setClosureBusy} /> : <><button className="text-button" disabled={busy || disabled || custodyBusy} onClick={() => setEraseOpen(!eraseOpen)}>このアプリのクラウド記録を削除</button>{eraseOpen && <div><p>所有するすべての住まい・製品・お手入れ・履歴を削除し、参加中の家族共有から退出します。あなたが所有する住まいの記録は、参加家族も使えなくなります。元に戻せません。必要な記録は先にバックアップしてください。</p><p>他のアプリでも使う可能性があるログインアカウントと、端末内の記録は残ります。</p><label><span>確認のため「削除」と入力</span><input value={eraseText} onChange={event => setEraseText(event.target.value)} autoComplete="off" /></label><button className="secondary-button" disabled={busy || disabled || custodyBusy || eraseText !== "削除"} onClick={async () => {
           if (!window.confirm("おうちメンテのクラウド記録をすべて削除しますか？元に戻せません。")) return;
           setBusy(true); setMessage("");
           try {
@@ -87,5 +100,5 @@ export function CloudAccount({ disabled }: { disabled: boolean }) {
             else setMessage("このアプリのクラウド記録を削除しました。");
           } catch { setMessage("削除を完了できませんでした。通信状態を確認してください。"); }
           finally { setBusy(false); }
-        }}>クラウド記録を永久に削除</button><button className="text-button" disabled={busy} onClick={() => setEraseOpen(false)}>キャンセル</button></div>}</> : <><p>ログインすると、同じアカウントの端末で記録を共有できます。端末内の記録は残り、クラウドの記録とは自動で合体しません。</p><form onSubmit={submit} className="form-grid"><label className="wide"><span>メールアドレス</span><input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>{!reset && <label className="wide"><span>パスワード（8文字以上）</span><input type="password" minLength={8} required autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>}<button className="primary-button" disabled={busy || disabled}>{busy ? "処理中…" : reset ? "再設定メールを送信" : signup ? "アカウントを作成" : "ログイン"}</button><button className="text-button" type="button" disabled={busy || disabled} onClick={() => { setSignup(reset ? false : !signup); setReset(false); setMessage(""); }}>{signup || reset ? "ログインに戻る" : "はじめての方"}</button>{!reset && <button className="text-button" type="button" disabled={busy || disabled} onClick={() => { setReset(true); setSignup(false); setPassword(""); setMessage(""); }}>パスワードを忘れた方</button>}</form></>}{message && <p role="status">{message}</p>}</section>;
+        }}>クラウド記録を永久に削除</button><button className="text-button" disabled={busy} onClick={() => setEraseOpen(false)}>キャンセル</button></div>}</>}</> : <><p>ログインすると、同じアカウントの端末で記録を共有できます。端末内の記録は残り、クラウドの記録とは自動で合体しません。</p><form onSubmit={submit} className="form-grid"><label className="wide"><span>メールアドレス</span><input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>{!reset && <label className="wide"><span>パスワード（8文字以上）</span><input type="password" minLength={8} required autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>}<button className="primary-button" disabled={busy || disabled || custodyBusy}>{busy ? "処理中…" : reset ? "再設定メールを送信" : signup ? "アカウントを作成" : "ログイン"}</button><button className="text-button" type="button" disabled={busy || disabled || custodyBusy} onClick={() => { setSignup(reset ? false : !signup); setReset(false); setMessage(""); }}>{signup || reset ? "ログインに戻る" : "はじめての方"}</button>{!reset && <button className="text-button" type="button" disabled={busy || disabled || custodyBusy} onClick={() => { setReset(true); setSignup(false); setPassword(""); setMessage(""); }}>パスワードを忘れた方</button>}</form></>}{message && <p role="status">{message}</p>}<ClosureSavedReadControls account={userID} ready={authReady} disabled={busy || disabled || closureBusy} onBusyChange={setCustodyBusy} /></section>;
 }

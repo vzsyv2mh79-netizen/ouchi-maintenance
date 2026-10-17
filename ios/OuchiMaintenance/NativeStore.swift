@@ -16,8 +16,14 @@ struct AccountClosureReviewSelection {
     let accountID: UUID
     let epochID: UUID
     let revision: UUID
-    let bearer: String
     let processingExplanation: String
+}
+
+struct HomeManagementSelection {
+    let accountID: UUID
+    let epochID: UUID
+    let homeID: UUID
+    let revision: UUID
 }
 
 enum FormalNativePushChange { case registered(FormalNativePushSelection), disabled, absent }
@@ -77,8 +83,47 @@ struct FormalChannelSelection {
     var preparedDeletionAccountID: UUID? { signedIn ? snapshotAccount : nil }
     let closureReviewVault = AccountClosureReviewVault(
         service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".closure-review-references")
+    let homeManagementVault = HomeManagementIntentVault(
+        service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".home-management-references")
+    var homeManagementConfigured: Bool {
+        api != nil && Bundle.main.infoDictionary?["OUCHI_HOME_MANAGEMENT_ENABLED"] as? Bool == true
+    }
+    func homeManagementSelectionIsCurrent(_ selection: HomeManagementSelection) -> Bool {
+        signedIn && !showingOfflineSnapshot && homeManagementConfigured && snapshotAccount == selection.accountID
+            && accountBindingRevision == selection.revision && UUID(uuidString: homeID) == selection.homeID
+    }
+    /// Existing enrollment only: opening this screen never creates an epoch or
+    /// changes management. Bearers stay ephemeral in SessionController.
+    func prepareHomeManagement() async -> HomeManagementSelection? {
+        guard !busy, signedIn, !showingOfflineSnapshot, homeManagementConfigured,
+              let session, let account = snapshotAccount, let home = UUID(uuidString: homeID) else { return nil }
+        let expected = generation, revision = accountBindingRevision
+        let selectionIsCurrent = { [self] in !Task.isCancelled && generation == expected && signedIn
+            && !showingOfflineSnapshot && snapshotAccount == account && accountBindingRevision == revision
+            && UUID(uuidString: homeID) == home && homeManagementConfigured }
+        busy = true; message = nil
+        defer { if generation == expected && accountBindingRevision == revision { busy = false } }
+        do {
+            let before = try await session.credentials()
+            guard selectionIsCurrent(), before.user.id == account else { return nil }
+            let enrolled = try await AccountEnrollmentAPI().load(account: account, token: before.access_token)
+            let after = try await session.credentials()
+            guard selectionIsCurrent(), after.user.id == account, after.access_token == before.access_token,
+                  enrolled.userID == account, let epoch = enrolled.epochID else { return nil }
+            return .init(accountID: account, epochID: epoch, homeID: home, revision: revision)
+        } catch {
+            if selectionIsCurrent() { message = "住まいの管理状態を準備できませんでした。通信とログイン状態を確認してください。管理の変更は送信していません。" }
+            return nil
+        }
+    }
+    func authorizeHomeManagement(_ selection: HomeManagementSelection) async throws -> String {
+        guard !busy, homeManagementSelectionIsCurrent(selection), let session else { throw CloudError.authenticationRequired }
+        let credentials = try await session.credentials()
+        guard !Task.isCancelled, homeManagementSelectionIsCurrent(selection), credentials.user.id == selection.accountID else { throw CloudError.authenticationRequired }
+        return credentials.access_token
+    }
     var closureReviewConfigured: Bool {
-        api != nil && Bundle.main.infoDictionary?["OUCHI_CLOSURE_REVIEW_ENABLED"] as? Bool == true
+        closureProgressConfigured && Bundle.main.infoDictionary?["OUCHI_CLOSURE_REVIEW_ENABLED"] as? Bool == true
             && closureReviewProcessingExplanation != nil
     }
     private var closureReviewProcessingExplanation: String? {
@@ -104,11 +149,63 @@ struct FormalChannelSelection {
             guard current(), after.user.id == account, after.access_token == before.access_token,
                   enrolled.userID == account, let epoch = enrolled.epochID else { return nil }
             return .init(accountID: account, epochID: epoch, revision: revision,
-                         bearer: before.access_token, processingExplanation: explanation)
+                         processingExplanation: explanation)
         } catch {
             if current() { message = "退会依頼の準備を確認できません。通信とログイン状態を確認してください。依頼は送信していません。" }
             return nil
         }
+    }
+    let closureReadVault = ClosureReadCredentialVault(service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".closure-read-custody")
+    #if DEBUG
+    private var closureRootReviewAPI: ClosureReadCustodyAPI?
+    @Published private(set) var closureRootReviewAwaitingInterruption = false
+    static var closureRootInterruptionFile: URL { URL.documentsDirectory.appendingPathComponent("OuchiRootAuthErasurePause.txt") }
+    #endif
+    var closureReadAPI: ClosureReadCustodyAPI {
+        #if DEBUG
+        if let closureRootReviewAPI { return closureRootReviewAPI }
+        #endif
+        return ClosureReadCustodyAPI()
+    }
+    var closureReadCustodyConfigured: Bool {
+        #if DEBUG
+        if closureRootReviewAPI != nil { return true }
+        #endif
+        return api != nil && Bundle.main.infoDictionary?["OUCHI_CLOSURE_READ_CUSTODY_ENABLED"] as? Bool == true
+    }
+    /// Local filtering only; the server authenticates the scoped read capability.
+    /// Never interpret an unknown signed-in identity as permission to show every account.
+    func localClosureReadAccount() async throws -> UUID? {
+        guard !busy else { throw CloudError.unavailable }
+        guard signedIn else { return nil }
+        guard let session else { throw CloudError.authenticationRequired }
+        let expected = generation, revision = accountBindingRevision
+        let account = await session.localAccount()
+        guard !Task.isCancelled, expected == generation, revision == accountBindingRevision,
+              signedIn, let account else { throw CloudError.authenticationRequired }
+        return account
+    }
+    var closureProgressConfigured: Bool {
+        api != nil && Bundle.main.infoDictionary?["OUCHI_CLOSURE_PROGRESS_ENABLED"] as? Bool == true
+    }
+    /// Authenticated read-only recovery is independent of active Ouchi enrollment.
+    /// The server re-verifies the session and exact saved epoch/submission.
+    func savedClosureProgressReferences() async throws -> (UUID, UUID, [AccountClosureReviewBinding]) {
+        guard signedIn, closureProgressConfigured, let session else { throw CloudError.authenticationRequired }
+        let expected = generation, revision = accountBindingRevision
+        let credentials = try await session.credentials()
+        guard !Task.isCancelled, signedIn, expected == generation, revision == accountBindingRevision else { throw CloudError.authenticationRequired }
+        let account = credentials.user.id
+        let references = try closureReviewVault.references(accountID: account)
+        return (account, revision, references)
+    }
+    func authorizeSavedClosureProgress(account: UUID, revision: UUID) async throws -> String {
+        guard signedIn, revision == accountBindingRevision, let session else { throw CloudError.authenticationRequired }
+        let expected = generation
+        let credentials = try await session.credentials()
+        guard !Task.isCancelled, signedIn, expected == generation, revision == accountBindingRevision,
+              credentials.user.id == account else { throw CloudError.authenticationRequired }
+        return credentials.access_token
     }
     /// Dedicated receipt custody is independent of login storage. Logging out
     /// does not remove credentials needed to read an already accepted request.
@@ -119,7 +216,12 @@ struct FormalChannelSelection {
     }
     @Published private(set) var accountEmail: String?
     @Published private(set) var busy = false
-    @Published var message: String?
+    @Published var message: String? { didSet { messageRevision = UUID() } }
+    @Published private(set) var messageRevision = UUID()
+    func dismissMessage(ifCurrent revision: UUID) {
+        guard messageRevision == revision else { return }
+        message = nil
+    }
     @Published var homeID = "" { didSet { if oldValue != homeID { report = nil; reportGeneration += 1 } } }
     @Published private(set) var exportURL: URL?
     @Published private(set) var calendarURL: URL?
@@ -134,6 +236,7 @@ struct FormalChannelSelection {
     #if DEBUG
     private(set) var isPurchaseRecoveryUIReviewSample = false
     private var isClosureUIReviewSample = false
+    private var closureCleanupReviewFixture = false
     private var reviewClosureRecords: [AppAttestAccountClosure] = []
     private var reviewClosureFailure = true
     #endif
@@ -181,7 +284,163 @@ struct FormalChannelSelection {
     private var purchaseAccount: UUID?
     @Published private(set) var sandboxEntitlement: SandboxEntitlement?
     @Published private(set) var billingRecoveryStatus: BillingRecoveryStatus?
-    private let reminders = LocalReminders()
+    private var reminders = LocalReminders()
+    private struct ClosureCleanupReservation {
+        let id: UUID
+        let binding: ClosureReadCustodyFlow.Binding
+        let generation: Int
+        let signedIn: Bool
+        var started = false
+        var authErased = false
+    }
+    private var closureCleanupReservation: ClosureCleanupReservation?
+    var closureLocalCleanupConfigured: Bool {
+        #if DEBUG
+        if closureCleanupReviewFixture { return true }
+        #endif
+        return closureReadCustodyConfigured && Bundle.main.infoDictionary?["OUCHI_CLOSURE_LOCAL_CLEANUP_ENABLED"] as? Bool == true
+    }
+    /// Holds the login UI reservation across fresh server verification, every
+    /// local eraser and the flow's final protected-key readback. Never revokes
+    /// a shared Auth session or calls a remote deletion/enrollment API.
+    func cleanupClosureReadData(binding: ClosureReadCustodyFlow.Binding, flow: ClosureReadCustodyFlow) async throws -> AccountDeletionLocalCleanupResult {
+        guard closureLocalCleanupConfigured, !busy, binding.revision == accountBindingRevision, let session else { throw CloudError.unavailable }
+        let reservation = ClosureCleanupReservation(id: UUID(), binding: binding, generation: generation, signedIn: signedIn)
+        closureCleanupReservation = reservation; busy = true
+        var result = AccountDeletionLocalCleanupResult.pending
+        defer { finishClosureCleanup(reservation.id, result: result) }
+        guard closureCleanupIsCurrent(reservation.id) else { throw CloudError.authenticationRequired }
+        let local = await session.localAccount()
+        guard closureCleanupIsCurrent(reservation.id), !Task.isCancelled else { throw CloudError.authenticationRequired }
+        if let local {
+            guard local == binding.accountID else { throw CloudError.authenticationRequired }
+        } else {
+            guard !signedIn else { throw CloudError.authenticationRequired }
+            _ = try await session.prepareLocalClosureRecovery(accountID: binding.accountID)
+            guard closureCleanupIsCurrent(reservation.id), !Task.isCancelled else { throw CloudError.authenticationRequired }
+        }
+        result = try await flow.cleanupLocalData { confirmation, receipt, retained in
+            guard confirmation.binding == binding else { return .staleBinding }
+            return await self.applyClosureCleanup(reservation.id, confirmation: confirmation, receipt: receipt, retained: retained)
+        }
+        return result
+    }
+    private func closureCleanupIsCurrent(_ id: UUID) -> Bool {
+        guard let active = closureCleanupReservation, active.id == id else { return false }
+        let binding = active.binding
+        return busy && generation == active.generation && accountBindingRevision == binding.revision && signedIn == active.signedIn
+            && (snapshotAccount == nil || snapshotAccount == binding.accountID)
+            && (household == nil || snapshotAccount == binding.accountID)
+            && (purchaseAccount == nil || purchaseAccount == binding.scope.epochID)
+    }
+    private func finishClosureCleanup(_ id: UUID, result: AccountDeletionLocalCleanupResult) {
+        guard let active = closureCleanupReservation, active.id == id else { return }
+        let current = closureCleanupIsCurrent(id)
+        closureCleanupReservation = nil
+        defer { busy = false }
+        guard current, active.started, active.authErased else { return }
+        // Credential erasure cannot be undone by view cancellation. Reflect its
+        // durable absence, but never call a partial registration cleanup complete.
+        appAttestRegistrationCoordinator = nil; appAttestCoordinatorConfiguration = nil
+        snapshotAccount = nil; signedIn = false; accountEmail = nil
+        billingAccount = nil; purchaseAccount = nil
+        developmentRemoteRegistration = nil; developmentRemoteNotificationsRegistered = false
+        generation += 1
+        message = result == .complete
+            ? "この端末内の整理が完了しました。退会処理の確認情報は残しています。"
+            : "ログイン情報は消去しました。端末内の整理は一部未完了です。保存した退会処理から再確認してください。"
+    }
+    private func clearClosureCleanupVisibleData() {
+        attachmentExportGeneration += 1; reportGeneration += 1
+        household = nil; showingOfflineSnapshot = false; homeID = ""; report = nil
+        exportURL = nil; calendarURL = nil; attachmentExportURL = nil; clearFamily()
+        sandboxEntitlement = nil; billingRecoveryStatus = nil; reminderSettings = nil
+        purchases.stopObserving(); purchases.persist = nil; clearReleaseBilling()
+    }
+    private func applyClosureCleanup(_ id: UUID, confirmation: ClosureReadCustodyFlow.Confirmation, receipt: AccountDeletionStatus,
+                                     retained: ClosureReadCustodyFlow.CleanupAuthorization) async -> AccountDeletionLocalCleanupResult {
+        let binding = confirmation.binding, account = binding.accountID, epoch = binding.scope.epochID
+        let current: @MainActor @Sendable () -> Bool = { self.closureCleanupIsCurrent(id) && retained.isCurrent() }
+        guard current(), !Task.isCancelled, receipt.state == .complete,
+              receipt.requestID == binding.scope.requestID, receipt.epochID == epoch,
+              let session, let bundle = Bundle.main.bundleIdentifier,
+              let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return .staleBinding }
+        closureCleanupReservation?.started = true
+        let pending = AppAttestPendingRegistrationStorage(root: support.appendingPathComponent("OuchiAppAttestPendingRegistration", isDirectory: true), keyProvider: { _, _ in throw CloudError.unavailable })
+        let references: AppAttestKeyReferenceStorage
+        let keys: AppAttestEncryptionKeyStorage
+        do { references = try AppAttestKeyReferenceStorage(namespace: bundle); keys = try AppAttestEncryptionKeyStorage(namespace: bundle) }
+        catch { return .pending }
+        guard current(), !Task.isCancelled else { return .staleBinding }
+        // Once fresh server completion and the exact local account are checked,
+        // never keep showing a stale in-memory household after partial cleanup.
+        clearClosureCleanupVisibleData()
+        let result = await cleanAccountDeletionLocalData(receipt: receipt, account: account, epoch: epoch, revision: binding.revision,
+            stillBound: current,
+            stopNotifications: {
+                let stopped = await self.reminders.eraseForAccountDeletion(account: account, stillBound: current)
+                if stopped && current() { self.remindersEnabled = false }; return stopped
+            },
+            erasePendingRegistration: {
+                do {
+                    if let coordinator = self.appAttestRegistrationCoordinator { try await coordinator.stopAcceptingRegistration(account: account) }
+                    guard current(), !Task.isCancelled else { return .staleBinding }
+                    let lease = try await pending.acquireMutationLease()
+                    defer { lease.release() }
+                    guard current(), !Task.isCancelled else { return .staleBinding }
+                    return await eraseAppAttestLocalRegistration(account: account, stillBound: current,
+                        prepareClosure: {
+                            let now = Date().timeIntervalSince1970 * 1000, expiry = confirmation.expiresAt.timeIntervalSince1970 * 1000
+                            guard now.isFinite, expiry.isFinite, now > 0, expiry > now, expiry <= 9_007_199_254_740_991 else { throw CloudError.invalidInput }
+                            // Use the original server read-window upper bound,
+                            // never invent or extend a separate marker lifetime.
+                            _ = try references.beginClosure(AppAttestAccountClosure(accountID: account, requestID: binding.scope.requestID,
+                                createdAtMilliseconds: Int64(now), retainUntilMilliseconds: Int64(expiry)))
+                        },
+                        erasePendingProofs: { try await pending.eraseAccount(account); try await Self.erasePendingRestore(account: account) },
+                        eraseEncryptionKeys: { try references.erase(account: account); try keys.erase(account: account) })
+                } catch { return current() && !Task.isCancelled ? .pending : .staleBinding }
+            },
+            eraseSnapshot: {
+                guard let storage = self.snapshotStorage else { throw CloudError.unavailable }
+                try storage.remove(account: account)
+            },
+            erasePendingUpload: { try PendingAttachmentStorage().remove(account: account, epoch: epoch) },
+            erasePendingRemoval: { try PendingAttachmentRemovalStorage().remove(account: account, epoch: epoch) },
+            eraseManagedExports: {
+                let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                try ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true)).removeFiles(account: account)
+                try self.homeManagementVault.eraseForCompletedAccount(accountID: account, epochID: epoch, receipt: receipt)
+            },
+            clearVisibleData: { self.clearClosureCleanupVisibleData() })
+        guard result == .complete, current(), !Task.isCancelled else { return result == .complete ? .staleBinding : result }
+        do {
+            let local = await session.localAccount()
+            guard current(), !Task.isCancelled else { return .staleBinding }
+            if let local {
+                guard local == account else { return .staleBinding }
+                let permit = try await session.prepareCompletedDeletionErasure(receipt: receipt, account: account, epoch: epoch)
+                guard current(), !Task.isCancelled else { return .staleBinding }
+                let erased = try await session.eraseCompletedDeletionSession(permit)
+                // Preserve this fact even if cancellation follows the actor hop.
+                closureCleanupReservation?.authErased = true
+                #if DEBUG
+                try await pauseRootReviewAfterAuthErasureIfRequested(account: account, stillBound: current)
+                #endif
+                try await references.completeLocalClosure(confirmation: erased, session: session, pending: pending, encryptionKeys: keys,
+                    eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
+            } else {
+                _ = try await session.prepareLocalClosureRecovery(accountID: account)
+                guard current(), !Task.isCancelled else { return .staleBinding }
+                closureCleanupReservation?.authErased = true
+                guard let marker = try references.pendingClosure(account: account) else { return .pending }
+                try await references.recoverAbandonedLocalClosure(expected: marker, session: session, pending: pending, encryptionKeys: keys,
+                    eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
+            }
+            guard current(), !Task.isCancelled else { return .staleBinding }
+            return .complete
+        } catch { return closureCleanupIsCurrent(id) ? .pending : .staleBinding }
+    }
     /// Prepared adapter only. Caller must first obtain a durable deletion receipt.
     /// The release deletion screen is not enabled by this local operation.
     func stopLocalNotificationsForDeletion(account: UUID, epoch: UUID, revision: UUID) async -> Bool {
@@ -247,6 +506,9 @@ struct FormalChannelSelection {
             eraseManagedExports: {
                 let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
                 try ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true)).removeFiles(account: account)
+                if receipt.state == .complete {
+                    try self.homeManagementVault.eraseForCompletedAccount(accountID: account, epochID: epoch, receipt: receipt)
+                }
             },
             clearVisibleData: { [self] in
                 attachmentExportGeneration += 1; reportGeneration += 1
@@ -473,6 +735,76 @@ struct FormalChannelSelection {
         } catch { if expected == generation { message = "停止結果を確認できませんでした。通信を確認して再度お試しください。" } }
     }
 
+    #if DEBUG
+    /// Bounded test barrier at the exact durable-erasure/marker-finalization
+    /// boundary. XCTest terminates the app; no erasure callback is simulated.
+    /// Release does not compile this hook, and other bundles cannot enter it.
+    private func pauseRootReviewAfterAuthErasureIfRequested(account: UUID, stillBound: @MainActor @Sendable () -> Bool) async throws {
+        guard closureRootReviewAPI != nil, Bundle.main.bundleIdentifier == "dev.ouchi.review.closure",
+              Bundle.main.infoDictionary?["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES",
+              ProcessInfo.processInfo.arguments.contains("--ouchi-root-interrupt-after-auth"),
+              account == UUID(uuidString: "11111111-1111-4111-8111-111111111111") else { return }
+        let file = Self.closureRootInterruptionFile
+        if FileManager.default.fileExists(atPath: file.path) {
+            let bytes = try Data(contentsOf: file)
+            guard [Data("auth-erased-waiting".utf8), Data("restart-verified".utf8)].contains(bytes) else { throw CloudError.unavailable }
+            return
+        }
+        guard stillBound(), !Task.isCancelled,
+              try KeychainSessionStorage(service: "dev.ouchi.review.closure.root-synthetic-auth").read() == nil,
+              let pending = try AppAttestKeyReferenceStorage(namespace: "dev.ouchi.review.closure").pendingClosure(account: account),
+              pending.requestID == UUID(uuidString: "dddddddd-dddd-4ddd-8ddd-dddddddddddd") else { throw CloudError.unavailable }
+        try Data("auth-erased-waiting".utf8).write(to: file, options: .atomic)
+        closureRootReviewAwaitingInterruption = true
+        defer { closureRootReviewAwaitingInterruption = false }
+        for _ in 0..<600 {
+            try await Task.sleep(for: .milliseconds(100))
+            guard stillBound(), !Task.isCancelled else { throw CancellationError() }
+        }
+        // A missed test interruption stays pending; never silently falls through
+        // and creates a false successful crash-recovery result.
+        throw CloudError.unavailable
+    }
+    /// Full NativeRoot composition; only transport/configuration are synthetic.
+    /// Real restore/sign-in/sign-out, account revisions and Keychain paths run.
+    init(closureRootPreviewAPI: HouseholdAPI, session: SessionController, custodyAPI: ClosureReadCustodyAPI) throws {
+        guard Bundle.main.bundleIdentifier == "dev.ouchi.review.closure",
+              Bundle.main.infoDictionary?["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES" else { throw CloudError.unavailable }
+        api = closureRootPreviewAPI; self.session = session; isolatedDevelopmentEnabled = false
+        snapshotStorage = HouseholdSnapshotStorage(namespace: "closure-root-preview")
+        isUIReviewSample = true; closureCleanupReviewFixture = true
+        closureRootReviewAPI = custodyAPI
+        // This test covers real Auth/files/capability custody, not the host
+        // simulator's notification daemon. Never await that unrelated service.
+        reminders = LocalReminders(backend: ClosureRootNotificationFixture(), preferences: ClosureRootReminderPreferences())
+    }
+    func closureRootPreviewHasNoAuth() async throws -> Bool {
+        guard closureRootReviewAPI != nil, Bundle.main.bundleIdentifier == "dev.ouchi.review.closure", let session else { throw CloudError.unavailable }
+        return await session.localAccount() == nil && !signedIn
+    }
+    /// Dedicated simulator-only cleanup composition with protected synthetic
+    /// Auth storage. Production bundle/configuration cannot enter this path.
+    init(closureCleanupPreviewAPI: HouseholdAPI, session: SessionController, account: UUID, restored: Bool) throws {
+        guard Bundle.main.bundleIdentifier == "dev.ouchi.review.closure",
+              Bundle.main.infoDictionary?["OUCHI_REVIEW_SAMPLE_DATA"] as? String == "YES" else { throw CloudError.unavailable }
+        api = closureCleanupPreviewAPI; self.session = session; isolatedDevelopmentEnabled = false
+        snapshotStorage = HouseholdSnapshotStorage(namespace: "closure-cleanup-preview")
+        isUIReviewSample = true; isClosureUIReviewSample = true; closureCleanupReviewFixture = true
+        snapshotAccount = restored ? account : nil; signedIn = restored
+    }
+    func closureCleanupPreviewProof(account: UUID, epoch: UUID) async throws -> Bool {
+        guard closureCleanupReviewFixture, Bundle.main.bundleIdentifier == "dev.ouchi.review.closure", let session else { throw CloudError.unavailable }
+        guard await session.localAccount() == nil, !signedIn,
+              try KeychainSessionStorage(service: "dev.ouchi.review.closure.cleanup-synthetic-auth").read() == nil,
+              try snapshotStorage?.read(account: account) == nil,
+              try PendingAttachmentStorage().read(account: account, epoch: epoch) == nil,
+              try PendingAttachmentRemovalStorage().read(account: account, epoch: epoch) == nil,
+              try AppAttestKeyReferenceStorage(namespace: "dev.ouchi.review.closure").pendingClosure(account: account) == nil else { return false }
+        let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+        let exports = ManagedExportStorage(root: caches.appendingPathComponent("OuchiManagedExports", isDirectory: true))
+        return try exports.files(account: account).isEmpty && exports.files(account: UUID(uuidString: "66666666-6666-4666-8666-666666666666")!).count == 1
+    }
+    #endif
     init() {
         let info = Bundle.main.infoDictionary ?? [:]
         #if DEBUG
@@ -629,13 +961,13 @@ struct FormalChannelSelection {
             return nil
         }
     }
-    func pageDevelopmentAttachments(product: UUID, after: UUID? = nil) async -> DevelopmentAttachmentAPI.AttachmentPage? {
+    func pageDevelopmentAttachments(product: UUID, after: UUID? = nil, scope: AttachmentAPI.Scope = .personal) async -> DevelopmentAttachmentAPI.AttachmentPage? {
         guard attachmentServiceConfigured, let session,
               household?.products(in: homeID).contains(where: { $0.id == product.uuidString.lowercased() || $0.id == product.uuidString }) == true else { return nil }
         let expected = generation, home = homeID
         do {
             let credentials = try await session.credentials()
-            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token)
+            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token, scope: scope)
             guard expected == generation, home == homeID else { return nil }
             return items
         } catch {
@@ -643,7 +975,7 @@ struct FormalChannelSelection {
             return nil
         }
     }
-    func exportDevelopmentAttachment(_ attachment: UUID) async {
+    func exportDevelopmentAttachment(_ attachment: UUID, scope: AttachmentAPI.Scope = .personal) async {
         guard attachmentServiceConfigured, !busy, let session else { return }
         attachmentExportGeneration += 1
         let exportGeneration = attachmentExportGeneration
@@ -652,7 +984,7 @@ struct FormalChannelSelection {
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            let file = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).download(attachment: attachment, token: credentials.access_token)
+            let file = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).download(attachment: attachment, token: credentials.access_token, scope: scope)
             guard expected == generation, exportGeneration == attachmentExportGeneration else { return }
             if let old = attachmentExportURL {
                 if FileManager.default.fileExists(atPath: old.path) { try FileManager.default.removeItem(at: old) }
@@ -738,8 +1070,11 @@ struct FormalChannelSelection {
         }
         #endif
         guard !busy else { return }
+        busy = true
         accountBindingRevision = UUID()
         let expected = generation
+        var ownsBusy = true
+        defer { if ownsBusy, expected == generation { busy = false } }
         await reminders.reset(clearPreference: false)
         guard expected == generation else { return }
         guard let session else { message = "クラウド接続の設定が必要です。"; return }
@@ -756,6 +1091,9 @@ struct FormalChannelSelection {
                     showingOfflineSnapshot = true; household = copy.household
                     homeID = copy.household.homes.first?.id ?? ""
                 }
+                // Hand the reservation to reload synchronously before its first
+                // suspension; this restore must not later clear another task's busy.
+                ownsBusy = false; busy = false
                 await reload()
             }
         }

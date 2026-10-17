@@ -99,10 +99,18 @@ test('maintenance stays disabled without acquisition and rejects unbounded batch
  for(const batch of [0,101,1.5,null])await assert.rejects(run(new AbortController().signal,batch),/Bounded cleanup/);
  assert.equal(connects,0);
 });
-test('record erasure and resumed completion both require durable marker cleanup acknowledgement',async()=>{
+test('reviewed records precede parent marker erasure and completion still requires durable marker acknowledgement',async()=>{
  const events=[],scope={requestID,userID:owner,epochID:oe,leaseToken:lease};let allowed=false;
  const deps={eraseRecords:async()=>{events.push('records');return true;},markComplete:async()=>{events.push('complete');return true;}};
  const wrapped=withClosureReauthenticationErasure(deps,{rpc:async(name,args)=>{assert.equal(name,'erase_maintenance_deletion_closure_metadata');assert.deepEqual(args,{target_request:requestID,target_user:owner,target_epoch:oe,target_lease:lease});events.push('markers');return {data:allowed,error:null};}});
- assert.equal(await wrapped.eraseRecords(scope),false);assert.equal(await wrapped.markComplete(scope),false);assert.deepEqual(events,['markers','markers']);
- allowed=true;assert.equal(await wrapped.eraseRecords(scope),true);assert.equal(await wrapped.markComplete(scope),true);assert.deepEqual(events.slice(-4),['markers','records','markers','complete']);
+ assert.equal(await wrapped.eraseRecords(scope),false);assert.equal(await wrapped.markComplete(scope),false);assert.deepEqual(events,['records','markers','markers']);
+ allowed=true;assert.equal(await wrapped.eraseRecords(scope),true);assert.equal(await wrapped.markComplete(scope),true);assert.deepEqual(events.slice(-4),['records','markers','markers','complete']);
+});
+
+test('failed reviewed record cleanup preserves parent markers',async()=>{
+ const events=[],scope={requestID,userID:owner,epochID:oe,leaseToken:lease};
+ const deps={eraseRecords:async()=>{events.push('records-unconfirmed');return false;},markComplete:async()=>{events.push('complete');return true;}};
+ const wrapped=withClosureReauthenticationErasure(deps,{rpc:async()=>{events.push('parent-markers');return {data:true,error:null};}});
+ assert.equal(await wrapped.eraseRecords(scope),false);
+ assert.deepEqual(events,['records-unconfirmed'],'Do not cascade the parent review while reviewed references remain');
 });

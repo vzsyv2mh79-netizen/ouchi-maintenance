@@ -91,6 +91,9 @@ def collection_privacy_checks(manifest,info):
         'OUCHI_NATIVE_PUSH_ENABLED':{'DeviceID'},
         'OUCHI_APP_ATTEST_REGISTRATION_ENABLED':{'DeviceID'},
         'OUCHI_CLOSURE_REVIEW_ENABLED':{'DeviceID'},
+        'OUCHI_CLOSURE_PROGRESS_ENABLED':{'DeviceID'},
+        'OUCHI_CLOSURE_READ_CUSTODY_ENABLED':{'DeviceID'},
+        'OUCHI_CLOSURE_LOCAL_CLEANUP_ENABLED':{'DeviceID'},
     }
     for flag,categories in feature_categories.items():
         value=info.get(flag,False)

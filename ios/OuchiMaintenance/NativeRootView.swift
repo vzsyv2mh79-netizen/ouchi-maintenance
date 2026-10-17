@@ -10,6 +10,8 @@ struct NativeRootView: View {
     @AppStorage("ouchi.appearance") private var preferredAppearance = "system"
     @State private var selectedTab = 0
     var body: some View {
+        let presentedMessage = store.message
+        let presentedMessageRevision = store.messageRevision
         VStack(spacing: 0) {
             appearanceBar
             Group {
@@ -40,9 +42,9 @@ struct NativeRootView: View {
         .tint(appearance == .dark
             ? Color(red: 0.502, green: 0.839, blue: 0.667)
             : Color(red: 0.125, green: 0.357, blue: 0.251))
-        .alert("おうちメンテ", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
-            Button("閉じる", role: .cancel) { store.message = nil }
-        } message: { Text(store.message ?? "") }
+        .alert("おうちメンテ", isPresented: Binding(get: { presentedMessage != nil }, set: { if !$0 { store.dismissMessage(ifCurrent: presentedMessageRevision) } })) {
+            Button("閉じる", role: .cancel) { store.dismissMessage(ifCurrent: presentedMessageRevision) }
+        } message: { Text(presentedMessage ?? "") }
     }
     private var appearanceBar: some View {
             HStack {
@@ -134,6 +136,8 @@ private struct SignInView: View {
     @State private var password = ""
     @State private var creating = false
     @State private var resetting = false
+    private enum Field: Hashable { case email, password }
+    @FocusState private var focusedField: Field?
     var body: some View {
         NavigationStack {
             Form {
@@ -142,23 +146,30 @@ private struct SignInView: View {
                     Text("Web版と同じアカウントでログインできます。")
                 }
                 Section("クラウド保存にログイン") {
-                    TextField("メールアドレス", text: $email).textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    if !resetting { SecureField("パスワード（8文字以上）", text: $password).textContentType(creating ? .newPassword : .password) }
+                    TextField("メールアドレス", text: $email).textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().focused($focusedField, equals: .email)
+                        .submitLabel(resetting ? .done : .next).onSubmit { focusedField = resetting ? nil : .password }
+                        .accessibilityIdentifier("signin.email")
+                    if !resetting { SecureField("パスワード（8文字以上）", text: $password).textContentType(creating ? .newPassword : .password).focused($focusedField, equals: .password)
+                        .submitLabel(.done).onSubmit { focusedField = nil }.accessibilityIdentifier("signin.password") }
                     Button(store.busy ? "処理中…" : resetting ? "再設定メールを送信" : creating ? "アカウントを作成" : "ログイン") {
                         let value = password
                         let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
                         let resetMode = resetting, signupMode = creating
-                        password = ""
+                        password = ""; focusedField = nil
                         Task {
                             if resetMode { await store.requestPasswordReset(email: address) }
                             else if signupMode { await store.signUp(email: address, password: value) }
                             else { await store.signIn(email: address, password: value) }
                         }
-                    }.disabled(store.busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (!resetting && (creating ? password.count < 8 : password.isEmpty)))
+                    }.accessibilityIdentifier("signin.submit").disabled(store.busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (!resetting && (creating ? password.count < 8 : password.isEmpty)))
                     Button(creating || resetting ? "ログインに戻る" : "はじめての方") {
                         creating = !(creating || resetting); resetting = false; password = ""
                     }.disabled(store.busy)
                     if !resetting { Button("パスワードを忘れた方") { resetting = true; creating = false; password = "" }.disabled(store.busy) }
+                    if store.closureReadCustodyConfigured {
+                        NavigationLink("保存した退会処理を確認") { SavedClosureReadCredentialsView() }.accessibilityIdentifier("closure-custody.saved-entry")
+                            .disabled(store.busy)
+                    }
                     NavigationLink("プライバシーについて") { PrivacyInformation() }
                     NavigationLink("使い方・困ったとき") { HelpInformation() }
                     if store.localClosureRecoveryConfigured {
@@ -174,6 +185,13 @@ private struct SignInView: View {
 
                 }
             }.navigationTitle("おうちメンテ").modifier(AdaptiveNavigationTitle())
+                .scrollDismissesKeyboard(.interactively)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("入力を終える") { focusedField = nil }.accessibilityIdentifier("signin.dismiss-keyboard")
+                    }
+                }
         }
     }
 }
@@ -446,6 +464,14 @@ private struct NativeSettings: View {
                 Section("プライバシー") { NavigationLink("データの取り扱い") { PrivacyInformation() } }
                 Section("ヘルプ") { NavigationLink("使い方・困ったとき") { HelpInformation() } }
                 Section("アカウント") {
+                    if store.closureReadCustodyConfigured {
+                        NavigationLink("保存した退会処理を確認") { SavedClosureReadCredentialsView() }.accessibilityIdentifier("closure-custody.saved-entry")
+                            .disabled(store.busy)
+                    }
+                    if store.closureProgressConfigured {
+                        NavigationLink("保存した退会依頼の状況") { SavedClosureProgressSettingsView() }
+                            .disabled(store.busy)
+                    }
                     if store.closureReviewConfigured {
                         NavigationLink("退会の依頼・状況確認") { AccountClosureReviewSettingsView() }
                             .disabled(store.busy)
@@ -466,7 +492,7 @@ private struct NativeSettings: View {
                         Text("メールアドレスを確認できませんでした。通信を確認して再度お試しください。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Button("ログアウト", role: .destructive) { confirmLogout = true }
+                    Button("ログアウト", role: .destructive) { confirmLogout = true }.accessibilityIdentifier("settings.logout")
                 }
             }.navigationTitle("設定").modifier(AdaptiveNavigationTitle())
              .fileImporter(isPresented: $choosingBackup, allowedContentTypes: [.json]) { result in
@@ -745,6 +771,11 @@ private struct FamilySettings: View {
     var body: some View {
         Form {
             HomePicker()
+            if store.homeManagementConfigured {
+                Section("住まいの管理") {
+                    NavigationLink("管理状態と操作の結果") { HomeManagementSettingsView() }
+                }
+            }
             Section("家族と共有") {
                 Text("参加した家族は、この住まいの製品・お手入れ・履歴を追加・編集・削除できます。家族は自分のアカウントでログインしてください。")
                 if owner {
@@ -784,7 +815,7 @@ private struct FamilySettings: View {
          .confirmationDialog("未使用の招待コードをすべて無効にしますか？", isPresented: $revoke, titleVisibility: .visible) {
              Button("招待を取り消す", role: .destructive) { let home = store.homeID; Task { await store.revokeInvites(home: home) } }
          }
-         .confirmationDialog("この住まいから退出しますか？記録は所有者のもとに残ります。", isPresented: $leave, titleVisibility: .visible) {
+         .confirmationDialog("この住まいから退出しますか？記録はこの住まいに残ります。", isPresented: $leave, titleVisibility: .visible) {
              Button("退出", role: .destructive) { let home = store.homeID; Task { await store.removeMember(home: home, user: nil) } }
          }
          .confirmationDialog("\(removing?.nickname ?? "家族")の共有アクセスを解除しますか？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
@@ -1706,6 +1737,22 @@ private struct AttachmentView: View {
     @State private var removalID: UUID?
     @State private var pendingRemoval: PendingAttachmentRemoval?
     @State private var confirmRetryRemoval = false
+    @State private var householdAttachments: [AttachmentAPI.StoredAttachment] = []
+    @State private var nextHouseholdAttachment: UUID?
+    @State private var householdListingLoading = false
+    private func loadHouseholdAttachmentPage(reset: Bool) async {
+        guard !householdListingLoading, let product = UUID(uuidString: productID) else { return }
+        let selected = productID, home = store.homeID, expected = listingGeneration, revision = store.accountBindingRevision
+        let cursor = reset ? nil : nextHouseholdAttachment
+        householdListingLoading = true
+        let page = await store.pageDevelopmentAttachments(product: product, after: cursor, scope: .household)
+        guard !Task.isCancelled, selected == productID, home == store.homeID, expected == listingGeneration, revision == store.accountBindingRevision else { return }
+        householdListingLoading = false
+        guard let page else { return }
+        let existing = reset ? [] : householdAttachments
+        guard Set(existing.map(\.id)).isDisjoint(with: Set(page.items.map(\.id))) else { status = "一覧が更新されました。画面を開き直してください。"; return }
+        householdAttachments = existing + page.items; nextHouseholdAttachment = page.next
+    }
     @State private var savedAttachments: [DevelopmentAttachmentAPI.StoredAttachment] = []
     @State private var nextAttachment: UUID?
     @State private var listingLoading = false
@@ -1769,7 +1816,7 @@ private struct AttachmentView: View {
                 Section("保存済みのファイル") {
                     ForEach(savedAttachments) { attachment in
                         Button {
-                            Task { await store.exportDevelopmentAttachment(attachment.id) }
+                            Task { store.clearDevelopmentAttachmentExport(); guard store.attachmentExportURL == nil else { return }; await store.exportDevelopmentAttachment(attachment.id) }
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(attachment.mime == "application/pdf" ? "PDFを取得して書き出す" : "写真を取得して書き出す")
@@ -1784,8 +1831,19 @@ private struct AttachmentView: View {
                         Button(listingLoading ? "読込中…" : "続きを読み込む") { Task { await loadAttachmentPage(reset: false) } }.disabled(listingLoading || store.busy)
                     }
                     Text("保存済みファイルの取得には、新しい購入は必要ありません。住まいへのアクセス権を確認します。")
-                    if let file = store.attachmentExportURL { ShareLink("ファイルを共有・保存", item: file) }
+
                 }
+            }
+            RetainedAttachmentSection(attachments: householdAttachments,
+                loading: householdListingLoading, busy: store.busy,
+                hasSelectedProduct: hasSelectedProduct, hasMore: nextHouseholdAttachment != nil,
+                reload: { Task { await loadHouseholdAttachmentPage(reset: true) } },
+                loadMore: { Task { await loadHouseholdAttachmentPage(reset: false) } },
+                download: { attachment in
+                    Task { store.clearDevelopmentAttachmentExport(); guard store.attachmentExportURL == nil else { return }; await store.exportDevelopmentAttachment(attachment.id, scope: .household) }
+                })
+            if let file = store.attachmentExportURL {
+                Section("取得したファイル") { ShareLink("取得したファイルを共有・保存", item: file) }
             }
             Section("ファイル") {
                 Text("写真は撮影情報を除いたコピーに変換して保存します（JPEGは再圧縮されます）。写真に写った文字やPDFの内容は変更しません。氏名・住所などが含まれていないか確認してください。")
@@ -1880,6 +1938,7 @@ private struct AttachmentView: View {
             Button("キャンセル", role: .cancel) { removalID = nil }
         } message: { Text("元に戻せません。保存した人か住まいの所有者が削除できます。購入が終了していても削除できます。") }
         .task(id: selectionBinding) {
+            savedAttachments = []; householdAttachments = []; nextAttachment = nil; nextHouseholdAttachment = nil; householdListingLoading = false; listingLoading = false; store.clearDevelopmentAttachmentExport()
             confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil
             listingGeneration += 1
             let expected = listingGeneration, selected = productID, home = store.homeID, bindingRevision = store.accountBindingRevision
@@ -1887,7 +1946,7 @@ private struct AttachmentView: View {
             guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
             pendingRemoval = recoveredRemoval
             listingLoading = false; nextAttachment = nil
-            savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
+            savedAttachments = []; householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false; attachmentUsage = nil; store.clearDevelopmentAttachmentExport()
             if bytes == nil, let pending = await store.resumeDevelopmentAttachment() {
                 guard !Task.isCancelled, expected == listingGeneration, bindingRevision == store.accountBindingRevision, selected == productID, home == store.homeID else { return }
                 let pendingProduct = pending.product.uuidString.lowercased()
@@ -1920,13 +1979,13 @@ private struct AttachmentView: View {
             choosingFile = false; fileSelectionBinding = nil
             listingGeneration += 1; listingLoading = false; nextAttachment = nil
             bytes = nil; filename = ""; mime = ""; attachmentID = UUID()
-            savedAttachments = []; attachmentUsage = nil
+            savedAttachments = []; householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false; attachmentUsage = nil
             confirmUpload = false; confirmRemoval = false; removalID = nil
             confirmRetryRemoval = false; pendingRemoval = nil
             store.clearDevelopmentAttachmentExport()
             status = "アカウントの状態が変わりました。保存先とファイルをもう一度確認してください。"
         }
-        .onDisappear { choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
+        .onDisappear { choosingFile = false; fileSelectionBinding = nil; listingGeneration += 1; listingLoading = false; nextAttachment = nil; bytes = nil; filename = ""; mime = ""; confirmUpload = false; confirmRemoval = false; removalID = nil; confirmRetryRemoval = false; pendingRemoval = nil; savedAttachments = []; householdAttachments = []; nextHouseholdAttachment = nil; householdListingLoading = false; attachmentUsage = nil; store.clearDevelopmentAttachmentExport() }
     }
 }
 
@@ -2039,3 +2098,58 @@ private struct ExplicitEnrollmentView: View {
         }
     }
 }
+
+/// Used by the product attachment form and its isolated visual fixture.
+struct RetainedAttachmentSection: View {
+    let attachments: [AttachmentAPI.StoredAttachment]
+    let loading: Bool
+    let busy: Bool
+    let hasSelectedProduct: Bool
+    let hasMore: Bool
+    let reload: () -> Void
+    let loadMore: () -> Void
+    let download: (AttachmentAPI.StoredAttachment) -> Void
+    var body: some View {
+        Section("家族で引き継いだファイル") {
+            Text("住まいで引き継いだファイルは、参加中の家族が契約に関係なく取得できます。")
+            Button(loading ? "読込中…" : "引き継いだファイルを確認", action: reload)
+                .disabled(loading || busy || !hasSelectedProduct)
+                .accessibilityIdentifier("retained-files.reload")
+            ForEach(attachments) { attachment in
+                Button { download(attachment) } label: {
+                    VStack(alignment: .leading) {
+                        Text(attachment.mime == "application/pdf" ? "引き継いだPDFを取得" : "引き継いだ写真を取得")
+                        Text("\(attachment.size)バイト・\(attachment.createdAt)").font(.caption)
+                    }
+                }.disabled(busy)
+                .accessibilityIdentifier("retained-files.download." + attachment.id.uuidString.lowercased())
+            }
+            if hasMore {
+                Button("引き継いだファイルの続きを表示", action: loadMore)
+                    .disabled(loading || busy)
+                    .accessibilityIdentifier("retained-files.more")
+            }
+        }
+    }
+}
+
+#if DEBUG
+struct RetainedAttachmentPreview: View {
+    private let fixtures = try! JSONDecoder().decode([AttachmentAPI.StoredAttachment].self, from: Data(#"[{"id":"11111111-1111-4111-8111-111111111111","size":128000,"mime":"application/pdf","createdAt":"2026-10-17","scope":"household"},{"id":"22222222-2222-4222-8222-222222222222","size":256000,"mime":"image/jpeg","createdAt":"2026-10-17","scope":"household"}]"#.utf8))
+    @State private var loaded = false
+    @State private var more = true
+    @State private var result = ""
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section { Text("表示確認用サンプル・通信なし").accessibilityIdentifier("retained-files.sample") }
+                RetainedAttachmentSection(attachments: loaded ? fixtures : [], loading: false,
+                    busy: false, hasSelectedProduct: true, hasMore: loaded && more,
+                    reload: { loaded = true }, loadMore: { more = false; result = "サンプルの続きを確認しました" },
+                    download: { item in result = item.mime == "application/pdf" ? "サンプルPDFの取得操作を確認しました" : "サンプル写真の取得操作を確認しました" })
+                if !result.isEmpty { Section { Text(result).accessibilityIdentifier("retained-files.result") } }
+            }.navigationTitle("写真・保証書").navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+#endif

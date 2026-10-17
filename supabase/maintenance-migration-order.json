@@ -1,0 +1,529 @@
+{
+  "format": "ouchi-pinned-migration-order/v1",
+  "files": [
+    {
+      "file": "supabase/migrations/20261001144732_household_storage.sql",
+      "source_sha256": "44ba4489306a1a80cad7a859d8c0dd8762681a5becc3aff5152700ec719a2862"
+    },
+    {
+      "file": "supabase/migrations/20261001232931_atomic_import.sql",
+      "source_sha256": "efc88712a0c3a3adc9b923fd04cd1d0bb5863d466653b85aeec36d314a2702ac"
+    },
+    {
+      "file": "supabase/migrations/20261001233450_household_sharing.sql",
+      "source_sha256": "9ab6e9babf3ee065a909fc7f49d83e76f96d8e49ce5b245b4b7e3abc9f97ea4a"
+    },
+    {
+      "file": "supabase/migrations/20261001235138_account_data_erasure.sql",
+      "source_sha256": "ff0ae66ba62df988606f3f52d5dcd13ab53a0fd453cf12d033fe274f76ee8308"
+    },
+    {
+      "file": "supabase/migrations/20261002004530_push_reminders.sql",
+      "source_sha256": "0eae062ce2565446bf868ef2559448f5bdc12cf7617ae85433c6d6cbbd986003"
+    },
+    {
+      "file": "supabase/migrations/20261005134316_cloud_backup_restore.sql",
+      "source_sha256": "3453c17ff8e18be006925b62b18a226d08790e6d71c36f5fa9c8447ab73bfb9b"
+    },
+    {
+      "file": "supabase/migrations/20261005135600_push_test_delivery.sql",
+      "source_sha256": "5d667923a6e5862d181cea143b04e689df42b9963ef8324a9146c477ece1df58"
+    },
+    {
+      "file": "supabase/migrations/20261010141353_ouchi_billing_identity.sql",
+      "source_sha256": "750c1979bc99b07c3af6f256db9f56156f7a1fa244a6d205e9bbad2563b05f93"
+    },
+    {
+      "file": "supabase/migrations/20261010142053_ouchi_verified_transaction_ledger.sql",
+      "source_sha256": "6fa313bd26704126b1a75f956349585c90bc6b437953108e56da9bd90f8ef0ce"
+    },
+    {
+      "file": "supabase/migrations/20261010220727_ouchi_verified_entitlement_read.sql",
+      "source_sha256": "196eabba738cb3c16dd4d83da4a4540c2286f6337ec62aa74c59e54293779d41"
+    },
+    {
+      "file": "supabase/migrations/20261010224129_ouchi_verified_notification_inbox.sql",
+      "source_sha256": "5c96dd73377e988649416d09b297b44c78015b0dea1c8d41f15efdc1441debbc"
+    },
+    {
+      "file": "supabase/migrations/20261010224749_ouchi_verified_renewal_state.sql",
+      "source_sha256": "cd304ad410d9c01e1b94ca3ea261b7377e9ec24e3cdd852e5c38d845bb31252c"
+    },
+    {
+      "file": "supabase/migrations/20261010230223_ouchi_reconciliation_seed.sql",
+      "source_sha256": "7a54c062c8b090e447bca42525c4120496da90b17dcee0d067245b76a92fd46e"
+    },
+    {
+      "file": "supabase/migrations/20261010231045_ouchi_reconciliation_jobs.sql",
+      "source_sha256": "09c1ce8b0e3bde7bf44f10fd47d5591910b13130ce6ceed8c4c27b4533739c15"
+    },
+    {
+      "file": "supabase/migrations/20261010231448_ouchi_recovery_job_scope.sql",
+      "source_sha256": "d5db83c9d9dcce892f495e95933043176bb8f0739c61abc297b5e954329fc48a"
+    },
+    {
+      "file": "supabase/migrations/20261010232153_ouchi_recovery_status.sql",
+      "source_sha256": "440dfa826d6fd031a136e2c18d3979f702f139c89db63fa5a728552aac13613e"
+    },
+    {
+      "file": "supabase/migrations/20261010233437_ouchi_renewal_transaction_lookup.sql",
+      "source_sha256": "8482f49ce474d7d72d993a16b20e651c8540ffd3da857fd272cdfb224634159e"
+    },
+    {
+      "file": "supabase/migrations/20261010234402_ouchi_account_deletion_requests.sql",
+      "source_sha256": "f0ccf0b6d67c80f25274108e2e1bef6d9982c53d4b4769ac36b45fdbf13a3802"
+    },
+    {
+      "file": "supabase/migrations/20261010234625_ouchi_closed_account_access_gate.sql",
+      "source_sha256": "dc00862a8d4dce650400c36eaaaeb7f8951a771577b353414f1e837951f00191"
+    },
+    {
+      "file": "supabase/migrations/20261010234907_ouchi_account_deletion_leases.sql",
+      "source_sha256": "160dd68c3e27cdc821a834d45a9dc8c0fda473aee5aacb1c2efa94cb78fc246f"
+    },
+    {
+      "file": "supabase/migrations/20261010235205_ouchi_attachment_erasure_inventory.sql",
+      "source_sha256": "a1c57d7709e1e1c500ead3d65630ddeefda26f2f3aebd40863bf9355d3f4c812"
+    },
+    {
+      "file": "supabase/migrations/20261010235332_ouchi_deletion_object_progress.sql",
+      "source_sha256": "486455892742e0e9a67373f273dba7f92fc3ad70ff6d2bff1d652d27e4280855"
+    },
+    {
+      "file": "supabase/migrations/20261010235933_ouchi_deletion_household_records.sql",
+      "source_sha256": "c957c9517d45db14d897995ca6993b25846f2e1bfe98ef5729660fc3062c7b77"
+    },
+    {
+      "file": "supabase/migrations/20261011000718_ouchi_closed_household_owner_gate.sql",
+      "source_sha256": "299ff9d4a310b4a79984c45326a00895c1a5ccc6a5733353e1010302e5fdfc98"
+    },
+    {
+      "file": "supabase/migrations/20261011001303_ouchi_deletion_progress_read.sql",
+      "source_sha256": "554b0f9e1e1510b77ded6a24b10fd946b2e20825da49eced12542e45fee386e6"
+    },
+    {
+      "file": "supabase/migrations/20261011001818_ouchi_closed_account_push_dispatch.sql",
+      "source_sha256": "83edd60aca4f315cf5dcca2009590c6039733b301bdd6f67c7731ff8c5c7f7f8"
+    },
+    {
+      "file": "supabase/migrations/20261011002005_ouchi_deletion_web_push_erasure.sql",
+      "source_sha256": "0500e8b501d09676fbb152410c8ab4af8b6d69a4eaecac106f4ca6a355184900"
+    },
+    {
+      "file": "supabase/migrations/20261011002147_ouchi_closed_account_push_test_dispatch.sql",
+      "source_sha256": "bf180c5a605143cfcbff2364761199add2ddeddf7923ab8a9e8264cb12e13373"
+    },
+    {
+      "file": "supabase/migrations/20261011002954_ouchi_current_deletion_progress.sql",
+      "source_sha256": "0ef380ed8a92308b0202af0f853a499218bd87a48d7060c34ae310f17c32ffbf"
+    },
+    {
+      "file": "supabase/migrations/20261011004515_ouchi_native_notification_registry.sql",
+      "source_sha256": "6e2e2918fc3041a45e7508c56354c002f5173950d29466beb8c4d001a2aa12ea"
+    },
+    {
+      "file": "supabase/migrations/20261011004715_ouchi_native_notification_registration.sql",
+      "source_sha256": "3d7ebf65716762575c7e39337f25fada05af7ada1423a7b2eebed79dfe5f60df"
+    },
+    {
+      "file": "supabase/migrations/20261011005546_ouchi_native_dispatch_destination.sql",
+      "source_sha256": "4b0ca1a9e8956ac1127b512ce985de31ae9e8be7d67608728240772c71fd34e7"
+    },
+    {
+      "file": "supabase/migrations/20261011005859_ouchi_attachment_upload_reservation.sql",
+      "source_sha256": "7c6b7bf5bac8892d4bc388d967b691a934533a7e595e4d65e1be6969eb3c854e"
+    },
+    {
+      "file": "supabase/migrations/20261011010239_ouchi_attachment_verified_completion.sql",
+      "source_sha256": "1cbcc5fca8b96c90c3f11dbad0b972c403b799a6d2912b15ba65bee3c7d07c1a"
+    },
+    {
+      "file": "supabase/migrations/20261011010724_ouchi_attachment_retained_read.sql",
+      "source_sha256": "ab117bd0a556a3f753152b08a34eaa0cc71f8795216b8da9864cfe8c0fa21fc9"
+    },
+    {
+      "file": "supabase/migrations/20261011012412_ouchi_attachment_write_attempts.sql",
+      "source_sha256": "9414a6fc2c83a225c7ec4888e8ba9cd9e4171c00aeb6b13add34754223f711f8"
+    },
+    {
+      "file": "supabase/migrations/20261011020434_ouchi_attachment_captured_owner.sql",
+      "source_sha256": "eda734792de83ec678cbf4a5f3147975726aef621b4e3bc5ee362710068c2999"
+    },
+    {
+      "file": "supabase/migrations/20261011021242_ouchi_attachment_removal_fence.sql",
+      "source_sha256": "a9fd3e733e9eeb262246f3306bda098ee38e24bb8c2d4454176117a2f061cfdf"
+    },
+    {
+      "file": "supabase/migrations/20261011032644_ouchi_deletion_reconciliation_cleanup.sql",
+      "source_sha256": "ab730bc0b3b0948753b4eafe9f02a3549618ddd538298015768d2c7b8f5093a1"
+    },
+    {
+      "file": "supabase/migrations/20261011041519_ouchi_native_push_job_leases.sql",
+      "source_sha256": "eb8234eeb5f32cc1e825f888df9023f18d83055aaa9ac3948f6456e760308b18"
+    },
+    {
+      "file": "supabase/migrations/20261011041841_ouchi_native_push_claim_lookup.sql",
+      "source_sha256": "b4ab790f4bc348b53580c444645d9898bbf1ef29d54600dbc58dd9f971278071"
+    },
+    {
+      "file": "supabase/migrations/20261011042308_ouchi_native_push_daily_jobs.sql",
+      "source_sha256": "671e5c0c61cdbaa6bab68db37cde79b838b61557e40c4a90a89cd2ad665c7bd2"
+    },
+    {
+      "file": "supabase/migrations/20261011042826_ouchi_native_push_delivery_day_gate.sql",
+      "source_sha256": "d72c77a8b7120dce4841037a42ac558489026f5db2a9b7e4d38c38ac802e51b0"
+    },
+    {
+      "file": "supabase/migrations/20261011043237_ouchi_native_push_device_paging.sql",
+      "source_sha256": "e1e47fcc68bd3780fd7d02351900bfe91bef7a8984568cd175b03365a42e4abd"
+    },
+    {
+      "file": "supabase/migrations/20261011044638_ouchi_native_push_invalidation.sql",
+      "source_sha256": "e5a1f91af406011907c32447836d290fe8c82209a4930cb3882958fd10ae4a28"
+    },
+    {
+      "file": "supabase/migrations/20261011052015_ouchi_deletion_live_session.sql",
+      "source_sha256": "27fefe6fbbeb61dba9e40fa3ff976cdb68dd9a06f2923a2b08b73d48bcecd82d"
+    },
+    {
+      "file": "supabase/migrations/20261011054420_ouchi_reminder_schedule.sql",
+      "source_sha256": "b8e8810d40ef3424b71c026dd05b388aac434a48d9433927ea47f1235ba187cc"
+    },
+    {
+      "file": "supabase/migrations/20261011065720_ouchi_deletion_progress_epoch.sql",
+      "source_sha256": "ead1a5f034be26bec004cfe7ba24000f75ef34af95a830b58a82c91d2c493cbd"
+    },
+    {
+      "file": "supabase/migrations/20261011083324_ouchi_retired_transaction_ingestion.sql",
+      "source_sha256": "da4e654853ec2d14de3084806446b2141279230f618f70b4d75a46b05cbfa50b"
+    },
+    {
+      "file": "supabase/migrations/20261011084235_ouchi_retired_renewal_ingestion.sql",
+      "source_sha256": "6638808a8b08944df8338a715f9ac42ddb91209e6857a59fe7070928b591d7b9"
+    },
+    {
+      "file": "supabase/migrations/20261011091753_ouchi_notification_account_erasure.sql",
+      "source_sha256": "f39257f4991a47ee66ff872a26feb69b4e78d739d1fa73599bf1ae30a81cba27"
+    },
+    {
+      "file": "supabase/migrations/20261011102245_ouchi_native_reminder_job_schedule.sql",
+      "source_sha256": "b4dacfe379e29c5e04851bef54c45fc01199006c3561b07718ae53b70f9a2e29"
+    },
+    {
+      "file": "supabase/migrations/20261011103523_ouchi_native_push_purchase_scope.sql",
+      "source_sha256": "1e7fab0519e8a2969aef8ec3963fa7fd86e9c965a9b930cfe050f5aba005ac04"
+    },
+    {
+      "file": "supabase/migrations/20261011105102_ouchi_native_push_registration_lookup.sql",
+      "source_sha256": "b4bef5f8d5a0700629d6d44b600193df439bf4117975dcb41fb713d509e027db"
+    },
+    {
+      "file": "supabase/migrations/20261011105847_ouchi_native_push_scoped_jobs.sql",
+      "source_sha256": "9a54cdde09c9132ba1d1e5a0a4ac42fdcf8eabbf0b75fc5bbcd53b6487077255"
+    },
+    {
+      "file": "supabase/migrations/20261011111558_ouchi_native_delivery_identity.sql",
+      "source_sha256": "06cb5eace6e4d430d2e2ad53f3a21ef24d51991772fd2aba48e090f8b1143ae6"
+    },
+    {
+      "file": "supabase/migrations/20261011112330_ouchi_native_delivery_sweep.sql",
+      "source_sha256": "2bfe6b3e56fd6a34cadd34f6c62c051672e4acb82153016733cda1857507f594"
+    },
+    {
+      "file": "supabase/migrations/20261011113634_ouchi_native_daily_replanning.sql",
+      "source_sha256": "6904ce38869dbf6d2388ec1b2b3bba4acb8cb06ba06dda541b270e7dde6a21c4"
+    },
+    {
+      "file": "supabase/migrations/20261011114419_ouchi_notification_channels.sql",
+      "source_sha256": "56e0c0e26aedf0090311c06413fd1b48537d9af2c680974dc26fe44984ed3e3c"
+    },
+    {
+      "file": "supabase/migrations/20261011122042_ouchi_deletion_inventory_minimization.sql",
+      "source_sha256": "1c710b86f4a5997cc41afafb5cc58a13f9c9d215f50354049149f446dbcb0bd7"
+    },
+    {
+      "file": "supabase/migrations/20261011122749_ouchi_explicit_enrollment_guard.sql",
+      "source_sha256": "cdc85daa1319f89d539f287f9292ec95af000beacd4a3922fe028dba94c00501"
+    },
+    {
+      "file": "supabase/migrations/20261011123511_ouchi_explicit_enrollment_consent.sql",
+      "source_sha256": "81c2bd4596fd405aefa4862311479f721fbf575ca6543dc50aff7f85d55b90c1"
+    },
+    {
+      "file": "supabase/migrations/20261011131220_ouchi_deletion_consent_erasure.sql",
+      "source_sha256": "c437d52169f541603920cef69fc09deb7f2b81843da73274b6be302e00b1c050"
+    },
+    {
+      "file": "supabase/migrations/20261011131725_ouchi_deletion_receipt_session_snapshot.sql",
+      "source_sha256": "8b719e7b31506db4617ca9334f567bbd3aace83c3401645f482133f72273c936"
+    },
+    {
+      "file": "supabase/migrations/20261011132618_ouchi_deletion_purchase_ledger_erasure.sql",
+      "source_sha256": "f34b2f00bc9591f6cd138b389aa609dbe005e9071bb7d71c3090eb0506b7be46"
+    },
+    {
+      "file": "supabase/migrations/20261011133725_ouchi_deletion_identity_checkpoint.sql",
+      "source_sha256": "d46eb6ba9fc8dea15455590ef268df2d12a8f136727c9884142a50dcc7664419"
+    },
+    {
+      "file": "supabase/migrations/20261011134528_ouchi_deletion_prior_preferences.sql",
+      "source_sha256": "b1c34ccbbf613acd85744b993f9f9f39421cc8923f6018db1f301d7ee8c8e425"
+    },
+    {
+      "file": "supabase/migrations/20261011135013_ouchi_deletion_completion_boundary.sql",
+      "source_sha256": "51303d9a727909c624f0c9fa45b4d037d55f7203d78a3eff5ed8591e5df9193c"
+    },
+    {
+      "file": "supabase/migrations/20261011140432_ouchi_explicit_policy_latch.sql",
+      "source_sha256": "1ff89ea6bf475944bfa2c4a4e968ad27d92d8c272efd3ce1f9e41edf55f58b44"
+    },
+    {
+      "file": "supabase/migrations/20261011140654_ouchi_completion_receipt_evidence.sql",
+      "source_sha256": "3247a0f3bf12674144db582eef8a7c2f7c02a53fa22fd7755d106031841ebc8a"
+    },
+    {
+      "file": "supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql",
+      "source_sha256": "ad5cda03ab647e33d8628d71ef4978714323eea738ca9ccca17f8effc129a0aa"
+    },
+    {
+      "file": "supabase/migrations/20261011153328_ouchi_attest_registration_ledger.sql",
+      "source_sha256": "9a26bc1177dfc92fdf23269cae52029ed7e6d9db50982efea35840c109a124db"
+    },
+    {
+      "file": "supabase/migrations/20261011155220_ouchi_attest_registration_transport.sql",
+      "source_sha256": "863e3fa7c3080aba8a380fff38a6f770b96a435a9e6ffab2da02dedb93b96138"
+    },
+    {
+      "file": "supabase/migrations/20261012004145_ouchi_restore_transfer_reservation.sql",
+      "source_sha256": "905b0231a8a631b461b7b4f76038be32556e1b23d9f03aaf6d2f0279a2eda21e"
+    },
+    {
+      "file": "supabase/migrations/20261012004834_ouchi_restore_transfer_completion.sql",
+      "source_sha256": "d3e69f57cbfbc7360b4cc1b5427d07a3d3338a99534ffae028de5a54ff77c037"
+    },
+    {
+      "file": "supabase/migrations/20261012005754_ouchi_restore_completion_status.sql",
+      "source_sha256": "738e11554e2fcfcb8c56c5dd193ba582d704124e38f050b79722eedfd07f66e0"
+    },
+    {
+      "file": "supabase/migrations/20261012010434_ouchi_restore_ownership_writer_guard.sql",
+      "source_sha256": "b470e8846c062f95cfe586d5a4f7f34653b67f6be1054abf9515b500de3264e0"
+    },
+    {
+      "file": "supabase/migrations/20261012011309_ouchi_deletion_restore_jobs.sql",
+      "source_sha256": "67a95ba3a4d68b199fb4953a98ba8ab63863f03beefd413a109797ecef146ecb"
+    },
+    {
+      "file": "supabase/migrations/20261012015539_ouchi_restore_challenge_transport.sql",
+      "source_sha256": "9bbab32c310e28813eaf6a9a44e7132abfcc1851673556fa677bf9527404da00"
+    },
+    {
+      "file": "supabase/migrations/20261012022946_ouchi_restore_verification_context.sql",
+      "source_sha256": "4290a542515ad3a92fb6fd5e38d1e5cf7e7012ab30a42fc3dd2e1cfd83067646"
+    },
+    {
+      "file": "supabase/migrations/20261012023800_ouchi_restore_job_recovery.sql",
+      "source_sha256": "afb3f907cc2dcc022ae180206fa39454ef5d0d2ab5f7a2d4dbe4111287267f22"
+    },
+    {
+      "file": "supabase/migrations/20261012031710_ouchi_restore_cancel_unreserved.sql",
+      "source_sha256": "b232763a52b2b321628d28b2e00d995b5f8f5e4964eea009b812b133b7a0b723"
+    },
+    {
+      "file": "supabase/migrations/20261012035336_ouchi_restore_dispatch_claim.sql",
+      "source_sha256": "567fa2423c466a07e6d2b9ba5b90d88a4098b4bea1e12326adba1c42943f6020"
+    },
+    {
+      "file": "supabase/migrations/20261012174446_ouchi_current_deletion_lookup.sql",
+      "source_sha256": "9ebe53287581cecded06c2bd8aca1f39d7c875c3aba742495086d0ee1eb06946"
+    },
+    {
+      "file": "supabase/migrations/20261013043000_ouchi_family_handoff.sql",
+      "source_sha256": "f5131c76ce84e3f7cd06e685f20e327cfd62f8b240b558ad655d9cd06aa791fe"
+    },
+    {
+      "file": "supabase/migrations/20261013043100_ouchi_family_retirement_guard.sql",
+      "source_sha256": "dd38620fdffbaf72f5f3c1d1ab1419ac2e7b755b97b482afa32e49fe637267ea"
+    },
+    {
+      "file": "supabase/migrations/20261013043200_ouchi_family_handoff_read.sql",
+      "source_sha256": "e7fea1815530b78e08271b728b01810bbfe45d73673693250bc2a838ed98044e"
+    },
+    {
+      "file": "supabase/migrations/20261013043300_ouchi_shared_home_delete_guard.sql",
+      "source_sha256": "40a3273891056e4b755cca211550ef18d982b316d91fc12f221de65a0a3366a5"
+    },
+    {
+      "file": "supabase/migrations/20261014061605_ouchi_account_closure_review.sql",
+      "source_sha256": "d1517e2c963e8f6f3856479ef19d6bbd35a55e8aa61e8cd728f94eb5d1c48b8f"
+    },
+    {
+      "file": "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql",
+      "source_sha256": "7781e4f479b0097c46b37a68cd6c485ff149573de4006175d702844655cc44fc"
+    },
+    {
+      "file": "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql",
+      "source_sha256": "23d885f431085cac9ae7b6cd94c0c1654c86a53e04c3bb3a1500cff2d3f6f52d"
+    },
+    {
+      "file": "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql",
+      "source_sha256": "6af0470b14661a53529425ed06ece9af535258aa72eaa960a8d4e233e544a5c2"
+    },
+    {
+      "file": "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql",
+      "source_sha256": "f6a731e45fa6294f61b00bd90a0f3df5ec945d7ce566ab74a233286c9c501e55"
+    },
+    {
+      "file": "supabase/migrations/20261014231227_ouchi_closure_actor_context_compatibility.sql",
+      "source_sha256": "b7a95e0bbef283f1d51a04e0887c4918c5d402aff7d3c67de8d59c53a7a7d494"
+    },
+    {
+      "file": "supabase/migrations/20261015003918_ouchi_deletion_prior_delivery_identities.sql",
+      "source_sha256": "8652c0912c7213c4d915e2f7d77c0b4f718a30c65d9894db4abaf8494a61b671"
+    },
+    {
+      "file": "supabase/migrations/20261015010011_ouchi_deletion_notification_quiescence.sql",
+      "source_sha256": "9606c50873c293fec13f8c0394b703aafc5cb6e4c09cdfd8dff0ea3d737ea114"
+    },
+    {
+      "file": "supabase/migrations/20261015023355_ouchi_attachment_retention_observation.sql",
+      "source_sha256": "9f00fae235f2121acea3c5baa211aa6b335400f690d117bc77c39e44fd8315d9"
+    },
+    {
+      "file": "supabase/migrations/20261015041238_ouchi_attachment_cleanup_lease.sql",
+      "source_sha256": "b0f3820754bf2ef71993bec152fd179db3d940fcfda776fc2b94928f0e125505"
+    },
+    {
+      "file": "supabase/migrations/20261015052134_ouchi_deletion_receipt_auth_independence.sql",
+      "source_sha256": "ab42b09f05f0feb52e481357d397121d0ad4d97d7863303cd235e86c89497e93"
+    },
+    {
+      "file": "supabase/migrations/20261015174935_ouchi_baseline_table_privilege_hardening.sql",
+      "source_sha256": "8f763d6a0e2eab24fc12814459fb11fce3a0fba3c7f4c30831254f4f51387bdc"
+    },
+    {
+      "file": "supabase/migrations/20261016114527_ouchi_closure_operator_review.sql",
+      "source_sha256": "923336d6df23fd9409ddbbcaf6f921b85317435c5de84955509193c25f88feb3"
+    },
+    {
+      "file": "supabase/migrations/20261016115343_ouchi_reviewed_field_redaction.sql",
+      "source_sha256": "ff14b5bbfc69dffb2a3340765a6d214f9ae52487de8648ed0cb12da84a8da0fe"
+    },
+    {
+      "file": "supabase/migrations/20261016120051_ouchi_shared_member_closure_review.sql",
+      "source_sha256": "b465371d70cb1b98230335bc3adcc43126e15af6ac6ae55779044bb81707a0ec"
+    },
+    {
+      "file": "supabase/migrations/20261016120728_ouchi_legacy_closure_review_scope.sql",
+      "source_sha256": "caa05fe396d2b3cc8080b188107b2f05511bf5600a81cc315b53eeb815485be9"
+    },
+    {
+      "file": "supabase/migrations/20261016121802_ouchi_closure_field_inventory.sql",
+      "source_sha256": "e4698ebcf82f45c20122d9336480630153e5b018becc6f784a4b0deb907e5516"
+    },
+    {
+      "file": "supabase/migrations/20261016123247_ouchi_closure_text_review_snapshot.sql",
+      "source_sha256": "53d3bd989bb77200180377037f6c6a5d0b4faa4a1ce5ba5a9e63879cd379d377"
+    },
+    {
+      "file": "supabase/migrations/20261016131437_ouchi_ownerless_home_management.sql",
+      "source_sha256": "ddcb09f11ddc4bcd914d66b66c7f83d03ac958704f1f7ae4e88cabbe496d8695"
+    },
+    {
+      "file": "supabase/migrations/20261016132410_ouchi_ownerless_management_status.sql",
+      "source_sha256": "8019443ee2862faaeeaca8e2a021d5571ce62f8122ad1d44b15a0f27b3bc7553"
+    },
+    {
+      "file": "supabase/migrations/20261016142322_ouchi_home_management_private_access.sql",
+      "source_sha256": "660fe218084beef8291a82e69e3a227c0fbc0ef6332960431307a25ea1414138"
+    },
+    {
+      "file": "supabase/migrations/20261016143928_ouchi_ownerless_closure_review_scope.sql",
+      "source_sha256": "18bf2df521d7726a26d64962faea2ee2b4ab886b61f18bc12c88bdd81ceac699"
+    },
+    {
+      "file": "supabase/migrations/20261016144216_ouchi_management_claim_erasure.sql",
+      "source_sha256": "3747e128f81b4c2077f9338941ca0324cff973323b9d4eae01d04c8d497c02aa"
+    },
+    {
+      "file": "supabase/migrations/20261016144839_ouchi_closure_file_review_inventory.sql",
+      "source_sha256": "345ffa87faab4b298f091b62d79d1187ffed503f6850026b90669ccbb626cce0"
+    },
+    {
+      "file": "supabase/migrations/20261016150215_ouchi_closure_file_review_decisions.sql",
+      "source_sha256": "117b49b880e97dbe114a67f3379bb1bd682b5ae7b220781eaf6861911743981a"
+    },
+    {
+      "file": "supabase/migrations/20261016151202_ouchi_household_attachment_custody.sql",
+      "source_sha256": "db86d35c7c0fb0d31c670577e29931f63e354713a863738c8903991f881cc1b4"
+    },
+    {
+      "file": "supabase/migrations/20261016152254_ouchi_attachment_physical_budget.sql",
+      "source_sha256": "a6205919f54ee91477b61cf7e4e29ebca6f6ada1e4e4e9fe97f77a450b94502f"
+    },
+    {
+      "file": "supabase/migrations/20261016153743_ouchi_household_copy_intents.sql",
+      "source_sha256": "cecff1452ecbecd2a14b054735f26903fc9167e14af845c60bbe529c979f79c5"
+    },
+    {
+      "file": "supabase/migrations/20261016160108_ouchi_household_copy_write_journal.sql",
+      "source_sha256": "0180b4d3daa9b97f795ac65597124e62c2f2a591227fb61c14f8b97efba9ec4b"
+    },
+    {
+      "file": "supabase/migrations/20261016161923_ouchi_closure_household_file_review.sql",
+      "source_sha256": "8cb5b661e8394fcb3ec448e3fb97fb7901e7c5ab92e5326516bc5c173038d23f"
+    },
+    {
+      "file": "supabase/migrations/20261016162817_ouchi_review_coverage_snapshot.sql",
+      "source_sha256": "a333e11ef74f3a1791930c287d844010157a24c38b2e90525aa829041c9a153b"
+    },
+    {
+      "file": "supabase/migrations/20261016164313_ouchi_reviewed_retirement_boundary.sql",
+      "source_sha256": "8ebd4e2cdb93ec9325529a93816343ef20ff33ca622bf5e73a4c6f5715e12023"
+    },
+    {
+      "file": "supabase/migrations/20261016165756_ouchi_verified_copy_classification.sql",
+      "source_sha256": "dade1ad0d27f20ef6ef4c91f0ab4ed4f36fe3de705e7f8eaa3f1e0b640c9d733"
+    },
+    {
+      "file": "supabase/migrations/20261016171009_ouchi_attachment_retirement_inventory.sql",
+      "source_sha256": "b978883fba1059c6a50643e73c19418c36945fd368ea8fca32de126595a9c450"
+    },
+    {
+      "file": "supabase/migrations/20261016174056_ouchi_retired_attachment_ids.sql",
+      "source_sha256": "ca63a3fcfe746af2c0b31f0227ce25db3f39fbadfebdb4095be2eac7277d5633"
+    },
+    {
+      "file": "supabase/migrations/20261016174506_ouchi_reviewed_file_cleanup_observation.sql",
+      "source_sha256": "d095f9f9cc4ddf12e7b6045d76a6999b789dff1193b617e44d137f166697554f"
+    },
+    {
+      "file": "supabase/migrations/20261016175505_ouchi_reviewed_file_finalization.sql",
+      "source_sha256": "c08cc9de4c0e36137afe54ac41008747d7a325b836c5391affac5f4c46944d58"
+    },
+    {
+      "file": "supabase/migrations/20261016180316_ouchi_reviewed_cleanup_prelude.sql",
+      "source_sha256": "09c62e091e437a75abb8abba708926d15e0f6724cb49b70c763d63fefa1e78c1"
+    },
+    {
+      "file": "supabase/migrations/20261016181203_ouchi_deletion_tail_checkpoints.sql",
+      "source_sha256": "c8dd55925e34197ba29dc0c9800f1ee7076277a1bdfffb586beb6f95800507fc"
+    },
+    {
+      "file": "supabase/migrations/20261016183107_ouchi_closure_submission_progress.sql",
+      "source_sha256": "5ed72a6a308b178175a5ef10a49d859511de51d306ea35deeb29608abfa13357"
+    },
+    {
+      "file": "supabase/migrations/20261016191435_ouchi_closure_read_custody.sql",
+      "source_sha256": "60d510d078f892a68fd4381f88e3f7c760ff2150b8a8769ec5fa3675af94a647"
+    },
+    {
+      "file": "supabase/migrations/20261016224912_ouchi_legacy_erasure_review_guard.sql",
+      "source_sha256": "99855c1a71f7e27cf9faa6c29f592d3ec028b3c0bafec0c24855f3416e1d25e5"
+    },
+    {
+      "file": "supabase/migrations/20261016234937_ouchi_retired_web_push_claim_guard.sql",
+      "source_sha256": "be2734ff74744db1648d83a2500624cd483ae0aa34b6d4a1d24ca430dc742e8c"
+    }
+  ]
+}

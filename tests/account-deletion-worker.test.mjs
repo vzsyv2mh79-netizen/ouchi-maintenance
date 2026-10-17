@@ -62,3 +62,9 @@ test('lost final acknowledgement recovers exact durable completion after executi
  for(const value of [null,'true',1,{}]){deps.completionAlreadyConfirmed=async()=>value;assert.deepEqual(await run(scope,deps),{state:'pending'});}
  deps.completionAlreadyConfirmed=async()=>{throw Error('unavailable');};assert.deepEqual(await run(scope,deps),{state:'pending'});
 });
+test('reviewed prelude runs before ordinary lease recovery but only with complete mandatory tail configuration',async()=>{
+ const calls=[];let prepared=false;const deps={prepareReviewedAttachments:async fixed=>{assert.deepEqual(fixed,scope);calls.push('prelude');prepared=true;return true;},leaseCurrent:async()=>{calls.push('lease');return prepared;}};names.forEach(name=>deps[name]=async()=>{calls.push(name);return true;});
+ assert.deepEqual(await run(scope,deps),{state:'complete'});assert.equal(calls[0],'prelude');assert.equal(calls[1],'lease');
+ for(const outcome of [false,null,'true',new Error('partial cleanup')]){calls.length=0;deps.prepareReviewedAttachments=async()=>{calls.push('prelude');if(outcome instanceof Error)throw outcome;return outcome;};assert.deepEqual(await run(scope,deps),{state:'pending'});assert.deepEqual(calls,['prelude']);}
+ calls.length=0;deps.prepareReviewedAttachments=async()=>{calls.push('unsafe prelude');return true;};delete deps.markComplete;assert.deepEqual(await run(scope,deps),{state:'pending'});assert.deepEqual(calls,[]);
+});

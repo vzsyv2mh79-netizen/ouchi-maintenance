@@ -60,7 +60,7 @@ for category in ['EmailAddress','Name','UserID','OtherUserContent']:
  missing=copy.deepcopy(manifest)
  missing['NSPrivacyCollectedDataTypes']=[e for e in missing['NSPrivacyCollectedDataTypes'] if e['NSPrivacyCollectedDataType']!='NSPrivacyCollectedDataType'+category]
  assert m.collection_privacy_checks(missing,{})
-for flag,category in [('OUCHI_ATTACHMENTS_ENABLED','PhotosorVideos'),('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED','PurchaseHistory'),('OUCHI_RELEASE_TIPS_ENABLED','PurchaseHistory'),('OUCHI_NATIVE_PUSH_ENABLED','DeviceID'),('OUCHI_APP_ATTEST_REGISTRATION_ENABLED','DeviceID')]:
+for flag,category in [('OUCHI_ATTACHMENTS_ENABLED','PhotosorVideos'),('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED','PurchaseHistory'),('OUCHI_RELEASE_TIPS_ENABLED','PurchaseHistory'),('OUCHI_NATIVE_PUSH_ENABLED','DeviceID'),('OUCHI_APP_ATTEST_REGISTRATION_ENABLED','DeviceID'),('OUCHI_CLOSURE_PROGRESS_ENABLED','DeviceID'),('OUCHI_CLOSURE_READ_CUSTODY_ENABLED','DeviceID'),('OUCHI_CLOSURE_LOCAL_CLEANUP_ENABLED','DeviceID')]:
  assert m.collection_privacy_checks(manifest,{flag:True})
  complete=copy.deepcopy(manifest)
  entry=copy.deepcopy(complete['NSPrivacyCollectedDataTypes'][0]);entry['NSPrivacyCollectedDataType']='NSPrivacyCollectedDataType'+category

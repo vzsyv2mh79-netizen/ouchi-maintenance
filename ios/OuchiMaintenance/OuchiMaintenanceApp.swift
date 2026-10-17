@@ -57,12 +57,28 @@ import OuchiCore
         WindowGroup {
             Group {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ouchi-closure-review-preview") {
+            if ProcessInfo.processInfo.arguments.contains("--ouchi-closure-root-preview") {
+                ClosureRootNavigationPreview().environmentObject(remoteNotifications)
+                    .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
+            }
+            else if ProcessInfo.processInfo.arguments.contains("--ouchi-closure-custody-preview") {
+                ClosureReadCustodyPreview()
+                    .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
+            }
+            else if ProcessInfo.processInfo.arguments.contains("--ouchi-management-preview") {
+                HomeManagementPreview()
+                    .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
+            }
+            else if ProcessInfo.processInfo.arguments.contains("--ouchi-closure-review-preview") {
                 AccountClosureReviewPreview()
                     .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
             }
             else if ProcessInfo.processInfo.arguments.contains("--ouchi-saved-receipts-preview") {
                 SavedDeletionReceiptPreview()
+                    .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
+            }
+            else if ProcessInfo.processInfo.arguments.contains("--ouchi-retained-files-preview") {
+                RetainedAttachmentPreview()
                     .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--ouchi-large-text-preview") ? .accessibility5 : .large)
             }
             else if ProcessInfo.processInfo.arguments.contains("--ouchi-report-preview") { ReportPreviewView() }

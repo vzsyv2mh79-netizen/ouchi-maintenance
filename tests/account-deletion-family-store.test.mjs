@@ -5,7 +5,7 @@ import ts from 'typescript';
 const compile=p=>ts.transpileModule(readFileSync(p,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const request=uri(compile('lib/account-deletion-request.ts')),session=uri(compile('lib/verified-app-session.ts'));
-const {DeletionFamilyHandoffRequiredError}=await import(request);
+const {DeletionFamilyHandoffRequiredError,DeletionFamilyReviewRequiredError}=await import(request);
 const {deletionRequestDependencies}=await import(uri(compile('lib/account-deletion-request-store.ts').replace("'./account-deletion-request'",JSON.stringify(request)).replace("'./verified-app-session'",JSON.stringify(session))));
 
 test('store reports only exact trusted SQL family refusal; generic failures remain unconfirmed',async()=>{
@@ -17,5 +17,12 @@ test('store reports only exact trusted SQL family refusal; generic failures rema
   }};
   const deps=deletionRequestDependencies(admin,()=>{throw Error('No reauthentication in this store-boundary test');});
   await assert.rejects(deps.enqueue(identity),value=>typed?value instanceof DeletionFamilyHandoffRequiredError:!(value instanceof DeletionFamilyHandoffRequiredError));
+ }
+});
+
+test('only exact trusted SQL review refusal becomes a shared-member review error',async()=>{
+ for(const code of ['P0001','XX000']){
+  const deps=deletionRequestDependencies({rpc:async()=>({error:{code,message:'Family review required'},data:null})},()=>{});
+  await assert.rejects(deps.enqueue({userID:'user',sessionID:'session',epochID:'epoch'}),value=>code==='P0001'?value instanceof DeletionFamilyReviewRequiredError:!(value instanceof DeletionFamilyReviewRequiredError));
  }
 });

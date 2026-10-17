@@ -4,6 +4,27 @@ import XCTest
 @MainActor private final class DeletionFlowBindingBox { var flow: AccountDeletionFlow? }
 
 final class HouseholdAPITests: XCTestCase {
+    func testSharedMemberReviewRefusalRequiresExactSubmissionResponse() async throws {
+        let epoch = UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
+        let bodies = [
+            (#"{"error":"Family review required","code":"family_review_required"}"#, true),
+            (#"{"error":"unknown","code":"family_review_required"}"#, false),
+            (#"{"error":"Family review required","code":"family_review_required","state":"pending"}"#, false)
+        ]
+        for (body, exact) in bodies {
+            let api = AccountDeletionAPI { request in
+                (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 409, httpVersion: nil, headerFields: nil)!)
+            }
+            do { _ = try await api.request(password: "synthetic", token: "synthetic", expectedEpochID: epoch); XCTFail("Review refusal cannot accept deletion") }
+            catch {
+                if exact { XCTAssertEqual(error as? AccountDeletionError, .familyReviewRequired) }
+                else { XCTAssertEqual(error as? CloudError, .rejected(409)) }
+            }
+            do { _ = try await api.currentProgress(token: "synthetic"); XCTFail("GET refusal is not a deletion status") }
+            catch { XCTAssertEqual(error as? CloudError, .rejected(409)) }
+        }
+    }
+
     func testDeletionFamilyRefusalRequiresExactBodyAndSubmissionResponse() async throws {
         let epoch = UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
         let cases = [

@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import ts from 'typescript';import {readFileSync} from 'node:fs';
 const code=ts.transpileModule(readFileSync('lib/account-deletion-request.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const {handleAccountDeletionRequest:handle,DeletionFamilyHandoffRequiredError}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const {handleAccountDeletionRequest:handle,DeletionFamilyHandoffRequiredError,DeletionFamilyReviewRequiredError}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 test('wrong method and query refuse deletion before authentication or reauthentication',async()=>{
  let calls=0;const unused=async()=>{calls++;throw Error('must not call');};
  const deps={verify:unused,reauthenticate:unused,enqueue:unused};
@@ -71,5 +71,15 @@ test('family handoff refusal is reported only by a verified enqueue, without imp
   assert.equal(result.requestID,undefined);assert.equal(result.state,undefined);assert.equal(response.headers.get('cache-control'),'no-store');
   if(stage==='enqueue'){assert.equal(result.code,'family_handoff_required');assert.deepEqual(calls,['verify','reauthenticate','enqueue']);}
   else assert.equal(result.code,undefined);
+ }
+});
+
+test('shared-member review refusal is distinct, exact and never claims deletion accepted',async()=>{
+ const identity={userID:'11111111-1111-4111-8111-111111111111',sessionID:'22222222-2222-4222-8222-222222222222',email:'synthetic@example.invalid',epochID:'33333333-3333-4333-8333-333333333333'};
+ for(const typed of [false,true]){
+  const response=await handle(new Request('https://example.invalid/deletion',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({confirmation:'DELETE_OUCHI_ACCOUNT',expectedEpochID:identity.epochID,password:'synthetic'})}),{
+   verify:async()=>identity,reauthenticate:async()=>identity.userID,enqueue:async()=>{throw typed?new DeletionFamilyReviewRequiredError():Error('Family review required');}
+  });
+  assert.equal(response.status,typed?409:503);const result=await response.json();assert.equal(result.code,typed?'family_review_required':undefined);assert.equal(result.requestID,undefined);assert.equal(result.state,undefined);
  }
 });

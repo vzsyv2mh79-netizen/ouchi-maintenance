@@ -14,6 +14,7 @@ parser.add_argument('--sdk', required=True, help='Compatible macOS SDK path')
 parser.add_argument('--target', default=f'{platform.machine()}-apple-macosx15.0')
 parser.add_argument('--ios-build', action='store_true')
 parser.add_argument('--catalog', help='Optional JSON from export-web-catalog.mjs for full-catalog checks')
+parser.add_argument('--only-smoke', action='append', help='Run only named smoke stems; default remains every smoke')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 
@@ -31,10 +32,15 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
     # exercised by the separate device review app, not this executable loop.
     tests = sorted(test for test in (root / 'Tests').glob('*Smoke.swift')
                    if test.name != 'ManagedExportDeviceSmoke.swift')
+    if args.only_smoke:
+        selected = set(args.only_smoke)
+        assert selected.issubset({test.stem for test in tests}), 'Unknown selected smoke name'
+        tests = [test for test in tests if test.stem in selected]
     for test in tests:
         executable = build / test.stem
         sources = [test]
         if test.stem == 'AccountClosureReviewVaultRestartSmoke': sources.append(root / 'OuchiMaintenance' / 'AccountClosureReviewVault.swift')
+        if test.stem == 'HomeManagementVaultRestartSmoke': sources.append(root / 'OuchiMaintenance' / 'HomeManagementIntentVault.swift')
         if test.stem in ('SnapshotStorageSmoke', 'AccountDeletionLocalCleanupSmoke', 'HomeHandoffVaultRestartSmoke'): sources.append(root / 'OuchiMaintenance' / 'KeychainSessionStorage.swift')
         if test.stem in ('DeletionReceiptVaultSmoke', 'DeletionReceiptVaultRestartSmoke'): sources.append(root / 'OuchiMaintenance' / 'DeletionReadCredentialVault.swift')
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
@@ -43,14 +49,14 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
             sources.append(root / 'OuchiMaintenance' / 'NativeReviewFixture.swift')
             test_flags = ['-D', 'DEBUG']
         run(common + test_flags + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
-        if test.stem in ('DeletionReceiptVaultRestartSmoke', 'HomeHandoffVaultRestartSmoke', 'AccountClosureReviewVaultRestartSmoke'):
+        if test.stem in ('DeletionReceiptVaultRestartSmoke', 'HomeHandoffVaultRestartSmoke', 'AccountClosureReviewVaultRestartSmoke', 'HomeManagementVaultRestartSmoke'):
             marker = build / (test.stem + '-restart-marker.json')
             run([executable, 'save', marker])
             run([executable, 'restore', marker])
             assert not marker.exists()
         else:
             run([executable, args.catalog] if test.stem == 'LookupSmoke' and args.catalog else [executable])
-    typechecked = ['AccountClosureReviewVault.swift', 'DeletionReadCredentialVault.swift', 'KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
+    typechecked = ['HomeManagementIntentVault.swift', 'AccountClosureReviewVault.swift', 'DeletionReadCredentialVault.swift', 'KeychainSessionStorage.swift', 'PurchaseManager.swift', 'LocalReminders.swift', 'NativeReviewFixture.swift', 'NativeStore.swift']
     run(common + ['-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(common + ['-D', 'DEBUG', '-I', build, '-typecheck', *[root / 'OuchiMaintenance' / name for name in typechecked]])
     run(['swiftc', '-frontend', '-parse', *sorted((root / 'OuchiMaintenance').glob('*.swift'))])

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeletionRequestDependencies } from './account-deletion-request';
-import { DeletionFamilyHandoffRequiredError } from './account-deletion-request';
+import { DeletionFamilyHandoffRequiredError, DeletionFamilyReviewRequiredError } from './account-deletion-request';
 import { sessionAfterAuthVerification } from './verified-app-session';
 /** Supply bounded server/temporary Auth clients. No production route is enabled. */
 export function deletionRequestDependencies(admin: SupabaseClient, temporaryAuth: () => SupabaseClient): DeletionRequestDependencies {
@@ -27,6 +27,7 @@ export function deletionRequestDependencies(admin: SupabaseClient, temporaryAuth
   },
   enqueue: async identity => {
    const result = await admin.rpc('request_maintenance_account_deletion', {target_user: identity.userID, verified_session: identity.sessionID, target_epoch: identity.epochID});
+   if(result.error?.code==='P0001'&&result.error.message==='Family review required')throw new DeletionFamilyReviewRequiredError();
    if(result.error?.code==='P0001'&&result.error.message==='Family handoff required')throw new DeletionFamilyHandoffRequiredError();
    if (result.error || typeof result.data !== 'string') throw new Error('Deletion request not acknowledged');
    return result.data;

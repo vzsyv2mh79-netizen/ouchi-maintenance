@@ -37,3 +37,15 @@ test('writes preserve captured epoch, exact bytes/ID and explicit confirmation',
  for(const receipt of [{saved:false,attachmentId:id},{saved:true,attachmentId:account}])await withFetch(async()=>Response.json(receipt),async()=>assert.rejects(uploadAttachment(input,'synthetic',signal())));
  await withFetch(async()=>Response.json({removed:true,attachmentId:account}),async()=>assert.rejects(removeAttachment(id,epoch,true,'synthetic',signal())));
 });
+test('retained household pages use an explicit read namespace and reject personal or mislabeled results',async()=>{
+ const item={id,size:8,mime:'image/png',createdAt:'2026-10-11T07:00:00Z',scope:'household'};
+ await withFetch(async(url,options)=>{const q=new URL(url,'https://example.invalid').searchParams;assert.equal(q.get('scope'),'household');assert.equal(q.get('productId'),id);assert.equal(options.method,'GET');return Response.json({items:[item],next:null});},async()=>assert.deepEqual(await attachmentPage(id,null,'synthetic',signal(),'household'),{items:[item],next:null}));
+ const personal={...item};delete personal.scope;
+ for(const wrong of [personal,{...item,scope:'personal'},{...item,objectPath:'foreign/private'}])await withFetch(async()=>Response.json({items:[wrong],next:null}),async()=>assert.rejects(attachmentPage(id,null,'synthetic',signal(),'household')));
+ await withFetch(async()=>Response.json({items:[item],next:null}),async()=>assert.rejects(attachmentPage(id,null,'synthetic',signal())));
+});
+test('household download never falls back to personal path or a write request',async()=>{
+ const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
+ await withFetch(async(url,options)=>{assert.equal(new URL(url,'https://example.invalid').searchParams.get('scope'),'household');assert.equal(options.method,'GET');return new Response(bytes,{headers:{'content-type':'image/png','content-disposition':`attachment; filename="ouchi-attachment-${id}.png"`}});},async()=>assert.equal((await downloadAttachment(id,'synthetic',signal(),'household')).blob.size,8));
+ await withFetch(async()=>assert.fail('Invalid namespace must stop before network'),async()=>{await assert.rejects(attachmentPage(id,null,'synthetic',signal(),'foreign'));await assert.rejects(downloadAttachment(id,'synthetic',signal(),'foreign'));});
+});

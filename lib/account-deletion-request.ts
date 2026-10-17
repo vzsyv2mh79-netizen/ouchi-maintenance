@@ -2,6 +2,7 @@
 type Identity={userID:string;sessionID:string;email:string;epochID:string};
 /** Only the trusted enqueue adapter may report this verified refusal. */
 export class DeletionFamilyHandoffRequiredError extends Error {}
+export class DeletionFamilyReviewRequiredError extends Error {}
 export type DeletionRequestDependencies={
  verify:(bearer:string)=>Promise<Identity|null>;
  /** Must clean up the temporary reauthentication session before resolving. */
@@ -50,6 +51,7 @@ export async function handleAccountDeletionRequest(request:Request,deps:Deletion
   if(!uuid(requestID))throw Error('Missing durable acknowledgement');
   return reply({state:'pending',requestID,epochID:fixed.epochID},202);
  }catch(error){
+  if(enqueueAttempted&&!request.signal.aborted&&error instanceof DeletionFamilyReviewRequiredError)return reply({error:'Family review required',code:'family_review_required'},409);
   if(enqueueAttempted&&!request.signal.aborted&&error instanceof DeletionFamilyHandoffRequiredError)return reply({error:'Family handoff required',code:'family_handoff_required'},409);
   return reply({error:'Deletion request not confirmed. Check status before retrying.'},503);
  }

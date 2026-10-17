@@ -16,7 +16,7 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['closure-review', 'keyboard-toolbar-probe', 'failed-reread'], default='closure-review')
+parser.add_argument('--test', choices=['retained-files', 'same-number-retry', 'closure-review', 'keyboard-toolbar-probe', 'failed-reread', 'home-management', 'closure-progress', 'closure-custody', 'closure-local-cleanup', 'closure-root', 'closure-root-interruption'], default='closure-review')
 parser.add_argument('--omit-input-accessory', '--omit-keyboard-toolbar', dest='omit_keyboard_toolbar', action='store_true', help='Diagnostic temporary copy only; requires keyboard-toolbar-probe')
 args = parser.parse_args()
 if args.omit_keyboard_toolbar and args.test != 'keyboard-toolbar-probe':
@@ -46,6 +46,26 @@ if args.test == 'keyboard-toolbar-probe':
     manifest['scope'] = ['Diagnostic read/cancel and scroll to password section only; no full request/keyboard-flow completion claim']
 if args.test == 'failed-reread':
     manifest['scope'] = ['Confirmed receipt then rejected cached reply clears visible status/cancel action, displays uncertainty and retains selected reference/count2; synthetic preview only']
+if args.test == 'closure-root-interruption':
+    manifest['scope'] = ['Full NativeRoot flow with actual SessionController Auth Keychain erasure, then bounded guarded DEBUG pause before real AppAttest pending marker finalization. XCTest terminates the process. Restart refuses implicit reseeding and requires absent protected Auth, matching pending marker/deadline, original protected capability hashes and removed owned pending files. Logged-out saved-reference flow freshly confirms canonical completion and retries actual cleanup/recovery. Preserves full family filtering/local-only logout/original-key and foreign-file checks. Synthetic network only.']
+if args.test == 'closure-root':
+    manifest['scope'] = ['Full NativeRoot sign-in/settings/saved references. Real SessionController and protected Keychain; injected synthetic Auth password protocol, retired owner enrollment denial, capability-only status, explicit local cleanup switches to real sign-in hierarchy, restart without reseeding, family account filtering/running result and local-only remote sign-out. Original owner and family capability hashes plus foreign export retained. No live network, customer erasure or billing.']
+if args.test == 'closure-local-cleanup':
+    manifest['scope'] = ['Actual native cleanup with synthetic protected Auth Keychain, owned snapshot/upload/removal/export and AppAttest closure marker; foreign export and original protected read capability retained; restart proves no reseeding and capability-only status. Synthetic backend only; no customer data or remote deletion.']
+if args.test == 'closure-custody':
+    manifest['scope'] = ['Actual protected iOS Keychain custody before synthetic registration with lost acknowledgement; process restart proves original key against synthetic durable server hash, read-only recovery, unavailable reread retains key and clears old confirmation/status. No actual local erasure.']
+if args.test == 'closure-progress':
+    manifest['scope'] = ['Synthetic real-job states pending/running/failed/complete then unavailable; mutations remain hidden and protected submission count stays2. No receipt-registration or local erasure claim.']
+if args.test == 'home-management':
+    manifest['scope'] = ['Prepared member screen: explicit claim, simulated lost COMMIT acknowledgement, same protected Keychain request after app restart, read-only result reconciliation and explicit local-reference cleanup; synthetic backend only']
+    manifest['notVerified'].extend(['Live settings/enrollment HTTP composition', 'real server commit or Auth policy', 'ownerless retirement and file custody'])
+manifest['selectedTest'] = args.test
+manifest['testHarnessDigest'] = hashlib.sha256(pathlib.Path(__file__).read_bytes() + b'\0' + (root / 'UITests/AccountClosureReviewInteractionTests.swift').read_bytes()).hexdigest()
+if args.test == 'same-number-retry':
+    manifest['scope'] = ['actual protected original reference selected after exact synthetic missing progress/review', 'same-number retry password/keyboard/consent/confirmation controls', 'accepted response preserves selected original ID and protected reference count; no real Auth/network']
+if args.test == 'retained-files':
+    manifest['scope'] = ['Exact shipping retained-family section in isolated Form; reload, PDF/photo action and pagination reachability; no destructive control']
+    manifest['notVerified'] = ['Parent product form state, live Auth/Storage/download or ShareLink, physical device, billing, signing']
 device = None
 
 def run(*command, **kwargs):
@@ -149,7 +169,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', '600',
                 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-',
-                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission'}[args.test],
+                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'retained-files':'testRetainedFamilyFilesReachableWithoutDeletionControls', 'same-number-retry':'testMissingIntakeExplicitlyRetriesOriginalProtectedNumber', 'closure-root-interruption':'testRealRootRecoversAfterProcessTerminationBetweenAuthErasureAndMarkerFinalization', 'closure-root':'testRealRootRetiredOwnerCleanupLoginRecoveryAndFamilyAccountFiltering', 'closure-local-cleanup':'testScopedLocalCleanupErasesOwnedFilesAndAuthButKeepsCapabilityAfterRestart', 'closure-custody':'testProtectedCustodySurvivesLostReplyAndRestartWithoutRotation', 'closure-progress':'testRealJobProgressHidesMutationsAndKeepsUncertainReference', 'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission', 'home-management':'testManagementUnknownCommitRestartsWithSameProtectedReference'}[args.test],
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

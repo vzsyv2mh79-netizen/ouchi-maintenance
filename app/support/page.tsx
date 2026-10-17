@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import information from '@/ios/Docs/ReleasePreparation/legal-drafts-ja.json';
+
+// Confirmed public support details; independent of unpublished release drafts.
+const information = {operator: '滝浪イチロー', contact: 'soccer16black@gmail.com'};
 
 export const metadata: Metadata = {
   title: '使い方・問い合わせ | おうちメンテ',
@@ -11,7 +12,6 @@ const section = { padding: '1.25rem 0', borderBottom: '1px solid var(--line)' };
 const paragraph = { lineHeight: 1.9, overflowWrap: 'anywhere' as const };
 
 export default function SupportPage() {
-  if (!information.operator || !information.contact) notFound();
   return <main style={{ maxWidth: 760, margin: '0 auto', padding: '1.5rem 1.25rem 5rem', color: 'var(--ink)', fontSize: '1rem' }}>
     <p><Link href="/">おうちメンテに戻る</Link></p>
     <h1 style={{ fontSize: 'clamp(1.65rem, 5vw, 2.25rem)', lineHeight: 1.5 }}>使い方・問い合わせ</h1>
@@ -29,7 +29,7 @@ export default function SupportPage() {
       <p style={paragraph}>設定から記録を書き出せます。保存したファイルは利用者自身で管理してください。ほかのアプリで読み込めるかどうかは、そのアプリの対応形式によって異なります。</p>
     </section>
     <section style={section} aria-labelledby="purchases">
-      <h2 id="purchases">Appleで購入した定期購入</h2>
+      <h2 id="purchases">Appleの定期購入を確認するとき</h2>
       <p style={paragraph}>Appleで購入した定期購入の確認・解約は、<a href="https://apps.apple.com/account/subscriptions">Appleのサブスクリプション管理画面</a>で行えます。アプリの削除や退会だけでは、定期購入は解約されません。</p>
     </section>
     <section style={section} aria-labelledby="contact">

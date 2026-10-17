@@ -76,6 +76,7 @@ async function transaction(key:string,mode:IDBTransactionMode,change:(value:unkn
 }
 type Fence={revision:number;blocked:boolean};
 const fenceKey=(account:string)=>`@account/${account}`;
+const retiredScopeKey=(key:string)=>`@retired/${key.replace(/\/removal$/,'')}`;
 function fence(value:unknown):Fence{
  if(value===undefined)return {revision:0,blocked:false};
  const current=value as Fence;if(!Number.isSafeInteger(current.revision)||current.revision<0||current.revision>=Number.MAX_SAFE_INTEGER||typeof current.blocked!=='boolean')throw Error('端末の登録状態を確認できません。');
@@ -94,7 +95,7 @@ async function resetAllAccounts(){
   const abort=(reason:unknown)=>{error=reason;tx.abort();};
   cursor.onsuccess=()=>{try{
    const row=cursor.result;
-   if(row){const key=String(row.key),account=key.startsWith('@account/')?key.slice(9):key.split('/')[0];if(valid(account)){accounts.add(account.toLowerCase());if(!key.startsWith('@account/'))row.delete();}else row.delete();row.continue();return;}
+   if(row){const key=String(row.key);if(key.startsWith('@retired/')){row.continue();return;}const account=key.startsWith('@account/')?key.slice(9):key.split('/')[0];if(valid(account)){accounts.add(account.toLowerCase());if(!key.startsWith('@account/'))row.delete();}else row.delete();row.continue();return;}
    for(const account of accounts){const request=store.get(fenceKey(account));request.onsuccess=()=>{try{const current=fence(request.result);store.put({revision:current.revision+1,blocked:true},fenceKey(account));}catch(reason){abort(reason);}};}
   }catch(reason){abort(reason);}};
   tx.oncomplete=()=>resolve();tx.onabort=()=>reject(error??Error('端末の確認待ちファイルを消去できません。'));tx.onerror=()=>{error??=Error('端末の確認待ちファイルを消去できません。');};
@@ -102,11 +103,11 @@ async function resetAllAccounts(){
 }
 const browserPendingAttachmentDriver:PendingAttachmentDriver={
  read:key=>transaction(key,'readonly',value=>value),
- revision:async key=>{const current=fence(await transaction(fenceKey(key.split('/')[0]),'readonly',value=>value));if(current.blocked)throw Error('ログインし直してから保存してください。');return current.revision;},
+ revision:async key=>{if(await transaction(retiredScopeKey(key),'readonly',value=>value)!==undefined)throw Error('この登録の端末保存は終了しています。');const current=fence(await transaction(fenceKey(key.split('/')[0]),'readonly',value=>value));if(current.blocked)throw Error('ログインし直してから保存してください。');return current.revision;},
  stage:async(key,item,revision)=>{
   const db=await database();try{return await new Promise<unknown>((resolve,reject)=>{
-   const tx=db.transaction('uploads','readwrite'),store=tx.objectStore('uploads'),permission=store.get(fenceKey(item.account));let result:unknown,error:unknown;
-   permission.onsuccess=()=>{try{const current=fence(permission.result);if(current.blocked||current.revision!==revision)throw Error('ログイン状態が変わったため端末への保存を止めました。');const request=store.get(key);request.onsuccess=()=>{result=request.result;if(result===undefined){store.add(item,key);result=item;}};}catch(reason){error=reason;tx.abort();}};
+   const tx=db.transaction('uploads','readwrite'),store=tx.objectStore('uploads'),permission=store.get(fenceKey(item.account)),retired=store.get(retiredScopeKey(key));let result:unknown,error:unknown;
+   retired.onsuccess=()=>{try{const current=fence(permission.result);if(retired.result!==undefined||current.blocked||current.revision!==revision)throw Error('ログイン状態が変わったため端末への保存を止めました。');const request=store.get(key);request.onsuccess=()=>{result=request.result;if(result===undefined){store.add(item,key);result=item;}};}catch(reason){error=reason;tx.abort();}};
    tx.oncomplete=()=>resolve(result);tx.onabort=()=>reject(error??Error('端末への保存を確認できません。'));tx.onerror=()=>{error??=Error('端末への保存を確認できません。');};
   });}finally{db.close();}
  },
@@ -115,3 +116,40 @@ const browserPendingAttachmentDriver:PendingAttachmentDriver={
 };
 export const browserPendingAttachments=pendingAttachmentStore(browserPendingAttachmentDriver);
 export const browserPendingAttachmentRemovals=pendingAttachmentRemovalStore(browserPendingAttachmentDriver);
+
+/** Only the exact retired account/epoch's pending bytes/removal reference.
+ * Retained read capabilities, other epochs/accounts, anonymous records and Auth
+ * storage are separate. The irreversible fence prevents a suspended old writer
+ * from restoring bytes even if a later login resumes that account's new epoch.
+ * Caller must freshly verify canonical completion before entering this adapter.
+ */
+export async function retireBrowserPendingAttachmentScope(account:string,epoch:string,signal:AbortSignal,expiresAt:string){
+ const key=scope(account,epoch),retiredKey=retiredScopeKey(key);
+ const check=()=>{signal.throwIfAborted();if(!Number.isFinite(Date.parse(expiresAt))||Date.parse(expiresAt)<=Date.now())throw Error('確認期限を過ぎています。');};
+ check();const db=await database();
+ try{
+  check();await new Promise<void>((resolve,reject)=>{
+   const tx=db.transaction('uploads','readwrite',{durability:'strict'}),store=tx.objectStore('uploads');let error:unknown;
+   const stop=()=>{error??=signal.reason??Error('端末の消去を中断しました。');try{tx.abort();}catch{}};
+   const timer=setTimeout(()=>{error=Error('端末の消去を確認できません。');stop();},5000);signal.addEventListener('abort',stop,{once:true});
+   const finish=()=>{clearTimeout(timer);signal.removeEventListener('abort',stop);};
+   tx.oncomplete=()=>{finish();resolve();};tx.onabort=()=>{finish();reject(error??Error('端末の消去を確認できません。'));};
+   tx.onerror=()=>{error??=Error('端末の消去を確認できません。');};
+   const marker=store.get(retiredKey);
+   marker.onsuccess=()=>{try{
+    check();
+    if(marker.result!==undefined&&JSON.stringify(marker.result)!==JSON.stringify({version:1,account:account.toLowerCase(),epoch:epoch.toLowerCase(),retired:true}))throw Error('別の登録の情報は消去できません。');
+    store.put({version:1,account:account.toLowerCase(),epoch:epoch.toLowerCase(),retired:true},retiredKey);
+    for(const target of [key,key+'/removal']){
+     const read=store.get(target);read.onsuccess=()=>{try{check();const row=read.result as PendingWebAttachment|PendingWebAttachmentRemoval|undefined;if(row!==undefined&&(row.account!==account.toLowerCase()||row.epoch!==epoch.toLowerCase()))throw Error('別の登録の情報は消去できません。');store.delete(target);}catch(reason){error=reason;stop();}};
+    }
+   }catch(reason){error=reason;stop();}};
+  });
+  check();
+  await new Promise<void>((resolve,reject)=>{
+   const tx=db.transaction('uploads','readonly'),store=tx.objectStore('uploads'),a=store.get(key),b=store.get(key+'/removal'),m=store.get(retiredKey);
+   tx.oncomplete=()=>{try{check();if(a.result!==undefined||b.result!==undefined||m.result?.retired!==true)throw Error('端末の消去を確認できません。');resolve();}catch(error){reject(error);}};
+   tx.onabort=()=>reject(Error('端末の消去を確認できません。'));
+  });
+ }finally{db.close();}
+}

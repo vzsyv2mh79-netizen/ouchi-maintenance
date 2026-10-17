@@ -1,6 +1,7 @@
 /** Deletion orchestration only. No production adapter or scheduler is enabled. */
 export type DeletionScope={requestID:string;userID:string;epochID:string;leaseToken:string};
 export type DeletionDependencies={
+ prepareReviewedAttachments?:(scope:DeletionScope)=>Promise<boolean>;
  completionAlreadyConfirmed?:(scope:DeletionScope)=>Promise<boolean>;
  identityAlreadyErased?:(scope:DeletionScope)=>Promise<boolean>;
  leaseCurrent:(scope:DeletionScope)=>Promise<boolean>;
@@ -22,7 +23,7 @@ export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDepend
  // Validate the complete adapter before the first irreversible stage.
  // Missing finalization must not start a partially configured deletion.
  const required = ['leaseCurrent', 'revokeAndCaptureInventory', 'eraseDeviceRegistrations', 'eraseAttachments', 'eraseRecords', 'finalizeIdentityAndRetention', 'markComplete'] as const;
- if (!deps || required.some(name => typeof deps[name] !== 'function')) return {state:'pending' as const};
+ if (!deps || required.some(name => typeof deps[name] !== 'function') || (deps.prepareReviewedAttachments!==undefined&&typeof deps.prepareReviewedAttachments!=='function')) return {state:'pending' as const};
  const fixed=Object.freeze({...scope});
  // Completion commits clear the execution lease. A lost acknowledgement must
  // recover from the exact completed receipt, rather than require a live lease
@@ -34,6 +35,13 @@ export async function runAccountDeletion(scope:DeletionScope,deps:DeletionDepend
    if(signal?.aborted||typeof complete!=='boolean')return {state:'pending' as const};
    if(complete)return {state:'complete' as const};
   }catch{return {state:'pending' as const};}
+ }
+ // The private prelude has its own exact reviewed-job lease. The ordinary
+ // lease intentionally stays false while a verified family copy is pending.
+ // Validate all tail adapters above BEFORE allowing this irreversible stage.
+ if(deps.prepareReviewedAttachments){
+  try{if(signal?.aborted||await deps.prepareReviewedAttachments(fixed)!==true||signal?.aborted)return {state:'pending' as const};}
+  catch{return {state:'pending' as const};}
  }
  // A durable, scope-bound identity checkpoint allows restart after a committed
  // identity erasure whose acknowledgement was lost. It never proves retention

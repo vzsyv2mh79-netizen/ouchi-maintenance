@@ -36,7 +36,7 @@ test('stored adapter rejects missing finalization before database access',()=>{
 test('record cleanup requires acknowledged recovery-job erasure and preserves request scope',async()=>{
  const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>true};
- const steps=['erase_maintenance_deletion_closure_metadata','erase_maintenance_deletion_records','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule','erase_maintenance_deletion_notifications','capture_maintenance_deletion_receipt_sessions','erase_maintenance_deletion_enrollment_consents','erase_maintenance_deletion_prior_preferences','erase_maintenance_deletion_restore_jobs','erase_maintenance_deletion_restore_proofs','minimize_maintenance_deletion_object_inventory','erase_maintenance_deletion_purchase_ledger'];
+ const steps=['erase_maintenance_deletion_records','erase_reviewed_retirement_metadata','erase_maintenance_deletion_reconciliation','erase_maintenance_deletion_reminder_schedule','erase_maintenance_deletion_notifications','capture_maintenance_deletion_receipt_sessions','erase_maintenance_deletion_enrollment_consents','erase_maintenance_deletion_prior_preferences','erase_maintenance_deletion_restore_jobs','erase_maintenance_deletion_restore_proofs','minimize_maintenance_deletion_object_inventory','erase_maintenance_deletion_management_claims','erase_maintenance_deletion_purchase_ledger','erase_maintenance_deletion_closure_metadata'];
  for(const failed of [null,...steps]){
   const calls=[];const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name!==failed,error:null};}};
   assert.equal(await storedDeletionDependencies(db,tail).eraseRecords(scope),failed===null);
@@ -50,7 +50,7 @@ test('cancellation after record acknowledgement prevents recovery cleanup',async
  const db={rpc:async(name)=>{calls.push(name);controller.abort();return {data:true,error:null};}};
  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>true};
  assert.equal(await storedDeletionDependencies(db,tail,controller.signal).eraseRecords({requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'}),false);
- assert.deepEqual(calls,['erase_maintenance_deletion_closure_metadata']);
+ assert.deepEqual(calls,['erase_maintenance_deletion_records']);
 });
 
 test('device erasure requires daily identity acknowledgement before native finalization',async()=>{
@@ -66,12 +66,24 @@ test('resumed completion refuses missing, false or malformed closure-metadata ac
  for(const response of [{data:false},{data:null},{data:'true'},{error:{message:'unavailable'},data:true},{data:true}]){
   let completed=0;const calls=[];
   const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async current=>{assert.deepEqual(current,scope);completed++;return true;}};
-  const deps=storedDeletionDependencies({rpc:async(name,args)=>{calls.push(name);assert.deepEqual(args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});return response;}},tail);
+  const deps=storedDeletionDependencies({rpc:async(name,args)=>{calls.push(name);assert.deepEqual(args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});return name==='erase_maintenance_deletion_closure_metadata'?response:{data:true};}},tail);
   if(response.error||typeof response.data!=='boolean')await assert.rejects(()=>deps.markComplete(scope),/Closure metadata erasure unavailable/);
   else assert.equal(await deps.markComplete(scope),response.data);
-  assert.equal(completed,response.data===true&&!response.error?1:0);assert.deepEqual(calls,['erase_maintenance_deletion_closure_metadata']);
+  assert.equal(completed,response.data===true&&!response.error?1:0);assert.deepEqual(calls,response.data===true&&!response.error?['erase_reviewed_retirement_metadata','erase_maintenance_deletion_closure_metadata','erase_maintenance_deletion_management_claims']:['erase_reviewed_retirement_metadata','erase_maintenance_deletion_closure_metadata']);
  }
  const controller=new AbortController();let completed=0;
  const deps=storedDeletionDependencies({rpc:async()=>{controller.abort();return {data:true};}},{eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{completed++;return true;}},controller.signal);
  assert.equal(await deps.markComplete(scope),false);assert.equal(completed,0);
+});
+
+test('resumed completion requires acknowledged management metadata cleanup after closure cleanup',async()=>{
+ const scope={requestID:'request',userID:'user',epochID:'epoch',leaseToken:'lease'};
+ for(const response of [{data:false},{data:null},{data:'true'},{data:true,error:{message:'failed'}},{data:true}]){
+  let completed=0;const calls=[];
+  const tail={eraseNativeDevices:async()=>true,finalizeIdentityAndRetention:async()=>true,markComplete:async()=>{completed++;return true;}};
+  const db={rpc:async(name,args)=>{calls.push(name);assert.deepEqual(args,{target_request:'request',target_user:'user',target_epoch:'epoch',target_lease:'lease'});return name==='erase_maintenance_deletion_management_claims'?response:{data:true};}};
+  const result=storedDeletionDependencies(db,tail).markComplete(scope);
+  if(response.error||typeof response.data!=='boolean')await assert.rejects(result,/Deletion (stage|checkpoint) unavailable/);else assert.equal(await result,response.data);
+  assert.equal(completed,response.data===true&&!response.error?1:0);assert.deepEqual(calls,['erase_reviewed_retirement_metadata','erase_maintenance_deletion_closure_metadata','erase_maintenance_deletion_management_claims']);
+ }
 });

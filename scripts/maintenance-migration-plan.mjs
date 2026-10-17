@@ -12,10 +12,27 @@ export function maintenanceMigrationCatalog(){
   if(!match||!lstatSync(path).isFile())throw Error('Canonical regular migration file required');
   return ['supabase/migrations/'+name,{file:'supabase/migrations/'+name,version:match[1],name:match[2],source_sha256:createHash('sha256').update(readFileSync(path)).digest('hex')}];
  }));
- const line=readFileSync(resolve(root,'.github/workflows/family-storage-integration.yml'),'utf8').split('\n').find(value=>value.trim().startsWith('for file in '));
- const ordered=line?.match(/supabase\/migrations\/[a-z0-9_]+\.sql/g)??[];
- if(ordered.length!==catalog.size||new Set(ordered).size!==catalog.size||ordered.some(file=>!catalog.has(file)))throw Error('Complete tested migration order required');
- return ordered.map(file=>catalog.get(file));
+ const manifest=JSON.parse(readFileSync(resolve(root,'supabase/maintenance-migration-order.json'),'utf8'));
+ return orderPinnedMaintenanceMigrations([...catalog.values()],manifest);
+}
+/** Explicit source pins are independent of partial integration fixture setup.
+ * The regular Node test suite applies this complete order in a disposable DB.
+ * A new/missing/changed source refuses planning until its pin is reviewed.
+ */
+export function orderPinnedMaintenanceMigrations(catalog,manifest){
+ if(!Array.isArray(catalog)||!manifest||Object.keys(manifest).sort().join(',')!=='files,format'
+  ||manifest.format!=='ouchi-pinned-migration-order/v1'||!Array.isArray(manifest.files))throw Error('Pinned canonical migration order required');
+ const local=new Map(catalog.map(row=>[row.file,row]));
+ if(local.size!==catalog.length||manifest.files.length!==catalog.length)throw Error('Complete pinned migration order required');
+ const seen=new Set();
+ return manifest.files.map(pin=>{
+  if(!pin||Object.keys(pin).sort().join(',')!=='file,source_sha256'||typeof pin.file!=='string'
+   ||!/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(pin.file)||seen.has(pin.file)
+   ||typeof pin.source_sha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.source_sha256))throw Error('Unambiguous pinned migration source required');
+  const row=local.get(pin.file);
+  if(!row||row.source_sha256!==pin.source_sha256)throw Error('Pinned migration source mismatch');
+  seen.add(pin.file);return Object.freeze({...row});
+ });
 }
 export function maintenanceMigrationPlan(history){
  const result=reconcileMaintenanceMigrationHistory(maintenanceMigrationCatalog(),history);

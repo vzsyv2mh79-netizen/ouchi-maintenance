@@ -5,7 +5,7 @@ import {owner,recipient,other,home,product,request,os,rs,oe,re} from './home-han
 
 // Reuse the actual CI schema order, rather than substitute simplified homes,
 // membership, attachment or retirement tables. Auth rows remain synthetic.
-export async function seedHomeHandoffFullSchemaFixture(){
+export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true}={}){
  const db=new PGlite();
  await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());');
  const line=readFileSync('.github/workflows/billing-identity-migration.yml','utf8').split('\n').find(value=>value.trim().startsWith('for file in '));
@@ -19,7 +19,7 @@ export async function seedHomeHandoffFullSchemaFixture(){
  await db.query('insert into maintenance_private.app_epochs values($1,$2,true),($3,$4,true)',[owner,oe,recipient,re]);
  await db.query('insert into maintenance_private.account_access values($1,true),($2,true)',[owner,recipient]);
  await db.query('insert into maintenance_private.app_session_epochs values($1,$2,$3),($4,$5,$6)',[os,owner,oe,rs,recipient,re]);
- await db.exec('update maintenance_private.enrollment_policy set require_explicit=true;update maintenance_private.home_handoff_policy set enabled=true');
+ await db.query('update maintenance_private.enrollment_policy set require_explicit=$1',[explicitEnrollment]);await db.exec('update maintenance_private.home_handoff_policy set enabled=true');
  await db.query('insert into public.homes(id,owner_id) values($1,$2)',[home,owner]);
  await db.query('insert into public.home_members("homeId",user_id,nickname) values($1,$2,$3)',[home,recipient,'Synthetic member']);
  await db.query('insert into public.products(id,"homeId","categoryId",name) values($1,$2,$3,$4)',[product,home,'air','Synthetic product']);

@@ -54,7 +54,7 @@
 	<key>OUCHI_PRIVACY_URL</key>
 	<string></string>
 	<key>OUCHI_SUPPORT_URL</key>
-	<string></string>
+	<string>https://ouchi-maintenance.vercel.app/support</string>
 	<key>OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED</key>
 	<false/>
 	<key>OUCHI_SUBSCRIPTION_OFFER_REVIEWED</key>
@@ -68,6 +68,14 @@
 	<key>OUCHI_ATTACHMENT_RETENTION_DESCRIPTION</key>
 	<string></string>
 	<key>OUCHI_RELEASE_PURCHASE_RECOVERY_ENABLED</key>
+	<false/>
+	<key>OUCHI_HOME_MANAGEMENT_ENABLED</key>
+	<false/>
+	<key>OUCHI_CLOSURE_LOCAL_CLEANUP_ENABLED</key>
+	<false/>
+	<key>OUCHI_CLOSURE_READ_CUSTODY_ENABLED</key>
+	<false/>
+	<key>OUCHI_CLOSURE_PROGRESS_ENABLED</key>
 	<false/>
 	<key>OUCHI_CLOSURE_REVIEW_ENABLED</key>
 	<false/>
