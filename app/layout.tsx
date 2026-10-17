@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "住まいと家電のお手入れを、ひとつに。",
   applicationName: "おうちメンテ",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icons/black-v4/192", apple: "/icons/black-v4/192" },
+  icons: { icon: "/icons/ivory-v1/icon-192.png", apple: "/icons/ivory-v1/icon-180.png" },
   appleWebApp: { capable: true, title: "おうちメンテ", statusBarStyle: "default" },
 };
 

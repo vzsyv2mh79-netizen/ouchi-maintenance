@@ -1,4 +1,6 @@
 "use client";
+
+import { AppMark } from "@/components/app-mark";
 import { ThemeControls, ThemeToggle } from "./theme-provider";
 import { PushControls } from "./push-controls";
 
@@ -213,7 +215,7 @@ export function MaintenanceApp() {
 function Topbar({ data, homeId, onSwitch }: { data: AppData; homeId: string; onSwitch: (id: string) => void }) {
   return <header className="topbar"><div className="mobile-brand"><Logo />おうちメンテ</div><label className="home-switch"><House size={16} /><select aria-label="表示する住まい" value={homeId} onChange={(e) => onSwitch(e.target.value)}>{data.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></label><ThemeToggle /></header>;
 }
-function Logo() { return <span className="logo-mark"><House size={17} strokeWidth={2.3} /></span>; }
+function Logo() { return <span className="logo-mark"><AppMark /></span>; }
 function Sidebar({ active, onChange, cloud }: { cloud: boolean; active: Tab; onChange: (tab: Tab) => void }) {
   return <aside className="sidebar"><div className="brand"><Logo /><span>おうちメンテ</span></div><nav>{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={active === id ? "active" : ""} onClick={() => onChange(id)}><Icon size={20} /><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div><strong>{cloud ? "クラウドに保存中" : "この端末に保存中"}</strong></div></div></aside>;
 }
