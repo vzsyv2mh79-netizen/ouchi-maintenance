@@ -2,6 +2,42 @@
 """Read-only checks for an already built app; never uploads or enables features."""
 import argparse,datetime,json,pathlib,plistlib,re,subprocess,urllib.parse
 
+def encryption_dependency_checks(app, runner=subprocess.run):
+    """Guard the reviewed OS-only dependency boundary, not legal classification.
+
+    Static/custom algorithm implementations still require source review. Never
+    infer exemption merely from absence of a third-party dynamic library.
+    """
+    errors=[]; executables=0
+    if app.is_symlink() or not app.is_dir():return ['App bundle must be a real directory']
+    magic={b'\xfe\xed\xfa\xce',b'\xce\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xcf\xfa\xed\xfe',
+           b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca',b'\xca\xfe\xba\xbf',b'\xbf\xba\xfe\xca'}
+    try:
+        for path in app.rglob('*'):
+            if path.is_symlink():
+                errors.append('Unreviewed symlink in app bundle');continue
+            if not path.is_file():continue
+            with path.open('rb') as stream:header=stream.read(8)
+            if header==b'!<arch>\n':
+                errors.append('Unreviewed static archive in app bundle');continue
+            if header[:4] not in magic:continue
+            executables+=1
+            result=runner(['/usr/bin/otool','-L',str(path)],capture_output=True,text=True,timeout=30)
+            if result.returncode:
+                errors.append('Could not inspect bundled Mach-O dependencies');continue
+            dependencies=[line.strip().split(' (compatibility version ',1)[0]
+                          for line in result.stdout.splitlines() if line.startswith('\t')]
+            if not dependencies:
+                errors.append('No inspectable Mach-O dependencies');continue
+            for dependency in dependencies:
+                if (not dependency.startswith(('/System/Library/Frameworks/','/usr/lib/'))
+                    or '..' in pathlib.PurePosixPath(dependency).parts):
+                    errors.append('Bundled dependency requires renewed encryption review')
+        if not executables:errors.append('No Mach-O executable found for encryption dependency review')
+    except (OSError,subprocess.SubprocessError):
+        errors.append('Encryption dependency inspection failed')
+    return errors
+
 def configuration_checks(info,stage):
     errors=[]
     key=info.get('SUPABASE_PUBLISHABLE_KEY','')
@@ -16,6 +52,8 @@ def configuration_checks(info,stage):
     if sample is not False and sample not in ('','NO','false','0'):
         errors.append('Sample-data review app cannot be submitted')
     if stage=='submission':
+        if info.get('ITSAppUsesNonExemptEncryption') is not False:
+            errors.append('Reviewed Apple OS-only encryption declaration must be a resolved false boolean')
         for name in ('OUCHI_TERMS_URL','OUCHI_PRIVACY_URL','OUCHI_SUPPORT_URL'):
             address=urllib.parse.urlparse(str(info.get(name,'')))
             if address.scheme!='https' or not address.netloc or address.username or address.password or address.hostname in ('localhost','example.invalid') or str(address.hostname).endswith(('.invalid','.test','.localhost')):
@@ -126,6 +164,8 @@ def main():
     except (OSError,plistlib.InvalidFileException):manifest=None
     errors.extend(privacy_checks(manifest))
     errors.extend(collection_privacy_checks(manifest,info))
+    encryption_errors=encryption_dependency_checks(args.app) if info.get('ITSAppUsesNonExemptEncryption') is False else None
+    if encryption_errors is not None:errors.extend(encryption_errors)
     for name,expected in [('CFBundleIdentifier',args.bundle_id),('CFBundleShortVersionString',args.version)]:
         if info.get(name)!=expected:errors.append(name+' differs from the registered app')
     signed=subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],capture_output=True)
@@ -138,7 +178,7 @@ def main():
         errors.extend(profile_checks(profile,args.team,args.bundle_id,args.stage))
     # Neither client key contents, device identifiers nor certificate contents
     # are logged. Passing distribution checks is not App Review acceptance.
-    print(json.dumps({'stage':args.stage,'verified':not errors,'bundleId':info.get('CFBundleIdentifier'),'version':info.get('CFBundleShortVersionString'),'build':info.get('CFBundleVersion'),'signatureVerified':signed.returncode==0,'profileDecoded':decoded.returncode==0,'errors':errors,'uploaded':False,'limits':'Does not prove device behavior, purchase lifecycle, privacy answers, server readiness or App Review acceptance'},ensure_ascii=False,indent=2))
+    print(json.dumps({'stage':args.stage,'verified':not errors,'bundleId':info.get('CFBundleIdentifier'),'version':info.get('CFBundleShortVersionString'),'build':info.get('CFBundleVersion'),'signatureVerified':signed.returncode==0,'profileDecoded':decoded.returncode==0,'encryptionDependencyBoundaryVerified':encryption_errors==[],'errors':errors,'uploaded':False,'limits':'Does not prove device behavior, purchase lifecycle, privacy answers, server readiness, export obligations or App Review acceptance; source review remains necessary for static/custom cryptography'},ensure_ascii=False,indent=2))
     return 1 if errors else 0
 
 if __name__=='__main__':raise SystemExit(main())

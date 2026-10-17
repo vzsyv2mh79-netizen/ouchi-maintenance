@@ -1,7 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-const run=body=>execFileSync('python3',['-c',`import importlib.util\ns=importlib.util.spec_from_file_location('artifact','ios/scripts/verify-store-artifact.py')\nm=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nvalid={'SUPABASE_PUBLISHABLE_KEY':'sb_publishable_synthetic_config_test','SUPABASE_URL':'https://abcdefghijklmnopqrst.supabase.co'}\n${body}`],{encoding:'utf8'});
+const run=body=>execFileSync('python3',['-c',`import importlib.util\ns=importlib.util.spec_from_file_location('artifact','ios/scripts/verify-store-artifact.py')\nm=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nvalid={'SUPABASE_PUBLISHABLE_KEY':'sb_publishable_synthetic_config_test','SUPABASE_URL':'https://abcdefghijklmnopqrst.supabase.co','ITSAppUsesNonExemptEncryption':False}\n${body}`],{encoding:'utf8'});
+test('encryption declaration requires resolved boolean and unexpected packaged dependencies require review',()=>{
+ assert.equal(run(`import pathlib,tempfile,types
+for value in [None,True,0,'NO','false','$(UNRESOLVED)']:
+ assert any('encryption declaration' in e for e in m.configuration_checks({**valid,'ITSAppUsesNonExemptEncryption':value},'submission'))
+with tempfile.TemporaryDirectory() as d:
+ app=pathlib.Path(d)
+ assert m.encryption_dependency_checks(app)
+ executable=app/'OuchiMaintenance';executable.write_bytes(b'\\xcf\\xfa\\xed\\xfe'+b'synthetic Mach-O')
+ def load(dependency):
+  return lambda *a,**k:types.SimpleNamespace(returncode=0,stdout='app:\\n\\t'+dependency+' (compatibility version 1.0.0, current version 1.0.0)\\n')
+ assert m.encryption_dependency_checks(app,load('/System/Library/Frameworks/CryptoKit.framework/CryptoKit'))==[]
+ assert m.encryption_dependency_checks(app,load('/usr/lib/swift/libswiftCore.dylib'))==[]
+ for dependency in ['@rpath/CryptoSwift.framework/CryptoSwift','/private/tmp/libcrypto.dylib','/usr/lib/../../tmp/library.dylib']:
+  assert m.encryption_dependency_checks(app,load(dependency))
+ assert m.encryption_dependency_checks(app,lambda *a,**k:types.SimpleNamespace(returncode=1,stdout=''))
+ assert m.encryption_dependency_checks(app,lambda *a,**k:types.SimpleNamespace(returncode=0,stdout='unrecognized output'))
+ (app/'unreviewed.a').write_bytes(b'!<arch>\\n')
+ assert m.encryption_dependency_checks(app,load('/usr/lib/libSystem.B.dylib'))
+ (app/'unreviewed.a').unlink();(app/'unexpected-link').symlink_to(executable)
+ assert m.encryption_dependency_checks(app,load('/usr/lib/libSystem.B.dylib'))
+print('passed')`).trim(),'passed');
+});
 test('release artifact refuses absent or server credentials, wrong project hosts and review sample mode',()=>{
  assert.equal(run(`assert m.configuration_checks(valid,'distribution')==[]
 for key in ['', 'REPLACE_WITH_PUBLISHABLE_KEY','sb_secret_server_key','eyJ.server_role.value','sb_publishable_contains whitespace']:
