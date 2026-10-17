@@ -524,6 +524,10 @@
     {
       "file": "supabase/migrations/20261016234937_ouchi_retired_web_push_claim_guard.sql",
       "source_sha256": "be2734ff74744db1648d83a2500624cd483ae0aa34b6d4a1d24ca430dc742e8c"
+    },
+    {
+      "file": "supabase/migrations/20261017025017_ouchi_account_content_retention_review.sql",
+      "source_sha256": "444f16ae227d4d021d5e385c49abc4e52b715fbda77d54df9fdff6203d2820e2"
     }
   ]
 }

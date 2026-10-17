@@ -5,8 +5,8 @@ import {owner,recipient,other,home,product,request,os,rs,oe,re} from './home-han
 
 // Reuse the actual CI schema order, rather than substitute simplified homes,
 // membership, attachment or retirement tables. Auth rows remain synthetic.
-export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true}={}){
- const db=new PGlite();
+export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true,databaseFactory}={}){
+ const db=databaseFactory?await databaseFactory():new PGlite();
  await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());');
  const line=readFileSync('.github/workflows/billing-identity-migration.yml','utf8').split('\n').find(value=>value.trim().startsWith('for file in '));
  assert.ok(line,'Expected the authoritative CI migration list');
