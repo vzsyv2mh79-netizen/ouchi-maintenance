@@ -12,6 +12,8 @@ import {createAccountContentReviewPorts} from '../lib/closure-account-content-re
 import {createHouseholdCopy} from '../lib/household-copy.mjs';
 import {privateOperatorConfig,createPrivateOperatorConnection} from '../lib/closure-operator-connection.mjs';
 import {recordPrivateOperatorDecision,runPrivateOperatorDecision} from '../lib/closure-operator-decisions.mjs';
+import {inspectPrivateOperatorCoverage,renderPrivateOperatorCoverage,runPrivateOperatorCoverage} from '../lib/closure-operator-coverage.mjs';
+import {product} from './fixtures/home-handoff-identifiers.mjs';
 const project='abcdefghijklmnopqrst',principal='ouchi_closure_decision_runtime';
 const config={projectRef:project,databaseURL:`postgresql://${principal}:synthetic-test-password@db.${project}.supabase.co/postgres`};
 const actual=process.env.OUCHI_OPERATOR_DECISION_SQL_TEST==='true';
@@ -58,7 +60,20 @@ test('decision executable refuses unsafe private inputs and prints neither crede
   for(const secret of [password,'do-not-print-fixture-note','postgresql://'])assert.equal(command.stderr.includes(secret),false);
   await assert.rejects(stat(receipt),{code:'ENOENT'});
   const help=spawnSync(process.execPath,['scripts/record-maintenance-closure-decision.mjs','--help'],{encoding:'utf8',timeout:5000});assert.equal(help.status,0);assert.match(help.stdout,/original request\/event/);
+  const review=spawnSync(process.execPath,['scripts/review-maintenance-closure-coverage.mjs','--read-review','--config',credential,'--project-ref',project,'--request',request,'--output',receipt],{encoding:'utf8',timeout:5000});
+  assert.equal(review.status,1);assert.equal(review.stdout,'');assert.match(review.stderr,/outcome unconfirmed/);
+  for(const secret of [password,'do-not-print-fixture-note','postgresql://'])assert.equal(review.stderr.includes(secret),false);
+  await assert.rejects(stat(receipt),{code:'ENOENT'});
+  const reviewHelp=spawnSync(process.execPath,['scripts/review-maintenance-closure-coverage.mjs','--help'],{encoding:'utf8',timeout:5000});assert.equal(reviewHelp.status,0);assert.match(reviewHelp.stdout,/--capture-review/);
  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('coverage tool refuses decision, erasure and invalid capture; rendered content has no executable markup',async()=>{
+ let connections=0;const connect=async()=>{connections++;throw Error('Unexpected connection');};const signal=AbortSignal.timeout(5000);
+ for(const operation of ['record','retire','redact','copy','seal'])await assert.rejects(inspectPrivateOperatorCoverage({connect,input:{operation},signal}),/coverage operation/);
+ await assert.rejects(inspectPrivateOperatorCoverage({connect,input:{operation:'capture',confirmation:'implicit'},signal}));assert.equal(connections,0);
+ const html=renderPrivateOperatorCoverage({kind:'closure-operator-coverage/v1',operation:'text',observedAt:'2026-10-17T03:00:00.000Z',scope:{planID:'synthetic'},result:{value:'<script>steal()</script><img src="https://attacker.invalid/">',digest:'a'.repeat(64)},status:{current:false},currentMayChange:true,approvalRecorded:false,retirementExecuted:false,accountErasureConfirmed:false});
+ assert.equal(html.includes('<script>'),false);assert.equal(html.includes('<img '),false);assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('一致していることを確認できません'));assert.ok(html.includes("default-src 'none'"));
 });
 
 test('scoped decisions bind versioned SQL, retain original event after lost commit and save private acknowledgement without executing retirement',async()=>{
@@ -85,10 +100,28 @@ test('scoped decisions bind versioned SQL, retain original event after lost comm
   const connect=createPrivateOperatorConnection({rawConfig:config,expectedProject:project,purpose:'decision',createClient});
   const ports=createAccountContentReviewPorts({connect,readFileBytes:async file=>f.objects.get(file.objectPath)});
   const scope={reviewRequestID:f.input.reviewRequestID,userID:f.input.userID,epochID:f.input.epochID};
-  const plan={...scope,planID:randomUUID()};await ports.coverage.capture({...plan,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'},f.signal);
+  const malicious='<script>synthetic()</script><img src="https://attacker.invalid/">';await f.db.query('update public.products set memo=$1 where id=$2',[malicious,product]);
+  const plan={...scope,planID:randomUUID()};
+  const captureRequest={operation:'capture',...plan,replacesPlanID:null,confirmation:'CAPTURE_COMPLETE_SCOPED_REVIEW'};
+  const captureCredential=join(directory,'capture-config.json'),captureInput=join(directory,'capture-request.json');
+  await writeFile(captureCredential,JSON.stringify(config),{mode:0o600});await writeFile(captureInput,JSON.stringify(captureRequest),{mode:0o600});
+  const captureArgs=output=>['--capture-review','--config',captureCredential,'--project-ref',project,'--request',captureInput,'--output',output];
+  const unknownCapture=join(directory,'capture-unconfirmed.html');lose=true;
+  await assert.rejects(runPrivateOperatorCoverage({args:captureArgs(unknownCapture),createClient}),/acknowledgement lost/);assert.match(await readFile(unknownCapture,'utf8'),/確認結果は未確認/);
+  const captureOutput=join(directory,'capture-confirmed.html');await runPrivateOperatorCoverage({args:captureArgs(captureOutput),createClient});assert.equal((await stat(captureOutput)).mode&0o777,0o600);assert.ok((await readFile(captureOutput,'utf8')).includes(plan.planID));
+  assert.equal((await f.db.query('select count(*)::int n from maintenance_private.closure_coverage_plans where plan_id=$1',[plan.planID])).rows[0].n,1);
+  const beforeCaptureRetry=connections;await assert.rejects(runPrivateOperatorCoverage({args:captureArgs(captureOutput),createClient}),{code:'EEXIST'});assert.equal(connections,beforeCaptureRetry);
+  await assert.rejects(runPrivateOperatorCoverage({args:['--read-review',...captureArgs(join(directory,'wrong-mode.html')).slice(1)],createClient}),/Capture must be explicitly selected/);
+  assert.equal(connections,beforeCaptureRetry);
   const item=(await ports.coverage.page({...plan,afterKey:null},f.signal)).items.find(x=>x.kind==='text');assert.ok(item);
   const text={operation:'text-decision',...plan,itemKey:item.item_key,eventID:randomUUID(),action:'needs_review',evidenceDigest:'a'.repeat(64),confirmation:'REQUIRE_ADDITIONAL_TEXT_REVIEW'};
   await recordPrivateOperatorDecision({connect,input:text,signal:f.signal});
+  const page=await inspectPrivateOperatorCoverage({connect,input:{operation:'page',...plan,afterKey:null},signal:f.signal});assert.equal(page.result.immutableSnapshot,true);
+  const memo=page.result.items.find(x=>x.kind==='text'&&x.record_id===product&&x.field_name==='memo');assert.ok(memo);
+  const memoRequest={operation:'text',...plan,itemKey:memo.item_key};const full=await inspectPrivateOperatorCoverage({connect,input:memoRequest,signal:f.signal});assert.equal(full.result.value,malicious);assert.equal(full.status.current,true);assert.equal(renderPrivateOperatorCoverage(full).includes('<script>'),false);
+  await f.db.query('update public.products set memo=$1 where id=$2',['changed after capture',product]);
+  await assert.rejects(inspectPrivateOperatorCoverage({connect,input:memoRequest,signal:f.signal}),/Captured text changed/);
+  const stale=await inspectPrivateOperatorCoverage({connect,input:{operation:'status',...plan},signal:f.signal});assert.equal(stale.status.current,false);assert.equal(stale.retirementExecuted,false);
   const file=(await ports.personalFiles.fileInventory({...scope,afterFile:null},f.signal)).items[0];
   const inspection=await ports.personalFiles.inspectFile({...scope,fileID:file.attachment_id,expectedMetadataDigest:file.metadata_digest,inspectionID:randomUUID()},f.signal);
   const input={operation:'file-decision',...scope,fileID:file.attachment_id,inspectionID:inspection.inspectionID,decisionID:randomUUID(),action:'retain_family_copy',evidenceDigest:'b'.repeat(64),confirmation:'RETAIN_REVIEWED_FAMILY_FILE_WITHOUT_DEPARTING_ACCOUNT_CONTENT_OR_PERSONAL_INFORMATION'};
