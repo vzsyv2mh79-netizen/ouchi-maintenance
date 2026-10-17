@@ -17,7 +17,8 @@ try{
   const c=new Client({...config,user:role,password});await c.connect();
   return {query:async(sql,args)=>{const result=await c.query(sql,args);if(sql==='BEGIN')await c.query('set local role ouchi_closure_operator');return result;},abort(){void c.cancel?.();},close(){return c.end();}};
  };
- const result=await verifyRetirementRpcHTTPServices({db,connect,authPort,fetcher:fetch,privilegeProfile:'observed-production-20261017'});
+ const result=await verifyRetirementRpcHTTPServices({db,connect,authPort,fetcher:fetch,privilegeProfile:'observed-production-20261017',accountContentReview:true});
+ assert.equal(result.accountContentReviewVersion,1);
  assert.equal(result.directTableAudit.closedUnchanged,30);assert.equal(result.directTableAudit.activeChanged,26);assert.equal(result.directTableAudit.activePermissionRefused,3);assert.equal(result.directTableAudit.activeRlsNoop,1);
  console.log(JSON.stringify({status:'passed',...result,syntheticWriterPolicyAndReviewClassifications:true,fullCandidateSchemaPreloaded:true}));
 }finally{await db.end();}
