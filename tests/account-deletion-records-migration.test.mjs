@@ -1,0 +1,197 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
+test('record deletion waits for all objects, isolates ownership and never claims account completion',async()=>{
+ const db=new PGlite();try{
+ await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());create function auth.uid() returns uuid language sql as $$select null::uuid$$;create function auth.jwt() returns jsonb language sql as $$select jsonb_build_object()$$;');
+ await db.exec('create table public.homes(id uuid primary key,owner_id uuid);create table public.products(id uuid primary key,\"homeId\" uuid references public.homes(id) on delete cascade);create table public.home_members(user_id uuid,\"homeId\" uuid);create table public.maintenance_push_subscriptions(user_id uuid);create table public.maintenance_backup_restores(owner_id uuid);create table public.maintenance_push_test_limits(user_id uuid);grant all on public.maintenance_push_test_limits to service_role;grant select on public.homes,public.products,public.home_members to service_role;grant update on public.homes to service_role;');
+ for(const f of ['20261010141353_ouchi_billing_identity.sql','20261010234402_ouchi_account_deletion_requests.sql','20261010234907_ouchi_account_deletion_leases.sql','20261010235205_ouchi_attachment_erasure_inventory.sql','20261010235332_ouchi_deletion_object_progress.sql','20261010235933_ouchi_deletion_household_records.sql','20261011002005_ouchi_deletion_web_push_erasure.sql','20261011004515_ouchi_native_notification_registry.sql','20261011005859_ouchi_attachment_upload_reservation.sql','20261011010239_ouchi_attachment_verified_completion.sql'])await db.exec(readFileSync('supabase/migrations/'+f,'utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261010231045_ouchi_reconciliation_jobs.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011032644_ouchi_deletion_reconciliation_cleanup.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011122042_ouchi_deletion_inventory_minimization.sql','utf8'));
+ for(const f of ['20261010142053_ouchi_verified_transaction_ledger.sql','20261010224129_ouchi_verified_notification_inbox.sql','20261010224749_ouchi_verified_renewal_state.sql','20261011091753_ouchi_notification_account_erasure.sql'])await db.exec(readFileSync('supabase/migrations/'+f,'utf8'));
+ for(const f of ['20261011122749_ouchi_explicit_enrollment_guard.sql','20261011123511_ouchi_explicit_enrollment_consent.sql','20261011131220_ouchi_deletion_consent_erasure.sql','20261011001303_ouchi_deletion_progress_read.sql','20261011002954_ouchi_current_deletion_progress.sql','20261011052015_ouchi_deletion_live_session.sql','20261011065720_ouchi_deletion_progress_epoch.sql','20261011131725_ouchi_deletion_receipt_session_snapshot.sql','20261011132618_ouchi_deletion_purchase_ledger_erasure.sql'])await db.exec(readFileSync('supabase/migrations/'+f,'utf8'));
+ // Minimal additional category tables for identity absence checks. The integration
+ // workflow applies the full production schemas separately.
+ await db.exec('alter table maintenance_private.product_attachments add column captured_owner_id uuid;create table maintenance_private.attachment_write_attempts(uploader_id uuid,owner_id uuid);create table maintenance_private.native_delivery_identities(user_id uuid);create table maintenance_private.reminder_schedules(user_id uuid);create table maintenance_private.notification_channels(user_id uuid);grant select on maintenance_private.attachment_write_attempts,maintenance_private.native_delivery_identities,maintenance_private.reminder_schedules,maintenance_private.notification_channels to service_role;');
+ await db.exec(readFileSync('supabase/migrations/20261011133725_ouchi_deletion_identity_checkpoint.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011134528_ouchi_deletion_prior_preferences.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011135013_ouchi_deletion_completion_boundary.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011140654_ouchi_completion_receipt_evidence.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql','utf8'));
+ for(const file of ['20261011153328_ouchi_attest_registration_ledger','20261012004145_ouchi_restore_transfer_reservation','20261012004834_ouchi_restore_transfer_completion','20261012005754_ouchi_restore_completion_status','20261012010434_ouchi_restore_ownership_writer_guard','20261012011309_ouchi_deletion_restore_jobs'])await db.exec(readFileSync('supabase/migrations/'+file+'.sql','utf8'));
+ await db.exec('create schema storage;create table storage.objects(bucket_id text,name text);grant usage on schema storage to service_role;grant select on storage.objects to service_role;');
+ const user='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333';
+ await db.query('insert into auth.users values($1),($2)',[user,other]);await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,user]);await db.exec('set role service_role');
+ const nativeDevice='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', otherDevice='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ const epoch=(await db.query('select public.current_maintenance_purchase_account($1,$2) as value',[user,session])).rows[0].value;
+ const request=async(u=user,s=session,e=epoch)=>(await db.query('select public.request_maintenance_account_deletion($1,$2,$3) as value',[u,s,e])).rows[0].value;
+ const productQuota='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',homeQuota='dddddddd-dddd-4ddd-8ddd-dddddddddddd',fileQuota='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+ await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',[homeQuota,user]);await db.query('insert into public.products values($1,$2)',[productQuota,homeQuota]);await db.exec('set role service_role');
+ const reserve=async (size,file=fileQuota)=>(await db.query('select public.reserve_maintenance_attachment($1,$2,$3,$4,$5,$6,$7,$8) as value',[user,session,epoch,productQuota,file,size,'image/png','a'.repeat(64)])).rows[0].value;
+ assert.equal(await reserve(10),fileQuota);assert.equal(await reserve(10),fileQuota);await assert.rejects(()=>reserve(11));await assert.rejects(()=>reserve(5242881));
+ const finalize=async(size=10,hash='a'.repeat(64),u=user,e=epoch)=>(await db.query('select public.finalize_maintenance_attachment($1,$2,$3,$4,$5,$6) as value',[u,session,e,fileQuota,size,hash])).rows[0].value;
+ await assert.rejects(()=>finalize(9));await assert.rejects(()=>finalize(10,'b'.repeat(64)));await assert.rejects(()=>finalize(10,'a'.repeat(64),other));
+ assert.equal((await db.query('select state from maintenance_private.product_attachments where id=$1',[fileQuota])).rows[0].state,'reserved');
+ assert.equal(await finalize(),fileQuota);assert.equal(await finalize(),fileQuota);
+ assert.deepEqual((await db.query('select state,sha256 from maintenance_private.product_attachments where id=$1',[fileQuota])).rows,[{state:'stored',sha256:'a'.repeat(64)}]);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>finalize(),/permission denied/);await db.exec('reset role;set role service_role');
+
+
+ // Reservations count before upload completion, including retained prior enrollments.
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where id=$1',[fileQuota]);await db.exec('set role service_role');
+ const quotaID=i=>`cccccccc-cccc-4ccc-8ccc-${String(i).padStart(12,'0')}`;
+ for(let i=1;i<=20;i++)assert.equal(await reserve(5242880,quotaID(i)),quotaID(i));
+ await assert.rejects(()=>reserve(1,quotaID(21)),/quota exceeded/);
+ assert.equal(await reserve(5242880,quotaID(1)),quotaID(1));
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where product_id=$1',[productQuota]);await db.exec('set role service_role');
+ for(let i=1;i<=100;i++)await reserve(1,quotaID(i));
+ await assert.rejects(()=>reserve(1,quotaID(101)),/quota exceeded/);
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where product_id=$1',[productQuota]);
+ await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);await db.exec('set role service_role');
+ await assert.rejects(()=>reserve(1),/Owner unavailable/);
+ await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=true where user_id=$1',[user]);await db.exec('set role authenticated');
+ await assert.rejects(()=>reserve(1),/permission denied/);await db.exec('reset role;set role service_role');
+ // Remove only the synthetic reservation so the pre-existing erasure fixture remains unchanged.
+ await db.exec('reset role');await db.query('delete from maintenance_private.product_attachments where id=$1',[fileQuota]);await db.query('delete from public.homes where id=$1',[homeQuota]);await db.exec('set role service_role');
+ const id=await request();assert.match(id,/^[0-9a-f-]{36}$/);assert.equal(await request(),id);
+ const rows=(await db.query('select user_id,app_epoch_id,state from maintenance_private.account_deletion_requests')).rows;assert.deepEqual(rows,[{user_id:user,app_epoch_id:epoch,state:'pending'}]);
+ const claim=async()=>(await db.query('select public.claim_maintenance_account_deletion() as value')).rows[0].value;
+ const current=async j=>(await db.query('select public.maintenance_deletion_lease_is_current($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const first=await claim();assert.equal(first.requestID,id);assert.equal(first.epochID,epoch);assert.equal(await current(first),true);assert.equal(await claim(),null);assert.equal(await request(),id);
+ const attachment='55555555-5555-4555-8555-555555555555',otherAttachment='66666666-6666-4666-8666-666666666666',home='77777777-7777-4777-8777-777777777777',product='88888888-8888-4888-8888-888888888888';
+ await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',[home,user]);await db.query('insert into public.products values($1,$2)',[product,home]);await db.exec('set role service_role');
+ for(const [id,owner] of [[attachment,user],[otherAttachment,other]])await db.query("insert into maintenance_private.product_attachments(id,user_id,app_epoch_id,product_id,size_bytes,mime) values($1,$2,$3,$4,100,'image/png')",[id,owner,epoch,product]);
+ const capture=async j=>(await db.query('select public.capture_maintenance_deletion_objects($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ assert.equal(await capture({...first,userID:other}),false);assert.equal(await capture(first),true);assert.equal(await capture(first),true);
+ const inventory=(await db.query('select attachment_id,uploader_id,object_path,absence_confirmed from maintenance_private.account_deletion_objects order by attachment_id')).rows;assert.equal(inventory.length,2);assert.equal(inventory[0].object_path,`${user}/${epoch}/${attachment}.png`);assert.equal(inventory[1].uploader_id,other);assert.equal(inventory.every(x=>!x.absence_confirmed),true);
+ assert.equal((await db.query('select enabled from maintenance_private.account_access where user_id=$1',[user])).rows[0].enabled,false);assert.equal((await db.query('select count(*) as n from public.products')).rows[0].n,1);
+ const read=async j=>(await db.query('select public.read_maintenance_deletion_objects($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const confirm=async(j,file=attachment)=>(await db.query('select public.confirm_maintenance_deletion_object_absence($1,$2,$3,$4,$5) as value',[j.requestID,j.userID,j.epochID,j.leaseToken,file])).rows[0].value;
+ const erasePush=async j=>(await db.query('select public.erase_maintenance_deletion_web_push($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const erase=async j=>(await db.query('select public.erase_maintenance_deletion_records($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const eraseRecovery=async j=>(await db.query('select public.erase_maintenance_deletion_reconciliation($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const minimize=async j=>(await db.query('select public.minimize_maintenance_deletion_object_inventory($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const eraseConsent=async j=>(await db.query('select public.erase_maintenance_deletion_enrollment_consents($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ assert.equal(await eraseConsent(first),false);
+ assert.equal(await minimize(first),false);
+ assert.equal(await eraseRecovery(first),false);
+ assert.equal(await erase(first),false);
+ await db.exec('reset role');await db.query('insert into public.homes values($1,$2)',['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',other]);for(const table of ['home_members','maintenance_push_subscriptions'])await db.query(`insert into public.${table}(user_id) values($1),($2)`,[user,other]);await db.exec('set role service_role');
+ await db.exec('reset role');await db.query('insert into public.maintenance_push_test_limits values($1),($2)',[user,other]);await db.exec('set role service_role');assert.equal(await erasePush({...first,userID:other}),false);assert.equal(await erasePush(first),true);assert.equal(await erasePush(first),true);assert.deepEqual((await db.query('select user_id from public.maintenance_push_subscriptions')).rows,[{user_id:other}]);assert.deepEqual((await db.query('select user_id from public.maintenance_push_test_limits')).rows,[{user_id:other}]);
+ assert.equal((await read(first)).length,2);await assert.rejects(()=>read({...first,userID:other}));assert.equal(await confirm({...first,userID:other}),false);assert.equal(await confirm(first,'99999999-9999-4999-8999-999999999999'),false);
+ await db.exec('reset role');await db.query('insert into storage.objects values($1,$2)',['ouchi-product-attachments',inventory[0].object_path]);await db.exec('set role service_role');assert.equal(await confirm(first),false);
+ await db.exec('reset role');await db.query('delete from storage.objects where name=$1',[inventory[0].object_path]);await db.exec('set role service_role');assert.equal(await confirm(first),true);assert.equal(await confirm(first),true);assert.equal((await read(first)).length,1);assert.equal(await confirm(first,otherAttachment),true);assert.deepEqual(await read(first),[]);
+ const eraseNative=async j=>(await db.query('select public.erase_maintenance_deletion_native_push($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ await db.query("insert into maintenance_private.native_notification_devices(id,user_id,app_epoch_id,environment,device_token,topic) values($1,$2,$3,'Sandbox',$4,'jp.ouchi.maintenance'),($5,$6,$3,'Sandbox',$7,'jp.ouchi.maintenance')",[nativeDevice,user,epoch,'ab'.repeat(32),otherDevice,other,'cd'.repeat(32)]);
+ await db.query("insert into maintenance_private.native_notification_jobs(device_id,due_at,state) values($1,now(),'claimed'),($2,now(),'pending')",[nativeDevice,otherDevice]);
+ assert.equal(await eraseNative({...first,userID:other}),false);
+ assert.equal(await eraseNative(first),true);assert.equal(await eraseNative(first),true);
+ assert.deepEqual((await db.query('select user_id from maintenance_private.native_notification_devices')).rows,[{user_id:other}]);
+ assert.deepEqual((await db.query('select device_id from maintenance_private.native_notification_jobs')).rows,[{device_id:otherDevice}]);
+ assert.equal(await erase({...first,userID:other}),false);assert.equal(await erase(first),true);assert.equal(await erase(first),true);
+ assert.deepEqual((await db.query('select owner_id from public.homes')).rows,[{owner_id:other}]);assert.equal((await db.query('select count(*) as n from public.products')).rows[0].n,0);assert.equal((await db.query('select count(*) as n from maintenance_private.product_attachments')).rows[0].n,0);assert.deepEqual((await db.query('select user_id from public.home_members')).rows,[{user_id:other}]);assert.deepEqual((await db.query('select user_id from public.maintenance_push_subscriptions')).rows,[{user_id:other}]);assert.equal((await db.query('select state,records_erased from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running');
+
+ // The intermediate cleanup must never report full account deletion or touch another owner.
+ await db.query("insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values($1,$3,'Sandbox','synthetic-user'),($2,$3,'Sandbox','synthetic-other')",[user,other,epoch]);
+ assert.equal(await eraseRecovery({...first,userID:other}),false);
+ assert.equal(await eraseRecovery({...first,leaseToken:other}),false);
+ await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=true where user_id=$1',[user]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),false);
+ await db.exec('reset role');await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[user]);await db.exec('set role service_role');
+ // A renewed or missing closed enrollment is not authority to erase recovery jobs.
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,otherDevice]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),false);
+ assert.equal((await db.query('select count(*) as n from maintenance_private.reconciliation_jobs')).rows[0].n,2);
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,epoch]);await db.query('delete from maintenance_private.account_access where user_id=$1',[user]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),false);
+ await db.exec('reset role');await db.query('insert into maintenance_private.account_access(user_id,enabled) values($1,false)',[user]);await db.exec('set role service_role');
+ assert.equal(await eraseRecovery(first),true);assert.equal(await eraseRecovery(first),true);
+ assert.equal(await minimize({...first,userID:other}),false);assert.equal(await minimize({...first,leaseToken:other}),false);
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,otherDevice]);await db.exec('set role service_role');assert.equal(await minimize(first),false);assert.equal(await eraseConsent(first),false);
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,epoch]);await db.exec('set role service_role');
+ await db.exec('reset role');
+ await db.query('insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id) values($1,$2,$3)',[otherDevice,other,otherDevice]);
+ await db.query("insert into maintenance_private.account_deletion_objects(request_id,attachment_id,uploader_id,uploader_epoch,bucket,object_path,absence_confirmed) values($1,$1,$2,$1,'ouchi-product-attachments','other-request-path',true)",[otherDevice,other]);
+ await db.exec('set role service_role');
+ await db.query("insert into maintenance_private.enrollment_consents values($1,$2,$3,$1,$4,now()+interval '5 minutes'),($5,$6,$3,$5,$4,now()+interval '5 minutes'),($7,$2,$3,$7,$5,now()+interval '5 minutes')",[attachment,user,session,epoch,otherAttachment,other,product]);
+ assert.equal(await eraseConsent({...first,userID:other}),false);assert.equal(await eraseConsent({...first,leaseToken:other}),false);assert.equal(await eraseConsent({...first,epochID:other}),false);
+ assert.equal(await eraseConsent(first),true);assert.equal(await eraseConsent(first),true);
+ assert.deepEqual((await db.query('select user_id,epoch_id from maintenance_private.enrollment_consents order by request_id')).rows,[{user_id:other,epoch_id:epoch},{user_id:user,epoch_id:otherAttachment}]);
+ assert.equal(await minimize(first),true);assert.equal(await minimize(first),true);
+ assert.equal((await db.query('select object_path from maintenance_private.account_deletion_objects where request_id=$1',[otherDevice])).rows[0].object_path,'other-request-path');
+
+ assert.equal((await db.query('select count(*) as n from maintenance_private.account_deletion_objects where request_id=$1',[id])).rows[0].n,0);
+ assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running');
+
+ assert.deepEqual((await db.query('select user_id from maintenance_private.reconciliation_jobs')).rows,[{user_id:other}]);
+ assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running');
+ await db.exec('reset role');assert.equal((await db.query('select count(*) as n from auth.users')).rows[0].n,2);await db.exec('set role service_role');
+ await db.exec('reset role');await db.query("update maintenance_private.account_deletion_requests set lease_until=now()-interval '1 second' where id=$1",[id]);await db.exec('set role service_role');assert.equal(await confirm(first),false);await assert.rejects(()=>read(first));assert.equal(await erase(first),false);assert.equal(await erasePush(first),false);assert.equal(await eraseNative(first),false);assert.equal(await eraseRecovery(first),false);assert.equal(await minimize(first),false);assert.equal(await eraseConsent(first),false);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>capture(first));await assert.rejects(()=>db.query('select * from maintenance_private.account_deletion_objects'));await assert.rejects(()=>confirm(first));await assert.rejects(()=>read(first));await assert.rejects(()=>erase(first));await assert.rejects(()=>erasePush(first));await assert.rejects(()=>eraseNative(first));await assert.rejects(()=>eraseRecovery(first));await assert.rejects(()=>minimize(first));await assert.rejects(()=>eraseConsent(first));
+
+ await db.exec('reset role');await db.query("update maintenance_private.account_deletion_requests set lease_until=now()+interval '10 minutes' where id=$1",[id]);await db.exec('set role service_role');
+ const captureReceipt=async j=>(await db.query('select public.capture_maintenance_deletion_receipt_sessions($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const receiptProgress=async(s=session,u=user,r=id)=>(await db.query('select public.read_maintenance_session_deletion_progress($1,$2,$3) as value',[u,s,r])).rows[0].value;
+ assert.equal(await captureReceipt({...first,userID:other}),false);assert.equal(await captureReceipt({...first,leaseToken:other}),false);assert.equal(await captureReceipt(first),true);assert.equal(await captureReceipt(first),true);
+ const eraseLedger=async j=>(await db.query('select public.erase_maintenance_deletion_purchase_ledger($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ await db.query("insert into maintenance_private.transaction_ownership values('Sandbox','owned-original',$1,$3),('Sandbox','foreign-original',$2,$4)",[user,other,epoch,otherAttachment]);
+ await db.query("insert into maintenance_private.verified_transactions(environment,transaction_id,original_transaction_id,user_id,app_epoch_id,product_id,signed_at,purchased_at,expires_at,proof_sha256) values('Sandbox','owned-period','owned-original',$1,$3,'ouchi.premium.monthly',5,1,10,$5),('Sandbox','foreign-period','foreign-original',$2,$4,'ouchi.premium.monthly',5,1,10,$5)",[user,other,epoch,otherAttachment,'a'.repeat(64)]);
+ await db.query("insert into maintenance_private.verified_renewals(environment,original_transaction_id,user_id,app_epoch_id,product_id,signed_at,renewal_date,auto_renew_status,is_in_retry,proof_sha256) values('Sandbox','owned-original',$1,$3,'ouchi.premium.monthly',5,10,1,false,$5),('Sandbox','foreign-original',$2,$4,'ouchi.premium.monthly',5,10,1,false,$5)",[user,other,epoch,otherAttachment,'a'.repeat(64)]);
+ await db.query("insert into maintenance_private.verified_notifications(environment,notification_id,notification_type,signed_at,proof_sha256,disposition,user_id,app_epoch_id,original_transaction_id) values('Sandbox',$1,'SUBSCRIBED',5,$7,'transaction_applied',$3,$5,'owned-original'),('Sandbox',$2,'SUBSCRIBED',5,$7,'transaction_applied',$4,$6,'foreign-original')",[attachment,otherAttachment,user,other,epoch,otherAttachment,'a'.repeat(64)]);
+ await db.query("insert into maintenance_private.verified_notifications(environment,notification_id,notification_type,signed_at,proof_sha256,disposition) values('Sandbox',$1,'TEST',5,$2,'test')",[product,'a'.repeat(64)]);
+ assert.equal(await eraseLedger({...first,leaseToken:other}),false);assert.equal(await eraseLedger({...first,userID:other}),false);
+ await db.exec('reset role');await db.query('update maintenance_private.verified_transactions set user_id=$1 where transaction_id=$2',[other,'owned-period']);await db.exec('set role service_role');assert.equal(await eraseLedger(first),false);assert.equal((await db.query('select count(*) as n from maintenance_private.verified_renewals')).rows[0].n,2);
+ await db.exec('reset role');await db.query('update maintenance_private.verified_transactions set user_id=$1 where transaction_id=$2',[user,'owned-period']);await db.exec('set role service_role');assert.equal(await eraseLedger(first),true);assert.equal(await eraseLedger(first),true);
+ assert.equal((await db.query('select count(*) as n from maintenance_private.verified_notifications where user_id=$1',[user])).rows[0].n,0);assert.equal((await db.query('select count(*) as n from maintenance_private.verified_notifications')).rows[0].n,2,'foreign and unassociated rows remain a separate retention gate');
+ for(const table of ['transaction_ownership','verified_transactions','verified_renewals'])assert.deepEqual((await db.query('select user_id from maintenance_private.'+table)).rows,[{user_id:other}]);
+ assert.equal((await receiptProgress()).state,'running');
+ await db.exec('reset role');await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[otherDevice,user]);await db.query('update maintenance_private.enrollment_policy set require_explicit=true where id=1');await db.exec('set role service_role');
+ const eraseIdentity=async j=>(await db.query('select public.erase_maintenance_deletion_identity($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const identityCheckpoint=async j=>(await db.query('select public.maintenance_deletion_identity_is_erased($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ assert.equal(await identityCheckpoint(first),false);assert.equal(await eraseIdentity({...first,leaseToken:other}),false);assert.equal(await eraseIdentity({...first,userID:other}),false);
+ assert.equal(await eraseIdentity(first),false,'another retained epoch consent refuses final identity erasure');
+ const erasePrior=async j=>(await db.query('select public.erase_maintenance_deletion_prior_preferences($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ assert.equal(await erasePrior({...first,leaseToken:other}),false);assert.equal(await erasePrior({...first,userID:other}),false);
+ await db.exec('reset role');await db.query('insert into maintenance_private.notification_channels values($1),($2)',[user,other]);await db.query('insert into maintenance_private.reminder_schedules values($1),($2)',[user,other]);await db.query("insert into maintenance_private.reconciliation_jobs(user_id,app_epoch_id,environment,transaction_id) values($1,$2,'Sandbox','prior-enrollment')",[user,otherAttachment]);await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,otherDevice]);await db.exec('set role service_role');assert.equal(await erasePrior(first),false,'changed current epoch cannot erase any prior preference');
+ await db.exec('reset role');await db.query('update maintenance_private.app_epochs set epoch_id=$2 where user_id=$1',[user,epoch]);await db.exec('set role service_role');assert.equal(await erasePrior(first),true);assert.equal(await erasePrior(first),true);
+ for(const table of ['enrollment_consents','reconciliation_jobs','notification_channels','reminder_schedules'])assert.deepEqual((await db.query('select user_id from maintenance_private.'+table)).rows,[{user_id:other}]);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>erasePrior(first));await db.exec('reset role');await db.query('update maintenance_private.enrollment_policy set require_explicit=false where id=1');await db.exec('set role service_role');assert.equal(await eraseIdentity(first),false,'strict enrollment must be required atomically');
+ await db.exec('reset role');await db.query('update maintenance_private.enrollment_policy set require_explicit=true where id=1');await db.exec('set role service_role');
+ const eraseRestoreJobs=async j=>(await db.query('select public.erase_maintenance_deletion_restore_jobs($1,$2,$3,$4) value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const restoreJobIDs=['abcdef01-abcd-4abc-8abc-abcdef000001','abcdef02-abcd-4abc-8abc-abcdef000002','abcdef03-abcd-4abc-8abc-abcdef000003','abcdef04-abcd-4abc-8abc-abcdef000004'];
+ // Preexisting job fixtures across retained epochs. Unknown outcome removal
+ // below is privileged test cleanup, not an implemented Apple reconciliation.
+ for(const [i,phase,u,e] of [[0,'authorized',user,otherAttachment],[1,'completed',user,epoch],[2,'update_started',user,epoch],[3,'authorized',other,otherAttachment]]){
+  await db.query(`insert into maintenance_private.restore_transfer_jobs(id,user_id,session_id,app_epoch_id,environment,original_transaction_id,app_transaction_id,previous_account_token,bundle_id,lease_token,authorized_at,phase,mutation_started_at,expected_counter,verified_counter,client_hash,assertion_hash,pair_hash,completed_at,completed_transaction_id,completion_proof_sha256)
+   values($1,$2,$3,$4,'Sandbox',$5,'200001',$6,'dev.synthetic.ouchi',$7,now()-interval '1 hour',$8,case when $8='update_started' then now()-interval '30 minutes' else null end,0,1,$9,$9,$9,case when $8='completed' then now()-interval '10 minutes' else null end,case when $8='completed' then '300001' else null end,case when $8='completed' then $9 else null end)`,[restoreJobIDs[i],u,session,e,String(100001+i),otherDevice,nativeDevice,phase,'a'.repeat(64)]);
+ }
+ assert.equal(await eraseIdentity(first),false,'restore job presence refuses identity erasure');
+ assert.equal(await identityCheckpoint(first),false);
+ assert.equal(await eraseRestoreJobs({...first,leaseToken:other}),false);
+ assert.equal(await eraseRestoreJobs(first),false,'unknown Apple mutation cannot be discarded');
+ assert.equal((await db.query('select count(*)::int n from maintenance_private.restore_transfer_jobs where user_id=$1',[user])).rows[0].n,3,'failure does not partially erase safe jobs');
+ await db.exec('reset role');await db.query('delete from maintenance_private.restore_transfer_jobs where id=$1',[restoreJobIDs[2]]);await db.exec('set role service_role');
+ assert.equal(await eraseRestoreJobs(first),true);assert.equal(await eraseRestoreJobs(first),true);
+ assert.deepEqual((await db.query('select user_id from maintenance_private.restore_transfer_jobs')).rows,[{user_id:other}]);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>eraseRestoreJobs(first),/permission denied/);await db.exec('reset role;set role service_role');
+ assert.equal(await eraseIdentity(first),true);assert.equal(await eraseIdentity(first),true);assert.equal(await identityCheckpoint(first),true);assert.equal(await identityCheckpoint({...first,leaseToken:other}),false);
+ assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0].state,'running','identity checkpoint never claims retention or completion');
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>eraseIdentity(first));await assert.rejects(()=>identityCheckpoint(first));await db.exec('reset role;set role service_role');
+ assert.equal((await receiptProgress()).state,'running','independent receipt survives identity erasure');assert.equal(await receiptProgress(otherDevice),null,'new same-user login not authorized');assert.equal(await receiptProgress(session,other),null);
+ assert.equal((await db.query('select public.current_maintenance_purchase_account($1,$2) as value',[user,session])).rows[0].value,null,'read never reenrolls');
+ const complete=async j=>(await db.query('select public.complete_maintenance_account_deletion($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ const confirmed=async j=>(await db.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) as value',[j.requestID,j.userID,j.epochID,j.leaseToken])).rows[0].value;
+ assert.equal(await complete(first),false,'identity absence alone does not approve retention');assert.equal(await confirmed(first),false);
+ await db.exec('reset role');await db.query("update maintenance_private.account_deletion_requests set state='complete',completion_lease=$2,lease_token=null,lease_until=null,updated_at=statement_timestamp(),receipt_expires_at=statement_timestamp()+interval '10 minutes' where id=$1",[id,first.leaseToken]);await db.exec('set role service_role');assert.equal(await confirmed(first),false,'state/expiry flags cannot manufacture a sealed approval');assert.equal(await receiptProgress(),null,'unproved completion is not shown to the user');await db.exec('reset role');await db.query("update maintenance_private.account_deletion_requests set state='running',completion_lease=null,lease_token=$2,lease_until=now()+interval '10 minutes',receipt_expires_at=null where id=$1",[id,first.leaseToken]);await db.exec('set role service_role');
+ await assert.rejects(()=>db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-test-policy',now(),now()+interval '5 minutes',600)",[id]),/permission denied/);
+ // Privileged disposable fixture ONLY: this is not approval of real retention.
+ await db.exec('reset role');await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-test-policy',now()-interval '10 minutes',now()-interval '5 minutes',600)",[id]);await db.exec('set role service_role');assert.equal(await complete(first),false,'expired evidence cannot complete');
+ await assert.rejects(()=>db.query('update maintenance_private.deletion_retention_checks set request_id=$2 where request_id=$1',[id,otherDevice]),/Sealed retention check/);
+ await db.exec('reset role');await db.query('delete from maintenance_private.deletion_retention_checks where request_id=$1',[id]);await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-test-policy',now(),now()+interval '5 minutes',600)",[id]);await db.exec('set role service_role');
+ assert.equal(await complete({...first,leaseToken:other}),false);assert.equal(await complete(first),true);const expiry=(await db.query('select updated_at,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0];assert.equal(await complete(first),true);assert.deepEqual((await db.query('select updated_at,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[id])).rows[0],expiry,'retry cannot extend retention');assert.equal(await confirmed(first),true);assert.equal(await confirmed({...first,leaseToken:other}),false);
+ await db.exec('reset role');await db.query("update maintenance_private.account_deletion_requests set receipt_expires_at=receipt_expires_at+interval '1 minute' where id=$1",[id]);await db.exec('set role service_role');assert.equal(await confirmed(first),false,'expiry must match the sealed policy, even within the schema bound');assert.equal(await receiptProgress(),null);await db.exec('reset role');await db.query('update maintenance_private.account_deletion_requests set receipt_expires_at=$2 where id=$1',[id,expiry.receipt_expires_at]);await db.exec('set role service_role');assert.equal(await confirmed(first),true);
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>complete(first));await assert.rejects(()=>confirmed(first));await db.exec('reset role;set role service_role');assert.equal((await receiptProgress()).state,'complete');assert.equal((await db.query('select public.prune_maintenance_completed_deletion_receipts(500) as n')).rows[0].n,0,'unexpired receipt preserved');
+ await db.exec('reset role');await assert.rejects(()=>db.query("update maintenance_private.account_deletion_requests set receipt_expires_at=now()+interval '31 days' where id=$1",[id]));await db.query("update maintenance_private.account_deletion_requests set updated_at=now()-interval '2 minutes',receipt_expires_at=now()-interval '1 minute' where id=$1",[id]);await db.exec('set role service_role');assert.equal(await receiptProgress(),null,'expired completion receipt hidden');
+ assert.equal((await db.query('select public.prune_maintenance_completed_deletion_receipts(1) as n')).rows[0].n,1);assert.equal((await db.query('select count(*) as n from maintenance_private.deletion_receipt_sessions where request_id=$1',[id])).rows[0].n,0);assert.equal((await db.query('select count(*) as n from maintenance_private.deletion_retention_checks where request_id=$1',[id])).rows[0].n,0);assert.equal((await db.query('select count(*) as n from maintenance_private.account_deletion_requests where id=$1',[otherDevice])).rows[0].n,1);await assert.rejects(()=>db.query('select public.prune_maintenance_completed_deletion_receipts(501)'));
+ await db.exec('reset role;set role authenticated');await assert.rejects(()=>captureReceipt(first));await assert.rejects(()=>eraseLedger(first));await assert.rejects(()=>receiptProgress());await assert.rejects(()=>db.query('select * from maintenance_private.deletion_receipt_sessions'));await assert.rejects(()=>db.query('select public.prune_maintenance_completed_deletion_receipts(1)'));
+ }finally{await db.close();}
+});

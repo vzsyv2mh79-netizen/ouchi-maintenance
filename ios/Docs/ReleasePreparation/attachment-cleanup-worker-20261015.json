@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-15",
+  "sourceHeadBeforeChange": "24b16f141fc066ce97f87c9d6d24641b7b2a3550",
+  "status": "dormant_accepted_removal_cleanup_candidate",
+  "migration": "supabase/migrations/20261015041238_ouchi_attachment_cleanup_lease.sql",
+  "local": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "typecheckExitCode": 0,
+    "lintExitCode": 0,
+    "actualSDKHTTP": true,
+    "schemaEngine": "full-schema PGlite; synthetic Auth and Storage metadata",
+    "retirementBugReproducedBeforeFix": true,
+    "legacyCapturedInventoryUnchanged": true,
+    "positiveLog": "/private/tmp/ouchi-attachment-cleanup-final-20261015.log",
+    "negativeLog": "/private/tmp/ouchi-cleanup-retirement-before-20261015.log"
+  },
+  "actualServices": {
+    "status": "new-head CI pending",
+    "scope": "Accepted removal after logout, competing/expired lease, actual successful Storage DELETE response loss, SDK NoSuchKey, quota release, new retirement inventory recapture, unsettled-write/foreign-byte/Auth preservation. Operator role/intake fixtures; no production or SLA proof."
+  },
+  "history": {
+    "readOnly": true,
+    "canonical": 98,
+    "matchingApplied": 7,
+    "pending": 91,
+    "foreignPreserved": 8,
+    "conflicts": 0,
+    "automaticApplyAllowed": false,
+    "historyRepairAllowed": false
+  },
+  "advisors": {
+    "verified": false,
+    "reason": "Local candidate DB unavailable at 127.0.0.1:54322; unrelated live advisors cannot verify this schema."
+  },
+  "requiredBeforeActivation": [
+    "staged advisors, effective privileges and existing frozen-plan review",
+    "dedicated bounded role/transport, TLS and all-writer admission",
+    "actual service result and physical file/outbox/device integration",
+    "app budget allocation and operator scheduling/alerts/backoff",
+    "approved finite retention including provider backups, logs and receipts"
+  ],
+  "enabled": {
+    "production": false,
+    "realBilling": false,
+    "paidInfrastructure": false,
+    "scheduler": false,
+    "roleOrGrantProvisioning": false,
+    "customerDataDeletion": false,
+    "deletionSLA": false
+  }
+}

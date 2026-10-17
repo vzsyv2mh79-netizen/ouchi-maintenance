@@ -1,0 +1,44 @@
+{
+  "status": "home_menu_semantics_prepared_switching_verified_contrast_not_resolved",
+  "baseHead": "c35e06a6249de48990d48edd9c26807cba629cfe",
+  "sourceDigest": "51ae58f22be5447fa22c4a5b933f81158179e2ff",
+  "scope": "Combine HomePicker accessibility children while retaining its action label/current home value; decorative chevron hidden from accessibility only. No offscreen-node handling or issue filter.",
+  "homeSwitch": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "expectedFailures": 0,
+    "runtimeWarnings": [],
+    "device": "iPhone18Pro Simulator iOS27",
+    "textSize": "AX5",
+    "appearance": "dark",
+    "scope": "select second synthetic home, verify empty products/history, return and verify original product; existing button label/value and activation remain usable",
+    "capturesReviewed": 3,
+    "cloudRLSVerified": false,
+    "VoiceOverManuallyVerified": false
+  },
+  "focusedCareAudit": {
+    "passed": 1,
+    "failed": 1,
+    "skipped": 0,
+    "textClipped": "passed",
+    "contrast": "failed",
+    "finding": "source-kind label at y806.0 height81.3 partially below floating tabs",
+    "capturesReviewed": 2,
+    "allFindingsReported": true,
+    "resolved": false
+  },
+  "temporarySimulatorsRemoved": true,
+  "notVerified": [
+    "manual VoiceOver focus order and spoken output",
+    "physical device",
+    "all accessibility categories and scroll positions",
+    "final signed build"
+  ],
+  "sources": [
+    "https://developer.apple.com/documentation/swiftui/view/accessibilityelement(children:)",
+    "https://developer.apple.com/documentation/swiftui/accessibilitychildbehavior/ignore"
+  ],
+  "production": false,
+  "billing": false
+}

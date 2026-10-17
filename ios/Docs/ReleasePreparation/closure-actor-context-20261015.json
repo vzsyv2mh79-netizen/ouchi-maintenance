@@ -1,0 +1,46 @@
+{
+  "status": "local_verified_actual_services_pending",
+  "parent_head": "98e64029a43848339054028add100efe7e683efa",
+  "failure_evidence": {
+    "run": 38652343634,
+    "job": 116153904243,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "reason": "Canonical metadata cleanup sets only JSON claims while preceding shared fixture auth.uid reads legacy subject; rejection occurs before intended expiry injection."
+  },
+  "change": "Additive migration replaces three existing private worker/native metadata cleanup bodies with both-format actor binding and exact prior-context restoration on success and exception. Protected backend transport binds both formats from its already verified fixed actor. No auth.uid definition, role/grant, policy, schedule, login, production data or activation change.",
+  "migration": "supabase/migrations/20261014231227_ouchi_closure_actor_context_compatibility.sql",
+  "migration_created_by": "official Supabase CLI migration new; not applied to live/shared DB",
+  "local_tests": {
+    "related_passed": 16,
+    "related_failed": 0,
+    "related_skipped": 0,
+    "history_passed": 3,
+    "history_failed": 0,
+    "history_skipped": 0,
+    "scope": [
+      "legacy auth.uid with an unrelated pre-existing context",
+      "cleanup success and injected exception restore both GUCs and rollback temporary session removal on failure",
+      "wrong lease cannot remove metadata or change actor context",
+      "restricted recovery worker closes only marked temporary session, cannot read Auth tables",
+      "protected private transport executes own bound SQL and restores prior transaction-local context",
+      "existing lifecycle, real guarded canonical stages and sealed retry tests",
+      "recorded seven baseline sources and foreign migration history remain preserved; new source is pending, no automatic apply/history repair"
+    ]
+  },
+  "canonical_catalog": {
+    "count": 94,
+    "observed_source_matches": 7,
+    "pending_candidates": 87,
+    "review_runtime_sources": 6,
+    "automatic_apply_allowed": false,
+    "history_repair_allowed": false,
+    "live_schema_readiness_proven": false
+  },
+  "eslint": "passed",
+  "typecheck": "passed",
+  "actual_services": "pending next fixed-head CI; previous failures retained",
+  "production_applied": false,
+  "actual_billing_enabled": false
+}

@@ -1,0 +1,44 @@
+{
+  "source": "copied sibling review patch with documented local corrections; not an enabled production migration",
+  "files": {
+    "household-fence.sql": "6114684b6c7085c7201f3d736b977e65015ee8ac80fa573e786ee8e4daa59fc3",
+    "scoped-worker.sql": "aee661893bac81f5288d31fa98245489c1a7edec611523bf66a9cb87f37bdadd",
+    "handoff.sql": "9af11f02a20eb03116669290f15af90c5d3230961b2b9d20ad6b2ee183c1ad57",
+    "private-writers.sql": "2c98059e01acbe19b150221ca079c3f5e23920e300055ef0fe917b9fb06cad51"
+  },
+  "copiedFor": "local composition verification only",
+  "productionApplied": false,
+  "adapters": {
+    "handoff-port.mjs": {
+      "sourceSHA256": "fc04fefd928916860b44e7b0f4f433675604f01dff4892e45382da126f471316",
+      "copySHA256": "effe44af679344d2ae3c703a68367066c9416c2d54f2a9b27747430971569d6c",
+      "importChange": "none",
+      "purpose": "composition fixture only; no shipping provider or credential",
+      "localCorrections": [
+        "refuse unresolved file custody after signed dual consent and before ownership update",
+        "retain parent locks; rely on composed private-writer freeze, not nonexistent product FK",
+        "remove unused destructured binding",
+        "optional opaque measured attachment activation; default unresolved-file refusal retained",
+        "all file uploaders join the sorted principal lock set before row locks"
+      ]
+    },
+    "handoff-consent.mjs": {
+      "sourceSHA256": "685b0eb47edba4cf2dcca2c0b4a5731ef3c78696abdfd2b3998aa8e024b6000e",
+      "copySHA256": "ebde10d350b71bd15f08d41c5270058ec136fe830c265b14230955129e645c40",
+      "importChange": "Re-export canonical backend implementation; previous source copy remains recorded.",
+      "purpose": "composition fixture only; no shipping provider or credential",
+      "previousCopySHA256": "db5a89a7cd1d667dbc9c271aecf4d69337abbbbd0bb8c85463318e871f704082",
+      "canonicalImplementation": {
+        "path": "lib/home-handoff-consent.mjs",
+        "sha256": "41b10638cc4a9893101de3cd1ae20b68163292d1a2f3f2f09fda658bd83480be",
+        "scope": "Original v1 semantics moved unchanged; new historical composed verifier is separately tested. No shipping provider, endpoint or key provisioning."
+      }
+    }
+  },
+  "originalSourceFiles": {
+    "private-writers.sql": "ee6869943cf6a72bed4cb622834d968cbb6e17b8578c242646741562f45c9b48"
+  },
+  "localFileCorrections": {
+    "private-writers.sql": "default-false helper; only exact old/new rows under the separate private activation context may update stopped attachments and settled writes"
+  }
+}

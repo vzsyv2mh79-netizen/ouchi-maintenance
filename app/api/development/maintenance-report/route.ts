@@ -1,0 +1,57 @@
+import { sandboxReportReadConfiguration } from '@/lib/report-read-configuration';
+import { createBillingFetch } from '@/lib/billing-fetch';
+import { createClient } from '@supabase/supabase-js';
+import { billingConfiguration, billingDatabase, verifiedPurchaseAccount, ledgerEntitlementAfterAuth } from '@/lib/billing-server';
+import { entitlementFromTransactions, type VerifiedTransaction } from '@/lib/billing';
+import { validateData } from '@/lib/backup';
+import { maintenanceReport } from '@/lib/maintenance-report';
+
+export const runtime = 'nodejs';
+export async function GET(request: Request) {
+  const headers = { 'Cache-Control': 'no-store' };
+  const config = sandboxReportReadConfiguration() ?? billingConfiguration();
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (process.env.VERCEL_ENV === 'production' || !config || config.environment !== 'Sandbox' || process.env.OUCHI_REPORT_TEST_MODE !== 'true' || !publishableKey?.startsWith('sb_publishable_')) {
+    return Response.json({ error: 'レポートは準備中です。' }, { status: 503, headers });
+  }
+  const token = request.headers.get('authorization');
+  if (!token?.startsWith('Bearer ') || token.length > 16384) return Response.json({ error: 'ログインしてください。' }, { status: 401, headers });
+  const homeId = new URL(request.url).searchParams.get('homeId');
+  if (!homeId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(homeId)) return Response.json({ error: '住まいを選択してください。' }, { status: 400, headers });
+  try {
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(30000)]);
+    const db = billingDatabase(config, signal);
+    const { data: { user }, error } = await db.auth.getUser(token.slice(7));
+    if (error || !user) return Response.json({ error: 'ログインを確認できません。' }, { status: 401, headers });
+    const purchaseAccount = await verifiedPurchaseAccount(db, token.slice(7), user.id);
+    if (!purchaseAccount) return Response.json({ error: '現在の登録を確認できません。' }, { status: 403, headers });
+    const hasPremium = async () => {
+      if (config.storage === 'verified-ledger') {
+        const rights = await ledgerEntitlementAfterAuth(db, token.slice(7), user.id, purchaseAccount, 'Sandbox');
+        return rights.plan === 'premium';
+      }
+      const result = await db.from('ouchi_sandbox_transactions').select('payload').eq('user_id', user.id).eq('app_epoch_id', purchaseAccount);
+      if (result.error) throw new Error('Entitlement unavailable');
+      const transactions = (result.data ?? []).map(row => row.payload as VerifiedTransaction).filter(transaction => transaction.environment === 'Sandbox' && transaction.accountToken === purchaseAccount);
+      return entitlementFromTransactions(transactions, Date.now()).plan === 'premium';
+    };
+    const premium = await hasPremium();
+    if (!premium) return Response.json({ error: 'テスト用の有料利用権が必要です。' }, { status: 403, headers });
+    // Household reads use the caller JWT and existing RLS, never service privileges.
+    const scoped = createClient(config.url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: token }, fetch: createBillingFetch(10000, signal) } });
+    const loaded = await scoped.rpc('load_household');
+    if (loaded.error) throw new Error('Household unavailable');
+    const data = validateData(loaded.data);
+    if (!data.homes.some(home => home.id.toLowerCase() === homeId.toLowerCase())) return Response.json({ error: '住まいを確認できません。' }, { status: 404, headers });
+    const current = await db.auth.getUser(token.slice(7));
+    if (signal.aborted || current.error || current.data.user?.id !== user.id ||
+        await verifiedPurchaseAccount(db, token.slice(7), user.id) !== purchaseAccount) {
+      return Response.json({ error: 'ログイン状態が変わりました。' }, { status: 403, headers });
+    }
+    if (!await hasPremium()) return Response.json({ error: 'テスト用利用権が終了しました。' }, { status: 403, headers });
+    if (signal.aborted) throw new Error('Request cancelled');
+    return Response.json({ environment: 'Sandbox', salesEnabled: false, report: maintenanceReport(data, data.homes.find(home => home.id.toLowerCase() === homeId.toLowerCase())!.id, Date.now()) }, { headers });
+  } catch {
+    return Response.json({ error: 'レポートを作成できません。時間をおいてお試しください。' }, { status: 503, headers });
+  }
+}

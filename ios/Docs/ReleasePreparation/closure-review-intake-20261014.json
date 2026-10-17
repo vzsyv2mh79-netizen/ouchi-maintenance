@@ -1,0 +1,31 @@
+{
+  "status": "disabled_durable_review_intake_component_actual_service_ci_pending",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "changes": [
+    "Separate app-closure-review/v1 kind, reviewRequestID and review_required state; never a deletion job ID or erasure/completion claim.",
+    "Private default-disabled intake with RLS/service-only SQL, verified current app/session/epoch and original timestamp/idempotent replay.",
+    "A shared owner may initiate the review record without another member signing a handoff; family records/access/jobs remain unchanged.",
+    "A real deletion job takes precedence; review request/read refuses stale review-only display.",
+    "Backend RPC snapshots the scope, refuses identity drift, uses no automatic retry, bounded cancellation/deadline and canonical response shape."
+  ],
+  "localEvidence": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Full-schema embedded SQL with synthetic Auth plus prepared SDK-port contracts; no deployed/native flow.",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "actualServiceWitness": "Prepared actual GoTrue/TOTP user verification + PostgreSQL intake/replay/read/wrong-session refusal before any family handoff/deletion job; exact-head CI pending.",
+  "commercialPromise": "No deletion completion time or service retention period adopted; no raw password, email or handoff content stored in the review table.",
+  "remaining": [
+    "Authenticated/re-authenticated shipping request/status route and native review-specific UI/receipt custody",
+    "Cancellation and deliberate new consent after cancellation, dispatch linkage and request-state transitions",
+    "Requester/other-member/legacy content classification and deletion path when family cannot accept transfer",
+    "Finite lawful private review/consent/billing evidence retention and verified purge; operator processing SLA and notification",
+    "Least privilege concrete provider; no existing data deletion, no production migration/grants enabled",
+    "Physical-device/VoiceOver and current UI validation; Apple membership payment held, real IAP/Sandbox/TestFlight and submission still pending"
+  ],
+  "sourceGuidance": "https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion"
+}

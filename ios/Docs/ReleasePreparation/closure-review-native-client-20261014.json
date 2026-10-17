@@ -1,0 +1,22 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "protocol": "app-closure-review/v2",
+  "scope": "Prepared OuchiCore API and flow, not a shipping UI/server route. No deletion completion state exists.",
+  "transport": "Exact per-action POST JSON <=4096 bytes, no redirects, original response URL and canonical scope/kind/states, bounded default URLSession resource timeout, cancellation. 404 is only absent matching review; request never accepts it.",
+  "custody": "Binding contains accountID/epochID/submissionID only. Caller must persist and read back exact binding before submission. Default persistence rejects. Unknown/pending submission cannot silently renew; explicit retry only after confirmed absent review, explicit new request only after cancelled receipt. Same-account session revision retains custody but invalidates results.",
+  "identity": "Late response after account/epoch/revision changes discarded; reentrant identity change during save prevents dispatch. No bearer/password is saved in binding.",
+  "verified": {
+    "swiftVersion": 6,
+    "localTests": 6,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "macOS Swift package compile + mocked transport and injected persistence. Restored binding is in-memory fixture, not Keychain/restart or real Auth HTTP proof."
+  },
+  "remaining": [
+    "Actual protected custody store and restart tests",
+    "Native screen/state integration and bounded trusted shipping route",
+    "Actual personal/shared content deletion and finite retention",
+    "Physical UI/accessibility/Apple purchase and submission validation"
+  ]
+}

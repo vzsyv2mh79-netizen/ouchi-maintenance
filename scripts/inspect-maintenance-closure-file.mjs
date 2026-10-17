@@ -1,0 +1,9 @@
+import {runPrivateOperatorFileExport} from '../lib/closure-operator-file-export.mjs';
+import {createPostgresClient} from '../lib/postgres-driver.mjs';
+const args=process.argv.slice(2);
+if(args.length===1&&args[0]==='--help'){
+ process.stdout.write('Inspect exactly one scoped personal-file or household-file without approving retention.\nUsage: node scripts/inspect-maintenance-closure-file.mjs --inspect-file --config <private-database-json> --storage-config <private-storage-json> --project-ref <expected-ref> --request <private-json> --output-directory <new-private-directory>\nThe request contains operation, reviewRequestID, userID, epochID, fileID, inspectionID and expectedMetadataDigest. Storage configuration contains projectRef and secretKey. No environment credentials are discovered. SQL independently authorizes the checked descriptor and verifies its bytes before export. Read the private inspection.json first; an unconfirmed receipt or partial file is not verified evidence. Preserve the original inspection ID/request after an uncertain response and reconcile before retrying into a new directory. Never overwrite prior output. No file is automatically opened; downloaded content may be untrusted. Human account-content review is still required. No retention decision, copy, deletion or retirement is executed. Adopt private-file retention and provision reviewed credentials before live use.\n');
+}else{
+ try{process.stdout.write(JSON.stringify(await runPrivateOperatorFileExport({args,createClient:createPostgresClient}))+'\n');}
+ catch{process.stderr.write('File inspection outcome unconfirmed. Preserve the original request/inspection ID and private receipt. No retention or retirement was approved. Private content, credentials and connection errors are not printed.\n');process.exitCode=1;}
+}

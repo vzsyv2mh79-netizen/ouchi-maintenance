@@ -1,0 +1,46 @@
+{
+  "status": "local_verified_actual_services_pending",
+  "date": "2026-10-15",
+  "migration": "supabase/migrations/20261015003918_ouchi_deletion_prior_delivery_identities.sql",
+  "createdUsing": "Supabase CLI migration new; no deployment",
+  "problem": "The old native delivery cleanup returned true after removing only current-epoch rows, while the identity absence checkpoint requires no delivery identity for this user in any epoch. Retained prior epochs prevented completion.",
+  "change": "Delete and independently check all Ouchi native delivery identities for the verified target user; preserve original current request/epoch/lease, disabled-access and captured-inventory gates, invoker status, lock order and existing ACLs.",
+  "regressionBeforeFix": {
+    "passed": 2,
+    "failed": 1,
+    "scope": "Actual canonical PGlite schema; older own delivery row remained, bystander expected unchanged."
+  },
+  "localAfterFix": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Three delivery erasure/authorization tests plus three migration-history reconciliation tests. Includes exact harmless retry, all retained epochs, bystander and Auth preservation, wrong scope/lease/expiry, active account/epoch, missing inventory and denied browser roles.",
+    "lint": "passed"
+  },
+  "catalog": {
+    "canonicalFiles": 95,
+    "recordedBaselineSources": 7,
+    "pendingCandidates": 88,
+    "foreignHistoryPreserved": 8,
+    "conflicts": 0,
+    "runtimeReviewGroup": 6,
+    "automaticApply": false,
+    "historyRepair": false,
+    "scope": "Reconciliation of previously read history fixture/source hashes, not evidence of live deployment."
+  },
+  "actualServices": {
+    "status": "new_fixture_prepared_not_run",
+    "scope": "Disposable actual PostgreSQL/Auth/Storage; verify current/prior delivery removal and bystander preservation before household freeze. Does not prove a frozen device-stage adapter or whole shared Auth deletion."
+  },
+  "securityReview": {
+    "invokerOnly": true,
+    "searchPath": "empty",
+    "newGrants": false,
+    "liveReadOnlyAdvisorsRun": true,
+    "stagedAdvisorsVerified": false,
+    "note": "Live advisor scan is for existing shared schema; it does not validate this un-applied candidate."
+  },
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false
+}

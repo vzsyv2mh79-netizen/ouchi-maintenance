@@ -1,0 +1,64 @@
+{
+  "baseManifest": "output/family-explicit-owner-fixed-20261016/manifest.json",
+  "baseManifestSHA256": "801f1947b66136a9c855fa583f7b5ef7b61c81239ef2f84f3f38ed7004ecbea1",
+  "inputSetCounts": {
+    "previous": 755,
+    "unchanged": 752,
+    "changedExisting": 3,
+    "new": 0,
+    "total": 755
+  },
+  "status": "active_former_member_family_upload_and_private_file_preserved_not_deployed",
+  "result": [
+    {
+      "variant": "explicit-owner-active-former-uploader-three-family-files",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 30684.173542,
+      "log": "logs/ouchi-former-uploader-services-20261016.log"
+    },
+    {
+      "variant": "implicit-owner-two-current-participants-two-family-files",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 25979.914416,
+      "log": "logs/ouchi-former-uploader-two-file-regression-20261016.log"
+    }
+  ],
+  "fixedLintExit": 0,
+  "runnerSyntaxAndVariantGuardVerified": true,
+  "claims": [
+    "Actual third account joined home, uploaded via canonical reservation/write/finalize and actual private Storage, then its membership was removed before the signed original inventory was frozen.",
+    "Original owner was also an explicit home member. Current signed household plan measured only current owner and recipient; file inventory included all three family attachments.",
+    "Owner family file moved once to recipient, recipient and former uploader paths retained. All captured ownership and settled write ownership moved atomically to successor; unchanged uploader/epoch/path retained for non-owner files.",
+    "Sorted advisory locks include all file upload principals before Auth row pins; second connection probes each held lock.",
+    "Whole paired coordinator preserved original consents across copy reply loss, late-factor rollback, family/global checkpoint response loss, solo deletion, actual Storage/Auth DELETE reply loss and post-Auth pending/recovery.",
+    "After retiring owner Auth erasure, recipient canonical RPC and actual Storage bytes available for all three family files; family home/care/history retained except precisely retiring owner membership.",
+    "Former active account denied family read by canonical service RPC, while unrelated private home/product/file/write metadata, original private bytes, private RPC access and real Auth remained unchanged.",
+    "Same source passed original implicit-owner two-file regression; private peer source unchanged."
+  ],
+  "limits": [
+    "Former account remains active in current epoch. Already-closed accounts and old-epoch/former-owner variants are not covered.",
+    "Formal service-role RPC access checks tested; ordinary client CRUD/RLS and all direct Storage SDK access channels not established.",
+    "Dedicated fresh paired cases only; not success of separate legacy standalone family suite.",
+    "Copy reply loss injected after actual SDK success; Storage HTTP cancellation remains pending. SQL wait cancellation is distinct.",
+    "Management policy injection, reduced peer review schema and synthetic inventory/enrollment/retention/operator role; no shipping intake/full writer registry/least privilege proof.",
+    "Public CI does not execute private nonempty paired assembly. No production migration/grants/customer erasure, live billing or Apple upload/submission/publication."
+  ],
+  "snapshotTiming": "Full755 source fixed after both actual successful cases; all bytes checked against runtime and prior fixed chain.",
+  "privatePeerSourceChanges": false,
+  "cleanup": {
+    "containersRemaining": 0,
+    "projectVolumesRemoved": true,
+    "VM": "Stopped verified"
+  },
+  "legacyConsoleNote": "Generic initial plan and final console retain previous implicit/no-transfer scope wording. Dedicated former-uploader lines, actual former-membership removal, three-file inventory and final access/private-state assertions establish the stated bounded case.",
+  "fixedManifestSHA256": "0c61a9092cea0688f30f825e2b80f98f3ca8139b7e2b6010fe89695f6ff3da8d",
+  "parentPublicHead": "519d5f914c44e281dc613fcebbd8dec8879c5104",
+  "publicAssembly": "Ouchi scene builder and evidence only; private paired runner/assembly stay local",
+  "separateRootRenewalProofSHA256": "2d6c4af91888c8859fc0a4d535787ae173676ef39499c3da668153bf0f9e8e01"
+}

@@ -1,0 +1,61 @@
+{
+  "status": "product_clipping_verified_other_accessibility_open",
+  "sourceDigest": "5866a74c995dc33bcceae19fc27ab2d9634a2985",
+  "testHarnessDigest": "aecf0538fd209e4efa56098516c9b05966708b38922915b923a3ea4550f2a908",
+  "passed": 1,
+  "failed": 1,
+  "skipped": 0,
+  "ownedSimulatorRemoved": true,
+  "issueSuppression": false,
+  "productName": {
+    "implementation": "multiline UILabel measures required height at proposed width; preferred subheadline follows inherited content-size traits",
+    "width": 326,
+    "pointSize": 49,
+    "labelHeight": 116.67,
+    "stringHeight": 116.47,
+    "actualSimulatorMetrics": true,
+    "textClippedAudit": "passed",
+    "visualReview": "fully wrapped sample product name in screenshot CB21B514-B4E7-4213-A758-236032504F7A.png"
+  },
+  "contrast": {
+    "audit": "failed",
+    "label": "30日ごと",
+    "frame": {
+      "y": 717.3,
+      "height": 81.3
+    },
+    "tabBarTop": 761,
+    "reviewedCrop": "B2FACAAA-0F91-4756-BE4F-C2B80649516F.png",
+    "causeEvidence": "crop shows interval text crossing behind floating tab controls; not dismissed as a false positive"
+  },
+  "nextCandidate": "hard-edge experiment rejected; prior scroll-edge behavior restored",
+  "notVerified": [
+    "AX5 dark and other viewport/category coverage",
+    "live font-size change",
+    "VoiceOver",
+    "physical device",
+    "real cloud persistence",
+    "final signed build"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "repeatedClippingAudit": "passed again during rejected scroll-edge experiment; does not make contrast pass",
+  "normalDarkFlow": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "sourceDigest": "5866a74c995dc33bcceae19fc27ab2d9634a2985",
+    "testHarnessDigest": "aecf0538fd209e4efa56098516c9b05966708b38922915b923a3ea4550f2a908",
+    "ownedSimulatorRemoved": true,
+    "scope": [
+      "actual sample completion adds exactly one history and updates next due date",
+      "sample export produces reachable share/save control; no outside destination opened"
+    ],
+    "reviewedImages": [
+      "A0C4FB07-B84B-4007-A693-2125DA276558.png",
+      "B3A83B3F-9CA9-4BEC-81AA-991BC4F23F36.png",
+      "CDC0CC68-0521-45F3-931C-1D629F16EDE1.png"
+    ]
+  },
+  "sourceHeadBeforeChange": "a548dba903249d37a365bcfb1992be85b9f0cf70"
+}

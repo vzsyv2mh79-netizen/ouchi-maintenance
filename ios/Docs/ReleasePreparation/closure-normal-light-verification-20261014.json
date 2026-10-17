@@ -1,0 +1,25 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "change": "UI test explicitly selects large or AX5 preview via scheme environment. Unsupported AX3 option removed because the preview previously forced AX5 regardless of that system setting.",
+  "evidence": {
+    "sourceDigest": "afd25558210f463e0656b53d2acea177ffa20696",
+    "testSourceSHA256": "2f69699b5edad383ee2b5677f59db0b393bc5421bb877f26eec8869e70c01bc8",
+    "textMode": "large",
+    "appearance": "light",
+    "model": "iPhone17e",
+    "runtime": "iOS27.0 (24A434)",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "runtimeWarnings": [],
+    "durationSeconds": 52.326,
+    "PNGReviewed": 5,
+    "ownedSimulatorRemoved": true,
+    "temporaryToolbarProjection": false,
+    "scope": "Same full selected-reference read/cancel/real software keyboard input/input-done/switch0-to-1/new submission/selected fresh receipt/count3 flow with actual scoped Keychain and mock HTTP.",
+    "imageNote": "Attachment names retain historical ax5 suffix; actual scheme, manifest and inspected images use normal large text/light appearance. Filename is not evidence of text mode."
+  },
+  "notVerified": ["physical-device lock", "VoiceOver", "full accessibility audit", "small phones", "real Auth HTTP", "actual personal/shared erasure", "Apple purchases or distribution signing"],
+  "relatedAX5DarkEvidence": "ios/Docs/ReleasePreparation/closure-input-bar-verification-20261014.json"
+}

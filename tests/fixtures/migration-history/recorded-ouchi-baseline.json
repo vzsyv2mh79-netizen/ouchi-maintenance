@@ -1,0 +1,9 @@
+[
+ {"version":"20261002020521","name":"household_storage","source_sha256":"44ba4489306a1a80cad7a859d8c0dd8762681a5becc3aff5152700ec719a2862"},
+ {"version":"20261002020526","name":"atomic_import","source_sha256":"efc88712a0c3a3adc9b923fd04cd1d0bb5863d466653b85aeec36d314a2702ac"},
+ {"version":"20261002020534","name":"household_sharing","source_sha256":"9ab6e9babf3ee065a909fc7f49d83e76f96d8e49ce5b245b4b7e3abc9f97ea4a"},
+ {"version":"20261002020540","name":"account_data_erasure","source_sha256":"ff0ae66ba62df988606f3f52d5dcd13ab53a0fd453cf12d033fe274f76ee8308"},
+ {"version":"20261002020546","name":"push_reminders","source_sha256":"0eae062ce2565446bf868ef2559448f5bdc12cf7617ae85433c6d6cbbd986003"},
+ {"version":"20261005134640","name":"cloud_backup_restore","source_sha256":"3453c17ff8e18be006925b62b18a226d08790e6d71c36f5fa9c8447ab73bfb9b"},
+ {"version":"20261005135900","name":"push_test_delivery","source_sha256":"5d667923a6e5862d181cea143b04e689df42b9963ef8324a9146c477ece1df58"}
+]

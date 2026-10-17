@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-15",
+  "sourceHeadBeforeChange": "3f46c6171b7ddf23d80dd5f42b95dc1fc598caf2",
+  "status": "dormant_application_owned_worker_bridge",
+  "local": {
+    "adapterCases": 8,
+    "relatedCases": 14,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "typecheckExitCode": 0,
+    "lintExitCode": 0,
+    "engine": "full-schema PGlite plus actual application worker",
+    "lostCompletionReplyRecovered": true,
+    "unknownNotificationStopsRecordErasure": true,
+    "bystanderMetadataDevicesAndOriginalAuthPreserved": true,
+    "providerSnapshotRegression": {
+      "before": {
+        "passed": 7,
+        "failed": 1
+      },
+      "after": {
+        "passed": 8,
+        "failed": 0
+      },
+      "scope": "Resolved provider binding is copied once before validation and worker dispatch."
+    }
+  },
+  "actualService": {
+    "sealedReceiptRecovery": {
+      "head": "3f46c6171b7ddf23d80dd5f42b95dc1fc598caf2",
+      "workflow": 38678863621,
+      "job": 116238577593,
+      "status": "success",
+      "scope": "Exact completed native receipt only; no mutation via adapter. Original actual-service checks retained."
+    },
+    "fullNativeWorker": {
+      "status": "new-head CI pending",
+      "scope": "Third fresh actor; all six native stages through adapter and lost committed-completion response recovery. Empty file inventory and synthetic coverage/retention. No full global controller or external file/outbox/device proof."
+    }
+  },
+  "requiredBeforeShipping": [
+    "reviewed same-transaction ports with current inventory, independent shared/native leases, family/session and every writer gate",
+    "real-service full worker and physical file/outbox/device acknowledgement coverage",
+    "full global shared-controller and post-Auth verification",
+    "dedicated role, finite retention, recovery scheduling and production approval"
+  ],
+  "enabled": {
+    "production": false,
+    "realBilling": false,
+    "paidInfrastructure": false,
+    "sharedAuthErasure": false
+  }
+}

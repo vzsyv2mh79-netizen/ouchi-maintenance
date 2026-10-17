@@ -1,0 +1,170 @@
+{
+  "status": "implementation_and_drafts_prepared_not_release_complete",
+  "sourceHeadBeforeChange": "5a29aa1113075a88548f69ce7ea016e366176765",
+  "ui": {
+    "change": "stack status captions vertically, retain top-right 44pt theme control and Dynamic Type semantic fonts",
+    "manualChecks": "Normal iPhone/iPad light/dark and light AX3/AX5 initial sample viewports reviewed; AX3/AX5 fully visible completion/export interactions passed. Full accessibility and physical-device checks remain.",
+    "matrix": [
+      "small iPhone and large iPhone",
+      "default/AX3/AX5",
+      "light/dark",
+      "keyboard open and landscape",
+      "VoiceOver labels, focus and complete action"
+    ],
+    "flows": [
+      "login/signup/reset",
+      "family invite/join",
+      "product/task editor",
+      "complete/history",
+      "export",
+      "purchase/restore",
+      "account closure/recovery"
+    ],
+    "savedReceiptRendering": {
+      "evidence": "ios/Docs/SavedReceiptRenderingReview.md",
+      "normal": "two synthetic Keychain references rendered",
+      "accessibility5": "full inline title; body grows and wraps; below-fold rows not verified",
+      "builds": "Debug and Release simulator builds passed; Debug-only preview symbol absent from Release",
+      "remaining": [
+        "scrolling",
+        "VoiceOver",
+        "physical-device Keychain",
+        "deployed native-server flow"
+      ]
+    },
+    "sampleViewports": {
+      "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+      "normal": {
+        "appearances": [
+          "light",
+          "dark"
+        ],
+        "devices": [
+          "iPhone 18 Pro",
+          "iPad Pro 13-inch M5"
+        ],
+        "reviewed": 20
+      },
+      "largeText": {
+        "appearances": [
+          "light"
+        ],
+        "sizes": [
+          "AX3",
+          "AX5"
+        ],
+        "reviewed": 10,
+        "status": "initial_viewports_only"
+      },
+      "isSubmissionApproved": false
+    },
+    "sampleInteractions": {
+      "status": "AX3_AX5_verified_not_full_accessibility",
+      "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+      "appearance": "light",
+      "textSizes": [
+        "AX3",
+        "AX5"
+      ],
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "scope": [
+        "fully visible completion tap updates due date and adds exactly one sample history entry",
+        "fully visible export tap creates reachable share control"
+      ],
+      "remaining": [
+        "dark large text",
+        "keyboard forms",
+        "VoiceOver",
+        "physical iPhone",
+        "real cloud persistence",
+        "final signed release"
+      ]
+    }
+  },
+  "network": {
+    "change": "resource deadlines: status/cancel 20s; challenge/commit/deletion 35s; process already 65s",
+    "test": "40 native core tests; default URLSession loopback lost-reply and bearer-free receipt recovery; canonical token checks; scoped lookup and expected epoch refusal; isolated actual PostgreSQL cancellation checks and two-app replay",
+    "remaining": [
+      "expired/original-session-loss restore recovery",
+      "unknown Apple update outcome reconciliation",
+      "finite pending proof/job/cancel receipt retention",
+      "signed real Apple Sandbox and actual device persistence",
+      "production app closure with shared-Auth isolation and cleanup SLA"
+    ],
+    "limitations": "Native TCP evidence is macOS loopback. Actual disposable GoTrue plus its PostgreSQL database passed credential registration and lost-response exact retry in CI on 24af8e6146f42500daf76529de1ecb48b568281a. Row-lock and hash/deadline checks are covered. The shipping prepare/register/claim route, least-privilege database provider, real device and all-project completion/retention remain unverified. Other two-app local replay uses synthetic Auth/Storage.",
+    "receiptRecovery": {
+      "custody": "dedicated device Keychain readback and metadata discovery prepared",
+      "screen": "DEBUG-only navigation; online checks disabled",
+      "remaining": [
+        "trusted prepare/register/claim route coupling",
+        "expiry and explicit custody cleanup",
+        "physical device lock/restart",
+        "all-project retirement coverage",
+        "adopt finite retention and provider cleanup policy"
+      ]
+    },
+    "authTransport": "Request-scoped SDK getUser, 5s combined cancellation deadline, 64KiB bounded body and redirects refused; isolated real Auth workflow passed on 24af8e6146f42500daf76529de1ecb48b568281a."
+  },
+  "storage": {
+    "policy": "attachment-policy-draft.json",
+    "status": "proposed; physical deletion SLA/backups/costs not enabled or approved"
+  },
+  "legal": {
+    "draft": "legal-drafts-ja.json",
+    "ownerFields": [
+      "operator",
+      "contact",
+      "effective date"
+    ],
+    "publication": "blocked until operational facts verified"
+  },
+  "listing": {
+    "copy": "listing-ja-draft.json",
+    "images": "screenshot-plan.json",
+    "status": "Twenty opaque JPEG native sample captures reviewed: five tabs in light/dark on iPhone and 13-inch iPad. Family detail and final signed release submission captures remain."
+  },
+  "enabled": {
+    "production": false,
+    "realPayments": false,
+    "paidInfrastructure": false,
+    "existingDataDeletion": false
+  },
+  "evidenceReviewedOn": "2026-10-13",
+  "ownerActionsDeferred": [
+    {
+      "item": "Apple Developer membership payment",
+      "status": "held by user",
+      "neededBefore": "signed Sandbox/TestFlight/submission"
+    },
+    {
+      "item": "legal operator/support/contact fields",
+      "status": "not supplied",
+      "neededBefore": "public policy and review submission"
+    },
+    {
+      "item": "real device accessibility and purchase lifecycle review",
+      "status": "pending",
+      "neededBefore": "final release verification"
+    },
+    {
+      "item": "final prices, storage/retention policy and operational cost approval",
+      "status": "proposals only",
+      "neededBefore": "sale activation"
+    }
+  ],
+  "releaseComplete": false,
+  "verification": {
+    "passedHead": "24af8e6146f42500daf76529de1ecb48b568281a",
+    "workflows": [
+      "Native iPhone checks",
+      "Isolated real Auth checks",
+      "Additive billing identity migration checks",
+      "Regression checks"
+    ],
+    "renderHead": "5a29aa1113075a88548f69ce7ea016e366176765",
+    "renderCI": "running; do not imply pass until terminal success",
+    "productionActivation": false
+  }
+}

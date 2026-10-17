@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-15",
+  "sourceHead": "b3a6d7b89761f4f4054f25c55b354d99fa8d8cfc",
+  "status": "local_macOS_purchase_view_review_only",
+  "shippingUIChanged": false,
+  "changes": [
+    "Include existing NativeStore Keychain dependencies in dedicated macOS StoreKit test target.",
+    "Use grouped Form for both optional review containers; shipping purchase sections unchanged."
+  ],
+  "observations": {
+    "tip": {
+      "prices": [
+        "JPY 100",
+        "JPY 300",
+        "JPY 1,000"
+      ],
+      "oneTimeAndFreeFeaturesNoticeVisible": true,
+      "groupedConfirmation": "JPY 300",
+      "cancelReturnedToChoices": true
+    },
+    "subscription": {
+      "prices": [
+        "JPY 300 / 1 month",
+        "JPY 3,000 / 1 year"
+      ],
+      "autoRenewalAndManagementLinkVisible": true,
+      "existingRecordsReadAndExportNoticeVisible": true,
+      "syntheticCapacityRetentionVisible": true,
+      "bothConfirmationsCancelled": true
+    }
+  },
+  "tests": {
+    "tip": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-storekit-tip-grouped-20261015.log"
+    },
+    "subscription": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-storekit-subscription-grouped-20261015.log"
+    },
+    "mockSubmissions": 0,
+    "localJournalAssertion": "empty, limited by SDK diagnostics"
+  },
+  "limitations": [
+    "SKInternalErrorDomain code 3 emitted during test-journal reset/read; empty assertion alone is not definitive service-state proof.",
+    "Synthetic account, quota/retention and HTTP fixture; local catalog prices, not App Store registered products.",
+    "No final payment or contract action pressed; no Apple JWS, renewal, refund or entitlement proof from these visual tests.",
+    "Physical iPhone, accessibility, surrounding full legal/restore view, signed Sandbox and TestFlight remain."
+  ],
+  "priorSourceCI": {
+    "head": "b3a6d7b89761f4f4054f25c55b354d99fa8d8cfc",
+    "allFiveSucceeded": true
+  },
+  "enabled": {
+    "production": false,
+    "realBilling": false,
+    "paidInfrastructure": false,
+    "customerDataDeletion": false
+  }
+}

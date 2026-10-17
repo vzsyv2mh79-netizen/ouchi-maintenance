@@ -1,0 +1,77 @@
+{
+  "status": "candidate_local_verified_actual_services_pending",
+  "base_head": "184d55464f4f383598f48e3044596bd7a9b18ae1",
+  "scope": "Integrate canonical native record erasure, receipt session capture, identity erasure and completion with existing stopped-writer guards on the outer shared journal transaction. Not full shared Auth erasure or a production adapter.",
+  "files": [
+    "tests/fixtures/shared-maintenance-native-stage.sql",
+    "lib/shared-maintenance-closure-metadata.mjs",
+    "tests/shared-maintenance-native-stage.test.mjs"
+  ],
+  "authority": {
+    "context": "private, RLS enabled, no anon/authenticated/service_role access or new deployment grants",
+    "binding": [
+      "same backend PID and transaction",
+      "fixed shared inventory and prerequisite receipts including earlier app stages",
+      "shared and native independent current leases",
+      "processing frozen native binding and stopped principal",
+      "15 second stage context",
+      "specific phase, schema, table, row and changed fields"
+    ],
+    "execution": "Fixed canonical SQL only; no arbitrary callback/SQL accepted by database stage runner. Context removed before return and rollback on error.",
+    "mismatch": "Active expired/mismatched context raises; cannot fall back to ordinary unrelated-user writes. Outside a context existing writer guards still apply.",
+    "commit": "Mandatory current family/session/all-writer provider plus outer runWithTransactionCommitChecks; dedicated owner must COMMIT immediately on same cancellable connection."
+  },
+  "tests": {
+    "local_related": {
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    "eslint": "passed",
+    "typecheck": "passed",
+    "new_security_cases": [
+      "canonical stages delete owned products/history with public/private guards active",
+      "session snapshot and identity erasure precede exact sealed completion",
+      "ordinary service role cannot call runner or read/create private context",
+      "guessed GUC, foreign mapping and missing receipt refused",
+      "wrong phase, extra changed field, unrelated principal, INSERT, expired context/shared lease/binding refused by real triggers",
+      "stage context cannot be reused after its deletion",
+      "existing family handoff and signed consent guard tests remain passing"
+    ],
+    "actual_services": "pending new fixed head; prior two runs failed, not replaced by local evidence"
+  },
+  "prior_failures": [
+    {
+      "head": "c5bd0b5e0dd9d49fee33ab53298ab462b25f96f6",
+      "run": 38650486178,
+      "reason": "fixture bound claims JSON but preceding Kakei fixture auth.uid() reads legacy sub GUC"
+    },
+    {
+      "head": "184d55464f4f383598f48e3044596bd7a9b18ae1",
+      "run": 38651189290,
+      "reason": "ordinary account_access update after freeze rejected by existing private guard"
+    }
+  ],
+  "real_fixture_changes": [
+    "Verify fresh actors with real getUser; match subject/session and bind both GUC formats transaction locally; assert restore.",
+    "Prepare initial access/epoch/retention before freeze; never bypass guard for setup after stop.",
+    "Separate real actors with absent versus synthetic operator-approved retention; unapproved completion rolls back.",
+    "Run canonical four stages through native runner inside checked shared transaction.",
+    "Shared/binding expiry rollback and second-connection lock timeout; original Auth, foreign reviews and exact retained private PNG bytes read back."
+  ],
+  "remaining": [
+    "actual disposable CI result and logs",
+    "dedicated least-privilege production LOGIN and staged advisors",
+    "full independently reviewed current writer/family/session coverage",
+    "production migration reconciliation and existing Web/native compatibility",
+    "finite retention/adoption and service operation",
+    "shared Auth erasure/post-Auth all-app verification"
+  ],
+  "production_applied": false,
+  "actual_billing_enabled": false,
+  "apple_payment": "held",
+  "sources": [
+    "https://www.postgresql.org/docs/current/trigger-definition.html",
+    "https://supabase.com/docs/guides/database/functions"
+  ]
+}

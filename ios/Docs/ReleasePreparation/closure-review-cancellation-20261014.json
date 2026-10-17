@@ -1,0 +1,25 @@
+{
+  "protocol": "app-closure-review/v2",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Prepared backend RPC and disposable SQL fixture only. No HTTP/native route, dispatcher, deletion completion or retention SLA.",
+  "submission": "Caller must persist a fresh UUID before an explicit new request; retry/read/cancel use that same submission ID. A cancelled nonce never revives; one pending request per verified user/app epoch.",
+  "authorization": "Trusted server must verify current real Auth and recent reauthentication. RPC identity is not taken from client flags. SQL rechecks live app session and epoch, locks participant and rejects an existing deletion job.",
+  "cancellation": "Invoker RPC with column-limited grants and guarded immutable row; no ownership/access/file/job mutation. Unknown submission yields null, which proves no matching review only, not absence of a deletion job.",
+  "compatibility": "Candidate v1 is not a deployed client contract; v2 intentionally rejects legacy or foreign-submission receipts.",
+  "verified": {
+    "localTests": 7,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "typecheck": "passed",
+    "actualServiceCI": "pending"
+  },
+  "remaining": [
+    "Server HTTP/native initiation, read and cancel screens with durable submission custody",
+    "Personal/shared content classification and actual erasure",
+    "Finite evidence retention and user timing notices",
+    "Trusted effective Auth configuration provider",
+    "App Store release checks"
+  ]
+}

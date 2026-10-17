@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-15",
+  "status": "review_candidate_cascade_refusal_reproduced_and_fixed_actual_services_retry_pending",
+  "parent": "9d3166cc35dbbb177a2035037cbe32725df4626a",
+  "scope": "SQL portion of frozen shared/native device-registration retirement on the journal-owned checked transaction",
+  "changes": [
+    "Add eraseDeviceRegistrations phase with exact request/user/epoch/native lease mapping and current shared receipts, fences and read-only family/session/writer gate provider",
+    "Invoke existing canonical Web push, native push and all-retained-epoch delivery-identity erasure sequentially; every acknowledgement must be strictly true",
+    "Permit only target-user DELETEs in the five notification registration categories; use immutable private device routes for cascading jobs after parent deletion",
+    "Refuse unknown native outcomes, sends begun under a claimed native lease and any retained Web claim marker, including expired deadlines; eraseRecords also cannot remove a Web claim first",
+    "Read back absence after acknowledgement and at the owning COMMIT; preserve exact completion replay and bystander rows"
+  ],
+  "localValidation": {
+    "command": "node --test tests/shared-maintenance-native-stage.test.mjs tests/shared-maintenance-closure-metadata.test.mjs tests/deletion-prior-delivery-identities.test.mjs tests/transaction-commit-checks.test.mjs",
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": [
+      "current and prior target epochs, all five notification categories, bystander JSON unchanged, original Auth retained, harmless retry",
+      "expired Web claim, expired started native send and unknown outcome refuse both device and record stages and roll back closure metadata",
+      "foreign rows, wrong phase and preference updates refused",
+      "false acknowledgement without absence, current-gate loss and shared-lease expiry roll back before COMMIT"
+    ],
+    "lint": "selected JavaScript files passed with zero warnings"
+  },
+  "actualServices": {
+    "status": "initial_candidate_failed_cascade_predicate_corrected_retry_pending",
+    "failedHead": "831deefbf4b04a28c1ee53820b3f0a979ed87e2d",
+    "failedRun": 38662992323,
+    "failedJob": 116188370757,
+    "diagnosis": "The canonical clear_push_test_limit AFTER DELETE trigger also deletes the actor's test-limit row during eraseRecords. That exact DELETE was refused by the phase predicate before the intended expiry fault; the expected error assertion was not broadened.",
+    "correction": "Allow only the same principal's DELETE on maintenance_push_test_limits in eraseRecords; add a regression proving its own Web/test-limit rows disappear while own native categories and all bystander rows remain unchanged.",
+    "fixture": "tests/fixtures/shared-maintenance-closure-services.mjs",
+    "assertions": "Seed synthetic Web/native destinations for current/prior epochs and bystander before freeze; run guarded device SQL while frozen, verify all five own categories absent and bystander retained before record/session/identity/sealed completion"
+  },
+  "limits": [
+    "Review-only SQL fixture, no production migration, LOGIN, grant, scheduler or route enabled",
+    "Does not prove external APNs/Web/local-device cleanup acknowledgements or durable delivery outbox handling",
+    "Does not prove full shared-account controller, both-app all-writer coverage, shared Auth erasure, production roles or retention SLA",
+    "Actual service fixture uses synthetic enrollment, purchase material, shared receipts, fresh-empty-actor gates and retention approval",
+    "No production data changes, merge, Apple payment, signed build or real billing"
+  ]
+}

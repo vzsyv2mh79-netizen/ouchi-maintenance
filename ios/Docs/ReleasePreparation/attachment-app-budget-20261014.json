@@ -1,0 +1,37 @@
+{
+  "status": "tested_disposable_candidate_not_enabled",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "approvedAllocatedAppBytes": null,
+  "scope": "Ouchi's operator-approved physical-storage share, not proof of total organization/project usage or control of other apps' writers",
+  "accountLimitsUnchanged": {"bytes": 104857600, "files": 100, "perFileBytes": 5242880},
+  "prototype": {
+    "source": "tests/fixtures/attachment-app-budget.sql",
+    "default": "disabled, writer coverage unverified, allocation0",
+    "claims": "Immutable unique physical object path + claim UUID + byte count + upload/transfer-copy purpose",
+    "accounting": "Reserved/potentially written originals and transfer copies remain charged independently of logical file/owner/epoch/subscription changes. Same exact claim replay never double-charges. No timed release or release through metadata deletion.",
+    "serialization": "Transaction advisory lock shared by claim insertion and operator policy changes",
+    "permissions": "Private RLS tables; clients denied; service may reserve/read but cannot enable/change policy, update/delete claims, or bypass capacity via direct insertion",
+    "authorization": "A capacity UUID is not Auth, entitlement, permission to write or proof that a transaction committed. Commit verified reservation before any physical Storage call; revalidate original user/session/epoch/rights separately."
+  },
+  "localVerification": {"passed": 3, "failed": 0, "skipped": 0, "targetedLint": "passed", "engine": "PGlite disposable schema; not real concurrent PostgreSQL or Storage"},
+  "providerReferencesCheckedAt": "2026-10-14",
+  "providerReferences": {
+    "pricingURL": "https://supabase.com/pricing",
+    "freeStorageGB": 1,
+    "proBaseUSDPerMonth": 25,
+    "proIncludedStorageGB": 100,
+    "backupURL": "https://supabase.com/docs/guides/platform/backups",
+    "backupBoundary": "Database backups contain Storage metadata, not stored file contents; no file-backup benefit is promised."
+  },
+  "releaseRequirements": [
+    "Approve exact byte allocation against actual current organization plan and all project/app usage; do not infer spare capacity from a single metadata snapshot",
+    "Inventory and connect every Ouchi write path, pending attempt, restore and handoff copy; coordinate other apps' allocations/writers before claiming a project-wide cap",
+    "Implement verified physical-absence release with immutable path custody and no late-write resurrection; claims currently remain held forever",
+    "Before account-deletion completion, erase/minimize identifying claim paths after verified absence and late-writer fencing; this immutable prototype currently cannot prove that personal metadata erasure",
+    "Prove PostgreSQL concurrency, cross-resource lock ordering and deadline behavior before activation",
+    "Integrate capacity admission before selling a storage allowance, not merely at upload time",
+    "Confirm finite deletion/backups/service-exit timing and actual operational responsibility before publishing retention promises"
+  ],
+  "noPaidChanges": "No plan upgrade, spend-cap change, bucket creation, production migration/grant or customer-file deletion. Live resource observations stay in the local task report."
+}

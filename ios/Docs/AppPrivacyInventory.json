@@ -1,0 +1,170 @@
+{
+  "status": "source_inventory_not_final_app_store_answers",
+  "sourceHead": "672aefc835273f626b6636390b5e33ddf8ea2fe0",
+  "checkedAt": "2026-10-15",
+  "interpretation": "Apple collection includes data transmitted off-device and retained beyond real-time servicing, including app-functionality and third-party processing. A required-reason manifest is not proof of no personal data collection.",
+  "currentManifestCategories": [
+    {
+      "type": "NSPrivacyCollectedDataTypeEmailAddress",
+      "data": "sign-in, sign-up and password-reset email address",
+      "purpose": "app functionality",
+      "linked": true,
+      "tracking": false,
+      "evidence": [
+        "ios/OuchiCore/HouseholdAPI.swift: signIn/signUp/requestPasswordReset",
+        "ios/OuchiMaintenance/NativeRootView.swift: PrivacyInformation account section"
+      ]
+    },
+    {
+      "type": "NSPrivacyCollectedDataTypeName",
+      "data": "family-entered display name/nickname; legal name not required",
+      "purpose": "app functionality",
+      "linked": true,
+      "tracking": false,
+      "evidence": [
+        "ios/OuchiCore/HouseholdAPI.swift: acceptInvite(member_name), members(user_id,nickname)"
+      ]
+    },
+    {
+      "type": "NSPrivacyCollectedDataTypeUserID",
+      "data": "authenticated account ID and membership/user relationship",
+      "purpose": "app functionality",
+      "linked": true,
+      "tracking": false,
+      "evidence": [
+        "ios/OuchiCore/HouseholdAPI.swift: User, members, authenticated household operations"
+      ]
+    },
+    {
+      "type": "NSPrivacyCollectedDataTypeOtherUserContent",
+      "data": "home/product/model/purchase-date/notes and maintenance task/completion records",
+      "purpose": "app functionality",
+      "linked": true,
+      "tracking": false,
+      "evidence": [
+        "ios/OuchiCore/HouseholdAPI.swift: cloud create/update/delete operations",
+        "ios/OuchiMaintenance/NativeRootView.swift: editors and PrivacyInformation"
+      ]
+    }
+  ],
+  "additionalFeatureCategoriesBeforeEnablement": [
+    {
+      "candidate": "Photos or Videos",
+      "manifestType": "NSPrivacyCollectedDataTypePhotosorVideos",
+      "scope": "user-selected image upload; PDF warranty content also needs Other User Content",
+      "evidence": [
+        "ios/OuchiCore/AttachmentImagePreparation.swift",
+        "ios/OuchiMaintenance/NativeRootView.swift: photo/warranty section",
+        "docs/ATTACHMENT-SERVICE-RELEASE.md"
+      ],
+      "gate": "formal upload/storage service and submitted-build configuration, shared-access limits, image/PDF retention and processors must be verified"
+    },
+    {
+      "candidate": "Purchase History",
+      "manifestType": "NSPrivacyCollectedDataTypePurchaseHistory",
+      "scope": "verified Apple purchase/renewal/tip/restore transaction history linked by account token",
+      "evidence": [
+        "ios/OuchiMaintenance/PurchaseManager.swift",
+        "supabase/migrations/20261010142053_ouchi_verified_transaction_ledger.sql",
+        "docs/PURCHASE-RETENTION-AND-RESTORE.md"
+      ],
+      "gate": "real signed Apple Sandbox, final sale/restore configuration, ledger retention/erasure and live policy must be verified"
+    },
+    {
+      "candidate": "Device ID",
+      "manifestType": "NSPrivacyCollectedDataTypeDeviceID",
+      "scope": "APNs app/device token and App Attest per-device registration key, linked to app enrollment; not IDFA",
+      "evidence": [
+        "supabase/migrations/20261011004515_ouchi_native_notification_registry.sql",
+        "supabase/migrations/20261011142510_ouchi_restore_challenge_ledger.sql",
+        "ios/OuchiCore/AppAttestRegistrationAPI.swift"
+      ],
+      "gate": "confirm classification of active identifiers, retained server evidence and provider practices; this path is prepared and independently gated"
+    },
+    {
+      "candidate": "User ID / Other User Content",
+      "scope": "prepared deletion request ID, fixed account/inventory binding, scoped hashed status credential and expiry, completion proofs; Keychain keeps the plaintext credential on the originating device",
+      "evidence": [
+        "ios/OuchiCore/DeletionReceiptAPI.swift",
+        "ios/OuchiCore/DeletionReceiptRegistrationFlow.swift",
+        "ios/OuchiMaintenance/DeletionReadCredentialVault.swift",
+        "ios/Docs/DeletionReceiptCustody.md"
+      ],
+      "gate": "receipt transport and server pipeline are prepared separately; live route/UI and authoritative Auth remain disconnected. Before activation, adopt finite credential/completion-proof/log retention and reconcile public privacy policy. Request/inventory/proof identifiers are personal data, not anonymous."
+    }
+  ],
+  "unresolvedDeclarations": [
+    {
+      "candidate": "Search History",
+      "reason": "ProductLookup sends model in a GET query. The query may be retained by hosting/access logs; actual provider plan/logging and identity linkage must be checked. Source alone cannot prove non-collection."
+    },
+    {
+      "candidate": "Diagnostics / other usage data",
+      "reason": "actual hosting, Auth, mail, Storage and Apple processing/log retention and support practice are not audited by the native imports"
+    },
+    {
+      "candidate": "Customer Support",
+      "reason": "operator and support channel are not confirmed; do not assume the optional-disclosure exemption"
+    },
+    {
+      "candidate": "Tracking status",
+      "reason": "no advertising/analytics native dependency found in local Package.swift/imports, but final provider integrations and actual submitted build still need review"
+    }
+  ],
+  "notEstablishedAsOperatorCollection": [
+    "Apple payment-card/bank information entered outside the app; app code receives transaction evidence, not card details",
+    "files kept only on device or exported/shared to destinations selected by the user",
+    "biometric templates: LocalAuthentication is used for noninteractive Keychain access, not transmission of biometric data",
+    "precise location, phone contacts and unrestricted photo library: no structured collection path identified; user-entered content may still contain personal information"
+  ],
+  "beforeSubmission": [
+    "Review final build flags and enabled data paths; add all active additional categories",
+    "Inspect actual signed archive privacy report and bundled manifests",
+    "Confirm provider logs, retention, linkage, support and tracking",
+    "Confirm operator, policy URL, legal text, deletion and unresolved restore retention",
+    "Reconcile App Store Connect answers, manifest and public privacy policy",
+    "Do not claim no collection or use the optional-user-input exemption for ongoing primary cloud functionality"
+  ],
+  "sideEffects": "No App Store Connect submission, new feature enablement, real payment, owner secret access, live account deletion, shared schema or Production change.",
+  "sources": [
+    "https://developer.apple.com/app-store/app-privacy-details/",
+    "https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/",
+    "https://developer.apple.com/documentation/technotes/tn3184-adding-data-collection-details-to-your-privacy-manifest",
+    "https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests"
+  ],
+  "workingTreeAddition": "canonical receipt token validation and deletion receipt inventory update; prepared route remains disabled",
+  "officialReviewDate": "2026-10-13",
+  "requiredReasonAPIReview": {
+    "status": "source_unsigned_release_and_signed_distribution_manifest_verified",
+    "sourceBase": "d8411026b83837a85e9e234f0f720ba0e0920aea",
+    "categories": [
+      {
+        "type": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "reason": "CA92.1",
+        "use": "App-owned theme and reminder preferences",
+        "evidence": [
+          "ios/OuchiMaintenance/NativeRootView.swift: preferredAppearance",
+          "ios/OuchiMaintenance/LocalReminders.swift: preference"
+        ]
+      },
+      {
+        "type": "NSPrivacyAccessedAPICategoryFileTimestamp",
+        "reason": "C617.1",
+        "use": "App-container file size/type/ownership/permissions checks; no external directory scanning or timestamp telemetry",
+        "evidence": [
+          "ios/OuchiCore/AppAttestMutationLease.swift: fstat",
+          "ios/OuchiCore/PendingRestoreStorage.swift: fstat",
+          "ios/OuchiCore/AppAttestPendingRegistrationStorage.swift: fstat",
+          "ios/OuchiMaintenance/NativeStore.swift: Application Support roots"
+        ]
+      }
+    ],
+    "limits": [
+      "Does not establish final App Store privacy answers",
+      "Pre-update IPA preserved separately and superseded; no upload performed"
+    ],
+    "source": "https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype",
+    "unsignedReleaseBundleManifestMatchesSource": true,
+    "signedDistributionBundleManifestMatchesSource": true
+  }
+}

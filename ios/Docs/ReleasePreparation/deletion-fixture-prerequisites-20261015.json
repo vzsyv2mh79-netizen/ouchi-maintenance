@@ -1,0 +1,30 @@
+{
+ "date":"2026-10-15",
+ "status":"fixture_updated_local_checks_passed_actual_services_retry_pending",
+ "sourceHead":"44dccd7781c7f50930f7bab7b6b2df8eedf414eb",
+ "actualEvidence":{
+  "family":{"run":38663765328,"job":116190820836,"conclusion":"success","rawLogReviewed":true,"scope":"Frozen guarded device SQL erases five notification categories and thirteen metadata categories across target epochs; bystander rows/private bytes/original Auth retained; canonical uncertain-outcome checks also executed before freeze"},
+  "migration":{"run":38663765269,"job":116190820906,"conclusion":"failure","cause":"Legacy Storage fixture expected 202 while a family member still belonged to the owned home; new canonical family guard correctly returned 409"}
+ },
+ "fixtureChanges":[
+  "Assert family_handoff_required and zero enqueued requests while the household has another member",
+  "Synthetic member voluntarily leaves via their own actual authenticated client; owner reads back absence, attachment inventory remains byte-for-byte equal, original member Auth survives",
+  "Continue the sole-resident household deletion/storage test; independent Family suite remains responsible for retained-family handoff",
+  "Assert Web erasure refuses retained claim, then acknowledge the exact synthetic send through finish_maintenance_push before erasure",
+  "Assert native erasure refuses unknown sends; only the two known synthetic uncertain jobs may receive exact late accepted acknowledgements through the canonical finish RPC before erasure"
+ ],
+ "localValidation":{
+  "command":"node --test tests/deletion-family-prerequisite.test.mjs tests/deletion-notification-quiescence.test.mjs",
+  "passed":5,"failed":0,"skipped":0,
+  "syntax":"node --check tests/account-deletion-storage.integration.mjs passed",
+  "lint":"three changed JavaScript test files passed without warnings",
+  "scope":"Synthetic PGlite family prerequisites, RLS member exit and exact late-ack refusal/recovery; not actual-service HTTP proof",
+  "initialFixtureCorrection":"The first local authenticated-member witness omitted session_id and correctly could not see/delete membership; fixed the synthetic JWT to carry its existing session, without changing policy or grants"
+ },
+ "boundaries":[
+  "No shipping implementation, RLS, grant, guard, error matcher or production data changes",
+  "Actual send acknowledgement is synthetic in this fixture; no APNs/Web notification or physical-device cleanup is proved",
+  "This is not proof of the full shared-account controller or shared Auth erasure",
+  "Mac currently locked; physical/visual UI work deferred without requesting interruption"
+ ]
+}

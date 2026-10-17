@@ -1,0 +1,50 @@
+{
+  "productionNavigationEnabled": false,
+  "realBillingEnabled": false,
+  "problem": "Hidden/focused SwiftUI keyboard toolbar reported Invalid frame dimension during the AX5 read/cancel/new-request flow.",
+  "change": "Keep explicit input-done button and focus cleanup; host its visible control bar in a bottom safe-area inset only while password is focused, instead of keyboard toolbar. Result scrolling, cancellation/fresh-submission checks, protected custody and full test assertions remain intact.",
+  "evidence": {
+    "device": "iPhone17e",
+    "runtime": "iOS27.0 (24A434)",
+    "appearance": "dark",
+    "textSize": "AX5",
+    "sourceDigest": "afd25558210f463e0656b53d2acea177ffa20696",
+    "testSourceSHA256": "b1a3c434aba8bf354cd40f6680b31f76819f6b4f7fde575bb193c5ba42e13733",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "runtimeWarnings": [],
+    "PNGReviewed": 5,
+    "ownedSimulatorRemoved": true,
+    "scope": "Same complete synthetic read/cancel/real software-keyboard input/input-done/switch0→1/new request/fresh selected reference/protected reference count3. Mock HTTP and actual scoped Keychain, not real Auth/erasure or physical lock."
+  },
+  "diagnostics": [
+    {
+      "change": "Animation removed",
+      "warning": "remained",
+      "fullOperations": "passed"
+    },
+    {
+      "change": "Keyboard toolbar group/spacer replaced with single item",
+      "warning": "remained",
+      "fullOperations": "passed"
+    },
+    {
+      "change": "Toolbar entirely removed in temporary copy",
+      "warning": "absent",
+      "scope": "Diagnostic read/cancel/password-visible only; not full feature completion"
+    },
+    {
+      "change": "Toolbar emitted only while focused",
+      "warning": "moved to keyboard focus",
+      "fullOperations": "passed"
+    }
+  ],
+  "interpretation": "Observed warning correlates with keyboard toolbar in this fixture and is absent after replacement in the full operation test. No claim about internal OS/framework root cause or other platforms.",
+  "remaining": [
+    "Normal/light/smaller screens, full accessibility/VoiceOver and physical-device verification",
+    "Existing product textClipped and next-date contrast issues",
+    "Actual trusted Auth HTTP/native routes and personal/shared data erasure",
+    "Finite retention/disclosure, actual Apple purchase and submission verification"
+  ]
+}

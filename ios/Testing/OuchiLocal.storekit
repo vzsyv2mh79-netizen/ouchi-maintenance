@@ -1,0 +1,114 @@
+{
+  "identifier": "B117BD14-10A2-4C07-8C0A-149A140EF951",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "100",
+      "familyShareable": false,
+      "internalID": "LOCAL-TIP-small",
+      "localizations": [
+        {
+          "description": "開発を応援する任意の一回払いです。機能の特典はなく、自動更新しません。",
+          "displayName": "100円の応援",
+          "locale": "ja"
+        }
+      ],
+      "productID": "ouchi.tip.small",
+      "referenceName": "Local tip small",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "300",
+      "familyShareable": false,
+      "internalID": "LOCAL-TIP-medium",
+      "localizations": [
+        {
+          "description": "開発を応援する任意の一回払いです。機能の特典はなく、自動更新しません。",
+          "displayName": "300円の応援",
+          "locale": "ja"
+        }
+      ],
+      "productID": "ouchi.tip.medium",
+      "referenceName": "Local tip medium",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "1000",
+      "familyShareable": false,
+      "internalID": "LOCAL-TIP-large",
+      "localizations": [
+        {
+          "description": "開発を応援する任意の一回払いです。機能の特典はなく、自動更新しません。",
+          "displayName": "1,000円の応援",
+          "locale": "ja"
+        }
+      ],
+      "productID": "ouchi.tip.large",
+      "referenceName": "Local tip large",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_locale": "ja_JP",
+    "_storefront": "JPN",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "LOCAL-OUCHI-PREMIUM",
+      "localizations": [],
+      "name": "Local Ouchi Premium",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "300",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "LOCAL-SUB-monthly",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "ローカル検証用の商品です。実際の提供特典や販売価格を示すものではありません。",
+              "displayName": "月額プラン（テスト）",
+              "locale": "ja"
+            }
+          ],
+          "productID": "ouchi.premium.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Local premium monthly",
+          "subscriptionGroupID": "LOCAL-OUCHI-PREMIUM",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "3000",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "LOCAL-SUB-annual",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "ローカル検証用の商品です。実際の提供特典や販売価格を示すものではありません。",
+              "displayName": "年額プラン（テスト）",
+              "locale": "ja"
+            }
+          ],
+          "productID": "ouchi.premium.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Local premium annual",
+          "subscriptionGroupID": "LOCAL-OUCHI-PREMIUM",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

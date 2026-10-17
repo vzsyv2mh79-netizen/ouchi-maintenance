@@ -1,0 +1,62 @@
+{
+  "baseManifest": "output/family-faults-fixed-20261016/manifest.json",
+  "baseManifestSHA256": "5af286ca8932969483ae0f79b6ceb62b2c97ad4ec19b4973e5cca5fe78065d23",
+  "inputSetCounts": {
+    "previous": 755,
+    "unchanged": 753,
+    "changedExisting": 2,
+    "new": 0,
+    "total": 755
+  },
+  "status": "actual_explicit_and_implicit_owner_whole_coordinator_passed_not_deployed",
+  "result": [
+    {
+      "variant": "explicit-owner",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 26471.264,
+      "log": "logs/ouchi-explicit-owner-phase-services-20261016.log"
+    },
+    {
+      "variant": "implicit-owner",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 37395.257084,
+      "log": "logs/ouchi-explicit-owner-implicit-regression-services-20261016.log"
+    }
+  ],
+  "fixedLintExit": 0,
+  "runnerSyntaxAndArgumentGuardVerified": true,
+  "claims": [
+    "Explicit owner member row measured in original canonical inventory and included in original signed household plan; signed historical snapshot never rewritten.",
+    "Reproduction with prior current-family predicate stopped after actual handoff because the old owner member row appeared in another-owned home.",
+    "Only the exact handed-off home is exempted from unrelated-membership refusal; complete family snapshot must still match.",
+    "After canonical records_erased with exact original native user/epoch/lease and durable matching global family checkpoint, expected current snapshot permits disappearance of only the original retiring owner member row.",
+    "Completion permits the same original sealed root completion receipt; no refreshed consent, arbitrary member removal or broad stopped-user exemption.",
+    "Both explicit and implicit owner fresh actual GoTrue/Postgres/private Storage cases completed same paired coordinator: owner file transferred, recipient file retained, solo file deleted, actor Auth erased, family care/history and unrelated metadata/private bytes/Auth retained.",
+    "Copy reply loss, late recipient factor rollback, original signed proof retention, root-row cancellation quiescence and Storage/Auth deletion response-loss recovery remained exercised in both cases."
+  ],
+  "limits": [
+    "Dedicated fresh paired cases; not success of separate legacy standalone family suite.",
+    "Two current-epoch participants only. Former uploader, Storage HTTP cancellation and expired/foreign root lease renewal negative tests remain.",
+    "Phase-aware current snapshot is Ouchi-owned disposable adapter only, not a deployed shipping policy, grant or endpoint. Historical snapshot remains signed as originally accepted.",
+    "Management policy injection, reduced Kakei review schema, synthetic inventory/enrollment/retention/operator role; shipping trusted intake/full writer registry/least privilege/retention not established.",
+    "Private peer sources unchanged and unpublished; public CI does not run the private nonempty paired assembly.",
+    "No production migrations/grants/customer deletion, live billing or Apple upload/submission/publication."
+  ],
+  "snapshotTiming": "Source fixed after both successful actual runs; all755 copied bytes reverified against runtime and previous fixed chain.",
+  "privatePeerSourceChanges": false,
+  "cleanup": {
+    "containersRemaining": 0,
+    "projectVolumesRemoved": true,
+    "VM": "Stopped verified"
+  },
+  "legacyConsoleNote": "Initial plan diagnostic and final generic line retain implicit/no-transfer legacy wording. Command explicit flag, measured seed assertion, original full snapshot and final phase-bound assertions establish only the stated explicit variant.",
+  "fixedManifestSHA256": "801f1947b66136a9c855fa583f7b5ef7b61c81239ef2f84f3f38ed7004ecbea1",
+  "parentPublicHead": "b23531ba0fe636e2b76d14131a9fb639a3b68998",
+  "publicAssembly": "Ouchi-owned scene builder and evidence only; full paired runtime and runner remain fixed locally"
+}

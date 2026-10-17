@@ -1,0 +1,84 @@
+{
+  "status": "configuration_rotation_interaction_and_full_screen_capture_verified_not_release_complete",
+  "sourceHeadBeforeChange": "7e5c96c95a0cc6ee31dfe5848069ff73a8d0c7c3",
+  "sourceDigest": "9ed8b89075cc2ccd147bf7c05abb1f9944e602ab",
+  "changes": [
+    "Explicit supported iPhone and iPad orientations in source Info.plist; iPad includes all four orientations.",
+    "Remove unreviewed ITSAppUsesNonExemptEncryption=NO build setting from shared configuration. No exemption determination is made."
+  ],
+  "unsignedRelease": {
+    "status": "unsigned_release_build_passed",
+    "platform": "iphoneos",
+    "sdk": "iphoneos27.0",
+    "ipadOrientations": [
+      "UIInterfaceOrientationPortrait",
+      "UIInterfaceOrientationPortraitUpsideDown",
+      "UIInterfaceOrientationLandscapeLeft",
+      "UIInterfaceOrientationLandscapeRight"
+    ],
+    "iphoneOrientations": [
+      "UIInterfaceOrientationPortrait",
+      "UIInterfaceOrientationLandscapeLeft",
+      "UIInterfaceOrientationLandscapeRight"
+    ],
+    "encryptionDeclarationPresent": false,
+    "orientationWarningPresent": false,
+    "sanitizedSourceSharedConfig": true,
+    "localConfigRead": false,
+    "signingVerified": false,
+    "production": false,
+    "billing": false
+  },
+  "runtime": {
+    "status": "passed_and_full_screen_captures_reviewed",
+    "sourceDigest": "9ed8b89075cc2ccd147bf7c05abb1f9944e602ab",
+    "test": "testIPadRotationKeepsNavigationReachable",
+    "device": "iPad Pro 13-inch M5, iOS27 Simulator",
+    "appearance": "light",
+    "textSize": "large",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "runtimeWarnings": [],
+    "scope": [
+      "four requested device orientations, actual viewport aspect checks and interface-orientation changes recorded in the test log",
+      "actual hittable Home/Products/Settings selection in every orientation",
+      "12 whole-screen captures reviewed; no screenshot pixels modified"
+    ],
+    "ownedSimulatorRemoved": true,
+    "syntheticDataOnly": true,
+    "realAccountActions": false,
+    "captureIssue": "Earlier app-bounded captures rejected. Full-screen followup fixed black bands/cropping; raw physical-screen orientation is retained. These are sample verification images, not final signed submission assets.",
+    "testHarnessDigest": "c6e6154f094f50ff9f7e9518ad41c28473f7a86b8eb03c4d1699fb1e36c4743e",
+    "capturesAcceptedForReview": true,
+    "capturesReviewed": 12,
+    "captureMethod": "XCUIScreen.main.screenshot",
+    "captureHashes": {
+      "0D301C43-1EC8-48FC-991A-1411DDDB3929.png": "1f4958a3387dfb4fc96745027163c4a80ceb4e00e5c7b8bbc1c267b8b3f3b9e6",
+      "52A96CE6-EC89-4A28-82F6-A712BFBF88E3.png": "7a5e5cf46ec7a2a9e3bc69b58c420f1d9188029e7d0a66c35b0089aaeb6cc9a0",
+      "556ECDB5-CC42-470F-8F47-7F982C2753F6.png": "aeccc19f9863bb7df6a13daa4d79eae71e5eda9307567595627303b86fc3c92b",
+      "5724C7C5-AB9B-48EA-897C-B0943F59A08C.png": "b82343ed80165088e2b4511d4d988657a0cc7d5377ed43008b3fb77781c6eb2d",
+      "744B9F95-804D-4E80-AADF-5E5C055300DB.png": "97ecb55fe732fa693888b0dd1809d83a30f0059cd20f5626c747b9df122ecdda",
+      "76218BA8-4E0F-4CDB-9CFD-74BBE493B46E.png": "11fdb149de0b0c31d4adeb7d2c4803149b518a9c7b1238d619a9d6d9daaf8ed7",
+      "9AE0982D-FF8A-42E2-8980-91FFB351D292.png": "55f49732dd5687813c4c956ff44cf3e7722fc078af8d0d3108e2e2f36f945d9f",
+      "ACE135E6-BC2B-4848-AF89-C3E45EEB46F4.png": "12c0500a05d07f8454c187befbe3b6df03605930b831f487ca046985c2b82305",
+      "B64B29A0-F219-4F9A-BE84-40F9F02A17DB.png": "404284f3ccf3799482e235362884842bad348fe07b99f3eaae91fccb9e074835",
+      "E27058BC-36D9-413B-B02A-19DE011C1822.png": "6394970d617368547d1476400c0242bd7cb167b6676d4514db1f34ffc7ae9515",
+      "E7CB0622-78F8-4490-9EE0-DC623E42F6E1.png": "02af90925deb7a13041cff776d91428dbb3ec4e1c70d164c3933a65c8a53a47f",
+      "E8A132A0-40F6-4C00-953A-0AFF651799AB.png": "1813c40485d2ccaeeb303b80056856244eba965e82f7edf09ffb152509b6db84"
+    }
+  },
+  "remaining": [
+    "iPhone landscape and keyboard review",
+    "VoiceOver and physical device",
+    "Final signed archive",
+    "Owner export-compliance determination",
+    "Dark/large-text iPad rotation, Care/History and complete form flows are not covered by this normal-light three-tab test."
+  ],
+  "productionEnabled": false,
+  "billingEnabled": false,
+  "sources": [
+    "https://developer.apple.com/documentation/bundleresources/information-property-list/uisupportedinterfaceorientations",
+    "https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/iPhoneOSKeys.html"
+  ]
+}
