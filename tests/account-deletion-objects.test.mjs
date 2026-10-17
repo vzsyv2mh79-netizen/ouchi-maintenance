@@ -31,6 +31,19 @@ test('ambiguous removal cannot bypass inaccessible/present objects, cancellation
  }
 });
 
+test('NoSuchKey on server failure or ambiguous bad request never acknowledges object absence',async()=>{
+ for(const [status,statusCode,accepted] of [[500,'500',false],[503,'404',false],[403,'404',false],[400,'500',false],[400,undefined,false],[404,'500',false],[400,'404',true],[404,'404',true],[404,undefined,true]]){
+  let pending=true,acks=0;
+  const db={rpc:async(name)=>{
+   if(name==='maintenance_deletion_lease_is_current')return {data:true,error:null};
+   if(name==='read_maintenance_deletion_objects')return {data:pending?[item]:[],error:null};
+   assert.equal(name,'confirm_maintenance_deletion_object_absence');acks++;pending=false;return {data:true,error:null};
+  },storage:{from:()=>({remove:async()=>({error:Error('Unknown remove outcome')}),download:async()=>({data:null,error:new StorageApiError('synthetic',status,statusCode,'storage','NoSuchKey')})})}};
+  if(accepted){assert.deepEqual(await erase(db,scope),{completed:1,allObjectsConfirmed:true});assert.equal(acks,1);}
+  else{await assert.rejects(erase(db,scope),/Object absence not confirmed/);assert.equal(acks,0);assert.equal(pending,true);}
+ }
+});
+
 test('object erasure only acknowledges explicit SDK absence and exact scoped durable completion',async()=>{
  for(const failure of ['none','remove','access','present','ack','lease','path']){
   let pending=true,removes=0,acknowledgements=0,guards=0;

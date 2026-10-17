@@ -27,7 +27,13 @@ export async function eraseAccountDeletionObjects(db:SupabaseClient,scope:Deleti
   // acknowledgement; AccessDenied, a timeout or a remaining object still stop.
   try{await db.storage.from('ouchi-product-attachments').remove([item.path]);}catch{/* Outcome reconciled below. */}
   await guard();const missing=await db.storage.from('ouchi-product-attachments').download(item.path);
-  if(missing.data||!(missing.error instanceof StorageApiError)||missing.error.code!=='NoSuchKey')throw Error('Object absence not confirmed');
+  // The SDK error code alone is not definitive absence: authorization/server
+  // failures must not become durable deletion acknowledgements. Storage 1.74
+  // also returns semantic NoSuchKey/404 inside an HTTP 400 download response.
+  const absent=missing.error instanceof StorageApiError&&missing.error.code==='NoSuchKey'
+   &&((missing.error.status===404&&(missing.error.statusCode===undefined||missing.error.statusCode==='404'))
+    ||(missing.error.status===400&&missing.error.statusCode==='404'));
+  if(missing.data||!absent)throw Error('Object absence not confirmed');
   await guard();const saved=await db.rpc('confirm_maintenance_deletion_object_absence',{...args,target_attachment:item.id});if(saved.error||saved.data!==true)throw Error('Object acknowledgement unavailable');
   completed++;
  }
