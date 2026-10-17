@@ -46,7 +46,8 @@ with tempfile.TemporaryDirectory(prefix='ouchi-native-check-') as directory:
         if test.stem == 'LocalReminderLifecycleSmoke': sources.append(root / 'OuchiMaintenance' / 'LocalReminders.swift')
         test_flags = []
         if test.stem == 'NativeReviewFamilySmoke':
-            sources.append(root / 'OuchiMaintenance' / 'NativeReviewFixture.swift')
+            sources.extend(root / 'OuchiMaintenance' / name for name in
+                           ('LocalReminders.swift', 'NativeReviewFixture.swift'))
             test_flags = ['-D', 'DEBUG']
         run(common + test_flags + ['-I', build, '-L', build, '-lOuchiCore', '-parse-as-library', *sources, '-o', executable])
         if test.stem in ('DeletionReceiptVaultRestartSmoke', 'HomeHandoffVaultRestartSmoke', 'AccountClosureReviewVaultRestartSmoke', 'HomeManagementVaultRestartSmoke'):
