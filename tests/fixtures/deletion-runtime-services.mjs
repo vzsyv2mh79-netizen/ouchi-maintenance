@@ -2,13 +2,15 @@
  * policy adoption and the opaque-key HTTPS gateway are synthetic. */
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {readFile,writeFile} from 'node:fs/promises';
+import {readFile,writeFile,stat} from 'node:fs/promises';
+import {dirname,join} from 'node:path';
 import {createHmac,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 import {Client} from 'pg';
 import {createClient} from '@supabase/supabase-js';
 import {reviewedCleanupReadyFixture} from './reviewed-file-cleanup.mjs';
 import {createAccountContentReviewPorts} from '../../lib/closure-account-content-review.mjs';
+import {runPrivateDeletionDispatch} from '../../lib/private-deletion-dispatch.mjs';
 import {home,product,owner,recipient} from './home-handoff-identifiers.mjs';
 Error.stackTraceLimit=0;
 assert.equal(process.env.OUCHI_DELETION_RUNTIME_SERVICE_TEST,'true');
@@ -66,16 +68,21 @@ if(mode==='seed'){
    const url='data:text/javascript;base64,'+Buffer.from(code).toString('base64');modules.set(name,url);return url;
   }
   const {createAccountDeletionRuntime}=await import(compile('account-deletion-runtime'));
-  const runtime=createAccountDeletionRuntime({projectID,secretKey,fileExecutorConfig:{projectRef:projectID,databaseURL:`postgresql://${principal}:synthetic@db.${projectID}.supabase.co/postgres`}});
-  assert.deepEqual(await runtime.runNext(AbortSignal.timeout(60000)),{state:'pending'});assert.equal(deletes,1);assert.equal(rpcCalls.includes('complete_maintenance_account_deletion'),false);
+  const directory=dirname(metadataPath),configPath=join(directory,'runtime-config.json');
+  await writeFile(configPath,JSON.stringify({projectID,secretKey,fileExecutorConfig:{projectRef:projectID,databaseURL:`postgresql://${principal}:synthetic@db.${projectID}.supabase.co/postgres`}}),{mode:0o600,flag:'wx'});
+  const invoke=async(name,execute=true)=>runPrivateDeletionDispatch({args:[execute?'--execute-authorized-job':'--validate-only','--config',configPath,'--project-ref',projectID,'--receipt',join(directory,name),...(execute?['--confirmation','RUN_ONE_SQL_AUTHORIZED_OUCHI_DELETION_JOB']:[])],createRuntime:createAccountDeletionRuntime});
+  assert.equal((await invoke('validation.json',false)).state,'configuration-validated');assert.equal(rpcCalls.length,0);assert.equal(deletes,0);
+  assert.equal((await invoke('pending.json')).state,'pending');assert.equal(deletes,1);assert.equal(rpcCalls.includes('complete_maintenance_account_deletion'),false);
+  assert.equal((await stat(join(directory,'pending.json'))).mode&0o777,0o600);assert.equal(JSON.parse(await readFile(join(directory,'pending.json'),'utf8')).globalCompletionConfirmed,false);
   assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[saved.requestID])).rows[0].state,'pending');
   const absent=await admin.storage.from(bucket).download(saved.sourcePath);assert.equal(absent.data,null);assert.equal(absent.error?.code,'NoSuchKey');assert.deepEqual(Buffer.from(await (await admin.storage.from(bucket).download(saved.destinationPath)).data.arrayBuffer()),bytes);
   // Fixture-only adopted checker evidence, not an approval the runtime creates.
   await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-actual-services-only',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[saved.requestID]);await db.query("update maintenance_private.account_deletion_requests set available_at=clock_timestamp()-interval '1 second' where id=$1",[saved.requestID]);
-  assert.deepEqual(await runtime.runNext(AbortSignal.timeout(60000)),{state:'complete'});assert.equal(deletes,1);assert.deepEqual(await runtime.runNext(AbortSignal.timeout(60000)),{state:'idle'});
+  // Fresh runtime per private invocation also covers a process-style restart.
+  assert.equal((await invoke('complete.json')).state,'complete');assert.equal(deletes,1);assert.equal((await invoke('idle.json')).state,'idle');
   assert.equal((await db.query('select count(*)::int n from auth.users where id=any($1::uuid[])',[[owner,recipient]])).rows[0].n,2);assert.equal((await db.query('select count(*)::int n from public.products where id=$1',[product])).rows[0].n,1);assert.equal((await db.query('select owner_id from public.homes where id=$1',[home])).rows[0].owner_id,null);
   assert.equal((await db.query('select maintenance_private.held_attachment_capacity_bytes() bytes')).rows[0].bytes,heldBefore);
   assert.deepEqual(Buffer.from(await (await admin.storage.from(bucket).download(saved.destinationPath)).data.arrayBuffer()),bytes);
-  console.log(JSON.stringify({status:'passed',actualPostgreSQL:true,actualPostgREST:true,actualStorageFilesystem:true,currentAccountContentProtocol:true,minimumFileExecutorLogin:true,missingRetentionDeferred:true,sameJobResumed:true,singleSourceDelete:deletes===1,familyBytesPreserved:true,sharedAuthPreserved:true,heldCapacityReleased:false,managedGatewayAndTLSVerified:false,AuthTablesSynthetic:true,productionChanged:false,rpcFunctions:[...new Set(rpcCalls)].sort()}));
+  console.log(JSON.stringify({status:'passed',actualPostgreSQL:true,actualPostgREST:true,actualStorageFilesystem:true,currentAccountContentProtocol:true,minimumFileExecutorLogin:true,privateInvocationHandler:true,validationMadeNoNetworkCall:true,privateReceiptsPersisted:true,freshRuntimePerInvocation:true,missingRetentionDeferred:true,sameJobResumed:true,singleSourceDelete:deletes===1,familyBytesPreserved:true,sharedAuthPreserved:true,heldCapacityReleased:false,managedGatewayAndTLSVerified:false,AuthTablesSynthetic:true,productionChanged:false,rpcFunctions:[...new Set(rpcCalls)].sort()}));
  }finally{globalThis.fetch=original;await db.end();}
 }
