@@ -23,9 +23,18 @@ export function billingConfiguration(){
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,bundleId=process.env.APPLE_BUNDLE_ID,roots=process.env.APPLE_ROOT_CERTIFICATES_BASE64;
  const mode=process.env.BILLING_MODE;
  if(!['sandbox','production'].includes(mode??'')||process.env.BILLING_ACCOUNT_BINDING_MODE!=='epoch'||!url||!key||!bundleId||!roots)return null;
+ // A copied environment variable must never make a Preview accept real
+ // purchases or make Production grant access from Sandbox transactions.
+ const deployment=process.env.VERCEL_ENV;
+ if(deployment!==undefined&&(
+  !['production','preview','development'].includes(deployment)
+  ||(deployment==='production'?mode!=='production':mode!=='sandbox')
+ ))return null;
  const certificates=roots.split(',').map(v=>Buffer.from(v,'base64'));if(certificates.some(c=>!c.length))return null;
  const storage=process.env.BILLING_STORAGE_MODE;
  if(storage!==undefined&&storage!=='sandbox-legacy'&&storage!=='verified-ledger')return null;
+ // The legacy Sandbox writer is retained only for isolated local fixtures.
+ if(deployment!==undefined&&storage!=='verified-ledger')return null;
  const environment:BillingEnvironment=mode==='production'?'Production':'Sandbox';
  let appAppleId:number|undefined;
  if(environment==='Production'){

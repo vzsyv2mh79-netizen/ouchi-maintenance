@@ -18,8 +18,9 @@ test('actual Apple verifier factory binds Production scope and rejects unsigned 
  assert.throws(()=>server.billingVerifier({certificates:[],environment:'Production',bundleId:'test.ouchi'}));
 });
 test('billing configuration keeps production disabled and rejects unknown storage mode',()=>{
- const keys=['BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_STORAGE_MODE','APPLE_APP_ID','BILLING_PRODUCTION_VERIFICATION_ENABLED'];const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ const keys=['VERCEL_ENV','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_STORAGE_MODE','APPLE_APP_ID','BILLING_PRODUCTION_VERIFICATION_ENABLED'];const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
  try{
+ delete process.env.VERCEL_ENV;
  Object.assign(process.env,{BILLING_MODE:'sandbox',BILLING_ACCOUNT_BINDING_MODE:'epoch',NEXT_PUBLIC_SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'synthetic',APPLE_BUNDLE_ID:'test.ouchi',APPLE_ROOT_CERTIFICATES_BASE64:Buffer.from('synthetic-not-a-real-certificate').toString('base64')});
  delete process.env.BILLING_STORAGE_MODE;assert.equal(server.billingConfiguration().storage,'sandbox-legacy');
  delete process.env.BILLING_PRODUCTION_VERIFICATION_ENABLED;delete process.env.APPLE_APP_ID;
@@ -30,6 +31,32 @@ test('billing configuration keeps production disabled and rejects unknown storag
  for(const identifier of ['0','1.5','-1','9007199254740992',' 123']){process.env.APPLE_APP_ID=identifier;assert.equal(server.billingConfiguration(),null);}
  process.env.APPLE_APP_ID='123456789';let config=server.billingConfiguration();assert.equal(config.environment,'Production');assert.equal(config.appAppleId,123456789);
  process.env.BILLING_STORAGE_MODE='sandbox-legacy';assert.equal(server.billingConfiguration(),null);
+ }finally{for(const key of keys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}}
+});
+test('hosted billing refuses crossed store environments and legacy storage without network access',()=>{
+ const keys=['VERCEL_ENV','BILLING_MODE','BILLING_ACCOUNT_BINDING_MODE','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','APPLE_BUNDLE_ID','APPLE_ROOT_CERTIFICATES_BASE64','BILLING_STORAGE_MODE','APPLE_APP_ID','BILLING_PRODUCTION_VERIFICATION_ENABLED'];
+ const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ try{
+  Object.assign(process.env,{BILLING_ACCOUNT_BINDING_MODE:'epoch',NEXT_PUBLIC_SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'synthetic',APPLE_BUNDLE_ID:'test.ouchi',APPLE_ROOT_CERTIFICATES_BASE64:Buffer.from('synthetic').toString('base64'),BILLING_STORAGE_MODE:'verified-ledger',APPLE_APP_ID:'123456789',BILLING_PRODUCTION_VERIFICATION_ENABLED:'true'});
+  for(const deployment of ['production','preview','development']){
+   process.env.VERCEL_ENV=deployment;
+   for(const mode of ['sandbox','production']){
+    process.env.BILLING_MODE=mode;
+    const expected=deployment==='production'?'production':'sandbox';
+    assert.equal(server.billingConfiguration()?.environment??null,mode===expected?(mode==='sandbox'?'Sandbox':'Production'):null,`${deployment}/${mode}`);
+   }
+   process.env.BILLING_MODE=deployment==='production'?'production':'sandbox';
+   for(const storage of [undefined,'sandbox-legacy','typo']){
+    if(storage===undefined)delete process.env.BILLING_STORAGE_MODE;else process.env.BILLING_STORAGE_MODE=storage;
+    assert.equal(server.billingConfiguration(),null,`${deployment}/${storage}`);
+   }
+   process.env.BILLING_STORAGE_MODE='verified-ledger';
+  }
+  for(const deployment of ['','Production','staging']){
+   process.env.VERCEL_ENV=deployment;process.env.BILLING_MODE='sandbox';assert.equal(server.billingConfiguration(),null);
+  }
+  process.env.VERCEL_ENV='preview';delete process.env.BILLING_MODE;assert.equal(server.billingConfiguration(),null);
+  process.env.VERCEL_ENV='production';process.env.BILLING_MODE='production';delete process.env.BILLING_PRODUCTION_VERIFICATION_ENABLED;assert.equal(server.billingConfiguration(),null);
  }finally{for(const key of keys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}}
 });
 test('actual persistence helper selects ledger RPC and rejects missing acknowledgement',async()=>{
