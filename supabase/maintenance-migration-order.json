@@ -528,6 +528,10 @@
     {
       "file": "supabase/migrations/20261017025017_ouchi_account_content_retention_review.sql",
       "source_sha256": "444f16ae227d4d021d5e385c49abc4e52b715fbda77d54df9fdff6203d2820e2"
+    },
+    {
+      "file": "supabase/migrations/20261017031407_ouchi_private_operator_inspection.sql",
+      "source_sha256": "567e2b391a2927cb16f189827a32ba54b759257af7bd3c2a2ec556edee9ac092"
     }
   ]
 }
