@@ -22,7 +22,7 @@ const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),message=enc
 const serviceJWT=message+'.'+createHmac('sha256','synthetic-isolated-ci-only-jwt-secret-never-use-in-production').update(message).digest('base64url');
 const originalFetch=globalThis.fetch,modules=new Map(),signal=new AbortController().signal;
 function compile(name){if(name.endsWith('.mjs'))return import.meta.resolve('../../lib/'+name);if(modules.has(name))return modules.get(name);let source=ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText.replace(/import ['"]server-only['"];?/g,'');source=source.replace(/from ['"]([^'"]+)['"]/g,(_,dep)=>'from '+JSON.stringify(dep.startsWith('./')?compile(dep.slice(2)):import.meta.resolve(dep)));const url='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(name,url);return url;}
-const {createHouseholdCopyStorage}=await import(compile('household-copy-storage'));
+const {createHouseholdCopyStorage}=await import('../../lib/closure-storage-runtime.mjs');
 let mode='normal',postCount=0,entered,release,webCustody;const cases=[];
 globalThis.fetch=async(input,init)=>{
  const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
@@ -75,7 +75,7 @@ try{
  const first=await prepare();assert.equal((await port.copy(first.operation,signal)).state,'copy_verified');assert.equal(postCount,1);await port.copy(first.operation,signal);assert.equal(postCount,1);await preserved(first);cases.push('real Storage filesystem and metadata plus actual restricted SQL: measured copy succeeds, repeat is read-only, source remains and destination stays staged');
  // Test-only privileged activation, not a shipping activation dispatcher.
  await db.query("update maintenance_private.household_attachments set state='active' where id=$1",[first.input.destinationID]);
- const {createClosureHouseholdFileStorageReader}=await import(compile('closure-household-file-storage-reader'));
+ const {createClosureHouseholdFileStorageReader}=await import('../../lib/closure-storage-runtime.mjs');
  const householdReview=createClosureHouseholdFileReview({connect,readFileBytes:createClosureHouseholdFileStorageReader({projectID,secretKey})});
  const householdRow=(await householdReview.fileInventory({...scope,afterFile:null},signal)).items.find(f=>f.attachment_id===first.input.destinationID);assert.ok(householdRow);
  const householdRead={...scope,fileID:householdRow.attachment_id,expectedMetadataDigest:householdRow.metadata_digest},householdInspectionID=randomUUID();

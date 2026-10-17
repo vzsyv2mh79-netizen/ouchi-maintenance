@@ -25,7 +25,8 @@ export function createHouseholdCopyStorage({projectID,secretKey}:{projectID:stri
   const endpoint=origin+'/storage/v1/object/'+bucket+'/'+path;
   return createClient(origin,secretKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:async(input,init)=>{
    const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
-   if(url!==endpoint||(init?.method??'GET')!==method)throw Error('Exact copy Storage operation required');
+   const effectiveMethod=init?.method??(input instanceof Request?input.method:'GET');
+   if(url!==endpoint||effectiveMethod!==method||(method==='GET'&&(init?.body!=null||(input instanceof Request&&input.body!==null))))throw Error('Exact copy Storage operation required');
    return createAttachmentFetch(signal,5000,method==='POST'?8192:Math.max(8192,m.destination.size))(input,{...init,cache:'no-store'});
   }}}).storage.from(bucket);
  }
