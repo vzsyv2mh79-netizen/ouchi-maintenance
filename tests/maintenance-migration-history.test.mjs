@@ -17,7 +17,7 @@ test('an explicit source-pinned compact REVOKE recording excludes replay while r
  const row={version:source.recorded_version,name:file.name,source_sha256:source.recorded_sha256},foreign={version:'20990101000002',name:'other_application_fixture',source_sha256:'f'.repeat(64)};
  const history=[...observed,row,foreign],before=JSON.stringify(history);
  assert.equal(maintenanceMigrationPlan(history).conflicts.length,1);
- const result=maintenanceMigrationPlan(history,manifest);assert.deepEqual(result.conflicts,[]);assert.equal(result.recorded.length,8);assert.equal(result.pending.length,125);assert.equal(result.pending.includes(file.file),false);
+ const result=maintenanceMigrationPlan(history,manifest);assert.deepEqual(result.conflicts,[]);assert.equal(result.recorded.length,8);assert.equal(result.pending.length,126);assert.equal(result.pending.includes(file.file),false);
  const recorded=result.recorded.find(x=>x.file===file.file);assert.equal(recorded.source_sha256,file.source_sha256);assert.equal(recorded.recorded_source_sha256,row.source_sha256);assert.equal(recorded.reviewed_source_recording,true);
  assert.equal(JSON.stringify(history),before);assert.equal(result.automaticApplyAllowed,false);assert.equal(result.historyRepairAllowed,false);assert.equal(result.historyAligned,false);assert.deepEqual(result.foreignHistory,[{version:foreign.version,name:foreign.name,action:'preserve'}]);
  assert.equal(maintenanceMigrationPlan([...observed,{...row,source_sha256:'0'.repeat(64)}],manifest).conflicts.length,1);
@@ -36,7 +36,7 @@ test('reviewed recordings cannot normalize extra SQL, changed privileges, table/
 test('recorded baseline hashes identify seven applied sources despite different version IDs, without replay or history repair',()=>{
  const foreign={version:'20990101000000',name:'other_application_fixture',source_sha256:'f'.repeat(64)};
  const plan=maintenanceMigrationPlan([...observed,foreign]);
- assert.equal(plan.recorded.length,7);assert.equal(plan.recorded.every(row=>!row.sameVersion),true);assert.deepEqual(plan.conflicts,[]);assert.equal(plan.pending.length,126);
+ assert.equal(plan.recorded.length,7);assert.equal(plan.recorded.every(row=>!row.sameVersion),true);assert.deepEqual(plan.conflicts,[]);assert.equal(plan.pending.length,127);
  assert.ok(plan.pending.includes('supabase/migrations/20261014231227_ouchi_closure_actor_context_compatibility.sql'));
  assert.ok(plan.pending.includes('supabase/migrations/20261015003918_ouchi_deletion_prior_delivery_identities.sql'));
  assert.ok(plan.pending.includes('supabase/migrations/20261015010011_ouchi_deletion_notification_quiescence.sql'));
@@ -64,7 +64,7 @@ test('ambiguous histories and local catalogs refuse planning rather than selecti
 
 test('complete explicit pins refuse missing, duplicate, foreign and modified migration sources',()=>{
  const catalog=maintenanceMigrationCatalog(),manifest=JSON.parse(readFileSync('supabase/maintenance-migration-order.json','utf8'));
- assert.equal(catalog.length,133);
+ assert.equal(catalog.length,134);
  assert.deepEqual(orderPinnedMaintenanceMigrations(catalog,manifest),catalog);
  for(const changed of [
   {...manifest,files:manifest.files.slice(1)},
@@ -79,7 +79,7 @@ test('an already recorded privilege-hardening source is excluded despite a diffe
  assert.ok(hardening);
  const plan=maintenanceMigrationPlan([...observed,{version:'20990102000000',name:hardening.name,source_sha256:hardening.source_sha256}]);
  assert.equal(plan.recorded.length,8);
- assert.equal(plan.pending.length,125);
+ assert.equal(plan.pending.length,126);
  assert.equal(plan.pending.includes(hardening.file),false);
  assert.deepEqual(plan.conflicts,[]);
  assert.equal(plan.automaticApplyAllowed,false);
