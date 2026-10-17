@@ -35,7 +35,7 @@ export function storedAttachmentCleanupServices(db:SupabaseClient,query:Attachme
   },
   current,
   remove:async(s,signal)=>{const scope=await guard(s,signal);const result=await bucket.remove([scope.path]);signal.throwIfAborted();if(result.error)throw Error('Cleanup removal outcome unknown');},
-  absent:async(s,signal)=>{const scope=await guard(s,signal);const result=await bucket.download(scope.path);signal.throwIfAborted();return !result.data&&result.error instanceof StorageApiError&&result.error.code==='NoSuchKey';},
+  absent:async(s,signal)=>{const scope=await guard(s,signal);const result=await bucket.download(scope.path);signal.throwIfAborted();const error=result.error;return !result.data&&error instanceof StorageApiError&&error.code==='NoSuchKey'&&((error.status===404&&(error.statusCode===undefined||error.statusCode==='404'))||(error.status===400&&error.statusCode==='404'));},
   complete:async(s,signal)=>{const scope=await guard(s,signal);return await value(sql('complete_attachment_cleanup'),args(scope),signal)===true;},
  };
 }

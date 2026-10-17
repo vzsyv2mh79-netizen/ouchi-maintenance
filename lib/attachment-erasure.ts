@@ -17,7 +17,8 @@ export async function eraseIsolatedAttachmentBatch(){
  for(const job of jobs){try{
   const removed=await bucket.remove([job.path]);if(removed.error)throw new Error('Removal not confirmed');
   const missing=await bucket.download(job.path);
-  if(missing.data||!(missing.error instanceof StorageApiError)||missing.error.code!=='NoSuchKey')throw new Error('Object absence not confirmed');
+  const error=missing.error,absent=error instanceof StorageApiError&&error.code==='NoSuchKey'&&((error.status===404&&(error.statusCode===undefined||error.statusCode==='404'))||(error.status===400&&error.statusCode==='404'));
+  if(missing.data||!absent)throw new Error('Object absence not confirmed');
   const finished=await db.rpc('finish_maintenance_attachment_erasure',{target_attachment:job.id});if(finished.error||finished.data!==true)throw new Error('Erasure completion not confirmed');
   completed++;
  }catch{deferred++;}}

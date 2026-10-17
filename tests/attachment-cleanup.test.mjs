@@ -10,7 +10,7 @@ function fixture(options={}){
  const controller=new AbortController(),calls=[];let removed=false,acknowledged=false,scope;
  const db={storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {
   remove:async paths=>{calls.push('remove');assert.deepEqual(paths,[base.path]);removed=true;if(options.cancelAt==='remove')controller.abort();return {error:options.lostRemove?Error('Reply lost'):null};},
-  download:async path=>{calls.push('download');assert.equal(path,base.path);assert.ok(removed);return {data:options.present?new Blob(['retained']):null,error:options.generic404?{code:'NoSuchKey',status:404}:new StorageApiError('synthetic',404,'404','storage',options.denied?'AccessDenied':'NoSuchKey')};},
+  download:async path=>{calls.push('download');assert.equal(path,base.path);assert.ok(removed);return {data:options.present?new Blob(['retained']):null,error:options.absenceError??(options.generic404?{code:'NoSuchKey',status:404}:new StorageApiError('synthetic',404,'404','storage',options.denied?'AccessDenied':'NoSuchKey'))};},
  };}}};
  const query=async(sql,args,signal)=>{
   assert.equal(signal,controller.signal);let value;
@@ -93,4 +93,10 @@ test('actual pinned SDK recovers a dropped HTTP removal reply before acknowledgi
   assert.deepEqual(await run(stored(db,query),AbortSignal.timeout(10000)),{attempted:1,completed:1,deferred:0});
   assert.ok(deletes>0);assert.equal(unknown,1);assert.equal(reads,1);assert.equal(acks,1);assert.deepEqual(errors,[]);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});
+
+test('cleanup never acknowledges failed or contradictory NoSuchKey and accepts HTTP400 semantic404',async()=>{
+ for(const [status,semantic,accepted] of [[500,'404',false],[503,'404',false],[403,'404',false],[404,'500',false],[400,undefined,false],[404,'404',true],[400,'404',true]]){
+  const f=fixture({absenceError:new StorageApiError('synthetic',status,semantic,'storage','NoSuchKey')});assert.deepEqual(await f.run(),{attempted:1,completed:accepted?1:0,deferred:accepted?0:1});assert.equal(f.calls.includes('complete'),accepted);
+ }
 });

@@ -9,7 +9,7 @@ const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
 const token='e30.'+Buffer.from(JSON.stringify({sub:user,session_id:session,exp:Math.floor(Date.now()/1000)+3600,user_metadata:{premium:true}})).toString('base64url')+'.sig';
 function fixture(options={}){
  const calls=[];let object=options.existing?new Blob([bytes],{type:'image/png'}):null,attempt=null,settled=!!options.existing,reads=0;
- const db={auth:{getUser:async()=>({error:options.authFail?Error('invalid'):null,data:{user:{id:user}}})},storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {upload:async(path,body,settings)=>{calls.push('upload');assert.equal(path,`${user}/${epoch}/${id}.png`);assert.equal(settings.upsert,false);object=new Blob([body],{type:'image/png'});return options.writeTimeout?{error:Error('timeout'),data:null}:{error:null,data:{path}};},download:async()=>{calls.push('download');return {error:object?null:options.unknownRead?new StorageApiError('unavailable',503,'503','storage','InternalError'):options.generic404?{code:'NoSuchKey',status:404}:new StorageApiError('absent',404,'404','storage','NoSuchKey'),data:options.mismatch&&object?new Blob([new Uint8Array(8)],{type:'image/png'}):object};}};}},rpc:async(name,args)=>{
+ const db={auth:{getUser:async()=>({error:options.authFail?Error('invalid'):null,data:{user:{id:user}}})},storage:{from:bucket=>{assert.equal(bucket,'ouchi-product-attachments');return {upload:async(path,body,settings)=>{calls.push('upload');assert.equal(path,`${user}/${epoch}/${id}.png`);assert.equal(settings.upsert,false);object=new Blob([body],{type:'image/png'});return options.writeTimeout?{error:Error('timeout'),data:null}:{error:null,data:{path}};},download:async()=>{calls.push('download');return {error:object?null:options.absenceError??(options.unknownRead?new StorageApiError('unavailable',503,'503','storage','InternalError'):options.generic404?{code:'NoSuchKey',status:404}:new StorageApiError('absent',404,'404','storage','NoSuchKey')),data:options.mismatch&&object?new Blob([new Uint8Array(8)],{type:'image/png'}):object};}};}},rpc:async(name,args)=>{
   calls.push(name);let data;
   if(name==='current_maintenance_purchase_account')data=epoch;
   else if(name==='read_maintenance_verified_entitlement'){assert.equal(args.target_user,user);assert.equal(args.verified_session,session);assert.equal(args.target_epoch,epoch);assert.equal(args.target_environment,'Sandbox');reads++;data=options.free||options.expireAtRead===reads?{plan:'free',environment:'Sandbox'}:{plan:'premium',environment:options.wrongEnvironment?'Production':'Sandbox',productId:'ouchi.premium.monthly',expiresAt:Date.now()+60000};}
@@ -59,5 +59,11 @@ test('uncertain Storage inspection and non-SDK 404 cannot begin or send a write'
   assert.equal(h.calls.includes('begin_maintenance_attachment_write'),false);
   assert.equal(h.calls.includes('upload'),false);
   assert.equal(h.calls.includes('finalize_maintenance_attachment'),false);
+ }
+});
+
+test('server errors named NoSuchKey cannot begin a fresh upload; genuine semantic404 remains supported',async()=>{
+ for(const [status,semantic,accepted] of [[500,'404',false],[503,'404',false],[403,'404',false],[404,'500',false],[400,undefined,false],[404,'404',true],[400,'404',true]]){
+  const f=fixture({absenceError:new StorageApiError('synthetic',status,semantic,'storage','NoSuchKey')});assert.equal((await f.run()).status,accepted?200:503);assert.equal(f.calls.includes('begin_maintenance_attachment_write'),accepted);assert.equal(f.calls.includes('upload'),accepted);
  }
 });

@@ -8,7 +8,7 @@ const id=n=>`${String(n).padStart(8,'0')}-1111-4111-8111-111111111111`;
 const bytes=new Uint8Array([1,2,3,4]),sha256=createHash('sha256').update(bytes).digest('hex');
 const plan=normalizeFamilyAttachmentPlan({requestID:id(1),homeID:id(2),ownerID:id(3),ownerEpoch:id(4),recipientID:id(5),recipientEpoch:id(6),snapshotDigest:'a'.repeat(64),files:[{id:id(7),mime:'image/png',size:4,sha256,source:{userID:id(3),epoch:id(4),path:`${id(3)}/${id(4)}/${id(7)}.png`}}]});
 test('only canonical SDK NoSuchKey is absence; generic 404 and plain objects are unknown',async()=>{
- for(const [error,absent] of [[new StorageApiError('missing',404,'404','storage','NoSuchKey'),true],[new StorageApiError('bucket denied',404,'404','storage','NoSuchBucket'),false],[{code:'NoSuchKey'},false]]){
+ for(const [error,absent] of [[new StorageApiError('missing',404,'404','storage','NoSuchKey'),true],...[ [400,'404',true],[500,'404',false],[503,'404',false],[403,'404',false],[404,'500',false],[400,undefined,false] ].map(([status,semantic,accepted])=>[new StorageApiError('synthetic',status,semantic,'storage','NoSuchKey'),accepted]),[new StorageApiError('bucket denied',404,'404','storage','NoSuchBucket'),false],[{code:'NoSuchKey'},false]]){
   const ports=createFamilyAttachmentStoragePorts({guard:async()=>true,clientForSignal:()=>({storage:{from:()=>({download:async()=>({data:null,error})})}})});
   const read=ports.inspectDestination({},plan,plan.files[0],new AbortController().signal);
   if(absent)assert.equal(await read,null);else await assert.rejects(read,/unconfirmed/);

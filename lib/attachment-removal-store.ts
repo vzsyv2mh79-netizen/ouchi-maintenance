@@ -43,7 +43,8 @@ export function storedAttachmentRemovalServices(db:SupabaseClient,signal?:AbortS
   },
   absent:async item=>{
    await guard(item);const result=await bucket.download(item.path);active();
-   return !result.data&&result.error instanceof StorageApiError&&result.error.code==='NoSuchKey';
+   const error=result.error;
+   return !result.data&&error instanceof StorageApiError&&error.code==='NoSuchKey'&&((error.status===404&&(error.statusCode===undefined||error.statusCode==='404'))||(error.status===400&&error.statusCode==='404'));
   },
   complete:async item=>{
    await guard(item);const result=await db.rpc('complete_maintenance_attachment_removal',{...args(item.id),confirmed_path:item.path});active();return !result.error&&result.data===true;

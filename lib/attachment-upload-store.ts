@@ -76,7 +76,8 @@ export function storedAttachmentUploadServices(db:SupabaseClient,environment:Bil
   inspect:async r=>{
    const item=guard(r);inspected=false;
    const result=await bucket.download(item.path);guard(r);
-   if(!result.data && result.error instanceof StorageApiError && result.error.code==='NoSuchKey') return null;
+   const error=result.error;
+   if(!result.data&&error instanceof StorageApiError&&error.code==='NoSuchKey'&&((error.status===404&&(error.statusCode===undefined||error.statusCode==='404'))||(error.status===400&&error.statusCode==='404')))return null;
    if(result.error||!result.data||result.data.size!==item.file.size||result.data.size>attachmentLimits.fileBytes)throw Error('Attachment object unavailable');
    const actual=await readProductAttachment(new Request('http://127.0.0.1/verified-attachment',{method:'POST',headers:{'content-type':result.data.type,'content-length':String(result.data.size)},body:await result.data.arrayBuffer(),signal:signal??requestSignal}));
    guard(r);if(actual.size!==item.file.size||actual.mime!==item.file.mime||actual.sha256!==item.file.sha256)throw Error('Stored attachment mismatch');
