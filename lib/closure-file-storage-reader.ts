@@ -18,7 +18,8 @@ export function createClosureFileStorageReader({projectID,secretKey}:{projectID:
   signal.throwIfAborted();const endpoint=origin+'/storage/v1/object/'+file.bucket+'/'+file.objectPath;
   const client=createClient(origin,secretKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:async(input,init)=>{
    const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
-   if(url!==endpoint||(init?.method??'GET')!=='GET')throw Error('Exact private Storage read required');
+   const method=init?.method??(input instanceof Request?input.method:'GET');
+   if(url!==endpoint||method!=='GET'||init?.body!=null||(input instanceof Request&&input.body!==null))throw Error('Exact private Storage read required');
    return createAttachmentFetch(signal,5000,file.sizeBytes)(input,{...init,cache:'no-store'});
   }}});
   const {data,error}=await client.storage.from(file.bucket).download(file.objectPath,{}, {signal,cache:'no-store'});
