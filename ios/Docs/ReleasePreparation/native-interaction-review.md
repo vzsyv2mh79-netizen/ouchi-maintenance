@@ -87,3 +87,37 @@ Long single-line product/model input fields can truncate or scroll horizontally
 when unfocused or while editing; the review does not claim that all text is
 simultaneously visible. Other fields/save controls, dark keyboard, landscape,
 VoiceOver, physical iPhone and final signed release still require review.
+
+## Independent accessibility audit matrix — 2026-10-19
+
+The combined seven-category audit at AX5/dark timed out on the Home viewport.
+Its xcresult reports one failure, zero passes, and zero skips. Five initial
+viewport screenshots were captured and inspected, but they do not prove that
+all categories ran on the remaining tabs. This run is not a release clearance.
+
+The `--test audit` selection now runs 35 independent XCTest cases: Home, Care,
+Products, History and Settings, each with contrast, Dynamic Type, element
+detection, hit regions, sufficient descriptions, clipped text and traits. Each
+case launches the actual sample UI with the shipping header layout, attaches
+its initial screenshot, reports every issue (`return false`), and terminates
+its sample app. No categories are omitted or marked handled. Xcode execution limits
+are requested (180 seconds default, 240 seconds maximum per case); these are
+not a guaranteed wall-clock deadline. A reported timeout remains a failed case,
+rather than a passing or skipped result.
+
+For diagnosis, `--test audit --audit-case home-contrast` selects just one cell.
+Its manifest lists the exact selected cases and `fullMatrixSelected: false`.
+Only an inspected xcresult covering all 35 cases without failures or skips can
+support a full matrix pass. A successful diagnostic cell cannot substitute for
+that result. The AX5/dark iPhone 17e matrix passed all 35 cases with zero failures,
+zero expected failures and zero skips. The actual xcresult case names matched
+the selected 5 × 7 matrix exactly. Its runtime-warnings list was empty, the five
+initial contrast screenshots were visually inspected, and its owned simulator
+was removed. The History/textClipped case took 1004.783 seconds despite the
+requested limits; the timeout options must not be presented as hard wall-clock
+enforcement. No issues were filtered. Shipping native app sources were unchanged
+(source digest `531b76fff70ef9d24ad3355499055fbb5f76c30e`).
+
+This covers initial viewports at one text size/appearance/device, not offscreen
+controls, all forms, other sizes/orientations, live persistence or purchases.
+VoiceOver and physical-device review remain separate.

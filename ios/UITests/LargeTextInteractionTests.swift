@@ -174,25 +174,54 @@ final class LargeTextInteractionTests: XCTestCase {
         app.terminate()
     }
 
-    func testInitialTabAccessibilityAudits() {
-        for tab in 0...4 {
-            let app = launch(tab: tab, releaseLayout: true)
-            continueAfterFailure = true
-            capture(app, name: "audit-tab-\(tab)-initial")
-            do {
-                try app.performAccessibilityAudit(for: [.contrast, .dynamicType, .elementDetection,
-                    .hitRegion, .sufficientElementDescription, .textClipped, .trait]) { issue in
-                    // Record context without handling/filtering any audit issue.
-                    NSLog("Accessibility audit tab %d: %@; element=%@", tab,
-                          issue.detailedDescription, issue.element?.debugDescription ?? "unavailable")
-                    return false
-                }
-            } catch {
-                XCTFail("Initial tab \(tab) accessibility audit failed: \(error)")
-            }
-            app.terminate()
+    // One independent case per viewport/category: an audit timeout must not hide
+    // which category ran or prevent later viewports from receiving their own result.
+    private func auditInitialTab(_ tab: Int, category: XCUIAccessibilityAuditType, name: String) throws {
+        let app = launch(tab: tab, releaseLayout: true)
+        defer { app.terminate() }
+        capture(app, name: "audit-tab-\(tab)-\(name)-initial")
+        try app.performAccessibilityAudit(for: category) { issue in
+            NSLog("Accessibility audit tab %d (%@): %@; element=%@", tab, name,
+                  issue.detailedDescription, issue.element?.debugDescription ?? "unavailable")
+            return false // Report every issue. No handled issues or category suppression.
         }
     }
+
+    func testAuditHomeContrast() throws { try auditInitialTab(0, category: .contrast, name: "contrast") }
+    func testAuditHomeDynamicType() throws { try auditInitialTab(0, category: .dynamicType, name: "dynamicType") }
+    func testAuditHomeElementDetection() throws { try auditInitialTab(0, category: .elementDetection, name: "elementDetection") }
+    func testAuditHomeHitRegion() throws { try auditInitialTab(0, category: .hitRegion, name: "hitRegion") }
+    func testAuditHomeDescription() throws { try auditInitialTab(0, category: .sufficientElementDescription, name: "sufficientElementDescription") }
+    func testAuditHomeTextClipped() throws { try auditInitialTab(0, category: .textClipped, name: "textClipped") }
+    func testAuditHomeTrait() throws { try auditInitialTab(0, category: .trait, name: "trait") }
+    func testAuditCareContrast() throws { try auditInitialTab(1, category: .contrast, name: "contrast") }
+    func testAuditCareDynamicType() throws { try auditInitialTab(1, category: .dynamicType, name: "dynamicType") }
+    func testAuditCareElementDetection() throws { try auditInitialTab(1, category: .elementDetection, name: "elementDetection") }
+    func testAuditCareHitRegion() throws { try auditInitialTab(1, category: .hitRegion, name: "hitRegion") }
+    func testAuditCareDescription() throws { try auditInitialTab(1, category: .sufficientElementDescription, name: "sufficientElementDescription") }
+    func testAuditCareTextClipped() throws { try auditInitialTab(1, category: .textClipped, name: "textClipped") }
+    func testAuditCareTrait() throws { try auditInitialTab(1, category: .trait, name: "trait") }
+    func testAuditProductsContrast() throws { try auditInitialTab(2, category: .contrast, name: "contrast") }
+    func testAuditProductsDynamicType() throws { try auditInitialTab(2, category: .dynamicType, name: "dynamicType") }
+    func testAuditProductsElementDetection() throws { try auditInitialTab(2, category: .elementDetection, name: "elementDetection") }
+    func testAuditProductsHitRegion() throws { try auditInitialTab(2, category: .hitRegion, name: "hitRegion") }
+    func testAuditProductsDescription() throws { try auditInitialTab(2, category: .sufficientElementDescription, name: "sufficientElementDescription") }
+    func testAuditProductsTextClipped() throws { try auditInitialTab(2, category: .textClipped, name: "textClipped") }
+    func testAuditProductsTrait() throws { try auditInitialTab(2, category: .trait, name: "trait") }
+    func testAuditHistoryContrast() throws { try auditInitialTab(3, category: .contrast, name: "contrast") }
+    func testAuditHistoryDynamicType() throws { try auditInitialTab(3, category: .dynamicType, name: "dynamicType") }
+    func testAuditHistoryElementDetection() throws { try auditInitialTab(3, category: .elementDetection, name: "elementDetection") }
+    func testAuditHistoryHitRegion() throws { try auditInitialTab(3, category: .hitRegion, name: "hitRegion") }
+    func testAuditHistoryDescription() throws { try auditInitialTab(3, category: .sufficientElementDescription, name: "sufficientElementDescription") }
+    func testAuditHistoryTextClipped() throws { try auditInitialTab(3, category: .textClipped, name: "textClipped") }
+    func testAuditHistoryTrait() throws { try auditInitialTab(3, category: .trait, name: "trait") }
+    func testAuditSettingsContrast() throws { try auditInitialTab(4, category: .contrast, name: "contrast") }
+    func testAuditSettingsDynamicType() throws { try auditInitialTab(4, category: .dynamicType, name: "dynamicType") }
+    func testAuditSettingsElementDetection() throws { try auditInitialTab(4, category: .elementDetection, name: "elementDetection") }
+    func testAuditSettingsHitRegion() throws { try auditInitialTab(4, category: .hitRegion, name: "hitRegion") }
+    func testAuditSettingsDescription() throws { try auditInitialTab(4, category: .sufficientElementDescription, name: "sufficientElementDescription") }
+    func testAuditSettingsTextClipped() throws { try auditInitialTab(4, category: .textClipped, name: "textClipped") }
+    func testAuditSettingsTrait() throws { try auditInitialTab(4, category: .trait, name: "trait") }
 
     func testHomeMenuCurrentHomeReselection() {
         let app = launch(tab: 0)

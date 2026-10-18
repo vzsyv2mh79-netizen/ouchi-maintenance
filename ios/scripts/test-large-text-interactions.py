@@ -18,7 +18,16 @@ parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
 parser.add_argument('--device-type', choices=['iPhone-18-Pro', 'iPhone-18-Pro-Max', 'iPhone-17e', 'iPhone-SE-3rd-generation', 'iPad-Pro-13-inch-M5-12GB'], default='iPhone-18-Pro')
 parser.add_argument('--test', choices=['all', 'ipad-rotation', 'completion', 'completion-export', 'editor-overdue', 'overdue-dynamic-type', 'legal-links', 'editor', 'audit', 'home', 'memo', 'overdue', 'task-audits', 'care-regression', 'family', 'home-switch', 'theme'], default='all')
+audit_tabs = ['Home', 'Care', 'Products', 'History', 'Settings']
+audit_categories = ['Contrast', 'DynamicType', 'ElementDetection', 'HitRegion', 'Description', 'TextClipped', 'Trait']
+audit_cases = {tab.lower() + '-' + category.lower(): 'testAudit' + tab + category
+               for tab in audit_tabs for category in audit_categories}
+parser.add_argument('--audit-case', choices=sorted(audit_cases),
+                    help='Run one matrix cell for diagnosis; omitted with --test audit runs all 35 cells.')
 args = parser.parse_args()
+if args.audit_case and args.test != 'audit':
+    parser.error('--audit-case requires --test audit')
+selected_audit_tests = [audit_cases[args.audit_case]] if args.audit_case else list(audit_cases.values())
 root = pathlib.Path(__file__).resolve().parents[1]
 output = args.output.resolve()
 if output.exists():
@@ -46,12 +55,18 @@ manifest = {'status': 'not_run', 'sourceDigest': stamp, 'textSize': args.text_si
                       ['seven unfiltered accessibility audit categories after scrolling overdue-count label entirely above tab bar'] if args.test == 'overdue' else
                       ['seven unfiltered accessibility audit categories after scrolling product memo entirely above tab bar'] if args.test == 'memo' else
                       ['home menu open and current-home reselection; not multi-home switching'] if args.test == 'home' else
-                      ['seven automatic accessibility audit categories on five initial tab viewports; no issue suppression'] if args.test == 'audit' else
+                      ['35 independent initial-viewport/category cases, or explicitly selected diagnostic cell; no issue suppression'] if args.test == 'audit' else
                       ['product editor model input above open software keyboard', 'back navigation without save preserves sample model'] if args.test == 'editor' else
                       ['scroll and activate sample completion', 'next due date and history update',
                        'scroll and activate export; share control appears', 'product editor keyboard and cancel',
-                       'five initial tab automatic accessibility audits', 'home menu current-home reselection', 'visible product memo accessibility audit', 'visible overdue-count accessibility audit', 'two-home product/history filtering', 'theme toggle and relaunch retention', 'focused task product clipping and next-date contrast while fully visible', 'family detail member/reload reachability using in-memory sample members']),
+                       '35 independent initial-tab/category accessibility audit cases', 'home menu current-home reselection', 'visible product memo accessibility audit', 'visible overdue-count accessibility audit', 'two-home product/history filtering', 'theme toggle and relaunch retention', 'focused task product clipping and next-date contrast while fully visible', 'family detail member/reload reachability using in-memory sample members']),
             'notVerified': ['real cloud persistence', 'VoiceOver', 'physical device', 'purchases', 'final signed build']}
+if args.test in ['audit', 'all']:
+    manifest['auditMatrix'] = {'tabs': audit_tabs, 'categories': audit_categories,
+                             'selectedCases': selected_audit_tests if args.test == 'audit' else list(audit_cases.values()),
+                             'fullMatrixSelected': not args.audit_case,
+                             'caseTimeLimitSeconds': 240,
+                             'completionRequiresEachSelectedCaseResult': True}
 device = None
 
 def run(*command, **kwargs):
@@ -145,7 +160,9 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,id=' + device,
                 '-derivedDataPath', work / 'DerivedData', '-resultBundlePath', output / 'InteractionTests.xcresult',
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never', 'CODE_SIGNING_ALLOWED=NO',
-                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'care-regression': 'testVisibleTaskProductClipping,testVisibleNextDateContrast,testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl,testCareTitleOpensEditorAndReturns', 'ipad-rotation': 'testIPadRotationKeepsNavigationReachable', 'family': 'testFamilyDetailsLoadAndRemainReachable', 'legal-links': 'testReviewedLegalLinksAreReachableFromPrivacy', 'overdue-dynamic-type': 'testVisibleOverdueDynamicType', 'editor-overdue': 'testProductEditorKeyboardAndCancel,testVisibleOverdueCountAccessibilityAudit', 'completion-export': 'testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl', 'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': 'testInitialTabAccessibilityAudits', 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
+                *(['-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '180',
+                   '-maximum-test-execution-time-allowance', '240'] if args.test in ['audit', 'all'] else []),
+                *(['-only-testing:OuchiInteractionTests/LargeTextInteractionTests/' + name for name in {'care-regression': 'testVisibleTaskProductClipping,testVisibleNextDateContrast,testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl,testCareTitleOpensEditorAndReturns', 'ipad-rotation': 'testIPadRotationKeepsNavigationReachable', 'family': 'testFamilyDetailsLoadAndRemainReachable', 'legal-links': 'testReviewedLegalLinksAreReachableFromPrivacy', 'overdue-dynamic-type': 'testVisibleOverdueDynamicType', 'editor-overdue': 'testProductEditorKeyboardAndCancel,testVisibleOverdueCountAccessibilityAudit', 'completion-export': 'testCompletionUpdatesDueDateAndHistory,testExportControlReachableAndProducesShareControl', 'task-audits': 'testVisibleTaskProductClipping,testVisibleNextDateContrast', 'completion': 'testCompletionUpdatesDueDateAndHistory', 'editor': 'testProductEditorKeyboardAndCancel', 'audit': ','.join(selected_audit_tests), 'home': 'testHomeMenuCurrentHomeReselection', 'memo': 'testVisibleProductMemoAccessibilityAudit', 'overdue': 'testVisibleOverdueCountAccessibilityAudit', 'home-switch': 'testHomeSwitchKeepsRecordsInSelectedHome', 'theme': 'testAppearanceChoiceSurvivesRelaunch'}[args.test].split(',')] if args.test != 'all' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:
