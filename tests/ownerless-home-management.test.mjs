@@ -29,15 +29,30 @@ test('migration starts disabled and does not detach, delete or transfer an exist
   await db.exec('set role service_role');await assert.rejects(claim(db,nextID),/claim unavailable/);
  }finally{await db.close();}
 });
-test('remaining member keeps records and completion after old owner closes; strangers, new invitations and shared home deletion remain refused',async()=>{
+for(const databaseTimeZone of ['UTC','Asia/Tokyo','Pacific/Honolulu','Pacific/Kiritimati'])test('remaining member keeps records and completes after owner closes across '+databaseTimeZone+'; strangers, new invitations and shared home deletion remain refused',async()=>{
  const {db}=await fixture();try{
+  // complete_maintenance uses a Tokyo calendar day independently of the DB
+  // session timezone. Freeze one SQL transaction and retain a prior-day record,
+  // so this case verifies a new completion rather than depending on the CI hour.
+  await db.exec('reset role;begin');
+  await db.query("select set_config('TimeZone',$1,true)",[databaseTimeZone]);
+  await db.query(`update public.maintenance_history set "completedAt"=(current_timestamp at time zone 'Asia/Tokyo')::date-1 where "taskId"=$1`,[request]);
+  const previousHistory=(await db.query('select id,"completedAt"::text as day from public.maintenance_history where "taskId"=$1',[request])).rows;
+  assert.equal(previousHistory.length,1);
   await db.query('update maintenance_private.app_epochs set enabled=false where user_id=$1',[owner]);
   await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[owner]);
   await authenticated(db);
   assert.equal((await db.query('select count(*)::int n from public.products')).rows[0].n,1);
   await db.query('update public.products set memo=$1 where id=$2',['Family edit after retirement',product]);
   await db.query('select public.complete_maintenance($1)',[request]);
-  assert.equal((await db.query('select count(*)::int n from public.maintenance_history')).rows[0].n,1);
+  assert.equal((await db.query('select count(*)::int n from public.maintenance_history')).rows[0].n,2);
+  assert.deepEqual((await db.query('select id,"completedAt"::text as day from public.maintenance_history where id=$1',[previousHistory[0].id])).rows,previousHistory);
+  assert.equal((await db.query(`select count(*)::int n from public.maintenance_history where "taskId"=$1 and "completedAt"=(current_timestamp at time zone 'Asia/Tokyo')::date`,[request])).rows[0].n,1);
+  assert.equal((await db.query(`select "lastCompletedAt"=(current_timestamp at time zone 'Asia/Tokyo')::date and "nextDueAt"=(current_timestamp at time zone 'Asia/Tokyo')::date+"intervalDays" as updated from public.maintenance_tasks where id=$1`,[request])).rows[0].updated,true);
+  await db.query('select public.complete_maintenance($1)',[request]);
+  assert.equal((await db.query('select count(*)::int n from public.maintenance_history')).rows[0].n,2);
+  await db.exec('commit');
+
   await assert.rejects(db.query('select public.create_home_invite($1)',[home]),/Home unavailable/);
   await db.exec('reset role');await assert.rejects(db.query('delete from public.homes where id=$1',[home]),/Family handoff required/);
   assert.equal((await db.query('select maintenance_private.participates_in_other_home($1) yes',[recipient])).rows[0].yes,true);
