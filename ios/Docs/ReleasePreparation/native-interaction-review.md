@@ -121,3 +121,27 @@ enforcement. No issues were filtered. Shipping native app sources were unchanged
 This covers initial viewports at one text size/appearance/device, not offscreen
 controls, all forms, other sizes/orientations, live persistence or purchases.
 VoiceOver and physical-device review remain separate.
+
+## Shipping-layout keyboard verification at AX5/dark — 2026-10-19
+
+A subsequent two-case run passed the visible overdue-count audit but failed its
+keyboard visibility assertion. Its screenshot showed the software keyboard,
+while XCTest's first keyboard element described an offscreen preview (y861 in
+an app viewport ending at y844). This did not establish a production UI defect.
+The editor test also included an extra review banner that is not in the shipping
+header and changes available form space.
+
+The editor test now selects the shipping header and waits up to ten seconds for
+an onscreen, hittable keyboard from the complete keyboard query. Mere existence
+still cannot pass: the visible intersection must be at least100pt high and the
+entire model field must remain at least8pt above that exact keyboard frame.
+Failure diagnostics are retained. No issue is filtered, skipped or accepted as
+an expected failure. The runner marks editor selections as using release layout.
+
+The actual AX5/dark iPhone17e test passed once, zero failures/skips, with no
+xcresult runtime warnings. Both screenshots were inspected: the software
+keyboard and entered X were visible; leaving without save restored SAMPLE-001.
+The owned simulator was removed. The native product-source digest remains
+`531b76fff70ef9d24ad3355499055fbb5f76c30e`; only tests/documentation changed.
+This does not prove every field, long single-line model visibility, cloud saves,
+VoiceOver or physical-device behavior, and it does not replace the35-case audit.

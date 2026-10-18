@@ -43,6 +43,14 @@ final class LargeTextInteractionTests: XCTestCase {
         XCTFail("Could not reach control: \(element)")
     }
 
+    private func visibleKeyboard(in app: XCUIApplication) -> XCUIElement? {
+        app.keyboards.allElementsBoundByIndex.first { keyboard in
+            guard keyboard.exists && keyboard.isHittable else { return false }
+            let visible = keyboard.frame.intersection(app.frame)
+            return !visible.isNull && visible.height >= 100
+        }
+    }
+
     private func capture(_ app: XCUIApplication, name: String, wholeScreen: Bool = false) {
         let attachment = XCTAttachment(screenshot: wholeScreen ? XCUIScreen.main.screenshot() : app.screenshot())
         attachment.name = name
@@ -136,7 +144,9 @@ final class LargeTextInteractionTests: XCTestCase {
     }
 
     func testProductEditorKeyboardAndCancel() {
-        let app = launch(tab: 2)
+        // Match the shipping header; the extra sample banner changes the
+        // available keyboard/form viewport and is not part of the release UI.
+        let app = launch(tab: 2, releaseLayout: true)
         let product = app.buttons["空気清浄機（サンプル）"]
         reach(product, in: app)
         product.tap()
@@ -152,12 +162,20 @@ final class LargeTextInteractionTests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
         model.typeText("X")
         XCTAssertTrue((model.value as? String)?.contains("X") == true)
-        let keyboard = app.keyboards.firstMatch
+        // iOS may expose an offscreen keyboard preview as firstMatch while
+        // the real software keyboard is entering. Do not accept mere existence,
+        // or weaken the visible-frame assertion: wait for a fresh onscreen,
+        // hittable keyboard and then check the field against that exact frame.
+        let keyboardReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.visibleKeyboard(in: app) != nil
+        }, object: nil)
+        let keyboardReadiness = XCTWaiter.wait(for: [keyboardReady], timeout: 10)
+        let keyboard = visibleKeyboard(in: app) ?? app.keyboards.firstMatch
         let keyboardFrame = keyboard.exists ? keyboard.frame : .zero
         let visibleKeyboard = keyboardFrame.intersection(app.frame)
         let keyboardVisible = keyboard.exists && keyboard.isHittable && !visibleKeyboard.isNull && visibleKeyboard.height >= 100
         if !keyboardVisible {
-            let diagnostic = XCTAttachment(string: "App: \(app.frame)\nKeyboard: \(keyboardFrame)\n\(app.debugDescription)")
+            let diagnostic = XCTAttachment(string: "Keyboard readiness: \(keyboardReadiness)\nApp: \(app.frame)\nKeyboard: \(keyboardFrame)\n\(app.debugDescription)")
             diagnostic.name = "editor-keyboard-visibility-tree"
             diagnostic.lifetime = .keepAlways
             add(diagnostic)
