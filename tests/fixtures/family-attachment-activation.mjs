@@ -45,7 +45,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
    assert.equal((await initialProviders.issueHousehold(bearer,new AbortController().signal)).status,'accepted');
   }
  }else{
- const adapter=tx=>({query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
+ const adapter=tx=>({signal:tx.signal,beforeCommit:tx.beforeCommit,query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
   const issuer=createHandoffConsentIssuer({key,verifyIdentity:async actor=>({userID:actor,authVerifiedAt:Date.now()}),store:{
   transaction:cb=>db.transaction(tx=>cb(adapter(tx))),target:async()=>({scope:controllerScope,plan:consentPlan}),
   existing:async(tx,s,p,actor)=>{const r=(await tx.query('select * from maintenance_private.household_handoff_consents where home_id=$1 and actor_id=$2 for update',[home,actor])).rows[0];return r?{actorID:r.actor_id,token:r.token,revokedAt:r.revoked_at}:null;},
@@ -53,7 +53,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
  }});
  for(const actor of [owner,recipient])assert.equal((await issuer({requestID:controllerScope.requestID,householdID:home,accessToken:actor,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
  }
- const adapter=tx=>({query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
+ const adapter=tx=>({signal:tx.signal,beforeCommit:tx.beforeCommit,query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
  // Default path uses synthetic identity. Explicit intake bypasses it entirely;
  // inventory/freeze authorization remains independently injected. No runtime activation.
  const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:inventoryAuthorize});
@@ -69,7 +69,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
    try{await db.transaction(raw=>runWithTransactionCommitChecks(adapter(raw),signal,pinned=>{
     // Fault injection: a lying adapter claims the receipt was inserted. The DB
     // deferred group check must still refuse COMMIT using actual persisted rows.
-    const guarded={
+    const guarded={signal:pinned.signal,
      // Deliberately faulty backend for the existing SQL-deadline witness only.
      beforeCommit:commitFault==='recentAuthenticationExpired'?()=>{}:pinned.beforeCommit,
      query:async(sql,args)=>{

@@ -19,7 +19,7 @@ async function setup({activation=false,commitFault=null,memberOnly=false,alignFa
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
  const key=randomBytes(32);
- const adapt=tx=>({query:async(sql,args)=>{
+ const adapt=tx=>({signal:tx.signal,beforeCommit:tx.beforeCommit,query:async(sql,args)=>{
   const result=await tx.query(sql,args);
   if(sql.includes('as consent_now'))return {rows:[{consent_now:Number(result.rows[0].consent_now)+offset}]};
   return result;
@@ -67,7 +67,7 @@ async function setup({activation=false,commitFault=null,memberOnly=false,alignFa
 export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents,beforeFamilyActivation}={}){
  const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze,beforeInitialConsents});
  await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
- for(const actor of [owner,recipient])await s.issue(actor);
+ for(const actor of [owner,recipient])assert.equal((await s.issue(actor)).status,'accepted','Initial inventory consent must persist before activation');
  if(beforeFamilyActivation!==undefined){
   if(typeof beforeFamilyActivation!=='function')throw Error('Explicit fixture intake hook required');
   // Integration fixture only: root preparation/original issuance/formal claim
