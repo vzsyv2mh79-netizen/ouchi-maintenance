@@ -18,7 +18,7 @@ All callbacks use the same checked transaction/signal; none has a default succes
 
 ## Avoiding the Auth API lock cycle
 
-The RPC never locks Auth users/sessions or the generic app-principal advisory key that an Auth-side cleanup trigger could need. It refuses if any relation it row-locks is a declarative Auth FK/partition descendant, including restrictive FKs. It locks only the scoped private root/custody/native/fence rows after that catalogue preflight. The separate identity hold is on a different dedicated backend and is consulted only by INSERT/UUID-change guards. Do not reintroduce an Auth FK on those custody tables without reviewing the interval.
+The RPC never locks Auth users/sessions or the generic app-principal advisory key that an Auth-side cleanup trigger could need. It refuses if any relation it row-locks is a declarative Auth FK/partition descendant, including restrictive FKs. It locks only the scoped private root/custody/native/fence rows after that catalogue preflight. The dedicated identity key is held shared both on a different session backend and on each bound owning transaction through COMMIT. It is consulted only by INSERT/UUID-change guards; it is distinct from the generic app-principal key an Auth cleanup trigger might require. Do not reintroduce an Auth FK on those custody tables without reviewing the interval.
 
 The caller still needs a live lock audit before dispatch: catalogue checks do not prove arbitrary trigger bodies or privileged DDL stability. The native test freezes the existing root's recursive Auth/cascade/partition lock query, not a second dispatcher implementation. Auth-parent-locking old readers must be committed before the external API interval and must not be invoked from its callbacks.
 

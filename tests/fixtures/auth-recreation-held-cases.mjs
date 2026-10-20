@@ -44,7 +44,7 @@ export async function runHeldAuthRemovalInterval({admin,coordinator,auth,scope,s
    assert.equal(JSON.stringify(s),JSON.stringify(scope));const reader=await forTx(tx);
    original=await reader.read(tx);assert.ok(original);assert.equal(original.kind,'owner-only-auth-removal-interval-history');
    assert.equal((await tx.query(AUTH_DELETE_LOCKS_SQL,[])).rows[0].clear,true,'Root owns no Auth/cascade/partition non-AccessShare lock before independent DELETE');
-   assert.equal((await tx.query("select count(*)::int n from pg_catalog.pg_locks where pid=pg_backend_pid() and locktype='advisory'",[])).rows[0].n,0,'Interval caller owns no generic app-principal advisory lock; dedicated identity hold is on the separate backend');
+   assert.equal((await tx.query("select count(*)::int n from pg_catalog.pg_locks where pid=pg_backend_pid() and locktype='advisory'",[])).rows[0].n,1,'Interval caller owns only the dedicated identity shared key, no generic app-principal key');
    assert.equal(await actualAuthAbsent(),false);deletes++;
    await auth.eraseFixtureUser(scope.userID);removed=true;assert.equal(await actualAuthAbsent(),true);
    assert.deepEqual(await reader.readSnapshot(tx),original,'Same interval handles actual removed state before erase-auth receipt is stamped');
@@ -156,6 +156,24 @@ export async function verifyHeldAuthExclusion({admin,coordinator,writer,auth,sco
    const p=(await admin.query("select pid from pg_stat_activity where usename='ouchi_auth_exclusion_backend' and application_name like 'OuchiAuthExclusion/%'")).rows;assert.equal(p.length,1);
    assert.equal((await admin.query('select pg_terminate_backend($1) stopped',[p[0].pid])).rows[0].stopped,true);
   });
+  // Reproduce the last-check/COMMIT transport gap with a real terminated
+  // holder. The owning transaction's shared xact key must survive independently
+  // even though withScope can only report uncertainty after COMMIT.
+  await assert.rejects(exclusion.withScope(scope,scopeSignal(),held=>transaction(coordinator,async tx=>{
+   const {binding}=await bindReader(held,tx);
+   await tx.query('insert into private.owner_history_marker values(12)');
+   tx.beforeCommit('native:last-check-transport-loss',async()=>{
+    assert.equal(await binding.verify(tx,scope,tx.signal),true,'Last genuine verification before transport loss');
+    const p=(await admin.query("select pid from pg_stat_activity where usename='ouchi_auth_exclusion_backend' and application_name like 'OuchiAuthExclusion/%'")).rows;assert.equal(p.length,1);
+    assert.equal((await admin.query('select pg_terminate_backend($1) stopped',[p[0].pid])).rows[0].stopped,true);
+    const blocked=await auth.attemptFixtureUserCreate(scope.userID,email(scope.userID),password());
+    assert.equal(blocked.status,500,'Own shared xact lock blocks actual same-ID Admin create AFTER final verification and holder death');
+    assert.equal((await admin.query('select count(*)::int n from auth.users where id=$1',[scope.userID])).rows[0].n,0);
+    return true;
+   });
+  })),/Auth exclusion|connection|terminated/i);
+  assert.equal((await admin.query('select count(*)::int n from private.owner_history_marker where id=12')).rows[0].n,1,'The actual owning COMMIT completed with recreation still excluded');
+  await admin.query('delete from private.owner_history_marker where id=12');
   await exactOriginal(); // New physical holder/binding, fresh actual absence.
   // After release a same-ID insert really can proceed. A fresh holder must not
   // turn that presence into history authority merely because it reacquired.
