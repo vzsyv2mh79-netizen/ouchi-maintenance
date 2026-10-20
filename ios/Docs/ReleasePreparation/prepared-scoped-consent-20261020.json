@@ -1,0 +1,100 @@
+{
+  "status": "local_review_candidate_verified",
+  "createdAt": "2026-10-20T11:28:18.001170+00:00",
+  "baseHead": "0a263e8b980e5ccbfb78b5c4ffea1a561398fd92",
+  "files": [
+    {
+      "path": "lib/prepared-scoped-shared-consent.ts",
+      "sha256": "fa1087cd0b04fdf909302f0345037e7daca1332fc1d285bf0379cc809192ed58"
+    },
+    {
+      "path": "lib/prepared-ouchi-claim.ts",
+      "sha256": "66f6b5cd5181f9d5c821c7d695dffb671436a5ea2399557ead9997b9740806cc"
+    },
+    {
+      "path": "tests/fixtures/prepared-scoped-shared-consent.sql",
+      "sha256": "a1e7a23822fb95b9945a5c5cd513aa1a452f8d68c0f4752691ff48fc0fabe89a"
+    },
+    {
+      "path": "tests/prepared-scoped-shared-consent.native.mjs",
+      "sha256": "867ff839e8d36ee85235d71ed03755b93c621928c95b8f29010282da7b9cb1cb"
+    },
+    {
+      "path": "tests/fixtures/scoped-shared-consent-module.mjs",
+      "sha256": "fa7b469bf44cbe5ba3b793733bec7bb5b405886866045f9c7a008912423105b4"
+    },
+    {
+      "path": "scripts/test-scoped-shared-consent-native.py",
+      "sha256": "93995222cddb0b4015661959c51fa65d43156f2eb6b1f0111e29ef94a459e696"
+    },
+    {
+      "path": "tests/fixtures/post-seal-family-setup.mjs",
+      "sha256": "1dd1cf16a8b2d1569de6febc509193cb7168f232e38c8f1e45e710aed681a3e4"
+    }
+  ],
+  "unchangedProcessingSources": {
+    "lib/scoped-shared-consent-identity.ts": "84a71f6b5cbce6649b3cb95bcd8e817f7039b0c809bf0b695222a73c88bf9b85",
+    "lib/bound-scoped-shared-consent.ts": "0de8564100f4ccba9852ebe33efc4251b5e6df7c9bfc0795a369a81ecc2d1831",
+    "tests/fixtures/scoped-shared-consent-auth.sql": "9247fe1a6083db846f0a77d18311ee105421979bcfd5ee190ee1c6e17a4873c6",
+    "tests/fixtures/bound-scoped-shared-consent.sql": "19326c0d93e2559094030f0c2a0a7e2e789593f27bf502f744b5fe2756549c0a",
+    "lib/post-native-seal-consent.ts": "b14f85be3b4527c2fedbc351a78750bfa4b9bee5c5bbc77f1dcb6175572f6588",
+    "tests/fixtures/post-native-seal-consent.sql": "111a7da9241c7329e49563c3339cdb59d2bed16277dfff04ab17f0ffa6c14a34"
+  },
+  "tests": {
+    "native": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "postgres": "17.6",
+      "gotrue": "v2.197.0",
+      "canonicalMigrations": 135
+    },
+    "relatedRegression": {
+      "pass": 16,
+      "fail": 0,
+      "skip": 0
+    },
+    "targetedLint": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "existingPostSealRealAuthRegression": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "verified": [
+    "Two actual GoTrue password/TOTP actors issue immutable original consent on requested root through dedicated issuer LOGIN",
+    "Requested issuance replay never changes original session/auth time/expiry/signature; issuer refuses even replay once processing",
+    "Normal processing issuer/current worker refuse requested root; normal worker independently confirms original Auth state after formal claim",
+    "Captured journal.claimPrepared performs actual requested-to-processing update on same pinned PostgreSQL transaction",
+    "False claim-ready rolls marker/root changes back; late Auth ban rolls root/Auth/marker back; early wrong planned lease and late incorrect transition lease both refuse",
+    "Same-transaction COMMIT adopted read remains hook-free; full frozen scope and exact family home roster rechecked",
+    "App-owned opaque frozen capability shares no Auth DTO; forged objects/other transactions/processing requested/extra homes/empty roster refuse",
+    "Complete cross-home Auth parent set pinned in globally sorted UUID order before per-home readers",
+    "No SET ROLE impersonation; coordinator raw Auth/original custody table reads refused",
+    "No family transfer, app records erasure or Auth deletion in this specific intake test",
+    "Owned GoTrue and PostgreSQL stopped, temporary cluster removed"
+  ],
+  "limits": [
+    "Initial family inventory/native lease/fence preparation and management policy are explicit fixtures, not the real intake provider",
+    "Ouchi-only app scope; actual both-app root claim composition is not independently executed here",
+    "Root claim uses captured journal fixture with local exact-request RLS policy, not shared production grants/registry/notification/receipt custody configuration",
+    "No initial family mutation, remote Storage, app/native erasure, Auth deletion or final global COMPLETE in this intake-specific test",
+    "Nonempty complete frozen family handoff roster is required; zero-family consent needs a separate reviewed path",
+    "New .native.mjs test is opt-in and not part of ordinary CI tests/*.test.mjs glob"
+  ],
+  "productionChanged": false,
+  "newProductionRolesOrGrants": false,
+  "runtimeEnabled": false,
+  "actualCustomerDeletion": false,
+  "realCharges": false,
+  "outboundMessageSent": false,
+  "fixtureHook": {
+    "name": "completionSetup({beforeFamilyActivation: async ({s}) => ...})",
+    "order": "after fixture inventory consent issuance, before journal.reserve/run/ownership/file activation",
+    "authorization": "No boolean approval; after callback checks actual committed exact root scope/status=processing/live planned root lease",
+    "activeHookIntegrationProven": false,
+    "note": "Default path independently re-tested with actual GoTrue; full both-app callback wiring remains pending"
+  }
+}

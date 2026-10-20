@@ -7,3 +7,8 @@ export const scopedModule=await import(url(compile('scoped-shared-consent-identi
 
 const scopedURL=url(compile('scoped-shared-consent-identity').replace("'./verified-app-session'",JSON.stringify(session)));
 export const boundScopedModule=await import(url(compile('bound-scoped-shared-consent').replace("'./scoped-shared-consent-identity'",JSON.stringify(scopedURL))));
+const preparedURL=url(compile('prepared-scoped-shared-consent').replace("'./scoped-shared-consent-identity'",JSON.stringify(scopedURL)));
+export const preparedScopedModule=await import(preparedURL);
+export const preparedOuchiClaimModule=await import(url(compile('prepared-ouchi-claim')
+ .replace("'./prepared-scoped-shared-consent'",JSON.stringify(preparedURL))
+ .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));

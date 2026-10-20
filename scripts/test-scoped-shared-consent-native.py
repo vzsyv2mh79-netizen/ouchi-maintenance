@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--postgres-bin', required=True)
 parser.add_argument('--node', required=True)
 parser.add_argument('--auth-runtime', required=True)
-parser.add_argument('--test-file', choices=['tests/scoped-shared-consent.native.mjs', 'tests/bound-scoped-shared-consent.native.mjs', 'tests/totp-cross-app-compatibility.native.mjs', 'tests/post-native-seal-consent.native.mjs', 'tests/post-native-seal-consent-auth.native.mjs'], default='tests/scoped-shared-consent.native.mjs')
+parser.add_argument('--test-file', choices=['tests/scoped-shared-consent.native.mjs', 'tests/bound-scoped-shared-consent.native.mjs', 'tests/totp-cross-app-compatibility.native.mjs', 'tests/post-native-seal-consent.native.mjs', 'tests/post-native-seal-consent-auth.native.mjs', 'tests/prepared-scoped-shared-consent.native.mjs'], default='tests/scoped-shared-consent.native.mjs')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 binary = pathlib.Path(args.postgres_bin).resolve()

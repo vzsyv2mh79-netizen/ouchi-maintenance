@@ -64,10 +64,20 @@ async function setup({activation=false,commitFault=null,memberOnly=false,alignFa
   set offset(v){offset=v;},set live(v){live=v;},set authority(v){onAuthority=v;},set transform(v){transform=v;},set identityTransform(v){identityTransform=v;}};
 }
 
-export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze}={}){
+export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeFamilyActivation}={}){
  const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze});
  await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
  for(const actor of [owner,recipient])await s.issue(actor);
+ if(beforeFamilyActivation!==undefined){
+  if(typeof beforeFamilyActivation!=='function')throw Error('Explicit fixture intake hook required');
+  // Integration fixture only: root preparation/original issuance/formal claim
+  // happen BEFORE reserve/ownership/file activation. A callback boolean never
+  // authorizes transfer: reread the actual committed root scope/lease instead.
+  await beforeFamilyActivation({s});
+  const scope=s.f.scope.controllerScope,{leaseToken,...fixed}=scope;
+  const root=(await s.f.db.query('select scope,status,lease_token,lease_until>clock_timestamp() live from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0];
+  if(!root||root.status!=='processing'||root.lease_token!==leaseToken||root.live!==true||digest(root.scope)!==digest(fixed))throw Error('Committed exact claim required before fixture family activation');
+ }
  await s.f.journal.reserve(s.f.scope,s.f.plan,new AbortController().signal);await s.f.run();
  const plan=normalizeFamilyAttachmentPlan(s.f.plan),signal=()=>new AbortController().signal;
  let absenceError=new StorageApiError('missing',404,'404','storage','NoSuchKey'),storageAllowed=true,inspections=0;
