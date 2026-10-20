@@ -72,6 +72,21 @@ export function createOuchiOwnerOnlyClaimPort(input:Options){
   if(live.digest!==payload.authStateDigest||live.epochID!==payload.epochID)throw Error('Original owner identity changed');return {payload,signature};
  }
  return Object.freeze({
+  /** Read-only, hook-free processing check. The owning transaction must call
+   * this again in its beforeCommit check. It requires the original live Auth
+   * session and start freshness; it is never historical/logout authority.
+   */
+  async verifyProcessingOriginal(value:unknown,tx:Tx){
+   try{
+    if(!matches(value))return false;
+    const pin=await frame(tx);if(pin.status!=='processing')return false;
+    const proof=fingerprint(await readCurrent(tx)),middle=await frame(tx);
+    if(middle.status!=='processing'||middle.pid!==pin.pid||middle.xid!==pin.xid)return false;
+    if(fingerprint(await readCurrent(tx))!==proof)return false;
+    const final=await frame(tx);
+    return final.status==='processing'&&final.pid===pin.pid&&final.xid===pin.xid;
+   }catch{return false;}
+  },
   async issue(token:string,tx:Tx){
    if((await frame(tx)).status!=='requested')throw Error('Requested-only owner issuance required');
    const original=await bearer(token,tx),saved=(await tx.query(OUCHI_OWNER_RECORD_SQL,[...args,canonical(original.payload),original.signature,original.policy.timeboxSeconds,original.policy.inactivitySeconds])).rows;

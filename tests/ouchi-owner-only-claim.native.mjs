@@ -69,6 +69,7 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   let policyLive=true;const policyReader=Object.assign(async()=>Object.freeze({projectID,authVersion:'v2.197.0',assuranceMode:'highest-current-aal/v1',singleSession:false,totpVerify:true,timeboxSeconds:null,inactivitySeconds:null}),{isCurrent:()=>policyLive});
   const options={key:randomBytes(32),scope,nativeLease,projectID,policyReader,getUser:async token=>({data:{user:await auth.request('/user',undefined,token)},error:null})};
   const port=ownerOnlyModule.createOuchiOwnerOnlyClaimPort(options),signal=()=>AbortSignal.timeout(10000),frameArgs=[scope.requestID,scope.leaseToken,JSON.stringify(scope),nativeLease];
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),false,'Requested state is not processing authority');
   // A second real account owns the member-only home, which is shared. Its
   // actual zero-roster frame must refuse even though no frozen plans exist.
   const sharedNative=randomUUID(),sharedLease=randomUUID(),sharedScope={...scope,requestID:randomUUID(),userID:recipient,leaseToken:randomUUID(),apps:[{app:'ouchi-maintenance',requestID:sharedNative,scopeID:re}]};
@@ -127,10 +128,40 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   await assert.rejects(journal.claimPrepared(scope),/Current transaction verification/);policyLive=true;
   assert.equal((await admin.query('select status from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].status,'requested','Late refusal rolls root transition back');
   latePolicyLoss=false;assert.equal(await journal.claimPrepared(scope),true);
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),true,'Independent original remains current after formal claim');
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal({...scope,apps:[...scope.apps].reverse()},tx)),false,'Processing check preserves app order');
+  assert.equal(await transaction(coordinator,tx=>expired.verifyProcessingOriginal(scope,tx)),false,'Claim-start freshness is never extended for processing');
+  const wrongLeasePort=ownerOnlyModule.createOuchiOwnerOnlyClaimPort({...options,nativeLease:randomUUID()});
+  assert.equal(await transaction(coordinator,tx=>wrongLeasePort.verifyProcessingOriginal(scope,tx)),false,'Native lease must still match actual request and binding');
+  await admin.query('update maintenance_private.app_session_epochs set epoch_id=$1 where session_id=$2',[randomUUID(),actors.get(owner).sessionID]);
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),false,'Processing requires actual unchanged session enrollment');
+  await admin.query('update maintenance_private.app_session_epochs set epoch_id=$1 where session_id=$2',[oe,actors.get(owner).sessionID]);
+  const rootDeadline=(await admin.query('select lease_until from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].lease_until;
+  await admin.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[scope.requestID]);
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),false,'Expired actual root lease refuses processing');
+  await admin.query('update private.kb_shared_deletion_journal set lease_until=$2 where request_id=$1',[scope.requestID,rootDeadline]);
+  const priorReceipts=(await admin.query('select receipts from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].receipts;
+  await assert.rejects(transaction(coordinator,async tx=>{
+   assert.equal(await port.verifyProcessingOriginal(scope,tx),true);
+   tx.beforeCommit('processing-owner-original',()=>port.verifyProcessingOriginal(scope,tx));
+   await tx.query("update private.kb_shared_deletion_journal set receipts=receipts||'{\"uncommitted-processing-marker\":true}'::jsonb where request_id=$1",[scope.requestID]);
+   policyLive=false;
+  }),/Current transaction verification/);
+  policyLive=true;
+  assert.deepEqual((await admin.query('select receipts from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].receipts,priorReceipts,'Late processing verification failure rolls caller work back');
+  assert.equal(await transaction(coordinator,async tx=>{
+   const valid=await port.verifyProcessingOriginal(scope,tx);
+   tx.beforeCommit('processing-owner-original',()=>port.verifyProcessingOriginal(scope,tx));return valid;
+  }),true,'Hook-free verification can be repeated by the owning COMMIT');
   assert.equal(await transaction(coordinator,tx=>port.adopted(scope,foreignCap,tx)),false);
   await assert.rejects(transaction(issuer,tx=>port.issue(actors.get(owner).token,tx)),/Requested-only/);
   assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original);
   for(const client of [issuer,coordinator]){await assert.rejects(client.query('select * from auth.users'),/permission denied/);await assert.rejects(client.query('select * from maintenance_private.ouchi_owner_originals'),/permission denied/);}
+  const logout=await fetch(auth.origin+'/logout?scope=global',{method:'POST',headers:{authorization:'Bearer '+actors.get(owner).token}});
+  assert.equal(logout.status,204);
+  assert.equal((await admin.query('select count(*)::int n from auth.sessions where user_id=$1',[owner])).rows[0].n,0);
+  assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),false,'Actual global logout is refused, never reinterpreted as historical authority');
+  assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original,'Processing checks never renew, re-sign or modify the original');
   console.log('Independent Ouchi owner password/TOTP original, exact root/apps/enrollment, missing-FK denial, concurrent parent locks, actual claimPrepared late rollback/adoption; no family gate or native deletion invoked');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });
