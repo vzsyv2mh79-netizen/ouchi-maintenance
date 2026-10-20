@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-10-20T08:58:14.228003+00:00",
+  "status": "local_candidate_verified_not_deployed",
+  "baseHead": "6d2458193baf5d46afafc518fbc709b8ffae8dd0",
+  "native": {
+    "auth": "v2.197.0",
+    "postgres": "17.6",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "log": "bound-scoped-consent-native-verified-20261020.log"
+  },
+  "regression": {
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "log": "bound-scoped-consent-regression-20261020.log"
+  },
+  "lint": "passed targeted changed JS/TS",
+  "typecheck": "passed",
+  "verified": [
+    "Actual dedicated issuer/coordinator LOGINs with direct Auth4/private custody table reads denied",
+    "Original Ouchi proof-domain/digest/session/TOTP time/expiry and signed payload saved atomically; no JWT/refresh stored",
+    "Replay returns original proof with no new expiry/session/signature; UPDATE/DELETE rejected",
+    "Fresh root/native lease recovery preserves frozen original scope/plan and digest; stale leases/foreign epoch deny",
+    "Late actual policy loss rolls new proof and private binding back together; worker staged-write COMMIT check also rolls back",
+    "Real Auth FK factor INSERT waits on worker lock, then completes only after owner COMMIT",
+    "Actual GoTrue global owner logout removes sessions; current identity refuses while original archival proof remains readable",
+    "Fixture-admin SQL Auth user deletion preserves custody; reconstructed adapter reads archival evidence without Auth/user; successor Auth and record700 survive"
+  ],
+  "limits": [
+    "No shipping endpoint/import/runtime grant/migration",
+    "New candidate is not interchangeable with existing family consent token format; no automatic upgrade",
+    "Historical-only return is not current authentication, family completion or mutation permission",
+    "Full family/Storage atomic receipts, post-Auth scoped capability, controller global lock order, final outbox/fences/retention and production TLS remain separate integration gates",
+    "Private custody revocation/retention still need exact controller wiring before runtime activation",
+    "Auth deletion here was fixture SQL, not an Admin API dispatch/recovery proof",
+    "Management policy responses synthetic; loopback HTTP/private socket; candidate representative table shapes, not full migrations"
+  ],
+  "productionChanged": false,
+  "customerDataDeleted": false,
+  "outboundMessageSent": false,
+  "sourceSHA256": {
+    "lib/bound-scoped-shared-consent.ts": "89ebcf6f6acd7f4c9ac5a9cfeb029bd6c1c920001edc94436fe431ff79cca16e",
+    "tests/fixtures/bound-scoped-shared-consent.sql": "325f3d0ee30fb0e3f479ccd2988cfaf94a88e7945bb0a36f2db9ef4a8632a38c",
+    "tests/bound-scoped-shared-consent.native.mjs": "c8004a6cdfaee43c856602d58757704d132f5025a5992681464f42ff41064e0a",
+    "tests/bound-scoped-shared-consent.test.mjs": "acdfa5e54a455cca5a33eaf2870dbae9cc8825523f312e8aab218ffdbe38bf14",
+    "tests/fixtures/scoped-shared-consent-module.mjs": "67a9324a201e3367c2fdd044e6d969be46da9cf6c4bda5dd1f3c88218c2a3db2",
+    "scripts/test-scoped-shared-consent-native.py": "eb49c3937881cfee8b43d30bc1dd9054e7e8f3867de45988985cd4d88387beed"
+  },
+  "build": {
+    "result": "passed",
+    "log": "bound-scoped-consent-build-20261020.log"
+  }
+}

@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--postgres-bin', required=True)
 parser.add_argument('--node', required=True)
 parser.add_argument('--auth-runtime', required=True)
+parser.add_argument('--test-file', choices=['tests/scoped-shared-consent.native.mjs', 'tests/bound-scoped-shared-consent.native.mjs'], default='tests/scoped-shared-consent.native.mjs')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parents[1]
 binary = pathlib.Path(args.postgres_bin).resolve()
@@ -35,7 +36,7 @@ try:
     print('Isolated native test server: ' + subprocess.check_output([str(binary / 'postgres'), '--version'], text=True).strip(), flush=True)
     env = dict(os.environ)
     env.update(OUCHI_SCOPED_TEST_PG_SOCKET=str(socket), OUCHI_TEST_AUTH_RUNTIME=str(auth))
-    result = subprocess.run([str(node), '--test', '--test-concurrency=1', 'tests/scoped-shared-consent.native.mjs'],
+    result = subprocess.run([str(node), '--test', '--test-concurrency=1', args.test_file],
                             cwd=root, env=env, timeout=60)
     raise SystemExit(result.returncode)
 finally:
