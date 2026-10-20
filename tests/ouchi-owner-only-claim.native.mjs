@@ -6,9 +6,13 @@ import pg from 'pg';
 import {startFixtureGoTrue,fixtureTOTP} from './fixtures/scoped-native-gotrue.mjs';
 import {owner,recipient,other,home,oe,re,bindRealAuthSessions} from './fixtures/home-handoff-identifiers.mjs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
-import {ownerOnlyModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {ownerOnlyModule,ownerAfterLogoutModule} from './fixtures/scoped-shared-consent-module.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {createDeletionJournal} from './fixtures/kakei-completion/lib/shared-deletion-journal.mjs';
+import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs';
+import {sharedFamilyCoverageDigest} from '../lib/shared-family-handoff-stage.mjs';
+import {createSharedMaintenancePrelogoutCustody} from '../lib/shared-maintenance-prelogout-custody.mjs';
+import {deletionStages} from '../lib/shared-deletion-protocol.mjs';
 
 test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fences and exact claim adoption',async()=>{
  const socket=process.env.OUCHI_SCOPED_TEST_PG_SOCKET;assert.match(socket??'',/^\/private\/tmp\/ouchi-scoped-pg-[^/]+\/s$/);
@@ -48,6 +52,7 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   const scope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'c'.repeat(64),apps:[{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()},{app:'ouchi-maintenance',requestID:nativeID,scopeID:oe}]};
   const {leaseToken:_,...fixedScope}=scope;void _;
   await admin.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeID,owner,oe,nativeLease]);
+  assert.equal((await admin.query('select public.capture_maintenance_deletion_objects($1,$2,$3,$4) ok',[nativeID,owner,oe,nativeLease])).rows[0].ok,true,'Native preparation uses canonical inventory capture, not a completion flag');
   await admin.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[owner,scope,nativeLease]);
   await admin.query('select maintenance_private.freeze_household_scope($1,$2)',[scope,nativeLease]);
   await admin.query(readFileSync('tests/fixtures/shared-controller-journal.sql','utf8'));
@@ -157,11 +162,91 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   await assert.rejects(transaction(issuer,tx=>port.issue(actors.get(owner).token,tx)),/Requested-only/);
   assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original);
   for(const client of [issuer,coordinator]){await assert.rejects(client.query('select * from auth.users'),/permission denied/);await assert.rejects(client.query('select * from maintenance_private.ouchi_owner_originals'),/permission denied/);}
+  // Isolated Ouchi boundary proof, not a duplicate two-app pipeline. Other-app
+  // inventory/readiness and metadata ACLs remain explicit fixture boundaries.
+  // The Ouchi original, formal claim, checkpoint and prelogout custody are real
+  // protected producers; no guard is weakened to create a positive snapshot.
+  for(const file of ['family-attachment-journal.sql','family-attachment-quota.sql','family-attachment-activation.sql','family-attachment-completion.sql','shared-family-stage-store.sql'])await admin.query(readFileSync('tests/fixtures/'+file,'utf8'));
+  for(const relation of ['maintenance_private.household_handoff_plans','public.homes','public.home_members','maintenance_private.household_principal_fences'])await admin.query('grant select on '+relation+' to shared_retirement_backend;create policy owner_history_fixture_read on '+relation+' for select to shared_retirement_backend using(true)');
+  await admin.query('grant select,insert on maintenance_private.shared_family_stage_contexts to shared_retirement_backend;create policy owner_history_checkpoint_read on maintenance_private.shared_family_stage_contexts for select to shared_retirement_backend using(true);create policy owner_history_checkpoint_insert on maintenance_private.shared_family_stage_contexts for insert to shared_retirement_backend with check(backend_pid=pg_backend_pid() and transaction_id=txid_current() and expires_at>clock_timestamp())');
+  const currentOwner=async(tx,s)=>JSON.stringify(s)===JSON.stringify(scope)&&await port.verifyProcessingOriginal(s,tx);
+  const stages={...Object.fromEntries(deletionStages(scope).map(stage=>[stage,async()=>false])),'prepare':async(s,tx)=>{if(!await currentOwner(tx,s))return false;tx.beforeCommit('owner-history-prepare',()=>currentOwner(tx,s));return true;},'verify-family-before':async(s,tx)=>{if(!await currentOwner(tx,s))return false;tx.beforeCommit('owner-history-before',()=>currentOwner(tx,s));return true;}};
+  const prep=createDeletionJournal({transaction:work=>transaction(coordinator,work)},stages);
+  await prep.perform(scope,'prepare');
+  const emptyCoverage=sharedFamilyCoverageDigest([],scope);
+  const checkpoint=createSharedFamilyStageStore({verifyReadAuthority:(tx,s)=>currentOwner(tx,s),loadValidatedTargets:async(tx,s)=>{if(!await currentOwner(tx,s))throw Error('Independent current zero-family owner required');return [];}});
+  await transaction(coordinator,tx=>checkpoint.record(tx,scope,emptyCoverage,tx.signal));
+  await prep.perform(scope,'verify-family-before');
+  for(const file of ['shared-maintenance-native-stage.sql','shared-prelogout-receipt-custody.sql'])await admin.query(readFileSync('tests/fixtures/prelogout-dependencies-20261020/'+file,'utf8'));
+  await admin.query(readFileSync('tests/fixtures/shared-maintenance-prelogout-custody.sql','utf8'));
+  await admin.query('grant execute on function maintenance_private.ouchi_prelogout_frame(jsonb,uuid,boolean),maintenance_private.ouchi_capture_prelogout_custody(jsonb,uuid) to shared_retirement_backend');
+  const prelogout=createSharedMaintenancePrelogoutCustody({verifyCurrentGates:async(tx,s)=>await currentOwner(tx,s)&&(await checkpoint.read(tx,s,tx.signal))?.familyCoverageDigest===emptyCoverage});
+  const mapping={requestID:nativeID,userID:owner,epochID:oe,leaseToken:nativeLease};
+  assert.equal(await transaction(coordinator,tx=>prelogout.capture(tx,scope,mapping)),true);
+  const savedManifest=(await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows;
+  const sessionRow=(await admin.query('select to_jsonb(s) body from auth.sessions s where id=$1',[actors.get(owner).sessionID])).rows[0].body;
+  await admin.query(readFileSync('tests/fixtures/ouchi-owner-after-logout-consent.sql','utf8'));
+  await admin.query('grant execute on function maintenance_private.read_ouchi_owner_after_logout_original(uuid,uuid,jsonb,uuid) to shared_retirement_backend;create table private.owner_history_marker(id int);grant insert on private.owner_history_marker to shared_retirement_backend');
+  let namespaceFixtureLive=true;
+  const history=ownerAfterLogoutModule.createOuchiOwnerAfterLogoutConsent({key:options.key,scope,nativeLease,verifyReadAuthority:async(tx,s,checkSignal)=>{
+   if(!namespaceFixtureLive||checkSignal!==tx.signal||JSON.stringify(s)!==JSON.stringify(scope))return false;
+   return (await tx.query('select stopped from maintenance_private.household_principal_fences where user_id=$1',[owner])).rows[0]?.stopped===true;
+  }});
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Live session is never logout historical authority');
   const logout=await fetch(auth.origin+'/logout?scope=global',{method:'POST',headers:{authorization:'Bearer '+actors.get(owner).token}});
   assert.equal(logout.status,204);
   assert.equal((await admin.query('select count(*)::int n from auth.sessions where user_id=$1',[owner])).rows[0].n,0);
   assert.equal(await transaction(coordinator,tx=>port.verifyProcessingOriginal(scope,tx)),false,'Actual global logout is refused, never reinterpreted as historical authority');
+  const historical=await transaction(coordinator,tx=>history.read(tx));assert.equal(historical.kind,'owner-only-pre-native-after-logout-history');
+  assert.deepEqual(historical.payload,original.payload);assert.equal(historical.signature,original.signature);
+  assert.equal((await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows[0].native_epoch,oe);
+  assert.deepEqual((await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows,savedManifest,'Historical reads never rewrite original session custody');
+  await admin.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[scope.requestID]);
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Expired actual root lease refuses historical reads too');
+  await admin.query('update private.kb_shared_deletion_journal set lease_until=$2 where request_id=$1',[scope.requestID,rootDeadline]);
+  const authFK=(await admin.query("select conname,pg_get_constraintdef(oid) definition from pg_constraint where contype='f' and conrelid='auth.sessions'::regclass and confrelid='auth.users'::regclass and conkey=array[(select attnum from pg_attribute where attrelid='auth.sessions'::regclass and attname='user_id')]")).rows[0];assert.ok(authFK);
+  await admin.query('alter table auth.sessions drop constraint '+pg.escapeIdentifier(authFK.conname));
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Missing immediate Auth session FK refuses instead of trusting an empty scan');
+  await admin.query('alter table auth.sessions add constraint '+pg.escapeIdentifier(authFK.conname)+' '+authFK.definition);
+  await transaction(coordinator,async tx=>{
+   assert.ok(await history.read(tx));
+   await writer.query('begin');await writer.query("set local lock_timeout='150ms'");
+   await assert.rejects(writer.query('insert into auth.sessions select (jsonb_populate_record(null::auth.sessions,$1::jsonb)).*',[JSON.stringify(sessionRow)]),/lock timeout/,'Actual FK insertion cannot recreate any owner session while history holds Auth parent');
+   await writer.query('rollback');
+  });
+  const nativeDeadline=(await admin.query('select lease_until from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0].lease_until;
+  await admin.query("update maintenance_private.account_deletion_requests set lease_until=clock_timestamp()-interval '1 second' where id=$1",[nativeID]);
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Expired actual native lease refuses history');
+  await admin.query('update maintenance_private.account_deletion_requests set lease_until=$2 where id=$1',[nativeID,nativeDeadline]);
+  await admin.query('update maintenance_private.app_session_epochs set epoch_id=$1 where session_id=$2',[randomUUID(),actors.get(owner).sessionID]);
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Original stored session must retain its actual enrolled epoch');
+  await admin.query('update maintenance_private.app_session_epochs set epoch_id=$1 where session_id=$2',[oe,actors.get(owner).sessionID]);
+  // Disposable DB fault injection only. Disabled guards themselves refuse;
+  // corrupt metadata is also refused after guards are restored, then reverted.
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody disable trigger immutable_prelogout_custody');
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Disabled immutable manifest guard refuses');
+  await admin.query('update maintenance_private.shared_prelogout_receipt_custody set native_epoch=$2 where request_id=$1',[nativeID,randomUUID()]);
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody enable trigger immutable_prelogout_custody');
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Wrong immutable manifest epoch refuses');
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody disable trigger immutable_prelogout_custody');
+  await admin.query('update maintenance_private.shared_prelogout_receipt_custody set native_epoch=$2 where request_id=$1',[nativeID,oe]);
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody enable trigger immutable_prelogout_custody');
+  await admin.query('alter table maintenance_private.ouchi_owner_originals disable trigger immutable_owner_original');
+  await admin.query("update maintenance_private.ouchi_owner_originals set signature=repeat('0',64) where request_id=$1",[scope.requestID]);
+  await admin.query('alter table maintenance_private.ouchi_owner_originals enable trigger immutable_owner_original');
+  await assert.rejects(transaction(coordinator,tx=>history.read(tx)),/signature/,'HMAC is verified independently, not replaced with a database boolean');
+  await admin.query('alter table maintenance_private.ouchi_owner_originals disable trigger immutable_owner_original');
+  await admin.query('update maintenance_private.ouchi_owner_originals set signature=$2 where request_id=$1',[scope.requestID,original.signature]);
+  await admin.query('alter table maintenance_private.ouchi_owner_originals enable trigger immutable_owner_original');
+  await assert.rejects(transaction(coordinator,async tx=>{
+   assert.ok(await history.read(tx));await tx.query('insert into private.owner_history_marker values(1)');namespaceFixtureLive=false;
+  }),/Current transaction verification/);namespaceFixtureLive=true;
+  assert.equal((await admin.query('select count(*)::int n from private.owner_history_marker')).rows[0].n,0,'Late independent read-authority loss rolls caller work back');
+  assert.ok(await transaction(coordinator,tx=>history.read(tx)),'Fresh checked transaction can retry after rollback');
+  await assert.rejects(coordinator.query('select * from maintenance_private.shared_prelogout_receipt_custody'),/permission denied/);
+  assert.equal((await auth.request('/user',undefined,actors.get(recipient).token)).id,recipient,'Other real login remains valid');
+  assert.equal((await admin.query('select owner_id from public.homes where id=$1',[memberHome])).rows[0].owner_id,recipient);
   assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original,'Processing checks never renew, re-sign or modify the original');
-  console.log('Independent Ouchi owner password/TOTP original, exact root/apps/enrollment, missing-FK denial, concurrent parent locks, actual claimPrepared late rollback/adoption; no family gate or native deletion invoked');
+  console.log('Real owner original and claim; guarded empty checkpoint/prelogout capture; actual global logout; separate pre-native owner historical read, Auth-FK insertion fence, exact manifest/epoch/HMAC refusals and late read-authority rollback. No current/family reader weakened; no native erasure/Auth removal/COMPLETE invoked. Other-app readiness and namespace metadata profile remain explicit fixtures.');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });
