@@ -6,7 +6,7 @@ import pg from 'pg';
 import {startFixtureGoTrue,fixtureTOTP} from './fixtures/scoped-native-gotrue.mjs';
 import {owner,recipient,other,home,oe,re,bindRealAuthSessions} from './fixtures/home-handoff-identifiers.mjs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
-import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule,ownerAuthIntervalModule} from './fixtures/scoped-shared-consent-module.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {createDeletionJournal} from './fixtures/kakei-completion/lib/shared-deletion-journal.mjs';
 import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs';
@@ -14,6 +14,7 @@ import {sharedFamilyCoverageDigest} from '../lib/shared-family-handoff-stage.mjs
 import {createSharedMaintenancePrelogoutCustody} from '../lib/shared-maintenance-prelogout-custody.mjs';
 import {deletionStages} from '../lib/shared-deletion-protocol.mjs';
 import {createSharedNativeErasure} from './fixtures/restricted-native-executor-20261021/shared-native-erasure.mjs';
+import {installHeldAuthExclusionFixture,runHeldAuthRemovalInterval,verifyHeldAuthExclusion} from './fixtures/auth-recreation-held-cases.mjs';
 
 test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fences and exact claim adoption',async()=>{
  const socket=process.env.OUCHI_SCOPED_TEST_PG_SOCKET;assert.match(socket??'',/^\/private\/tmp\/ouchi-scoped-pg-[^/]+\/s$/);
@@ -353,16 +354,10 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
    const body=await response.json();return response.status===404&&body.code===404&&body.error_code==='user_not_found';
   };
   assert.equal(await actualAuthAbsent(),false);
-  // No Auth-parent-locking read transaction spans this external Admin DELETE.
-  // This is a synthetic-user test helper, not a production dispatch adapter.
-  await auth.eraseFixtureUser(owner);assert.equal(await actualAuthAbsent(),true);
+  await installHeldAuthExclusionFixture(admin);
+  await runHeldAuthRemovalInterval({admin,coordinator,auth,scope,socket,transaction,postOptions,createInterval:ownerAuthIntervalModule.createOuchiOwnerAuthIntervalConsent,createAfterAuth:ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent,oldAfterAuth:afterAuth,oldPostNative:post,stages,journal:prep,actualAuthAbsent});
+  assert.equal(await actualAuthAbsent(),true);
   assert.equal((await admin.query('select count(*)::int n from auth.users where id=$1',[owner])).rows[0].n,0);
-  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Missing durable erase-auth acknowledgement still refuses');
-  stages['erase-auth']=async(s,tx)=>{
-   if(JSON.stringify(s)!==JSON.stringify(scope)||!namespaceFixtureLive||!authInsertionFixtureClosed||!await actualAuthAbsent())return false;
-   tx.beforeCommit('owner-fixture-actual-auth-absence',async()=>namespaceFixtureLive&&authInsertionFixtureClosed&&await actualAuthAbsent());return true;
-  };
-  await prep.perform(scope,'erase-auth');
   const afterAuthResult=await transaction(coordinator,tx=>afterAuth.read(tx));assert.equal(afterAuthResult.kind,'owner-only-post-auth-processing-history');
   assert.deepEqual(afterAuthResult.payload,original.payload);assert.equal(afterAuthResult.signature,original.signature);
   await admin.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[scope.requestID]);
@@ -409,6 +404,7 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   assert.deepEqual((await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows,savedManifest);
   assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original);
   assert.deepEqual((await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0],sealed);
-  console.log('Real owner original/claim/checkpoint/prelogout/logout, dedicated canonical native erase/seal, independent pre-native and post-native history, actual synthetic Admin Auth deletion and durable erase-auth/verify-auth prefix, then separate processing-only post-Auth history. Actual concurrent same-ID recreation is NOT blocked by an absent-parent lock: final read detects it, caller marker rolls back, external user remains. Separate mandatory Auth-insertion/reenrollment gate is only a declared fixture, not proven production exclusion. Original/manifest/native expiry/other owner product/login unchanged; no global COMPLETE. Earlier-app/readiness/retention/namespace metadata and dispatch remain fixtures.');
+  await verifyHeldAuthExclusion({admin,coordinator,writer,auth,scope,socket,transaction,postOptions,createAfterAuth:ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent});
+  console.log('Real original/claim/checkpoint/prelogout/logout/native seal, separate non-Auth-locking interval with actual Admin DELETE/ack, and processing post-Auth history. Without the real held scope the legacy absence-only model still permits recreation; the separate held guard matrix now proves principal INSERT/id-UPDATE exclusion locally. Other Auth-table replica writes, all-app reenrollment/writer/DDL coverage and dispatch remain explicit separate fixtures. Original/manifest/native expiry/other-owner product/login unchanged; no global COMPLETE or production changes.');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });

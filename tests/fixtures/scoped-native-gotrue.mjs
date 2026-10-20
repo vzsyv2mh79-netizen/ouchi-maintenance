@@ -66,14 +66,18 @@ export async function startFixtureGoTrue(socket,issuer){
    const inputToken=head+'.'+body,token=inputToken+'.'+createHmac('sha256',env.GOTRUE_JWT_SECRET).update(inputToken).digest('base64url');
    return fetch(origin+'/admin/users/'+url.pathname.slice(prefix.length),{...options,redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}});
   }
-  async function createFixtureUser(userID,email,password){
+  async function attemptFixtureUserCreate(userID,email,password){
    assert.match(userID,/^[0-9a-f-]{36}$/);assert.match(email,/^[a-z0-9-]+@fixture\.invalid$/);assert.ok(typeof password==='string'&&password.length>=16);
    const now=Math.floor(Date.now()/1000),head=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url');
    const body=Buffer.from(JSON.stringify({iss:issuer,role:'service_role',iat:now,exp:now+60})).toString('base64url');
    const inputToken=head+'.'+body,token=inputToken+'.'+createHmac('sha256',env.GOTRUE_JWT_SECRET).update(inputToken).digest('base64url');
    const r=await fetch(origin+'/admin/users',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({id:userID,email,password,email_confirm:true}),signal:AbortSignal.timeout(3000)});
-   assert.equal(r.status,200,'Disposable fixed-ID Auth account creation must succeed');const user=await r.json();assert.equal(user.id,userID);return user;
+   return {status:r.status,body:await r.json()};
   }
-  return {origin,request,eraseFixtureUser,adminFetch,createFixtureUser,stop};
+  async function createFixtureUser(userID,email,password){
+   const r=await attemptFixtureUserCreate(userID,email,password);
+   assert.equal(r.status,200,'Disposable fixed-ID Auth account creation must succeed');assert.equal(r.body.id,userID);return r.body;
+  }
+  return {origin,request,eraseFixtureUser,adminFetch,createFixtureUser,attemptFixtureUserCreate,stop};
  }catch(e){await stop();throw e;}
 }
