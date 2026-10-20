@@ -1,0 +1,49 @@
+{
+  "status": "independently_verified_review_fixture_tightening",
+  "baseHead": "322785e1ebadbcd53df0d5d50ad9aa97fb6688d9",
+  "files": [
+    {
+      "path": "tests/fixtures/post-native-seal-consent.sql",
+      "sha256": "1b2224adcdfe506411ab3cd85ba9a68f64b4177d1458165a1db23497645b6627"
+    },
+    {
+      "path": "tests/post-native-seal-consent.native.mjs",
+      "sha256": "e872138425dc29cd31780bcee120e830c92cdf6e99a0cad96a00427571ca6145"
+    }
+  ],
+  "changes": [
+    "Only handoff-family may contain familyCoverageDigest, required well-formed 64hex",
+    "Other protocol receipts must match exact unextended stage grammar",
+    "Durable must be JSON boolean true, not string true",
+    "Pure receipt grammar explicitly is NOT standalone global completion authority; exact immutable shared_family_stage_contexts/actual family receipts remain mandatory"
+  ],
+  "tests": {
+    "actualPostgresCanonicalNative": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "existingRealGoTruePostSeal": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "targetedLint": "passed"
+  },
+  "evidence": [
+    "Actual immutable root trigger refuses plausible forged familyCoverageDigest update",
+    "Plain family receipt, malformed digest, extra family extension on prepare, and string durable fail",
+    "Full reader/producer retains exact checkpoint receipt/coverage/token/actual attachment completion checks unchanged"
+  ],
+  "noDuplicatePairedTestCreated": true,
+  "pairedFamilyTransfer": "separate chat report reviewed from frozen JSON; not independently executed here",
+  "remaining": [
+    "Real paired erase/verify/Auth-delete/COMPLETE integration",
+    "Actual remote Storage service proof",
+    "Reviewed prelogout receipt-custody producer and later exact original replay, without weakening erase/device/identity/complete gates"
+  ],
+  "productionChanged": false,
+  "runtimeActivated": false,
+  "productionGrantsAdded": false,
+  "outboundMessageSent": false
+}

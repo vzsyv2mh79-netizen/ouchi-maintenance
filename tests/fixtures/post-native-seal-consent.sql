@@ -17,7 +17,10 @@ create trigger immutable_post_native_family_release before update or delete
 on maintenance_private.post_native_family_releases for each row
 execute function maintenance_private.refuse_family_attachment_journal_change();
 
--- Exact protocol prerequisites; all app stages are derived from frozen scope.
+-- Exact protocol receipt grammar; all app stages derive from frozen scope.
+-- NOT standalone completion authority: callers additionally require the exact
+-- immutable family checkpoint/real family receipts below. Never just discard
+-- familyCoverageDigest to turn an extended receipt into a plain receipt.
 create function maintenance_private.post_native_root_prerequisites(s jsonb,r jsonb)
 returns boolean language plpgsql immutable set search_path='' as $$
 declare stage text;stages text[]:=array['prepare','handoff-family','verify-family-before','verify-sessions-before'];app jsonb;proof jsonb;
@@ -28,8 +31,12 @@ begin
  stages:=stages||array['verify-family','verify-sessions','erase-auth','verify-auth','verify-family-after-auth','verify-sessions-after-auth'];
  foreach stage in array stages loop
   proof:=r->stage;
-  if proof is null or proof->>'durable' is distinct from 'true' or proof->>'stage' is distinct from stage
-  or proof-'durable'-'stage'-'familyCoverageDigest' is distinct from s then return false;end if;
+  if jsonb_typeof(proof) is distinct from 'object' or proof->'durable' is distinct from 'true'::jsonb
+  or proof->>'stage' is distinct from stage then return false;end if;
+  if stage='handoff-family' then
+   if coalesce(proof->>'familyCoverageDigest','') !~ '^[a-f0-9]{64}$'
+   or proof-'durable'-'stage'-'familyCoverageDigest' is distinct from s then return false;end if;
+  elsif proof-'durable'-'stage' is distinct from s then return false;end if;
  end loop;
  return true;
 end$$;

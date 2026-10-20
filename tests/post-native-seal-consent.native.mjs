@@ -105,6 +105,15 @@ test('post-seal archive uses all 135 migrations, real family completion SQL and 
   // synthetic owner Auth row is absent. This proves SQL stage binding, not
   // actual GoTrue logout/Admin API nor current remote Storage byte custody.
   await admin.query("update private.kb_shared_deletion_journal set receipts=receipts||$2::jsonb where request_id=$1",[s.requestID,Object.fromEntries(deletionStages(s).filter(k=>!['complete','handoff-family'].includes(k)).map(k=>[k,receipt(k)]))]);
+  const beforeRelease=(await admin.query('select receipts from private.kb_shared_deletion_journal where request_id=$1',[s.requestID])).rows[0].receipts;
+  const grammar=async receipts=>(await admin.query('select maintenance_private.post_native_root_prerequisites($1,$2) ok',[fixed,receipts])).rows[0].ok;
+  assert.equal(await grammar(beforeRelease),true);
+  assert.equal(await grammar({...beforeRelease,prepare:{...beforeRelease.prepare,durable:'true'}}),false,'A string is not durable boolean evidence');
+  assert.equal(await grammar({...beforeRelease,prepare:{...beforeRelease.prepare,familyCoverageDigest:coverage}}),false,'Family extension is forbidden on other stages');
+  const plainFamily={...beforeRelease['handoff-family']};delete plainFamily.familyCoverageDigest;
+  assert.equal(await grammar({...beforeRelease,'handoff-family':plainFamily}),false,'Plain family receipt cannot replace required extended checkpoint');
+  assert.equal(await grammar({...beforeRelease,'handoff-family':{...beforeRelease['handoff-family'],familyCoverageDigest:'not-a-digest'}}),false);
+  await assert.rejects(admin.query("update private.kb_shared_deletion_journal set receipts=jsonb_set(receipts,'{handoff-family,familyCoverageDigest}',to_jsonb($2::text)) where request_id=$1",[s.requestID,'c'.repeat(64)]),/Immutable controller family receipt/,'A plausible forged digest still cannot replace the actual immutable checkpoint');
   await admin.query('grant execute on function maintenance_private.release_post_native_family_holds(uuid,uuid,uuid,uuid,uuid) to shared_retirement_backend;grant usage on schema private to shared_retirement_backend;');
   await admin.query(`create function maintenance_private.post_seal_fixture_complete_root(r uuid,proof jsonb) returns boolean language plpgsql security definer set search_path='' as $$
    begin update private.kb_shared_deletion_journal set receipts=receipts||jsonb_build_object('complete',proof),status='complete',lease_token=null,lease_until=null where request_id=r and status='processing';return found;end$$;
