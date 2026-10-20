@@ -597,3 +597,35 @@ for(const fault of ['retainedBudgetDrift','budgetReceiptMissing','budgetPlanScop
   if(fault!=='maintenanceSourcePresent')assert.equal((await c.status()).state,'complete');
  }finally{await c.db.close();}
 });
+
+
+for(const replay of [false,true])test(`consent issuance rechecks exact actor at owning COMMIT (replay: ${replay})`,async()=>{
+ const s=await setup();try{
+  if(replay)assert.equal((await s.issue(owner)).status,'accepted');
+  const before=(await s.f.db.query('select * from maintenance_private.family_attachment_inventory_consents order by actor_id')).rows;
+  let callbackAccepted=false;
+  const provider=createFamilyAttachmentInventoryConsent({...s.options,store:{...s.options.store,transaction:(cb,signal)=>s.options.store.transaction(async tx=>{
+   const result=await cb(tx);callbackAccepted=result.status==='accepted';
+   await tx.query('delete from auth.sessions where id=$1',[os]);
+   return result;
+  },signal)}});
+  const result=await provider.issue({requestID:s.f.scope.requestID,homeID:s.f.scope.homeID,accessToken:owner,confirmation,signal:new AbortController().signal});
+  assert.equal(callbackAccepted,true,'Fault must occur after the normal callback would accept');
+  assert.equal(result.status,'unconfirmed');
+  assert.deepEqual((await s.f.db.query('select * from maintenance_private.family_attachment_inventory_consents order by actor_id')).rows,before,'COMMIT failure rolls new consent back and never changes replayed consent');
+  assert.equal((await s.f.db.query('select user_id from auth.sessions where id=$1',[os])).rows[0].user_id,owner,'Same-transaction test fault must roll back too');
+ }finally{await s.f.db.close();}
+});
+
+test('consent issuance refuses a transaction without final checks and expires recent authentication at COMMIT',async()=>{
+ const s=await setup();try{
+  const request={requestID:s.f.scope.requestID,homeID:s.f.scope.homeID,accessToken:owner,confirmation,signal:new AbortController().signal};
+  const noHook=createFamilyAttachmentInventoryConsent({...s.options,store:{...s.options.store,transaction:(cb,signal)=>s.options.store.transaction(tx=>cb({query:tx.query,signal:tx.signal}),signal)}});
+  assert.equal((await noHook.issue(request)).status,'unconfirmed');
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,0);
+  let accepted=false;
+  const expires=createFamilyAttachmentInventoryConsent({...s.options,store:{...s.options.store,transaction:(cb,signal)=>s.options.store.transaction(async tx=>{const r=await cb(tx);accepted=r.status==='accepted';s.offset=600001;return r;},signal)}});
+  assert.equal((await expires.issue(request)).status,'unconfirmed');assert.equal(accepted,true);
+  assert.equal((await s.f.db.query('select count(*)::int n from maintenance_private.family_attachment_inventory_consents')).rows[0].n,0);
+ }finally{await s.f.db.close();}
+});

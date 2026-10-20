@@ -272,9 +272,14 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
   const consentPlan={protocolVersion:2,requestID:controllerScope.requestID,userID:owner.user,inventoryDigest:controllerScope.inventoryDigest,appRequestID:nativeRequestID,appScopeID:owner.epoch,householdID:homeID,successorID:receiver.user,memberIDs:[owner.user,receiver.user],familyRecordIDs:[productID],familySnapshotDigest:snapshotDigest(saved)};
   await db.query('insert into maintenance_private.household_handoff_plans values($1,$2,$3,$4,$5,$6,$7)',[homeID,owner.user,receiver.user,controllerScope,consentPlan,handoffPlanDigest(controllerScope,consentPlan),saved]);
   await db.query('insert into maintenance_private.household_family_holds values($1,$2,$3)',[homeID,owner.user,controllerScope]);
+  let consentCommitFault=null;
   const transaction=async(callback,signal=AbortSignal.timeout(10000))=>{
    await db.query('begin');
-   try{await db.query("set local statement_timeout='4500ms'");const result=await runWithTransactionCommitChecks(db,signal,callback);await db.query('commit');return result;}
+   try{await db.query("set local statement_timeout='4500ms'");const result=await runWithTransactionCommitChecks(db,signal,async tx=>{
+    const value=await callback(tx);
+    if(consentCommitFault){const fault=consentCommitFault;consentCommitFault=null;await fault(tx,value);}
+    return value;
+   });await db.query('commit');return result;}
    catch(error){await db.query('rollback');throw error;}
   };
   const key=randomBytes(32);
@@ -368,12 +373,35 @@ export async function verifyDisposableFamilyAttachmentAtomic({account,admin,orig
    const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests n join maintenance_private.household_stop_bindings b on b.user_id=n.user_id join maintenance_private.household_family_holds h on h.principal=n.user_id where n.id=$1 and n.user_id=$2 and n.app_epoch_id=$3 and n.lease_token=$4 and n.state='running' and n.lease_until>clock_timestamp() and b.native_lease=n.lease_token and b.scope=$5::jsonb and b.state='processing' and b.lease_until>clock_timestamp() and h.home_id=$6 and h.scope=b.scope) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease,JSON.stringify(s.controllerScope),s.homeID])).rows[0];
    signal.throwIfAborted();return row.current===true;
   }});
+  // Real signed TOTP identity is accepted first; expire its actual session
+  // after the callback returns, while the same native PG transaction still owns
+  // all pins. The new issuer COMMIT hook must roll back both consent and fault.
+  const rejectConsentAtCommit=async()=>{
+   const before=(await db.query('select actor_id,token,revoked_at from maintenance_private.family_attachment_inventory_consents where request_id=$1 order by actor_id',[scope.requestID])).rows;
+   const expiry=(await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after;
+   const session=await owner.client.auth.getSession();assert.equal(session.error,null);
+   let faultReached=false;
+   consentCommitFault=async(tx,value)=>{
+    assert.equal(value.status,'accepted','Late fault must follow successful real identity and consent readback');
+    faultReached=true;
+    await tx.query("update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id=$1",[owner.session]);
+   };
+   try{
+    const result=await inventoryConsent.issue({requestID:scope.requestID,homeID,accessToken:session.data.session.access_token,confirmation:'写真・保証書の一覧と受取先を確認して引き継ぎに同意する',signal:AbortSignal.timeout(10000)});
+    assert.equal(faultReached,true);assert.equal(result.status,'unconfirmed');
+    assert.deepEqual((await db.query('select actor_id,token,revoked_at from maintenance_private.family_attachment_inventory_consents where request_id=$1 order by actor_id',[scope.requestID])).rows,before);
+    assert.deepEqual((await db.query('select not_after from auth.sessions where id=$1',[owner.session])).rows[0].not_after,expiry);
+   }finally{consentCommitFault=null;}
+  };
+  await rejectConsentAtCommit();
   for(const actor of [owner,receiver]){
    const session=await actor.client.auth.getSession();assert.equal(session.error,null);
    assert.equal((await inventoryConsent.issue({requestID:scope.requestID,homeID,accessToken:session.data.session.access_token,confirmation:'写真・保証書の一覧と受取先を確認して引き継ぎに同意する',signal:AbortSignal.timeout(10000)})).status,'accepted');
   }
   const issuedConsents=(await db.query('select actor_id,token from maintenance_private.family_attachment_inventory_consents where request_id=$1',[scope.requestID])).rows;
   assert.equal(issuedConsents.length,2);
+  await rejectConsentAtCommit();
+  console.log('inventory-consent actual GoTrue/PostgreSQL: new and replayed consent reject session expiry at COMMIT without changing original records');
   for(const record of issuedConsents){
    const claims=JSON.parse(Buffer.from(record.token.split('.')[0],'base64url'));
    assert.equal(claims.actorID,record.actor_id);assert.equal(claims.aal,'aal2');
