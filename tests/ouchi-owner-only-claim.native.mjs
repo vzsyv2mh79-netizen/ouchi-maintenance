@@ -6,7 +6,7 @@ import pg from 'pg';
 import {startFixtureGoTrue,fixtureTOTP} from './fixtures/scoped-native-gotrue.mjs';
 import {owner,recipient,other,home,oe,re,bindRealAuthSessions} from './fixtures/home-handoff-identifiers.mjs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
-import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule} from './fixtures/scoped-shared-consent-module.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {createDeletionJournal} from './fixtures/kakei-completion/lib/shared-deletion-journal.mjs';
 import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs';
@@ -335,6 +335,80 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   assert.deepEqual((await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows,savedManifest);
   assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original);
   assert.deepEqual((await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0],sealed,'Historical reads never extend completion expiry or change native seal');
-  console.log('Real owner original/claim, guarded empty checkpoint/prelogout, actual logout, separate pre-native history; exact frozen dedicated executor performs canonical Ouchi native erasure/seal with late COMMIT rollback/retry, then separate post-native/pre-Auth history after actual enrollment erasure. Old pre-native reader refuses, original/session manifest/expiry and other owner home/login remain unchanged. No Auth removal/global COMPLETE. Earlier-app cleanup/readiness, retention and namespace metadata profile remain explicit fixtures.');
+  // Separate post-Auth read authority. The fixture live flag below is NOT a
+  // proven Auth INSERT exclusion mechanism. Production must supply independent
+  // coverage/held authority for every actual recreation and reenrollment path.
+  // This test deliberately recreates a real Auth user while SQL is open to
+  // prove there is NO missing-parent insertion lock and final reads refuse.
+  await admin.query(readFileSync('tests/fixtures/ouchi-owner-after-auth-consent.sql','utf8'));
+  await admin.query('grant execute on function maintenance_private.read_ouchi_owner_after_auth_original(uuid,uuid,jsonb,uuid) to shared_retirement_backend');
+  let authInsertionFixtureClosed=true;
+  const afterAuthOptions={...postOptions,verifyAuthRecreationFence:async(tx,s,checkSignal)=>authInsertionFixtureClosed&&checkSignal===tx.signal&&JSON.stringify(s)===JSON.stringify(scope)&&(await tx.query('select stopped from maintenance_private.household_principal_fences where user_id=$1',[owner])).rows[0]?.stopped===true};
+  const afterAuth=ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent(afterAuthOptions);
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Actual Auth removal is not inferred from native completion');
+  for(const stage of ['verify:ouchi-maintenance','verify-family','verify-sessions'])stages[stage]=async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await post.readSnapshot(tx);
+  for(const stage of ['verify:ouchi-maintenance','verify-family','verify-sessions'])await prep.perform(scope,stage);
+  const actualAuthAbsent=async()=>{
+   const response=await auth.adminFetch('https://'+projectID+'.supabase.co/auth/v1/admin/users/'+owner,{method:'GET'});
+   const body=await response.json();return response.status===404&&body.code===404&&body.error_code==='user_not_found';
+  };
+  assert.equal(await actualAuthAbsent(),false);
+  // No Auth-parent-locking read transaction spans this external Admin DELETE.
+  // This is a synthetic-user test helper, not a production dispatch adapter.
+  await auth.eraseFixtureUser(owner);assert.equal(await actualAuthAbsent(),true);
+  assert.equal((await admin.query('select count(*)::int n from auth.users where id=$1',[owner])).rows[0].n,0);
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Missing durable erase-auth acknowledgement still refuses');
+  stages['erase-auth']=async(s,tx)=>{
+   if(JSON.stringify(s)!==JSON.stringify(scope)||!namespaceFixtureLive||!authInsertionFixtureClosed||!await actualAuthAbsent())return false;
+   tx.beforeCommit('owner-fixture-actual-auth-absence',async()=>namespaceFixtureLive&&authInsertionFixtureClosed&&await actualAuthAbsent());return true;
+  };
+  await prep.perform(scope,'erase-auth');
+  const afterAuthResult=await transaction(coordinator,tx=>afterAuth.read(tx));assert.equal(afterAuthResult.kind,'owner-only-post-auth-processing-history');
+  assert.deepEqual(afterAuthResult.payload,original.payload);assert.equal(afterAuthResult.signature,original.signature);
+  await admin.query("update private.kb_shared_deletion_journal set lease_until=clock_timestamp()-interval '1 second' where request_id=$1",[scope.requestID]);
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Native completion cannot replace an expired processing root after Auth removal');
+  await admin.query('update private.kb_shared_deletion_journal set lease_until=$2 where request_id=$1',[scope.requestID,rootDeadline]);
+  const authAcknowledgedReceipts=(await admin.query('select receipts from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].receipts;
+  await admin.query("update private.kb_shared_deletion_journal set receipts=receipts-'erase-auth' where request_id=$1",[scope.requestID]);
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Actual absence alone never substitutes for durable exact erase-auth custody');
+  await admin.query('update private.kb_shared_deletion_journal set receipts=$2 where request_id=$1',[scope.requestID,authAcknowledgedReceipts]);
+  await assert.rejects(coordinator.query('select * from auth.users'),/permission denied/);
+  assert.equal(await transaction(coordinator,tx=>post.readSnapshot(tx)),null,'Auth-parent-required post-native reader remains closed after actual removal');
+  assert.equal(await transaction(coordinator,tx=>history.readSnapshot(tx)),null,'Pre-native reader is not widened either');
+  for(const changed of [{scope:{...scope,requestID:randomUUID()}},{scope:{...scope,leaseToken:randomUUID()}},{completionLease:randomUUID()}])assert.equal(await transaction(coordinator,tx=>ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent({...afterAuthOptions,...changed}).readSnapshot(tx)),null,'Wrong historical operation/lease refuses');
+  await assert.rejects(transaction(coordinator,async tx=>{assert.ok(await afterAuth.read(tx));await tx.query('insert into private.owner_history_marker values(3)');authInsertionFixtureClosed=false;}),/Current transaction verification/);authInsertionFixtureClosed=true;
+  assert.equal((await admin.query('select count(*)::int n from private.owner_history_marker')).rows[0].n,0);
+  await assert.rejects(transaction(coordinator,async tx=>{
+   assert.ok(await afterAuth.read(tx));await tx.query('insert into private.owner_history_marker values(4)');
+   await auth.createFixtureUser(owner,owner+'@fixture.invalid',randomBytes(30).toString('base64url'));
+  }),/Current transaction verification/,'Real Auth reappearance is detected again at owning COMMIT; no imaginary parent lock');
+  assert.equal((await admin.query('select count(*)::int n from auth.users where id=$1',[owner])).rows[0].n,1,'External Auth recreation is not rolled back by caller SQL');
+  assert.equal((await admin.query('select count(*)::int n from private.owner_history_marker')).rows[0].n,0);
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null,'Existing recreated user refuses even if fixture provider incorrectly says closed');
+  await auth.eraseFixtureUser(owner); // Remove only this deliberately recreated synthetic fixture account.
+  assert.ok(await transaction(coordinator,tx=>afterAuth.read(tx)));
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody disable trigger immutable_prelogout_custody');
+  await admin.query('update maintenance_private.shared_prelogout_receipt_custody set native_epoch=$2 where request_id=$1',[nativeID,randomUUID()]);
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody enable trigger immutable_prelogout_custody');
+  assert.equal(await transaction(coordinator,tx=>afterAuth.readSnapshot(tx)),null);
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody disable trigger immutable_prelogout_custody');
+  await admin.query('update maintenance_private.shared_prelogout_receipt_custody set native_epoch=$2 where request_id=$1',[nativeID,oe]);
+  await admin.query('alter table maintenance_private.shared_prelogout_receipt_custody enable trigger immutable_prelogout_custody');
+  await admin.query('alter table maintenance_private.ouchi_owner_originals disable trigger immutable_owner_original');
+  await admin.query("update maintenance_private.ouchi_owner_originals set signature=repeat('0',64) where request_id=$1",[scope.requestID]);
+  await admin.query('alter table maintenance_private.ouchi_owner_originals enable trigger immutable_owner_original');
+  await assert.rejects(transaction(coordinator,tx=>afterAuth.read(tx)),/signature/);
+  await admin.query('alter table maintenance_private.ouchi_owner_originals disable trigger immutable_owner_original');
+  await admin.query('update maintenance_private.ouchi_owner_originals set signature=$2 where request_id=$1',[scope.requestID,original.signature]);
+  await admin.query('alter table maintenance_private.ouchi_owner_originals enable trigger immutable_owner_original');
+  stages['verify-auth']=async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await afterAuth.readSnapshot(tx)&&await actualAuthAbsent();
+  await prep.perform(scope,'verify-auth');assert.ok(await transaction(coordinator,tx=>afterAuth.read(tx)));
+  assert.equal((await admin.query('select status from private.kb_shared_deletion_journal where request_id=$1',[scope.requestID])).rows[0].status,'processing','This candidate never creates global COMPLETE');
+  assert.equal((await auth.request('/user',undefined,actors.get(recipient).token)).id,recipient);
+  assert.deepEqual((await admin.query('select * from public.products where id=$1',[retainedProduct])).rows,retainedProductRow);
+  assert.deepEqual((await admin.query('select * from maintenance_private.shared_prelogout_receipt_custody where request_id=$1',[nativeID])).rows,savedManifest);
+  assert.deepEqual((await admin.query('select * from maintenance_private.ouchi_owner_originals')).rows[0],original);
+  assert.deepEqual((await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0],sealed);
+  console.log('Real owner original/claim/checkpoint/prelogout/logout, dedicated canonical native erase/seal, independent pre-native and post-native history, actual synthetic Admin Auth deletion and durable erase-auth/verify-auth prefix, then separate processing-only post-Auth history. Actual concurrent same-ID recreation is NOT blocked by an absent-parent lock: final read detects it, caller marker rolls back, external user remains. Separate mandatory Auth-insertion/reenrollment gate is only a declared fixture, not proven production exclusion. Original/manifest/native expiry/other owner product/login unchanged; no global COMPLETE. Earlier-app/readiness/retention/namespace metadata and dispatch remain fixtures.');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });

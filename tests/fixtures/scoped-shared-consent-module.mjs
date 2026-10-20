@@ -30,3 +30,6 @@ export const ownerAfterLogoutModule=await import(url(compile('ouchi-owner-after-
 
 export const ownerAfterNativeModule=await import(url(compile('ouchi-owner-after-native-consent')
  .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));
+
+export const ownerAfterAuthModule=await import(url(compile('ouchi-owner-after-auth-consent')
+ .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));
