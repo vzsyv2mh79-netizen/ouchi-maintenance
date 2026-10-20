@@ -7,6 +7,7 @@ import {startFixtureGoTrue,fixtureTOTP} from './fixtures/scoped-native-gotrue.mj
 import {owner,recipient,other,home,oe,re,bindRealAuthSessions} from './fixtures/home-handoff-identifiers.mjs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
 import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule,ownerAuthIntervalModule,ownerTerminalModule,ownerReadonlyTerminalModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {verifyGenerationFamilyHandoff,prepareGenerationHandoffFixture} from './fixtures/generation-family-handoff-20261021/native-cases.mjs';
 import {verifyGenerationFamilyOriginals} from './fixtures/generation-family-originals-20261021/native-cases.mjs';
 import {verifyFamilyNativePreparation} from './fixtures/family-native-preparation-20261021/native-cases.mjs';
 import {verifyFamilyBeforeClaimCompatibility} from './fixtures/family-before-claim-compatibility-20261021/native-cases.mjs';
@@ -425,7 +426,8 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   await verifyFamilyPreparationGenerations({admin,coordinator,auth,transaction});
   await verifyFamilyBeforeClaimCompatibility({admin,auth});
   await verifyFamilyNativePreparation({admin,coordinator,auth,transaction});
-  await verifyGenerationFamilyOriginals({admin,coordinator,issuer,auth,transaction,projectID});
+  const generationFamilyCase=await verifyGenerationFamilyOriginals({admin,coordinator,issuer,auth,transaction,projectID,afterSchema:async()=>admin.query(readFileSync('tests/fixtures/generation-family-handoff-20261021/protocol.sql','utf8')),afterActorSetup:data=>prepareGenerationHandoffFixture({...data,admin})});
+  await verifyGenerationFamilyHandoff({...generationFamilyCase,admin,coordinator,transaction});
   console.log('Real original/claim/checkpoint/prelogout/logout/native seal, separate non-Auth-locking interval with actual Admin DELETE/ack, and processing post-Auth history. Without the real held scope the legacy absence-only model still permits recreation; the separate held guard matrix now proves principal INSERT/id-UPDATE exclusion locally. Other Auth-table replica writes, all-app reenrollment/writer/DDL coverage and dispatch remain explicit separate fixtures. Original/manifest/native expiry/other-owner product/login unchanged; owner-zero terminal candidate independently checked below; no production changes.');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });

@@ -46,3 +46,10 @@ export const ownerReadonlyTerminalModule=await import(url(compile('ouchi-owner-r
 export const generationFamilyModule=await import(url(compile('generation-family-originals')
  .replace("'./scoped-shared-consent-identity'",JSON.stringify(scopedURL))
  .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));
+
+const generationHandoffOriginalURL=url(compile('generation-family-originals')
+ .replace("'./scoped-shared-consent-identity'",JSON.stringify(scopedURL))
+ .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href)));
+export const generationHandoffModule=await import(url(compile('generation-family-handoff')
+ .replace("'./generation-family-originals'",JSON.stringify(generationHandoffOriginalURL))
+ .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));
