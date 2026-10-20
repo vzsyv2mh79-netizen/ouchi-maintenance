@@ -10,8 +10,8 @@ import {createFamilyAttachmentActivation} from '../../lib/family-attachment-acti
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
-export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null,extraControllerApps=[]}={}){
- const db=await seedHomeHandoffFullSchemaFixture();await db.exec('reset role');
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null,extraControllerApps=[],schemaOptions,beforeFreeze=async()=>{}}={}){
+ const db=await seedHomeHandoffFullSchemaFixture(schemaOptions);await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
  const descriptions=memberOnly?[[member,recipient,re]]:[[owned,owner,oe],[member,recipient,re]];
@@ -20,6 +20,7 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
   await db.query("insert into maintenance_private.attachment_write_attempts(attachment_id,attempt_id,uploader_id,owner_id,app_epoch_id,state,settled_at) values($1,$2,$3,$4,$5,'settled',clock_timestamp())",[id,randomUUID(),user,owner,epoch]);
  }
  await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,attempts) values($1,$2,$3,'running',$4,clock_timestamp()+interval '2 minutes',1)",[nativeRequest,owner,oe,nativeLease]);
+ await beforeFreeze(db,nativeRequest);
  for(const name of ['household-fence.sql','scoped-worker.sql','handoff.sql','private-writers.sql'])await db.exec(readFileSync('tests/fixtures/handoff-controller-compatibility/'+name,'utf8'));
  for(const name of ['journal','quota','activation'])await db.exec(readFileSync('tests/fixtures/family-attachment-'+name+'.sql','utf8'));
  const controllerScope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:nativeRequest,scopeID:oe},...extraControllerApps]};
