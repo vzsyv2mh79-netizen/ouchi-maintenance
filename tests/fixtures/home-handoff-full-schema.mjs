@@ -5,11 +5,13 @@ import {maintenanceMigrationCatalog} from '../../scripts/maintenance-migration-p
 import {owner,recipient,other,home,product,request,os,rs,oe,re} from './home-handoff-identifiers.mjs';
 
 // Reuse the actual CI schema order, rather than substitute simplified homes,
-// membership, attachment or retirement tables. Auth rows remain synthetic.
-export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true,databaseFactory,completeCatalog=false}={}){
+// membership, attachment or retirement tables. Auth is synthetic by default;
+// explicit realAuth mode reuses the isolated GoTrue service schema/sessions.
+export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true,databaseFactory,completeCatalog=false,realAuth=false}={}){
+ if(realAuth)assert.ok(databaseFactory&&completeCatalog,'Real Auth fixture requires an explicit native database and complete canonical schema');
  const db=databaseFactory?await databaseFactory():new PGlite();
- await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());');
- if(completeCatalog){
+ if(!realAuth)await db.exec('create schema auth;create table auth.users(id uuid primary key);create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz,created_at timestamptz default now());');
+ if(completeCatalog&&!realAuth){
   // Explicit synthetic Auth model for canonical SQL tests, never real Auth proof.
   await db.exec(readFileSync('tests/fixtures/auth/rest-bootstrap.sql','utf8'));
   await db.exec(`alter table auth.users add column email text;alter table auth.users add column encrypted_password text;
@@ -23,8 +25,8 @@ export async function seedHomeHandoffFullSchemaFixture({explicitEnrollment=true,
  for(const name of ['20261011012412_ouchi_attachment_write_attempts.sql','20261011123511_ouchi_explicit_enrollment_consent.sql','20261012174446_ouchi_current_deletion_lookup.sql'])assert.ok(files.some(file=>file.endsWith(name)));
  const candidates=['20261013043000_ouchi_family_handoff.sql','20261013043100_ouchi_family_retirement_guard.sql','20261013043200_ouchi_family_handoff_read.sql','20261013043300_ouchi_shared_home_delete_guard.sql'].map(name=>'supabase/migrations/'+name);
  for(const file of completeCatalog?maintenanceMigrationCatalog().map(x=>x.file):[...files,...candidates.filter(file=>!files.includes(file))])await db.exec(readFileSync(file,'utf8'));
- await db.query('insert into auth.users(id) values($1),($2),($3)',[owner,recipient,other]);
- await db.query('insert into auth.sessions(id,user_id) values($1,$2),($3,$4)',[os,owner,rs,recipient]);
+ if(!realAuth)await db.query('insert into auth.users(id) values($1),($2),($3)',[owner,recipient,other]);
+ if(!realAuth)await db.query('insert into auth.sessions(id,user_id) values($1,$2),($3,$4)',[os,owner,rs,recipient]);
  await db.query('insert into maintenance_private.app_epochs values($1,$2,true),($3,$4,true)',[owner,oe,recipient,re]);
  await db.query('insert into maintenance_private.account_access values($1,true),($2,true)',[owner,recipient]);
  await db.query('insert into maintenance_private.app_session_epochs values($1,$2,$3),($4,$5,$6)',[os,owner,oe,rs,recipient,re]);

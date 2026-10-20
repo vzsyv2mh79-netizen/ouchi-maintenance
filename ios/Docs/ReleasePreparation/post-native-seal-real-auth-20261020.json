@@ -1,0 +1,80 @@
+{
+  "status": "review-candidate-independently-reexecuted",
+  "baseHead": "981acc34891589f485e018ee456881c4634a3c41",
+  "createdAt": "2026-10-20T11:11:26.994604+00:00",
+  "files": [
+    {
+      "path": "tests/post-native-seal-consent-auth.native.mjs",
+      "sha256": "5455b5498ade8b4430fc9a0385f5724e9420536441d3f9fad88bac8bbbd0ae21"
+    },
+    {
+      "path": "tests/fixtures/home-handoff-full-schema.mjs",
+      "sha256": "c766ad5143db8475ebc4dd8bc109287dd22f448d863fb99c5037a332238ad6c8"
+    },
+    {
+      "path": "tests/fixtures/home-handoff-identifiers.mjs",
+      "sha256": "da1416ac7f1b4e3a3e3cd19933f944e0d7a705b9b9669b382643857cb81620ab"
+    },
+    {
+      "path": "tests/fixtures/scoped-native-gotrue.mjs",
+      "sha256": "4ff81afdc5963c88e5b9135a73b738c5f2d8820f4a923db06e64a4a6ff5a61d7"
+    },
+    {
+      "path": "scripts/test-scoped-shared-consent-native.py",
+      "sha256": "d891f9670b8fe7ea591972f40ce082f28099c5e0972b6ea0d6731408a45d2296"
+    }
+  ],
+  "unmodifiedApplicationSources": {
+    "lib/scoped-shared-consent-identity.ts": "84a71f6b5cbce6649b3cb95bcd8e817f7039b0c809bf0b695222a73c88bf9b85",
+    "lib/bound-scoped-shared-consent.ts": "0de8564100f4ccba9852ebe33efc4251b5e6df7c9bfc0795a369a81ecc2d1831",
+    "lib/post-native-seal-consent.ts": "b14f85be3b4527c2fedbc351a78750bfa4b9bee5c5bbc77f1dcb6175572f6588",
+    "tests/fixtures/scoped-shared-consent-auth.sql": "9247fe1a6083db846f0a77d18311ee105421979bcfd5ee190ee1c6e17a4873c6",
+    "tests/fixtures/bound-scoped-shared-consent.sql": "19326c0d93e2559094030f0c2a0a7e2e789593f27bf502f744b5fe2756549c0a",
+    "tests/fixtures/post-native-seal-consent.sql": "111a7da9241c7329e49563c3339cdb59d2bed16277dfff04ab17f0ffa6c14a34"
+  },
+  "tests": {
+    "newRealAuth": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "existingSyntheticCanonicalNativeSeal": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "existingOriginalBoundConsentRealAuth": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "targetedLint": "passed"
+  },
+  "realProof": [
+    "Owned PostgreSQL17.6 and real GoTruev2.197.0, explicit minimal env/no production credentials",
+    "All135 hash-pinned canonical migrations applied to actual GoTrue Auth schema",
+    "Fixture-only fixed-ID Admin user creation, real password login and TOTP enrollment/challenge/verify for owner and successor",
+    "Dedicated minimal issuer LOGIN calls unchanged scoped identity and original bound-consent issuer; immutable signed records are issued through actual RPC, not seeded",
+    "Actual family activation/completion SQL and native erase/markComplete from current source",
+    "Actual global logout HTTP204, owner sessions absent before Admin deletion, original proof readable afterward",
+    "Actual local GoTrue Admin DELETE; GET returns404 user_not_found; successor Auth /user survives",
+    "Original proof readable after native seal, logout, Admin deletion and deferred atomic release/globalCOMPLETE",
+    "Existing running-only reader still denies sealed state; wrong native request/epoch/lease/key and root loss refuse; raw original/release table reads denied",
+    "Owned Auth process stopped; temporary PostgreSQL stopped and directory removed"
+  ],
+  "limits": [
+    "Family/inventory initial consent authorizers and current management policy are explicit fixtures, not real production configuration",
+    "Original scoped consent is issued after the fixture family transfer; it does not prove real issuer gated that initial family mutation",
+    "Root stage receipts and COMPLETE writer are explicit fixtures; not the real paired coordinator/dispatch/outbox lifecycle",
+    "Ouchi-only app scope; no both-app final retirement proof",
+    "Storage is branded in-memory and validated by actual SQL manifests; no real remote Storage/API current-byte proof",
+    "The new .native.mjs test is opt-in, outside ordinary tests/*.test.mjs CI glob"
+  ],
+  "productionChanged": false,
+  "newProductionGrants": false,
+  "shippingIdentityOrClosureSQLChanged": false,
+  "runtimeActivated": false,
+  "realCharges": false,
+  "actualCustomerDeletion": false,
+  "outboundMessageSent": false
+}
