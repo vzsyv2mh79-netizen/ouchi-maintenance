@@ -10,7 +10,7 @@ import {createFamilyAttachmentActivation} from '../../lib/family-attachment-acti
 import {handoffFamilyAttachments} from '../../lib/family-attachment-handoff.mjs';
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
-export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null,extraControllerApps=[],schemaOptions,beforeFreeze=async()=>{}}={}){
+export async function familyAttachmentActivationFixture({prepared=true,reserve=true,postAuthority=true,inventoryAuthorize=async()=>true,activationAuthorize=null,memberOnly=false,omitReceipt=false,commitFault=null,extraControllerApps=[],schemaOptions,beforeFreeze=async()=>{},beforeInitialConsents}={}){
  const db=await seedHomeHandoffFullSchemaFixture(schemaOptions);await db.exec('reset role');
  const bytes=new Uint8Array([1,2,3,4]),sha=createHash('sha256').update(bytes).digest('hex');
  const owned=randomUUID(),member=randomUUID(),nativeRequest=randomUUID(),nativeLease=randomUUID();
@@ -30,18 +30,32 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
  const consentPlan={protocolVersion:2,requestID:controllerScope.requestID,userID:owner,inventoryDigest:controllerScope.inventoryDigest,appRequestID:nativeRequest,appScopeID:oe,householdID:home,successorID:recipient,memberIDs:[owner,recipient],familyRecordIDs:[product],familySnapshotDigest:snapshotDigest(saved)};
  await db.query('insert into maintenance_private.household_handoff_plans values($1,$2,$3,$4,$5,$6,$7)',[home,owner,recipient,controllerScope,consentPlan,handoffPlanDigest(controllerScope,consentPlan),saved]);
  await db.query('insert into maintenance_private.household_family_holds values($1,$2,$3)',[home,owner,controllerScope]);
- const adapter=tx=>({query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
+ const scope={requestID:controllerScope.requestID,homeID:home,userID:owner,ownerEpoch:oe,nativeRequestID:nativeRequest,nativeLease,controllerScope};
+ const plan={requestID:scope.requestID,homeID:home,ownerID:owner,ownerEpoch:oe,recipientID:recipient,recipientEpoch:re,snapshotDigest:consentPlan.familySnapshotDigest,files:descriptions.map(([id,userID,epoch])=>({id,size:4,mime:'image/png',sha256:sha,source:{userID,epoch,path:`${userID}/${epoch}/${id}.png`}}))};
  const key=randomBytes(32);
- const issuer=createHandoffConsentIssuer({key,verifyIdentity:async actor=>({userID:actor,authVerifiedAt:Date.now()}),store:{
+ let initialProviders=null,accessTokenForActor=null;
+ if(beforeInitialConsents!==undefined){
+  if(typeof beforeInitialConsents!=='function')throw Error('Explicit original-identity intake required');
+  const intake=await beforeInitialConsents({db,controllerScope,consentPlan,scope,plan,saved,householdKey:key});
+  if(!intake||typeof intake.providers?.issueHousehold!=='function'||typeof intake.providers?.createInventoryConsent!=='function'||typeof intake.accessTokenForActor!=='function')throw Error('Actual initial consent providers required');
+  initialProviders=intake.providers;accessTokenForActor=intake.accessTokenForActor;
+  for(const actor of [owner,recipient]){
+   const bearer=await accessTokenForActor(actor);
+   if(typeof bearer!=='string'||bearer===actor)throw Error('Real bearer required for initial family consent');
+   assert.equal((await initialProviders.issueHousehold(bearer,new AbortController().signal)).status,'accepted');
+  }
+ }else{
+ const adapter=tx=>({query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
+  const issuer=createHandoffConsentIssuer({key,verifyIdentity:async actor=>({userID:actor,authVerifiedAt:Date.now()}),store:{
   transaction:cb=>db.transaction(tx=>cb(adapter(tx))),target:async()=>({scope:controllerScope,plan:consentPlan}),
   existing:async(tx,s,p,actor)=>{const r=(await tx.query('select * from maintenance_private.household_handoff_consents where home_id=$1 and actor_id=$2 for update',[home,actor])).rows[0];return r?{actorID:r.actor_id,token:r.token,revokedAt:r.revoked_at}:null;},
   record:(tx,s,p,actor,token)=>tx.query('insert into maintenance_private.household_handoff_consents values($1,$2,$3,null)',[home,actor,token])
  }});
  for(const actor of [owner,recipient])assert.equal((await issuer({requestID:controllerScope.requestID,householdID:home,accessToken:actor,confirmation:'家族データの引き継ぎに同意する'})).status,'accepted');
- const scope={requestID:controllerScope.requestID,homeID:home,userID:owner,ownerEpoch:oe,nativeRequestID:nativeRequest,nativeLease,controllerScope};
- const plan={requestID:scope.requestID,homeID:home,ownerID:owner,ownerEpoch:oe,recipientID:recipient,recipientEpoch:re,snapshotDigest:consentPlan.familySnapshotDigest,files:descriptions.map(([id,userID,epoch])=>({id,size:4,mime:'image/png',sha256:sha,source:{userID,epoch,path:`${userID}/${epoch}/${id}.png`}}))};
- // Signed family consent uses synthetic identity; complete file inventory
- // consent/freeze authorization is injected. No shipping Auth claim here.
+ }
+ const adapter=tx=>({query:async(sql,args)=>{const r=await tx.query(sql,args);return {...r,rowCount:r.rowCount??r.affectedRows??r.rows.length};}});
+ // Default path uses synthetic identity. Explicit intake bypasses it entirely;
+ // inventory/freeze authorization remains independently injected. No runtime activation.
  const journal=createFamilyAttachmentJournal({transaction:cb=>db.transaction(tx=>cb(adapter(tx))),authorize:inventoryAuthorize});
  if(prepared)await journal[reserve?'reserve':'record'](scope,plan,new AbortController().signal);
  const objects=new Map(plan.files.map(f=>[f.source.path,new Blob([bytes],{type:'image/png'})]));
@@ -86,6 +100,6 @@ export async function familyAttachmentActivationFixture({prepared=true,reserve=t
   removeSource:async()=>{removals++;throw Error('Cleanup intentionally not implemented in this activation fixture');},
   sourceAbsent:async()=>false,finish:async()=>{throw Error('Activation is not whole-account completion');}
  };
- return {db,scope,plan,ports,objects,owned,member,key,saved,journal,get removals(){return removals;},get lateAuthWindow(){return lateAuthWindow;},get lateAuthReceiptWritten(){return lateAuthReceiptWritten;},get activationError(){return activationError;},run:()=>handoffFamilyAttachments(scope,ports,new AbortController().signal)};
+ return {db,scope,plan,ports,objects,owned,member,key,saved,journal,initialProviders,accessTokenForActor,get removals(){return removals;},get lateAuthWindow(){return lateAuthWindow;},get lateAuthReceiptWritten(){return lateAuthReceiptWritten;},get activationError(){return activationError;},run:()=>handoffFamilyAttachments(scope,ports,new AbortController().signal)};
 }
 

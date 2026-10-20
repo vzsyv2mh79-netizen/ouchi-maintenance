@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-20",
+  "status": "disabled review candidates, no shipping imports or production activation",
+  "initialFamily": {
+    "source": "lib/initial-family-consent-identity.ts",
+    "sql": "tests/fixtures/initial-family-consent-identity.sql",
+    "proof": "real two-actor password/TOTP original and actual session epoch bind household and inventory, immutable replay and final policy rejection; formal claimPrepared same-tx adoption and rollback",
+    "nativeTest": "tests/initial-family-consent-identity.native.mjs"
+  },
+  "ownerOnly": {
+    "status": "disabled local candidate, no production adapter/grants/deployment",
+    "sourceSHA256": {
+      "lib/ouchi-owner-only-claim.ts": "3ffe1141f1cf235fc3da50e888cb1b5af8dd52a7a6861b0805916be4efbc442a",
+      "tests/fixtures/ouchi-owner-only-consent.sql": "0c364934e5118262ad9fffd22ae866c24139afefa95e4dc3477d8dfa93afc43b",
+      "tests/ouchi-owner-only-claim.native.mjs": "4f85e96f8ac603e864239be8797fec5d05b2168b19f17ecbc3dcbe38010abcbe",
+      "tests/fixtures/scoped-shared-consent-module.mjs": "dfa36b858218d8740a986b6ccc8c47c4e0193ad12ba5cfc2f64ef73df3e3dbe8",
+      "scripts/test-scoped-shared-consent-native.py": "51f6ef39a32cdd9434d1ed4485cdbacc8dba581aaa70c5b976a4000a75783be7"
+    },
+    "tests": {
+      "ownerOnlyNative": {
+        "passed": 1,
+        "postgres": "17.6",
+        "auth": "GoTrue v2.197.0 actual password/TOTP"
+      },
+      "existingPreparedFamilyNative": 1,
+      "initialHouseholdInventoryNative": 1,
+      "relatedRegressionsPreviouslyPassed": 83,
+      "targetedLint": true,
+      "typecheck": true,
+      "build": true
+    },
+    "verified": [
+      "separate Ouchi owner-only Auth and signature domains, no peer/family DTO cast",
+      "signed root includes exact ordered apps, inventory digest, actual epoch, session, password/TOTP times and Auth digest",
+      "no original or wrong actor/key/order/enrollment/expiry refuses",
+      "actual owned-shared home refuses even with zero frozen plans; member-only home permitted",
+      "missing/unvalidated/deferrable parent FK refuses",
+      "actual wrong-owner plan insert waits on held root FK, owned-home parent locked, actual membership insert blocked by freeze",
+      "formal claimPrepared with opaque same-physical-transaction requested/adopted capability",
+      "late policy loss at COMMIT rolls root back; replay preserves original; processing cannot issue",
+      "minimal issuer/coordinator actual LOGIN; direct raw Auth/original-table reads denied"
+    ],
+    "requiredLocalPrerequisites": [
+      "immediate validated homes.owner_id -> auth.users.id",
+      "home_members.homeId -> homes.id",
+      "plans.owner_id and holds.principal -> auth.users.id",
+      "separate generated root_request_id on private fixture plans/holds -> shared root journal.request_id"
+    ],
+    "limits": [
+      "new FK/column prerequisites exist only in isolated native test; not a production migration",
+      "production Management/all-app inventory completeness not implemented",
+      "production original custody adapter, account-deletion integration and zero-family paired native/Auth erasure not implemented",
+      "no post-Auth authority supplied by owner-only candidate",
+      "no production grants, billing, deployment, review submission or real data deletion"
+    ],
+    "interface": {
+      "factory": "createOuchiOwnerOnlyClaimPort({scope,key,projectID,nativeLease,policyReader,getUser,clock?})",
+      "methods": [
+        "issue(bearer,actualIssuerCheckedTx) -> accepted/expiry, no raw identity",
+        "requested(fullScope,actualCoordinatorCheckedTx) -> opaque cap/null",
+        "adopted(fullScope,cap,sameCheckedTx) -> bool"
+      ],
+      "adoption": "Trusted root claim-ready callback must register adopted as final beforeCommit on same checked tx; cap is module/tx/PID/XID local",
+      "sql": "tests/fixtures/ouchi-owner-only-consent.sql; fixed private RPCs, no roles/grants/migrations",
+      "existingGates": "Family/processing/post-Auth gates unchanged"
+    }
+  },
+  "limits": [
+    "All tests synthetic-user isolated environments, no customer data",
+    "New native proofs run locally, not asserted as remote CI coverage",
+    "Existing public family and processing/archival interfaces unchanged",
+    "No app/delete/billing runtime enabled"
+  ]
+}

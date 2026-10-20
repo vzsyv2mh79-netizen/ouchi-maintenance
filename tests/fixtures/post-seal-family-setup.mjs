@@ -14,8 +14,8 @@ import {createCommittedHouseholdConsentVerifier} from '../../lib/home-handoff-co
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
-async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false,includeKakei=false,schemaOptions,beforeFreeze}={}){
- let provider;const f=await fixture({prepared:false,commitFault,memberOnly,schemaOptions,beforeFreeze,extraControllerApps:includeKakei?[{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()}]:[],inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
+async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false,includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents}={}){
+ let provider;const f=await fixture({prepared:false,commitFault,memberOnly,schemaOptions,beforeFreeze,beforeInitialConsents,extraControllerApps:includeKakei?[{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()}]:[],inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
  const key=randomBytes(32);
@@ -56,16 +56,16 @@ async function setup({activation=false,commitFault=null,memberOnly=false,alignFa
   const row=(await tx.query("select exists(select 1 from maintenance_private.account_deletion_requests where id=$1 and user_id=$2 and app_epoch_id=$3 and lease_token=$4 and state='running' and lease_until>clock_timestamp()) as current",[s.nativeRequestID,s.userID,s.ownerEpoch,s.nativeLease])).rows[0];
   return row.current===true&&await onAuthority(tx);
  }};
- provider=createFamilyAttachmentInventoryConsent(options);
- const issue=actor=>provider.issue({requestID:f.scope.requestID,homeID:f.scope.homeID,accessToken:actor,confirmation,signal:new AbortController().signal});
+ provider=f.initialProviders?f.initialProviders.createInventoryConsent(options):createFamilyAttachmentInventoryConsent(options);
+ const issue=async actor=>provider.issue({requestID:f.scope.requestID,homeID:f.scope.homeID,accessToken:f.accessTokenForActor?await f.accessTokenForActor(actor):actor,confirmation,signal:new AbortController().signal});
  const original=await transaction(inventory);
  const authorize=(p=f.plan,i=original,s=f.scope,which=provider)=>transaction(tx=>which.authorize(tx,s,p,i,digest(i),new AbortController().signal,f.scope));
  return {f,options,provider,transaction,original,issue,authorize,
   set offset(v){offset=v;},set live(v){live=v;},set authority(v){onAuthority=v;},set transform(v){transform=v;},set identityTransform(v){identityTransform=v;}};
 }
 
-export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeFamilyActivation}={}){
- const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze});
+export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents,beforeFamilyActivation}={}){
+ const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze,beforeInitialConsents});
  await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
  for(const actor of [owner,recipient])await s.issue(actor);
  if(beforeFamilyActivation!==undefined){
