@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
+import {verifyRestrictiveReviewChildren} from './restrict-children.mjs';
 
 const relations=['account_deletion_requests','account_closure_reviews','closure_coverage_plans','closure_coverage_items','closure_coverage_text_decisions','reviewed_retirements','reviewed_retirement_files','ownerless_home_claims'];
 // Synthetic intake/review/file-absence prerequisites only. Original USER
@@ -57,6 +58,7 @@ export async function prepareReviewedNativeCase({admin,coordinator,scope,nativeI
    await assert.rejects(transaction(coordinator,tx=>executor.erase(scope,tx)),/Foreign or unbound/,'User-wide canonical delete must not touch a different epoch/request');
    assert.deepEqual(await snapshot(admin,own),before);assert.deepEqual(await snapshot(admin,foreign),kept);assert.deepEqual(await snapshot(admin,wrongEpoch),otherGeneration,'Foreign generation stays byte-for-byte intact on refusal');
    await removeFixture(admin,wrongEpoch); // Deliberately synthetic conflicting case only.
+   await verifyRestrictiveReviewChildren({admin,coordinator,transaction,executor,scope,own,home,verifyRollback:async()=>{assert.deepEqual(await snapshot(admin,own),before);assert.deepEqual(await snapshot(admin,foreign),kept);}});
    const lease=(await admin.query('select lease_token from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0].lease_token;
    const stage=(tx,phase)=>tx.query('select maintenance_private.execute_shared_native_stage($1,$2,$3) confirmed',[JSON.stringify(scope),lease,phase]);
    const clean=(tx,phase)=>tx.query('select maintenance_private.execute_shared_native_cleanup($1,$2,$3) confirmed',[JSON.stringify(scope),lease,phase]);
