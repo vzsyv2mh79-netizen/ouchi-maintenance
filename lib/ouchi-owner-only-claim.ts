@@ -80,11 +80,11 @@ export function createOuchiOwnerOnlyClaimPort(input:Options){
    try{
     if(!matches(value))return false;
     const pin=await frame(tx);if(pin.status!=='processing')return false;
-    const proof=fingerprint(await readCurrent(tx)),middle=await frame(tx);
+    const original=await readCurrent(tx),proof=fingerprint(original),expiresAt=original.payload.expiresAt,middle=await frame(tx);
     if(middle.status!=='processing'||middle.pid!==pin.pid||middle.xid!==pin.xid)return false;
     if(fingerprint(await readCurrent(tx))!==proof)return false;
     const final=await frame(tx);
-    return final.status==='processing'&&final.pid===pin.pid&&final.xid===pin.xid;
+    return final.status==='processing'&&final.pid===pin.pid&&final.xid===pin.xid&&expiresAt>clock();
    }catch{return false;}
   },
   async issue(token:string,tx:Tx){
