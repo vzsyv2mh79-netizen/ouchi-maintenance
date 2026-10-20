@@ -11,8 +11,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--postgres-bin', required=True)
 parser.add_argument('--node', required=True)
 parser.add_argument('--auth-runtime', required=True)
-parser.add_argument('--test-file', choices=['tests/scoped-shared-consent.native.mjs', 'tests/bound-scoped-shared-consent.native.mjs', 'tests/totp-cross-app-compatibility.native.mjs', 'tests/post-native-seal-consent.native.mjs', 'tests/post-native-seal-consent-auth.native.mjs', 'tests/prepared-scoped-shared-consent.native.mjs', 'tests/initial-family-consent-identity.native.mjs', 'tests/ouchi-owner-only-claim.native.mjs'], default='tests/scoped-shared-consent.native.mjs')
+parser.add_argument('--test-file', choices=['tests/scoped-shared-consent.native.mjs', 'tests/bound-scoped-shared-consent.native.mjs', 'tests/totp-cross-app-compatibility.native.mjs', 'tests/post-native-seal-consent.native.mjs', 'tests/post-native-seal-consent-auth.native.mjs', 'tests/prepared-scoped-shared-consent.native.mjs', 'tests/initial-family-consent-identity.native.mjs', 'tests/ouchi-owner-only-claim.native.mjs', 'tests/shared-maintenance-prelogout-custody.native.mjs', 'tests/pre-native-after-logout-consent.native.mjs'], default='tests/scoped-shared-consent.native.mjs')
+parser.add_argument('--prelogout-source-dir')
 args = parser.parse_args()
+if args.test_file == 'tests/shared-maintenance-prelogout-custody.native.mjs' and not args.prelogout_source_dir:
+    raise SystemExit('Explicit frozen prelogout source directory required')
 root = pathlib.Path(__file__).resolve().parents[1]
 binary = pathlib.Path(args.postgres_bin).resolve()
 node = pathlib.Path(args.node).resolve()
@@ -36,6 +39,8 @@ try:
     print('Isolated native test server: ' + subprocess.check_output([str(binary / 'postgres'), '--version'], text=True).strip(), flush=True)
     env = dict(os.environ)
     env.update(OUCHI_SCOPED_TEST_PG_SOCKET=str(socket), OUCHI_TEST_AUTH_RUNTIME=str(auth))
+    if args.prelogout_source_dir:
+        env['OUCHI_PRELOGOUT_SOURCE_DIR'] = str(pathlib.Path(args.prelogout_source_dir).resolve())
     result = subprocess.run([str(node), '--test', '--test-concurrency=1', args.test_file],
                             cwd=root, env=env, timeout=180)
     raise SystemExit(result.returncode)

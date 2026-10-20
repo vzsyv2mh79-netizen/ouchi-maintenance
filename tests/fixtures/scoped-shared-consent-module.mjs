@@ -21,3 +21,6 @@ export const initialFamilyModule=await import(url(compile('initial-family-consen
 export const ownerOnlyModule=await import(url(compile('ouchi-owner-only-claim')
  .replace("'./verified-app-session'",JSON.stringify(session))
  .replace("'./shared-deletion-protocol.mjs'",JSON.stringify(new URL('../../lib/shared-deletion-protocol.mjs',import.meta.url).href))));
+
+export const preNativeLogoutModule=await import(url(compile('pre-native-after-logout-consent')
+ .replace("'./scoped-shared-consent-identity'",JSON.stringify(scopedURL))));

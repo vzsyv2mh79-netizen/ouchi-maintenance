@@ -14,9 +14,10 @@ import {createCommittedHouseholdConsentVerifier} from '../../lib/home-handoff-co
 import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
 
 const confirmation='写真・保証書の一覧と受取先を確認して引き継ぎに同意する';
-async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false,includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents}={}){
+async function setup({activation=false,commitFault=null,memberOnly=false,alignFamilyAuth=false,includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents,beforeInventoryConsents}={}){
  let provider;const f=await fixture({prepared:false,commitFault,memberOnly,schemaOptions,beforeFreeze,beforeInitialConsents,extraControllerApps:includeKakei?[{app:'kakei',requestID:randomUUID(),scopeID:randomUUID()}]:[],inventoryAuthorize:(...args)=>provider.authorize(...args),activationAuthorize:activation?(...args)=>provider.authorizeActivation(...args):null});
  await f.db.exec(readFileSync('tests/fixtures/family-attachment-inventory-consent.sql','utf8'));
+ if(beforeInventoryConsents!==undefined){if(typeof beforeInventoryConsents!=='function')throw Error('Explicit inventory fixture setup required');await beforeInventoryConsents({f});}
  let offset=0,live=true,onAuthority=async()=>true,transform=rows=>rows,identityTransform=x=>x;
  const key=randomBytes(32);
  const adapt=tx=>({signal:tx.signal,beforeCommit:tx.beforeCommit,query:async(sql,args)=>{
@@ -64,8 +65,8 @@ async function setup({activation=false,commitFault=null,memberOnly=false,alignFa
   set offset(v){offset=v;},set live(v){live=v;},set authority(v){onAuthority=v;},set transform(v){transform=v;},set identityTransform(v){identityTransform=v;}};
 }
 
-export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents,beforeFamilyActivation}={}){
- const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze,beforeInitialConsents});
+export async function completionSetup({includeKakei=false,schemaOptions,beforeFreeze,beforeInitialConsents,beforeInventoryConsents,beforeFamilyActivation}={}){
+ const s=await setup({activation:true,alignFamilyAuth:true,includeKakei,schemaOptions,beforeFreeze,beforeInitialConsents,beforeInventoryConsents});
  await s.f.db.exec(readFileSync('tests/fixtures/family-attachment-completion.sql','utf8'));
  for(const actor of [owner,recipient])assert.equal((await s.issue(actor)).status,'accepted','Initial inventory consent must persist before activation');
  if(beforeFamilyActivation!==undefined){

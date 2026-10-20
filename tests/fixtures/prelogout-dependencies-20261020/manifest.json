@@ -1,0 +1,17 @@
+{
+  "status": "Frozen test dependencies only; not production migrations or role/grant approval",
+  "files": {
+    "shared-maintenance-native-stage.sql": {
+      "sha256": "add3566915735db4f34907fb1b5021d366ffb7869f33a69f42c9ad010e17836a",
+      "origin": "peer frozen shared native-stage review"
+    },
+    "shared-prelogout-receipt-custody.sql": {
+      "sha256": "6d93514eec1e6971886c6f891f394d1636dccbc478682b156c51b043568b1e6d",
+      "origin": "peer frozen dedicated custody overlay"
+    },
+    "initial-family-runtime-worker.sql": {
+      "sha256": "2c0a55bbaaabe81344c29254a39cf519b6d4e7c4f1b0ee1a8ae3771c1e60442c",
+      "origin": "peer fixture-only family preparation metadata ACL"
+    }
+  }
+}
