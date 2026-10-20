@@ -6,7 +6,8 @@ import pg from 'pg';
 import {startFixtureGoTrue,fixtureTOTP} from './fixtures/scoped-native-gotrue.mjs';
 import {owner,recipient,other,home,oe,re,bindRealAuthSessions} from './fixtures/home-handoff-identifiers.mjs';
 import {seedHomeHandoffFullSchemaFixture} from './fixtures/home-handoff-full-schema.mjs';
-import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule,ownerAuthIntervalModule,ownerTerminalModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {ownerOnlyModule,ownerAfterLogoutModule,ownerAfterNativeModule,ownerAfterAuthModule,ownerAuthIntervalModule,ownerTerminalModule,ownerReadonlyTerminalModule} from './fixtures/scoped-shared-consent-module.mjs';
+import {verifyOwnerReadonlyProjection} from './fixtures/owner-readonly-terminal-cases.mjs';
 import {verifyOwnerTerminal} from './fixtures/owner-terminal-held-cases.mjs';
 import {runWithTransactionCommitChecks} from '../lib/transaction-commit-checks.mjs';
 import {createDeletionJournal} from './fixtures/kakei-completion/lib/shared-deletion-journal.mjs';
@@ -407,6 +408,7 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   assert.deepEqual((await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0],sealed);
   await verifyHeldAuthExclusion({admin,coordinator,writer,auth,scope,socket,transaction,postOptions,createAfterAuth:ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent});
   await verifyOwnerTerminal({admin,coordinator,auth,scope,socket,transaction,postOptions,terminalModule:ownerTerminalModule,createAfterAuth:ownerAfterAuthModule.createOuchiOwnerAfterAuthConsent,stages,journal:prep,original,manifest:savedManifest,nativeSeal:sealed,nativeID});
+  await verifyOwnerReadonlyProjection({admin,coordinator,scope,postOptions,module:ownerReadonlyTerminalModule,nativeID});
   console.log('Real original/claim/checkpoint/prelogout/logout/native seal, separate non-Auth-locking interval with actual Admin DELETE/ack, and processing post-Auth history. Without the real held scope the legacy absence-only model still permits recreation; the separate held guard matrix now proves principal INSERT/id-UPDATE exclusion locally. Other Auth-table replica writes, all-app reenrollment/writer/DDL coverage and dispatch remain explicit separate fixtures. Original/manifest/native expiry/other-owner product/login unchanged; owner-zero terminal candidate independently checked below; no production changes.');
  }finally{if(writer)await writer.end();if(issuer)await issuer.end();if(coordinator)await coordinator.end();if(auth)await auth.stop();if(restoreSessions)restoreSessions();await admin.end();}
 });
