@@ -59,14 +59,20 @@ export function createScopedSharedConsentIssuerIdentity(options:Parameters<typeo
  const fixed={...options};
  const verify=createScopedSharedConsentIdentityVerifier(fixed);
  const requestID=fixed.requestID,homeID=fixed.homeID;
+ const registered=new WeakMap<Transaction,Map<string,string>>();
  return async(bearer:string,tx:Transaction)=>{
   const first=await verify(bearer,tx);if(!first)return null;
+  const fingerprint=JSON.stringify([first.userID,first.sessionID,first.aal,first.authStateDigest,first.authenticatedAt,first.proofDomain]);
+  const actors=registered.get(tx)??new Map<string,string>();
+  const previous=actors.get(first.userID);
+  if(previous!==undefined)return previous===fingerprint?first:null;
   tx.beforeCommit('scoped-consent:'+requestID+':'+homeID+':'+first.userID,async()=>{
    const final=await verify(bearer,tx);
    return !!final&&final.userID===first.userID&&final.sessionID===first.sessionID
     &&final.aal===first.aal&&final.authStateDigest===first.authStateDigest
     &&final.authenticatedAt===first.authenticatedAt&&final.proofDomain===first.proofDomain;
   });
+  actors.set(first.userID,fingerprint);registered.set(tx,actors);
   return first;
  };
 }

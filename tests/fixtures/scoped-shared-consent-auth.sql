@@ -22,10 +22,12 @@ begin
  or p_aal is distinct from 'aal2' or p_totp_at is null
  or (p_timebox is not null and (p_timebox<1 or p_timebox>315360000))
  or (p_inactivity is not null and (p_inactivity<1 or p_inactivity>315360000)) then return;end if;
+ -- Shared root first, then app plan/binding/request, then sorted Auth parents.
+ select * into j from private.kb_shared_deletion_journal where request_id=p_request for update;
+ if not found then return;end if;
  select * into h from maintenance_private.household_handoff_plans where home_id=p_home for update;
  if not found or h.owner_id=h.successor_id or p_user not in(h.owner_id,h.successor_id) then return;end if;
  select * into b from maintenance_private.household_stop_bindings where user_id=h.owner_id for update;
- select * into j from private.kb_shared_deletion_journal where request_id=p_request for update;
  if b.user_id is null or j.request_id is null or j.user_id<>h.owner_id or j.status<>'processing'
  or j.lease_token::text is distinct from b.scope->>'leaseToken' or j.lease_until is null or j.lease_until<=clock_timestamp()
  or j.scope is distinct from b.scope-'leaseToken' or h.scope is distinct from b.scope

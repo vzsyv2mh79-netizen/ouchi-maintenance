@@ -2,6 +2,101 @@ import XCTest
 
 /// Dedicated synthetic preview with actual protected custody; no real Auth/erasure.
 @MainActor final class AccountClosureReviewInteractionTests: XCTestCase {
+    func testTOTPSettingsEntryWrongCodeRetryAndCancel() {
+        continueAfterFailure=false
+        let app=XCUIApplication(bundleIdentifier:"dev.ouchi.review.closure")
+        app.launchEnvironment["OUCHI_REVIEW_MFA_UI"]="1"
+        app.launchEnvironment["OUCHI_REVIEW_CAPTURE_TAB"]="4"
+        app.launchArguments=["-AppleLanguages","(ja)","-AppleLocale","ja_JP"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout:45))
+        func reach(_ e:XCUIElement) {
+            for _ in 0..<40 {
+                let sheet=app.navigationBars["本人確認"]
+                let top=(sheet.exists ? sheet.frame.maxY : app.navigationBars.firstMatch.frame.maxY)+8
+                var bottom=(!sheet.exists && app.tabBars.firstMatch.exists) ? app.tabBars.firstMatch.frame.minY-8 : app.frame.maxY-20
+                let keyboard=app.keyboards.firstMatch
+                if keyboard.exists && keyboard.isHittable { bottom=min(bottom,keyboard.frame.minY-8) }
+                if sheet.exists {
+                    let sticky=app.buttons["totp.keyboardVerify"],inline=app.staticTexts["totp.inlineError"]
+                    if sticky.exists && sticky.isHittable { bottom=min(bottom,sticky.frame.minY-8) }
+                    if inline.exists && inline.isHittable { bottom=min(bottom,inline.frame.minY-8) }
+                }
+                var down=false
+                // Read geometry/type only AFTER existence: Form lazily creates
+                // offscreen rows, especially at accessibility text sizes.
+                if e.exists {
+                    let frame=e.frame
+                    let fits=e.elementType == .staticText ? frame.minY < bottom-40 : frame.maxY <= bottom
+                    if e.isHittable && frame.minY>=top && fits { return }
+                    down=frame.minY<top
+                }
+                let height=max(60,bottom-top)
+                let from=app.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:(top+height*(down ? 0.3 : 0.75))/app.frame.height))
+                let to=app.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:(top+height*(down ? 0.75 : 0.3))/app.frame.height))
+                from.press(forDuration:0.05,thenDragTo:to)
+            }
+            let shot=XCTAttachment(screenshot:app.screenshot());shot.name="unreachable-totp-control";shot.lifetime = .keepAlways;add(shot)
+            XCTFail("Unreachable TOTP control: \(e)\n\(app.debugDescription)")
+        }
+        let entry=app.buttons["settings.totp"];reach(entry);entry.tap()
+        let load=app.buttons["totp.load"];reach(load);load.tap()
+        let challenge=app.buttons["totp.challenge"];reach(challenge);challenge.tap()
+        let code=app.secureTextFields["totp.code"];reach(code);code.tap();code.typeText("000000")
+        let verify=app.buttons["totp.keyboardVerify"];XCTAssertTrue(verify.waitForExistence(timeout:10));XCTAssertTrue(verify.isEnabled);verify.tap()
+        let message=app.staticTexts["totp.inlineError"];XCTAssertTrue(message.waitForExistence(timeout:10));XCTAssertTrue(message.label.contains("コードと有効期限"))
+        let wrong=XCTAttachment(screenshot:app.screenshot());wrong.name="totp-wrong-code";wrong.lifetime = .keepAlways;add(wrong)
+        reach(code);code.tap();code.typeText("123456")
+        XCTAssertTrue(verify.isEnabled);verify.tap()
+        let success=app.alerts.firstMatch;XCTAssertTrue(success.waitForExistence(timeout:10));XCTAssertTrue(success.staticTexts.allElementsBoundByIndex.contains(where:{$0.label.contains("送信していません")}))
+        let accepted=XCTAttachment(screenshot:app.screenshot());accepted.name="totp-success-no-mutation";accepted.lifetime = .keepAlways;add(accepted)
+        success.buttons["閉じる"].tap()
+        reach(entry);entry.tap();reach(load);load.tap();reach(challenge);challenge.tap();reach(code)
+        app.buttons["totp.close"].tap()
+        reach(entry);entry.tap();reach(load);XCTAssertFalse(code.exists,"Closing removes transient code/challenge")
+        app.buttons["totp.close"].tap()
+    }
+    func testTOTPExpiredSessionExplainsRelogin() {
+        continueAfterFailure=false
+        let app=XCUIApplication(bundleIdentifier:"dev.ouchi.review.closure")
+        app.launchEnvironment["OUCHI_REVIEW_MFA_UI"]="1";app.launchEnvironment["OUCHI_REVIEW_MFA_EXPIRED"]="1";app.launchEnvironment["OUCHI_REVIEW_CAPTURE_TAB"]="4"
+        app.launchArguments=["-AppleLanguages","(ja)","-AppleLocale","ja_JP"];app.launch();defer{app.terminate()}
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout:45))
+        func reach(_ e:XCUIElement) {
+            for _ in 0..<40 {
+                let sheet=app.navigationBars["本人確認"]
+                let top=(sheet.exists ? sheet.frame.maxY : app.navigationBars.firstMatch.frame.maxY)+8
+                var bottom=(!sheet.exists && app.tabBars.firstMatch.exists) ? app.tabBars.firstMatch.frame.minY-8 : app.frame.maxY-20
+                let keyboard=app.keyboards.firstMatch
+                if keyboard.exists && keyboard.isHittable { bottom=min(bottom,keyboard.frame.minY-8) }
+                if sheet.exists {
+                    let sticky=app.buttons["totp.keyboardVerify"],inline=app.staticTexts["totp.inlineError"]
+                    if sticky.exists && sticky.isHittable { bottom=min(bottom,sticky.frame.minY-8) }
+                    if inline.exists && inline.isHittable { bottom=min(bottom,inline.frame.minY-8) }
+                }
+                var down=false
+                // Read geometry/type only AFTER existence: Form lazily creates
+                // offscreen rows, especially at accessibility text sizes.
+                if e.exists {
+                    let frame=e.frame
+                    let fits=e.elementType == .staticText ? frame.minY < bottom-40 : frame.maxY <= bottom
+                    if e.isHittable && frame.minY>=top && fits { return }
+                    down=frame.minY<top
+                }
+                let height=max(60,bottom-top)
+                let from=app.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:(top+height*(down ? 0.3 : 0.75))/app.frame.height))
+                let to=app.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:(top+height*(down ? 0.75 : 0.3))/app.frame.height))
+                from.press(forDuration:0.05,thenDragTo:to)
+            }
+            let shot=XCTAttachment(screenshot:app.screenshot());shot.name="unreachable-totp-control";shot.lifetime = .keepAlways;add(shot)
+            XCTFail("Unreachable TOTP control: \(e)\n\(app.debugDescription)")
+        }
+        let entry=app.buttons["settings.totp"];reach(entry);entry.tap()
+        let load=app.buttons["totp.load"];reach(load);load.tap()
+        let message=app.staticTexts["totp.message"];reach(message);XCTAssertTrue(message.label.contains("ログインが切れ"));XCTAssertFalse(app.secureTextFields["totp.code"].exists)
+        let shot=XCTAttachment(screenshot:app.screenshot());shot.name="totp-expired-login-guidance";shot.lifetime = .keepAlways;add(shot)
+    }
     func testManagementUnknownCommitRestartsWithSameProtectedReference() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.closure")

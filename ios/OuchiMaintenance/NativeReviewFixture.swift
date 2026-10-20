@@ -10,6 +10,7 @@ actor NativeReviewFixture {
     static let home="22222222-2222-4222-8222-222222222222"
     static let product="33333333-3333-4333-8333-333333333333"
     static let task="44444444-4444-4444-8444-444444444444"
+    private var currentToken = NativeReviewFixture.token
     private var data:[String:Any]
     static func day(_ offset:Int) -> String {
         var c=Calendar(identifier:.gregorian);c.timeZone=TimeZone(identifier:"Asia/Tokyo")!
@@ -33,9 +34,23 @@ actor NativeReviewFixture {
     }
     func reply(_ request:URLRequest) throws -> (Data,HTTPURLResponse) {
         guard let url=request.url,url.host=="aaaaaaaaaaaaaaaaaaaa.supabase.co",
-              request.value(forHTTPHeaderField:"Authorization")=="Bearer "+Self.token else { throw CloudError.authenticationRequired }
+              request.value(forHTTPHeaderField:"Authorization")=="Bearer "+currentToken else { throw CloudError.authenticationRequired }
         let body:Data
         switch (request.httpMethod,url.path) {
+        case ("GET","/auth/v1/user"):
+            if ProcessInfo.processInfo.environment["OUCHI_REVIEW_MFA_EXPIRED"] == "1" {
+                return (Data("{}".utf8),HTTPURLResponse(url:url,statusCode:403,httpVersion:nil,headerFields:nil)!)
+            }
+            body=try JSONSerialization.data(withJSONObject:["id":Self.account.uuidString,"factors":[["id":"88888888-8888-4888-8888-888888888888","factor_type":"totp","status":"verified"]]])
+        case ("POST","/auth/v1/factors/88888888-8888-4888-8888-888888888888/challenge"):
+            body=try JSONSerialization.data(withJSONObject:["id":"99999999-9999-4999-8999-999999999999","type":"totp","expires_at":Date().timeIntervalSince1970+120])
+        case ("POST","/auth/v1/factors/88888888-8888-4888-8888-888888888888/verify"):
+            let input=try JSONDecoder().decode([String:String].self,from:request.httpBody ?? Data())
+            guard input["challenge_id"]=="99999999-9999-4999-8999-999999999999",input["code"]=="123456" else {
+                return (Data("{}".utf8),HTTPURLResponse(url:url,statusCode:422,httpVersion:nil,headerFields:nil)!)
+            }
+            currentToken="synthetic-promoted-review-only"
+            body=try JSONSerialization.data(withJSONObject:["access_token":currentToken,"refresh_token":"synthetic-review-refresh","expires_in":3600,"user":["id":Self.account.uuidString]])
         case ("GET","/rest/v1/home_members"):
             guard let items=URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems,
                   items.count==2,

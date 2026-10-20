@@ -68,7 +68,17 @@ test('extra raw SQL data and a newly fabricated session never pass immutable wor
  const f=fixture();await f.port.issue(f.token,f.tx);
  f.override([{auth_state_digest:'a'.repeat(64),authenticated_at:f.authTime,checked_at:Date.now(),raw_user:{}}]);
  assert.equal(await f.port.verifyCurrent(user,f.tx),null);
- const h=await f.port.readHistorical(user,f.tx);f.checks.clear();
+ f.checks.clear();const h=await f.port.readHistorical(user,f.tx);
  await f.port.readHistorical(user,f.tx);f.alter(p=>{p.signature='f'.repeat(64);});
  assert.equal(await [...f.checks.values()][0](),false);assert.equal(h.payload.sessionID,session);
+});
+
+test('repeat stage reads register each hook once and hook-free readbacks work inside COMMIT checks',async()=>{
+ const f=fixture();await f.port.issue(f.token,f.tx);f.checks.clear();
+ const seen=new Set();const tx={...f.tx,beforeCommit:(key,check)=>{if(seen.has(key))throw Error('duplicate hook');seen.add(key);f.checks.set(key,check);}};
+ assert.ok(await f.port.verifyCurrent(user,tx));assert.ok(await f.port.verifyCurrent(user,tx));
+ assert.ok(await f.port.readHistorical(user,tx));assert.ok(await f.port.readHistorical(user,tx));assert.equal(seen.size,2);
+ const checkTx={...tx,beforeCommit:()=>{throw Error('checking-phase registration refused');}};
+ assert.ok(await f.port.readCurrent(user,checkTx));assert.equal((await f.port.readHistoricalSnapshot(user,checkTx)).kind,'historical-consent-only');
+ for(const check of f.checks.values())assert.equal(await check(),true);
 });

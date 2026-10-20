@@ -16,9 +16,12 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['retained-removal', 'retained-files', 'same-number-retry', 'closure-review', 'keyboard-toolbar-probe', 'failed-reread', 'home-management', 'closure-progress', 'closure-custody', 'closure-local-cleanup', 'closure-root', 'closure-root-interruption'], default='closure-review')
+parser.add_argument('--test', choices=['mfa', 'retained-removal', 'retained-files', 'same-number-retry', 'closure-review', 'keyboard-toolbar-probe', 'failed-reread', 'home-management', 'closure-progress', 'closure-custody', 'closure-local-cleanup', 'closure-root', 'closure-root-interruption'], default='closure-review')
 parser.add_argument('--omit-input-accessory', '--omit-keyboard-toolbar', dest='omit_keyboard_toolbar', action='store_true', help='Diagnostic temporary copy only; requires keyboard-toolbar-probe')
+parser.add_argument('--mfa-variants', action='store_true', help='Same build, first selected appearance/text then AX5 dark; MFA only')
 args = parser.parse_args()
+if args.mfa_variants and args.test != 'mfa':
+    raise SystemExit('MFA variants require the MFA test only.')
 if args.omit_keyboard_toolbar and args.test != 'keyboard-toolbar-probe':
     raise SystemExit('Toolbar removal is diagnostic only; never use it for the full operation test.')
 root = pathlib.Path(__file__).resolve().parents[1]
@@ -42,6 +45,8 @@ manifest['testSourceSHA256'] = hashlib.sha256((root / 'UITests/AccountClosureRev
 manifest['selectedTest'] = args.test
 manifest['previewTextMode'] = 'large' if args.text_size == 'large' else 'ax5'
 manifest['temporaryToolbarProjection'] = args.omit_keyboard_toolbar
+if args.test == 'mfa':
+    manifest['scope'] = ['Actual NativeRoot settings entry to existing-factor TOTP screen; wrong-code retry, memory credential promotion, dismissal clears transient input, expired-session guidance; synthetic Auth only']
 if args.test == 'keyboard-toolbar-probe':
     manifest['scope'] = ['Diagnostic read/cancel and scroll to password section only; no full request/keyboard-flow completion claim']
 if args.test == 'failed-reread':
@@ -70,8 +75,12 @@ if args.test == 'retained-removal':
     manifest['scope'] = ['Shipping retained-family and pending-removal sections in isolated sample Form: explicit cancel preserves PDF, simulated uncertain removal hides download, same-ID retry clears pending while other photo remains. No network or real deletion.']
     manifest['notVerified'] = ['Parent product form integration', 'live Auth/Storage erasure and server retry', 'VoiceOver', 'physical device', 'billing', 'signing']
 device = None
+test_command = None
 
 def run(*command, **kwargs):
+    global test_command
+    if str(command[0]) == 'xcodebuild' and 'test' in command:
+        test_command = [str(v) for v in command]
     return subprocess.run([str(v) for v in command], check=True, **kwargs)
 
 try:
@@ -172,8 +181,22 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', '600',
                 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-',
-                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'retained-removal':'testRetainedFamilyRemovalCancelAndUncertainRetry', 'retained-files':'testRetainedFamilyFilesReachableWithoutDeletionControls', 'same-number-retry':'testMissingIntakeExplicitlyRetriesOriginalProtectedNumber', 'closure-root-interruption':'testRealRootRecoversAfterProcessTerminationBetweenAuthErasureAndMarkerFinalization', 'closure-root':'testRealRootRetiredOwnerCleanupLoginRecoveryAndFamilyAccountFiltering', 'closure-local-cleanup':'testScopedLocalCleanupErasesOwnedFilesAndAuthButKeepsCapabilityAfterRestart', 'closure-custody':'testProtectedCustodySurvivesLostReplyAndRestartWithoutRotation', 'closure-progress':'testRealJobProgressHidesMutationsAndKeepsUncertainReference', 'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission', 'home-management':'testManagementUnknownCommitRestartsWithSameProtectedReference'}[args.test],
+                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'mfa':'testTOTPSettingsEntryWrongCodeRetryAndCancel', 'retained-removal':'testRetainedFamilyRemovalCancelAndUncertainRetry', 'retained-files':'testRetainedFamilyFilesReachableWithoutDeletionControls', 'same-number-retry':'testMissingIntakeExplicitlyRetriesOriginalProtectedNumber', 'closure-root-interruption':'testRealRootRecoversAfterProcessTerminationBetweenAuthErasureAndMarkerFinalization', 'closure-root':'testRealRootRetiredOwnerCleanupLoginRecoveryAndFamilyAccountFiltering', 'closure-local-cleanup':'testScopedLocalCleanupErasesOwnedFilesAndAuthButKeepsCapabilityAfterRestart', 'closure-custody':'testProtectedCustodySurvivesLostReplyAndRestartWithoutRotation', 'closure-progress':'testRealJobProgressHidesMutationsAndKeepsUncertainReference', 'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission', 'home-management':'testManagementUnknownCommitRestartsWithSameProtectedReference'}[args.test],
+                *(['-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/testTOTPExpiredSessionExplainsRelogin'] if args.test == 'mfa' else []),
                 'test', stdout=log, stderr=subprocess.STDOUT)
+        if args.mfa_variants:
+            if not test_command:
+                raise RuntimeError('Owned first test command missing')
+            run('xcrun', 'simctl', 'ui', device, 'appearance', 'dark')
+            run('xcrun', 'simctl', 'ui', device, 'content_size', 'accessibility-extra-extra-extra-large')
+            second = list(test_command)
+            second[second.index('-resultBundlePath')+1] = str(output / 'InteractionTestsAX5Dark.xcresult')
+            second[second.index('test')] = 'test-without-building'
+            with (output / 'test-ax5-dark.log').open('w') as log:
+                run(*second, stdout=log, stderr=subprocess.STDOUT)
+            manifest['mfaVariants'] = [
+                {'textSize': args.text_size, 'appearance': args.appearance, 'resultBundle': 'InteractionTests.xcresult'},
+                {'textSize': 'accessibility-extra-extra-extra-large', 'appearance': 'dark', 'resultBundle': 'InteractionTestsAX5Dark.xcresult'}]
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:
     manifest['status'] = 'failed_or_interrupted_not_verified'

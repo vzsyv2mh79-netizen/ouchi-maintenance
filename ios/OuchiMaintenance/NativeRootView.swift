@@ -30,7 +30,7 @@ struct NativeRootView: View {
             #if DEBUG
             // Only the isolated, in-memory sample can select its first tab for capture.
             if store.isUIReviewSample,
-               Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures",
+               (Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" || (Bundle.main.bundleIdentifier == "dev.ouchi.review.closure" && ProcessInfo.processInfo.environment["OUCHI_REVIEW_MFA_UI"] == "1")),
                let value = ProcessInfo.processInfo.environment["OUCHI_REVIEW_CAPTURE_TAB"],
                let tab = Int(value), (0...4).contains(tab) { selectedTab = tab }
             #endif
@@ -373,6 +373,8 @@ private struct NativeSettings: View {
     @State private var confirmLogout = false
     @State private var choosingBackup = false
     @State private var pendingBackup: Household?
+    @State private var totpContext: NativeTOTPVerificationContext?
+    @State private var completedTOTPContext: NativeTOTPVerificationContext?
     @State private var deletionPreviewRevision = UUID()
     @State private var deletionPreviewFlow = AccountDeletionFlow()
     var body: some View {
@@ -492,9 +494,22 @@ private struct NativeSettings: View {
                         Text("メールアドレスを確認できませんでした。通信を確認して再度お試しください。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    if store.totpVerificationConfigured {
+                        Button("認証アプリで本人確認") { Task { totpContext=await store.prepareTOTPVerification() } }
+                            .accessibilityIdentifier("settings.totp").disabled(store.busy)
+                    }
                     Button("ログアウト", role: .destructive) { confirmLogout = true }.accessibilityIdentifier("settings.logout")
                 }
             }.navigationTitle("設定").modifier(AdaptiveNavigationTitle())
+             .sheet(item: $totpContext, onDismiss: {
+                 if let completed=completedTOTPContext { completedTOTPContext=nil;store.finishTOTPVerification(completed) }
+             }) { context in
+                 NavigationStack {
+                     TOTPVerificationView(accountID:context.account,revision:store.accountBindingRevision,api:context.api,controller:context.controller) {
+                         completedTOTPContext=context;totpContext=nil
+                     }.toolbar { ToolbarItem(placement:.cancellationAction) { Button("閉じる") { totpContext=nil }.accessibilityIdentifier("totp.close") } }
+                 }
+             }
              .fileImporter(isPresented: $choosingBackup, allowedContentTypes: [.json]) { result in
                  do {
                      let url = try result.get()

@@ -66,12 +66,13 @@ begin
  and (r.rolvaliduntil is null or r.rolvaliduntil>clock_timestamp())
  and not exists(select 1 from pg_catalog.pg_auth_members m where m.member=r.oid or m.roleid=r.oid))
  or p_request is null or p_home is null or p_user is null or p_root_lease is null or p_native_lease is null then return;end if;
- -- Keep the issuer's established app order. Combined cross-app lock order
- -- remains an integration gate; separate connections cannot substitute for it.
+ -- Shared root first, then app plan/binding/request, then sorted Auth parents.
+ -- Combined callers still need the same physical transaction and signal.
+ select * into j from private.kb_shared_deletion_journal where request_id=p_request for update;
+ if not found then return;end if;
  select * into h from maintenance_private.household_handoff_plans where home_id=p_home for update;
  if not found or h.owner_id=h.successor_id or p_user not in(h.owner_id,h.successor_id) then return;end if;
  select * into b from maintenance_private.household_stop_bindings where user_id=h.owner_id for update;
- select * into j from private.kb_shared_deletion_journal where request_id=p_request for update;
  select * into v from maintenance_private.scoped_consent_bindings
  where request_id=p_request and home_id=p_home and actor_id=p_user for update;
  if v.request_id is null or b.user_id is null or j.request_id is null or j.user_id<>h.owner_id or j.status<>'processing'

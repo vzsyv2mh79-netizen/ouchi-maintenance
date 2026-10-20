@@ -259,19 +259,21 @@ import OuchiCore
     let api: TOTPVerificationAPI
     let controller: SessionController
     let onVerified: @MainActor () async -> Void
+    @FocusState private var codeFocused: Bool
     @State private var factors: [TOTPFactor] = []
     @State private var selected: UUID?
     @State private var challenge: TOTPChallenge?
     @State private var code = ""
     @State private var busy = false
     @State private var message: String?
+    @State private var reloginRequired = false
     @State private var generation = UUID()
     @State private var operation: Task<Void, Never>?
     var body: some View {
         Form {
             Section("追加の本人確認") {
                 Text("登録済みの認証アプリに表示される6桁のコードで確認します。コードはチャットに書かず、この画面に入力してください。")
-                Button("登録済みの認証アプリを確認") { run(.load) }.disabled(busy)
+                Button("登録済みの認証アプリを確認") { run(.load) }.disabled(busy).accessibilityIdentifier("totp.load")
                 if !factors.isEmpty {
                     Picker("使う認証アプリ", selection: $selected) {
                         Text("選んでください").tag(Optional<UUID>.none)
@@ -279,33 +281,54 @@ import OuchiCore
                             Text("認証アプリ \(index + 1)").tag(Optional(factor.id))
                         }
                     }.disabled(busy)
-                    Button("確認コードの入力へ") { run(.challenge) }.disabled(busy || selected == nil)
+                    Button("確認コードの入力へ") { run(.challenge) }.disabled(busy || selected == nil).accessibilityIdentifier("totp.challenge")
                 }
             }
             if let challenge {
                 Section("認証アプリのコード") {
-                    SecureField("6桁のコード", text: $code).keyboardType(.numberPad).textContentType(.oneTimeCode)
+                    SecureField("6桁のコード", text: $code).keyboardType(.numberPad).textContentType(.oneTimeCode).focused($codeFocused).accessibilityIdentifier("totp.code")
                     Text("有効期限：\(challenge.expiresAt.formatted(date: .omitted, time: .standard))")
-                    Button("本人確認する") { run(.verify) }.disabled(busy || code.utf8.count != 6)
+                    Button("本人確認する") { run(.verify) }.disabled(busy || code.utf8.count != 6).accessibilityIdentifier("totp.verify")
                     Text("本人確認が終わっても引き継ぎは自動で送信しません。元の依頼の結果を確認してください。")
                 }
             }
             if busy { ProgressView("確認しています…") }
-            if let message { Text(message) }
+            if let message { Text(message).accessibilityIdentifier("totp.message") }
         }
         .navigationTitle("本人確認").navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge:.bottom) {
+            if challenge != nil {
+                VStack(alignment:.leading,spacing:8) {
+                    if message != nil {
+                        Text(reloginRequired ? "同じアカウントでログインし直してください。" : "コードと有効期限を確認してください。")
+                            .font(.callout).accessibilityIdentifier("totp.inlineError")
+                    }
+                    HStack {
+                    Button("コードで確認") { run(.verify) }
+                        .disabled(busy || code.utf8.count != 6)
+                        .accessibilityLabel("入力したコードで本人確認")
+                        .accessibilityIdentifier("totp.keyboardVerify")
+                    Spacer()
+                    Button("入力を終える") { codeFocused=false }
+                        .accessibilityIdentifier("totp.keyboardDone")
+                    }
+                }.padding().background(.regularMaterial)
+            }
+        }
         .onChange(of: accountID) { _, _ in reset() }
         .onChange(of: revision) { _, _ in reset() }
         .onChange(of: selected) { _, _ in challenge = nil; code = "" }
         .onDisappear { reset() }
     }
     private enum Action { case load, challenge, verify }
-    private func reset() { operation?.cancel(); generation = UUID(); code = ""; challenge = nil; factors = []; selected = nil; busy = false; message = nil }
+    private func reset() { codeFocused=false;operation?.cancel(); generation = UUID(); code = ""; challenge = nil; factors = []; selected = nil; busy = false; message = nil; reloginRequired=false }
     private func run(_ action: Action) {
         guard !busy else { return }
-        let expected = generation; busy = true; message = nil
+        let expected = generation; busy = true; message = nil; reloginRequired=false
         let submittedCode = code
-        if action == .verify { code = "" }
+        if action == .verify { code = "";codeFocused=false }
+        if action == .load { challenge=nil;code="";factors=[];selected=nil;codeFocused=false }
         operation = Task { @MainActor in
             defer { if expected == generation { busy = false } }
             do {
@@ -331,7 +354,10 @@ import OuchiCore
                 }
             } catch {
                 guard expected == generation, !Task.isCancelled else { return }
-                code = ""; message = "本人確認を完了できませんでした。コードの有効期限やログイン状態を確認してください。保存済みの引き継ぎ依頼は変更しません。"
+                code = ""
+                let expired = error as? CloudError == .authenticationRequired || error as? CloudError == .rejected(403)
+                reloginRequired=expired
+                message = expired ? "ログインが切れたか、追加の確認が必要です。設定から同じアカウントでログインし直し、認証アプリで確認してください。保存済みの依頼は変更しません。" : "本人確認を完了できませんでした。コードの有効期限やログイン状態を確認してください。保存済みの引き継ぎ依頼は変更しません。"
             }
         }
     }

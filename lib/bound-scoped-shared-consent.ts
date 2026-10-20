@@ -22,6 +22,7 @@ export function createBoundScopedSharedConsent({key,rootLease,...input}:Options&
  if(!(key instanceof Uint8Array)||key.length<32||!uuid(rootLease))throw Error('Independent proof key and fixed current root lease required');
  const fixed={...input},secret=Buffer.from(key),clock=fixed.clock??Date.now;
  const issuer=createScopedSharedConsentIssuerIdentity(fixed);
+ const currentChecks=new WeakMap<Transaction,Map<string,string>>(),historyChecks=new WeakMap<Transaction,Map<string,string>>();
  const sign=(payload:Payload)=>createHmac('sha256',secret).update('OuchiMaintenance/original-scoped-consent/v1\n'+canonical(payload)).digest('hex');
  const args=(actor:string)=>[fixed.requestID,fixed.homeID,actor,rootLease,fixed.nativeLease];
  function verify(row:Record<string,unknown>){
@@ -64,17 +65,27 @@ export function createBoundScopedSharedConsent({key,rootLease,...input}:Options&
    });
    return saved;
   },
+  // Hook-free stage readbacks. Use these from an existing COMMIT callback;
+  // they still validate exact current scope/lease/policy or historical custody.
+  readCurrent:current,
+  async readHistoricalSnapshot(actor:string,tx:Transaction){
+   const record=await read(actor,tx);return record?Object.freeze({kind:'historical-consent-only' as const,...record}):null;
+  },
   async verifyCurrent(actor:string,tx:Transaction){
    const first=await current(actor,tx);if(!first)return null;
+   const fingerprint=JSON.stringify(first),actors=currentChecks.get(tx)??new Map<string,string>();
+   const old=actors.get(actor);if(old!==undefined)return old===fingerprint?first:null;
    tx.beforeCommit('bound-current:'+fixed.requestID+':'+fixed.homeID+':'+actor,async()=>{
     const final=await current(actor,tx);return !!final&&JSON.stringify(final)===JSON.stringify(first);
-   });return first;
+   });actors.set(actor,fingerprint);currentChecks.set(tx,actors);return first;
   },
   async readHistorical(actor:string,tx:Transaction){
    const record=await read(actor,tx);if(!record)return null;
+   const fingerprint=record.signature+canonical(record.payload),actors=historyChecks.get(tx)??new Map<string,string>();
+   const old=actors.get(actor);if(old!==undefined){if(old!==fingerprint)throw Error('Original historical proof changed');return Object.freeze({kind:'historical-consent-only' as const,...record});}
    tx.beforeCommit('bound-history:'+fixed.requestID+':'+fixed.homeID+':'+actor,async()=>{
     try{const final=await read(actor,tx);return !!final&&final.signature===record.signature&&canonical(final.payload)===canonical(record.payload);}catch{return false;}
-   });return Object.freeze({kind:'historical-consent-only' as const,...record});
+   });actors.set(actor,fingerprint);historyChecks.set(tx,actors);return Object.freeze({kind:'historical-consent-only' as const,...record});
   }
  });
 }

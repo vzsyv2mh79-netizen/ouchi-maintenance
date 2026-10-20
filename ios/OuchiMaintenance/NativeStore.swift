@@ -6,6 +6,13 @@ import OuchiCore
 import AppKit
 #endif
 
+struct NativeTOTPVerificationContext: Identifiable {
+    let id: UUID
+    let account: UUID
+    let api: TOTPVerificationAPI
+    let controller: SessionController
+}
+
 struct FormalNativePushSelection {
     let receipt: NativePushRegistrationReceipt
     let account: UUID
@@ -231,6 +238,7 @@ struct FormalChannelSelection {
     @Published private(set) var familyHomeID: String?
     private let api: HouseholdAPI?
     private let session: SessionController?
+    private var totpVerificationAPI: TOTPVerificationAPI?
     private let isolatedDevelopmentEnabled: Bool
     private(set) var isUIReviewSample = false
     #if DEBUG
@@ -832,6 +840,7 @@ struct FormalChannelSelection {
                 ProcessInfo.processInfo.environment["OUCHI_REVIEW_TWO_HOMES"] == "1")
             let client=HouseholdAPI(config:config,transport:{ try await fixture.reply($0) })
             api=client;session=SessionController(api:client,storage:NativeReviewSessionStorage(bytes))
+            totpVerificationAPI=TOTPVerificationAPI(config:config,transport:{ try await fixture.reply($0) })
             isolatedDevelopmentEnabled=false;isUIReviewSample=true
             isPurchaseRecoveryUIReviewSample = info["OUCHI_REVIEW_PURCHASE_RECOVERY_UI"] as? String == "YES"
             return
@@ -851,8 +860,29 @@ struct FormalChannelSelection {
             let client = HouseholdAPI(config: config)
             snapshotStorage = HouseholdSnapshotStorage(namespace: url.host ?? "unconfigured")
             api = client
+            totpVerificationAPI = TOTPVerificationAPI(config: config)
             session = SessionController(api: client, storage: KeychainSessionStorage(service: (Bundle.main.bundleIdentifier ?? "ouchi") + "." + (url.host ?? "")))
         } else { api = nil; session = nil; isolatedDevelopmentEnabled = false }
+    }
+    /// Explicitly off unless a future reviewed release configuration enables it.
+    /// Sample-only entry requires both the DEBUG sample bundle and opt-in.
+    var totpVerificationConfigured: Bool {
+        #if DEBUG
+        if isUIReviewSample, Bundle.main.bundleIdentifier?.hasPrefix("dev.ouchi.review.") == true,
+           ProcessInfo.processInfo.environment["OUCHI_REVIEW_MFA_UI"] == "1" { return totpVerificationAPI != nil }
+        #endif
+        return Bundle.main.infoDictionary?["OUCHI_TOTP_VERIFICATION_ENABLED"] as? Bool == true && totpVerificationAPI != nil
+    }
+    func prepareTOTPVerification() async -> NativeTOTPVerificationContext? {
+        guard totpVerificationConfigured, signedIn, !busy, let controller=session, let api=totpVerificationAPI else { return nil }
+        let revision=accountBindingRevision
+        guard let account=await controller.localAccount(), signedIn, revision==accountBindingRevision else { return nil }
+        return .init(id:revision,account:account,api:api,controller:controller)
+    }
+    func finishTOTPVerification(_ context: NativeTOTPVerificationContext) {
+        guard signedIn, context.id==accountBindingRevision else { return }
+        accountBindingRevision=UUID()
+        message="本人確認が完了しました。引き継ぎ・退会は送信していません。記録や元の依頼の結果を確認してください。"
     }
     var developmentLifecycleConfigured: Bool {
         #if DEBUG
@@ -1068,7 +1098,7 @@ struct FormalChannelSelection {
     func restore() async {
         #if DEBUG
         if isClosureUIReviewSample { return }
-        if isUIReviewSample, Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" {
+        if isUIReviewSample, Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" || (Bundle.main.bundleIdentifier == "dev.ouchi.review.closure" && ProcessInfo.processInfo.environment["OUCHI_REVIEW_MFA_UI"] == "1") {
             // Capture-only fixture loading does not depend on simulator notification daemons.
             // api/session here are the in-memory sample objects, never live credentials.
             guard !busy, let session, let api else { return }

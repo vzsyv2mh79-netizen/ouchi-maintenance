@@ -41,3 +41,11 @@ test('dedicated issuer registers an immutable current-digest COMMIT readback wit
  row.auth_state_digest='b'.repeat(64);
  assert.equal(await checks[0](),false);assert.equal(first.authStateDigest,'a'.repeat(64));assert.equal(first.proofDomain,domain);
 });
+
+test('issuer repeated reads register once per actual transaction and reject changed original identity',async()=>{
+ const row={},f=fixture({row}),seen=new Set();let count=0;
+ f.tx.beforeCommit=(key)=>{assert.equal(seen.has(key),false);seen.add(key);count++;};
+ const identify=scopedModule.createScopedSharedConsentIssuerIdentity(f.options);
+ assert.ok(await identify(f.token,f.tx));assert.ok(await identify(f.token,f.tx));assert.equal(count,1);
+ row.auth_state_digest='b'.repeat(64);assert.equal(await identify(f.token,f.tx),null);assert.equal(count,1);
+});

@@ -87,6 +87,29 @@ test('bound Ouchi consent keeps immutable original proof across live lease recov
   await assert.rejects(admin.query('delete from maintenance_private.scoped_consent_bindings'),/immutable/);
   await admin.query('alter role shared_retirement_backend createdb');
   try{assert.equal(await transaction(tx=>custody.verifyCurrent(owner.id,tx),coordinator),null);}finally{await admin.query('alter role shared_retirement_backend nocreatedb');}
+  await transaction(async tx=>{
+   const seen=new Set(),strict={...tx,beforeCommit:(key,check)=>{assert.equal(seen.has(key),false,'Duplicate registration is forbidden by integration adapter');seen.add(key);tx.beforeCommit(key,check);}};
+   assert.ok(await custody.verifyCurrent(owner.id,strict));assert.ok(await custody.verifyCurrent(owner.id,strict));
+   assert.ok(await custody.readHistorical(owner.id,strict));assert.ok(await custody.readHistorical(owner.id,strict));
+   tx.beforeCommit('fixture-hook-free-readback',async()=>!!await custody.readCurrent(owner.id,strict)&&!!await custody.readHistoricalSnapshot(owner.id,strict));
+  },coordinator);
+  // Dedicated root coordinator holds only the shared journal first. A real
+  // concurrent issuer must wait there WITHOUT already holding the app plan.
+  await admin.query(`create function maintenance_private.fixture_pin_root(p uuid) returns void language plpgsql security definer set search_path='' as $$begin perform 1 from private.kb_shared_deletion_journal where request_id=p for update;end$$;
+   revoke all on function maintenance_private.fixture_pin_root(uuid) from public;
+   grant execute on function maintenance_private.fixture_pin_root(uuid) to shared_retirement_backend;`);
+  const issuerPID=(await worker.query('select pg_backend_pid() as pid')).rows[0].pid,rootClient=await coordinator.connect();let issuerResult;
+  try{
+   await rootClient.query('begin');await rootClient.query("set local statement_timeout='1500ms'");
+   await rootClient.query('select maintenance_private.fixture_pin_root($1)',[requestID]);
+   const rootPID=(await rootClient.query('select pg_backend_pid() as pid')).rows[0].pid;
+   issuerResult=transaction(tx=>custody.issue(owner.token,tx)).then(value=>({value}),error=>({error}));
+   let blocked=false;for(let i=0;i<60;i++){const r=(await admin.query('select wait_event_type,pg_blocking_pids(pid) as blockers from pg_stat_activity where pid=$1',[issuerPID])).rows[0];if(r?.wait_event_type==='Lock'&&r.blockers.includes(rootPID)){blocked=true;break;}await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(blocked,true,'Actual issuer waits on held shared root');
+   const read=await rootClient.query(boundScopedModule.BOUND_CONSENT_READ_SQL,[requestID,homeID,owner.id,rootLease,nativeLease]);
+   assert.equal(read.rows.length,1,'Coordinator can acquire app plan while issuer waits at root; reverse-order issuer would deadlock');
+   await rootClient.query('commit');
+   const result=await issuerResult;assert.equal(result.error,undefined,result.error?.message);assert.deepEqual(result.value,issued[0]);
+  }finally{await rootClient.query('rollback');rootClient.release();if(issuerResult)await issuerResult;}
   const current=await transaction(tx=>custody.verifyCurrent(owner.id,tx),coordinator);assert.ok(current);assert.equal(current.authStateDigest,issued[0].payload.authStateDigest);
   const nextRoot=randomUUID(),nextNative=randomUUID();
   await admin.query("update private.kb_shared_deletion_journal set lease_token=$1",[nextRoot]);
