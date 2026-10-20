@@ -24,7 +24,7 @@ Production targets accept only the direct `db.<projectRef>.supabase.co:5432` end
 
 The final-check/COMMIT fault was identified by a separate root integration test against the earlier session-only candidate; that candidate must not be treated as closing the gap. The revised source includes the owning transaction shared key and an actual local reproduction proving its protection.
 
-Bindings in this candidate authorize **processing-root** checks. They do not supply a completed-root/COMPLETE commit verifier. The physical hold is not itself a consent or dispatch capability.
+**`bind` remains processing-root only.** The separately named `bindTerminal` now verifies the owner-zero immutable closure and exact complete-root facts through its fixed RPC when the real root is complete with cleared lease. It never reclassifies a cleared lease as live. Both bindings retain owning shared xact exclusion; terminal original/coverage authority is supplied by the separate OwnerOnlyTerminalReview candidate, never by the physical hold alone. The physical hold is not itself a consent or dispatch capability.
 
 ## What is proven locally
 
