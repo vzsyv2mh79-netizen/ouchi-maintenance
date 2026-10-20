@@ -15,7 +15,8 @@ import {createSharedFamilyStageStore} from '../lib/shared-family-stage-store.mjs
 import {sharedFamilyCoverageDigest} from '../lib/shared-family-handoff-stage.mjs';
 import {createSharedMaintenancePrelogoutCustody} from '../lib/shared-maintenance-prelogout-custody.mjs';
 import {deletionStages} from '../lib/shared-deletion-protocol.mjs';
-import {createSharedNativeErasure} from './fixtures/restricted-native-executor-20261021/shared-native-erasure.mjs';
+import {createSharedNativeReviewedErasure} from '../lib/shared-native-reviewed-erasure.mjs';
+import {prepareReviewedNativeCase} from './fixtures/shared-native-reviewed-cleanup-20261021/native-cases.mjs';
 import {installHeldAuthExclusionFixture,runHeldAuthRemovalInterval,verifyHeldAuthExclusion} from './fixtures/auth-recreation-held-cases.mjs';
 
 test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fences and exact claim adoption',async()=>{
@@ -281,14 +282,18 @@ test('independent zero-family Ouchi owner original: real Auth, enrollment, FK fe
   await admin.query(privateWriters.replace(closedActivationStub,''));
   assert.equal((await admin.query("select pg_get_functiondef('maintenance_private.allowed_family_attachment_activation(text,jsonb,jsonb)'::regprocedure) body")).rows[0].body,activationDefinition);
   await admin.query(readFileSync('tests/fixtures/restricted-native-executor-20261021/shared-native-owner-profile.sql','utf8'));
-  const executor=createSharedNativeErasure({scope,nativeLease,verifyBefore:async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await history.readSnapshot(tx),verifySealed:async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await post.readSnapshot(tx)});
+  const executor=createSharedNativeReviewedErasure({scope,nativeLease,verifyBefore:async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await history.readSnapshot(tx),verifySealed:async(s,tx)=>JSON.stringify(s)===JSON.stringify(scope)&&!!await post.readSnapshot(tx)});
+  const reviewedCase=await prepareReviewedNativeCase({admin,coordinator,scope,nativeID,epoch:oe,user:owner,otherUser:recipient,otherEpoch:re,home:memberHome,transaction});
+  await reviewedCase.rejectForeign(executor);
   let refuseSealCommit=true;
   stages['erase:ouchi-maintenance']=async(s,tx)=>{const ok=await executor.erase(s,tx);tx.beforeCommit('owner-native-seal-fixture',async()=>!refuseSealCommit&&!!await post.readSnapshot(tx));return ok;};
   const beforeNative=(await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows;
   await assert.rejects(prep.perform(scope,'erase:ouchi-maintenance'),/Current transaction verification/);
   assert.deepEqual((await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows,beforeNative,'Late refusal rolls canonical native flags/seal and outer erase receipt back');
   assert.equal((await admin.query('select count(*)::int n from public.products where "homeId"=$1',[home])).rows[0].n,1,'Real records are restored by the failed owning transaction');
+  await reviewedCase.verifyRolledBack();
   refuseSealCommit=false;await prep.perform(scope,'erase:ouchi-maintenance');
+  await reviewedCase.verifyComplete();
   const sealed=(await admin.query('select * from maintenance_private.account_deletion_requests where id=$1',[nativeID])).rows[0];
   assert.equal(sealed.state,'complete');assert.equal(sealed.completion_lease,nativeLease);assert.equal(sealed.lease_token,null);assert.equal(sealed.lease_until,null);
   assert.equal((await admin.query('select count(*)::int n from maintenance_private.app_session_epochs where user_id=$1',[owner])).rows[0].n,0);
