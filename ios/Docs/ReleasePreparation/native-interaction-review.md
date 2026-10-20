@@ -145,3 +145,11 @@ The owned simulator was removed. The native product-source digest remains
 `531b76fff70ef9d24ad3355499055fbb5f76c30e`; only tests/documentation changed.
 This does not prove every field, long single-line model visibility, cloud saves,
 VoiceOver or physical-device behavior, and it does not replace the35-case audit.
+
+## Retained-family file removal recovery at AX5/dark — 2026-10-20
+
+Actual iPhone 17e/iOS27 simulator case passed: 1 passed, 0 failed, 0 skipped and no runtime warnings. All five attachments were visually inspected. Cancel/dismiss preserves the sample PDF; the explicit sample destructive action moves that exact ID to pending and removes download access; same-ID retry clears pending while the separate photo remains available.
+
+On iOS27 the large-text confirmation presents as a popover with an accessible PopoverDismissRegion instead of a cancel button. The test accepts either actual dismissal control, then enforces unchanged-file and no-pending postconditions. The earlier button-only test failed and was retained as diagnostic evidence; no assertion was skipped.
+
+Only the existing shipping sections in a DEBUG sample Form were exercised. No real Auth/Storage request or erasure occurred; this does not prove parent-form/server integration, physical iPhone or VoiceOver behavior. Native product sources remain unchanged. The owned simulator was removed. Evidence: output/native-retained-removal-popover-ax5-dark-20261019/verification.json.

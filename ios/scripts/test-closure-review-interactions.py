@@ -16,7 +16,7 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--text-size', choices=['large', 'accessibility-extra-extra-extra-large'], required=True)
 parser.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-27-0')
 parser.add_argument('--appearance', choices=['light', 'dark'], default='light')
-parser.add_argument('--test', choices=['retained-files', 'same-number-retry', 'closure-review', 'keyboard-toolbar-probe', 'failed-reread', 'home-management', 'closure-progress', 'closure-custody', 'closure-local-cleanup', 'closure-root', 'closure-root-interruption'], default='closure-review')
+parser.add_argument('--test', choices=['retained-removal', 'retained-files', 'same-number-retry', 'closure-review', 'keyboard-toolbar-probe', 'failed-reread', 'home-management', 'closure-progress', 'closure-custody', 'closure-local-cleanup', 'closure-root', 'closure-root-interruption'], default='closure-review')
 parser.add_argument('--omit-input-accessory', '--omit-keyboard-toolbar', dest='omit_keyboard_toolbar', action='store_true', help='Diagnostic temporary copy only; requires keyboard-toolbar-probe')
 args = parser.parse_args()
 if args.omit_keyboard_toolbar and args.test != 'keyboard-toolbar-probe':
@@ -66,6 +66,9 @@ if args.test == 'same-number-retry':
 if args.test == 'retained-files':
     manifest['scope'] = ['Exact shipping retained-family section in isolated Form; reload, PDF/photo action and pagination reachability; no destructive control']
     manifest['notVerified'] = ['Parent product form state, live Auth/Storage/download or ShareLink, physical device, billing, signing']
+if args.test == 'retained-removal':
+    manifest['scope'] = ['Shipping retained-family and pending-removal sections in isolated sample Form: explicit cancel preserves PDF, simulated uncertain removal hides download, same-ID retry clears pending while other photo remains. No network or real deletion.']
+    manifest['notVerified'] = ['Parent product form integration', 'live Auth/Storage erasure and server retry', 'VoiceOver', 'physical device', 'billing', 'signing']
 device = None
 
 def run(*command, **kwargs):
@@ -169,7 +172,7 @@ SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_review_only
                 '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
                 '-test-timeouts-enabled', 'YES', '-maximum-test-execution-time-allowance', '600',
                 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-',
-                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'retained-files':'testRetainedFamilyFilesReachableWithoutDeletionControls', 'same-number-retry':'testMissingIntakeExplicitlyRetriesOriginalProtectedNumber', 'closure-root-interruption':'testRealRootRecoversAfterProcessTerminationBetweenAuthErasureAndMarkerFinalization', 'closure-root':'testRealRootRetiredOwnerCleanupLoginRecoveryAndFamilyAccountFiltering', 'closure-local-cleanup':'testScopedLocalCleanupErasesOwnedFilesAndAuthButKeepsCapabilityAfterRestart', 'closure-custody':'testProtectedCustodySurvivesLostReplyAndRestartWithoutRotation', 'closure-progress':'testRealJobProgressHidesMutationsAndKeepsUncertainReference', 'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission', 'home-management':'testManagementUnknownCommitRestartsWithSameProtectedReference'}[args.test],
+                '-only-testing:OuchiInteractionTests/AccountClosureReviewInteractionTests/' + {'retained-removal':'testRetainedFamilyRemovalCancelAndUncertainRetry', 'retained-files':'testRetainedFamilyFilesReachableWithoutDeletionControls', 'same-number-retry':'testMissingIntakeExplicitlyRetriesOriginalProtectedNumber', 'closure-root-interruption':'testRealRootRecoversAfterProcessTerminationBetweenAuthErasureAndMarkerFinalization', 'closure-root':'testRealRootRetiredOwnerCleanupLoginRecoveryAndFamilyAccountFiltering', 'closure-local-cleanup':'testScopedLocalCleanupErasesOwnedFilesAndAuthButKeepsCapabilityAfterRestart', 'closure-custody':'testProtectedCustodySurvivesLostReplyAndRestartWithoutRotation', 'closure-progress':'testRealJobProgressHidesMutationsAndKeepsUncertainReference', 'keyboard-toolbar-probe':'testKeyboardToolbarWarningDiagnostic', 'failed-reread':'testFailedRereadClearsVisibleReceiptAndRetainsReference', 'closure-review':'testProtectedReferenceReadCancelAndExplicitNewSubmission', 'home-management':'testManagementUnknownCommitRestartsWithSameProtectedReference'}[args.test],
                 'test', stdout=log, stderr=subprocess.STDOUT)
         manifest['status'] = 'xcode_ui_tests_passed_result_inspection_required'
 except BaseException:

@@ -361,6 +361,56 @@ import XCTest
         app.terminate()
     }
 
+    func testRetainedFamilyRemovalCancelAndUncertainRetry() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.closure")
+        app.launchArguments = ["--ouchi-retained-files-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if ProcessInfo.processInfo.environment["OUCHI_UI_TEXT_MODE"] == "ax5" { app.launchArguments.append("--ouchi-large-text-preview") }
+        app.launch()
+        XCTAssertTrue(app.staticTexts["retained-files.sample"].waitForExistence(timeout: 45))
+        let reload = app.buttons["retained-files.reload"]
+        reach(reload, in: app); reload.tap()
+        let id = "11111111-1111-4111-8111-111111111111"
+        let photoID = "22222222-2222-4222-8222-222222222222"
+        let remove = app.buttons["retained-files.remove." + id]
+        reach(remove, in: app); XCTAssertTrue(remove.isEnabled); remove.tap()
+        let cancel = app.buttons["キャンセル"]
+        let dismissPopover = app.otherElements["PopoverDismissRegion"]
+        let dismissalReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            cancel.exists || dismissPopover.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissalReady], timeout: 10), .completed)
+        capture(app, "retained-removal-cancel-or-popover-dismissal")
+        if cancel.exists { cancel.tap() }
+        else { XCTAssertTrue(dismissPopover.isHittable); dismissPopover.tap() }
+        reach(remove, in: app, searchingUp: true)
+        XCTAssertTrue(remove.isEnabled, "Cancelling must preserve the existing sample file")
+        XCTAssertFalse(app.buttons["retained-removals.retry." + id].exists)
+        capture(app, "retained-removal-cancel-preserves-file")
+        remove.tap()
+        let simulate = app.buttons["削除後の通信断を確認"]
+        XCTAssertTrue(simulate.waitForExistence(timeout: 10))
+        capture(app, "retained-removal-explicit-sample-confirmation")
+        simulate.tap()
+        let retry = app.buttons["retained-removals.retry." + id]
+        reach(retry, in: app)
+        XCTAssertTrue(retry.isEnabled)
+        XCTAssertFalse(app.buttons["retained-files.download." + id].exists, "Pending removal must not remain downloadable")
+        XCTAssertFalse(remove.exists)
+        capture(app, "retained-removal-uncertain-same-file-retry")
+        retry.tap()
+        let result = app.staticTexts["retained-files.result"]
+        reach(result, in: app, longParagraph: true)
+        XCTAssertEqual(result.label, "サンプルの削除結果の再確認を完了しました")
+        XCTAssertFalse(retry.exists)
+        XCTAssertFalse(app.buttons["retained-files.download." + id].exists)
+        let photo = app.buttons["retained-files.download." + photoID]
+        reach(photo, in: app, searchingUp: true)
+        XCTAssertTrue(photo.isEnabled, "The other family sample file must remain available")
+        capture(app, "retained-removal-complete-other-file-preserved")
+        app.terminate()
+    }
+
     private let original = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
     private func launch(failRepeatedRead: Bool = false, progress: Bool = false, missingIntake: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
