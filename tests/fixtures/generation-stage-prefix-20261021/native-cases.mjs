@@ -1,3 +1,4 @@
+import {verifyGenerationSessionCustody} from '../generation-session-custody-20261021/native-cases.mjs';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -10,6 +11,7 @@ import {createDeletionJournal} from '../kakei-completion/lib/shared-deletion-jou
 import {deletionStages} from '../../../lib/shared-deletion-protocol.mjs';
 export async function verifyGenerationStagePrefix({admin,coordinator,issuer,auth,transaction,socket,projectID}){
  await admin.query(readFileSync('tests/fixtures/generation-stage-prefix-20261021/protocol.sql','utf8'));
+ if(process.env.OUCHI_GENERATION_SESSION_TEST==='true')await admin.query(readFileSync('tests/fixtures/generation-session-custody-20261021/protocol.sql','utf8'));
  const checker=new pg.Client({host:socket,user:'ouchi_retention_checker_backend',database:'postgres'});await checker.connect();
  try{
   async function actor(){const user=randomUUID(),epoch=randomUUID(),email=user+'@fixture.invalid',password=randomBytes(30).toString('base64url');await auth.createFixtureUser(user,email,password);const login=await auth.request('/token?grant_type=password',{email,password});const f=await auth.request('/factors',{factor_type:'totp',friendly_name:'Stage original'},login.access_token),c=await auth.request('/factors/'+f.id+'/challenge',{},login.access_token);const promoted=await auth.request('/factors/'+f.id+'/verify',{challenge_id:c.id,code:fixtureTOTP(f.totp.secret)},login.access_token);const sid=JSON.parse(Buffer.from(promoted.access_token.split('.')[1],'base64url')).session_id;await admin.query('insert into maintenance_private.account_access values($1,true)',[user]);await admin.query('insert into maintenance_private.app_epochs values($1,$2,true)',[user,epoch]);await admin.query('insert into maintenance_private.app_session_epochs values($1,$2,$3)',[sid,user,epoch]);return {user,epoch,token:promoted.access_token};}
@@ -59,7 +61,9 @@ export async function verifyGenerationStagePrefix({admin,coordinator,issuer,auth
   assert.equal(await transaction(coordinator,tx=>originals.verifyProcessingOriginal(scope,tx)),true);
   await assert.rejects(transaction(coordinator,tx=>tx.query('update private.kb_shared_deletion_journal set receipts=receipts||$2::jsonb where request_id=$1',[scope.requestID,{unexpected:receipt('prepare')}])),/Exact ordered generation|Exact new generation/,'Any extra receipt fails closed');
   await assert.rejects(journal.perform(scope,'erase:ouchi-maintenance'),/prerequisite missing|unconfirmed/,'Unsupported later erasure cannot advance');
+  const sessionCase=process.env.OUCHI_GENERATION_SESSION_TEST==='true'?await verifyGenerationSessionCustody({admin,coordinator,transaction,scope,options,retention,originals,handoff,port,handlers}):null;
   const logout=await fetch(auth.origin+'/logout?scope=global',{method:'POST',headers:{authorization:'Bearer '+owner.token}});assert.equal(logout.status,204);
+  if(sessionCase)await sessionCase.afterLogout();
   assert.equal(await transaction(coordinator,tx=>originals.verifyProcessingOriginal(scope,tx)),false,'Real logout is never current consent');
   assert.deepEqual(await transaction(coordinator,tx=>port.readHistorical(scope,tx)),historical,'Frozen SAME-domain original/session custody remains a fact after real logout, without Auth reads');
   await assert.rejects(transaction(coordinator,tx=>createGenerationFamilyStages({...stageOptions,key:randomBytes(32)}).readHistorical(scope,tx)),/Historical SAME-domain/);
