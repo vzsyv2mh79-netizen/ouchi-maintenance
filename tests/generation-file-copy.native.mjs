@@ -10,6 +10,7 @@ import {startFixtureStorage} from './fixtures/generation-file-copy-20261021/nati
 import {createDedicatedPostgresConnection} from '../lib/dedicated-postgres-connection.mjs';
 import {createAccountContentReviewPorts} from '../lib/closure-account-content-review.mjs';
 import {createGenerationFileCopy,generationFileScopeDigest,GENERATION_FILE_CALL_SQL} from '../lib/generation-file-copy.mjs';
+import {verifyUnusedGenerationFileCancellation} from './fixtures/generation-file-cancellation-20261021/native-cases.mjs';
 import {createHouseholdCopyStorage} from '../lib/closure-storage-runtime.mjs';
 
 test('planned generation copy namespace: official Storage bytes + old strict copy nonce/unknown writer boundary',async()=>{
@@ -39,11 +40,12 @@ test('planned generation copy namespace: official Storage bytes + old strict cop
   const bytes=Buffer.from('%PDF-1.7\nGeneration preparatory official Storage\n'),sha=createHash('sha256').update(bytes).digest('hex');
   const objects=new Map();
   const reviewPort=createAccountContentReviewPorts({connect,readFileBytes:async file=>{const b=objects.get(file.objectPath);assert.ok(b);return b;}}).personalFiles;
-  let mode='normal',posts=0,admitted=true;const projectID='abcdefghijklmnopqrst',secretKey='sb_secret_synthetic_generation_file';
+  let mode='normal',posts=0,admitted=true,inspectionError=false,inspections=0;const projectID='abcdefghijklmnopqrst',secretKey='sb_secret_synthetic_generation_file';
   globalThis.fetch=async(input,init)=>{
    const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
    if(url.origin!==`https://${projectID}.supabase.co`)return originalFetch(input,init);
    assert.ok(url.pathname.startsWith('/storage/v1/object/ouchi-product-attachments/'));assert.ok(['GET','POST'].includes(init.method));assert.equal(init.redirect,'error');
+   if(init.method==='GET'){inspections++;if(inspectionError)return new Response(JSON.stringify({message:'synthetic unavailable'}),{status:503,headers:{'content-type':'application/json'}});}
    const headers=new Headers(init.headers);assert.equal(headers.get('apikey'),secretKey);headers.set('authorization','Bearer '+storage.serviceKey);headers.set('apikey',storage.serviceKey);
    if(init.method==='POST'){posts++;assert.equal(headers.get('x-upsert'),'false');}
    const response=await originalFetch(storage.origin+url.pathname.slice('/storage/v1'.length),{...init,headers});
@@ -80,6 +82,7 @@ test('planned generation copy namespace: official Storage bytes + old strict cop
   assert.deepEqual({users:(await admin.query('select * from auth.users order by id')).rows,sessions:(await admin.query('select * from auth.sessions order by id')).rows},authBefore,'Synthetic Auth identities and sessions stay exact');
   assert.equal((await admin.query('select count(*)::int n from maintenance_private.generation_file_copy_contexts')).rows[0].n,0);
   assert.equal((await port.status(operation,AbortSignal.timeout(5000))).activationConfirmed,false);assert.equal((await port.status(operation,AbortSignal.timeout(5000))).sourceEraseConfirmed,false);
-  console.log('Generation file preparatory namespace: full pinned135 schema + fixed official Storage filesystem/PG metadata; actual account-content reviewed scoped file + immutable planned generation/root/review binding + measured create-only copy/quota/nonce journal. Lost real POST response remains issued/pending without another POST; source, copied bytes, family file/metadata/Auth/home preserved. Unapproved admission creates no binding; raw private/old RPC/cleanup/root-advance refused. NO activated file-capable native generation, family handoff, source erasure, cancellation, capacity release or hosted/retention/writer approval. TLS/key gateway and independent policy/evidence are synthetic.');
+  if(process.env.OUCHI_FILE_CANCELLATION_TEST==='true')await verifyUnusedGenerationFileCancellation({admin,socket,service,bucket,reviewPort,file,bytes,projectID,secretKey,baseOptions:{scope,generationID,nativeLease,reviewRequestID:review,connect},baseScope:scope,getPosts:()=>posts,setCopyAdmission:value=>{admitted=value;},setInspectionError:value=>{inspectionError=value;},getInspections:()=>inspections});
+  console.log('Generation file preparatory namespace: full pinned135 schema + fixed official Storage filesystem/PG metadata; actual account-content reviewed scoped file + immutable planned generation/root/review binding + measured create-only copy/quota/nonce journal. Lost real POST response remains issued/pending without another POST; source, copied bytes, family file/metadata/Auth/home preserved. Unapproved admission creates no binding; raw private/old RPC/cleanup/root-advance refused. NO activated file-capable native generation, family handoff, source erasure or cancellation within this copy-only port, capacity release or hosted/retention/writer approval. TLS/key gateway and independent policy/evidence are synthetic.');
  }finally{globalThis.fetch=originalFetch;if(storage)await storage.stop();await admin.end();}
 });
