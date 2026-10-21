@@ -1,8 +1,10 @@
 # Generation session/prelogout boundary — design baseline
 
 A local fourth-stage candidate now exists: `GenerationSessionCustodyReview.md`.
-It chooses separate signed custody with ZERO native flag/child delta. Later native
-materialization/logout/erasure authority below remains unimplemented.
+It chooses separate signed custody with ZERO native flag/child delta. A separate
+local after-logout/before-native read gate is described in
+`GenerationAfterLogoutAuthorityReview.md`; actual root dispatch/origin integration
+and later native materialization/erasure authority below remain unimplemented.
 
 The root independently reports normal paired3stages/current→historical custody,
 unchanged5second final-seal expiry/refusal and later retry, and two-KB-household

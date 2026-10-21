@@ -1,3 +1,4 @@
+import {prepareGenerationAfterLogoutCase} from '../generation-after-logout-20261021/native-cases.mjs';
 import {verifyGenerationSessionCustody} from './native-cases.mjs';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
@@ -12,6 +13,7 @@ import {deletionStages} from '../../../lib/shared-deletion-protocol.mjs';
 export async function verifyGenerationSessionProfile({admin,coordinator,issuer,auth,transaction,socket,projectID}){
  await admin.query(readFileSync('tests/fixtures/generation-stage-prefix-20261021/protocol.sql','utf8'));
  if(process.env.OUCHI_GENERATION_SESSION_TEST==='true')await admin.query(readFileSync('tests/fixtures/generation-session-custody-20261021/protocol.sql','utf8'));
+ if(process.env.OUCHI_GENERATION_AFTER_LOGOUT_TEST==='true')await admin.query(readFileSync('tests/fixtures/generation-after-logout-20261021/protocol.sql','utf8'));
  const checker=new pg.Client({host:socket,user:'ouchi_retention_checker_backend',database:'postgres'});await checker.connect();
  try{
   async function actor(){const user=randomUUID(),epoch=randomUUID(),email=user+'@fixture.invalid',password=randomBytes(30).toString('base64url');await auth.createFixtureUser(user,email,password);const login=await auth.request('/token?grant_type=password',{email,password});const f=await auth.request('/factors',{factor_type:'totp',friendly_name:'Stage original'},login.access_token),c=await auth.request('/factors/'+f.id+'/challenge',{},login.access_token);const promoted=await auth.request('/factors/'+f.id+'/verify',{challenge_id:c.id,code:fixtureTOTP(f.totp.secret)},login.access_token);const sid=JSON.parse(Buffer.from(promoted.access_token.split('.')[1],'base64url')).session_id;await admin.query('insert into maintenance_private.account_access values($1,true)',[user]);await admin.query('insert into maintenance_private.app_epochs values($1,$2,true)',[user,epoch]);await admin.query('insert into maintenance_private.app_session_epochs values($1,$2,$3)',[sid,user,epoch]);return {user,epoch,token:promoted.access_token};}
@@ -46,8 +48,10 @@ export async function verifyGenerationSessionProfile({admin,coordinator,issuer,a
   for(const wanted of ['prepare','handoff-family','verify-family-before']){console.log('Session profile prerequisite:',wanted);await prerequisiteJournal.perform(scope,wanted);}
 
   const sessionCase=await verifyGenerationSessionCustody({admin,coordinator,transaction,scope,options,retention,originals,handoff,port,handlers});
+  const afterLogoutCase=process.env.OUCHI_GENERATION_AFTER_LOGOUT_TEST==='true'?await prepareGenerationAfterLogoutCase({admin,coordinator,transaction,scope,options,retention,originals,handoff,port,owner,auth,socket}):null;
   const logout=await fetch(auth.origin+'/logout?scope=global',{method:'POST',headers:{authorization:'Bearer '+owner.token}});assert.equal(logout.status,204);
   if(sessionCase)await sessionCase.afterLogout();
+  if(afterLogoutCase)await afterLogoutCase.afterLogout();
   console.log('Dedicated session profile: positive first-three stage producers only; full existing stage fault suite remains separate and is NOT claimed passing by this profile.');
  }finally{await checker.end();}
 }
