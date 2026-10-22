@@ -2,6 +2,27 @@ import Foundation
 import OuchiCore
 @main struct BillingSmoke {
     static func main() async throws {
+        let reviewOrigin = "https://ouchi-maintenance-28cjyf5m5-gfgz4m9pkm-8942.vercel.app"
+        let review = BillingAPI(environment: .sandbox, server: .sandboxReview) { request in
+            precondition(request.url?.absoluteString == reviewOrigin + "/api/billing/entitlement")
+            precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
+            precondition(request.value(forHTTPHeaderField: "x-vercel-protection-bypass") == nil)
+            precondition(request.value(forHTTPHeaderField: "x-vercel-trusted-oidc-idp-token") == nil)
+            return (Data(#"{"plan":"free","salesEnabled":false,"environment":"Sandbox"}"#.utf8),
+                    HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        _ = try await review.entitlement(token: "synthetic")
+        let wrongReview = BillingAPI(environment: .production, server: .sandboxReview) { _ in
+            fatalError("Production bearer transmitted to Sandbox review server")
+        }
+        do { _ = try await wrongReview.entitlement(token: "synthetic"); fatalError("mismatched review environment accepted") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        let reviewRedirect = BillingAPI(environment: .sandbox, server: .sandboxReview) { _ in
+            (Data(#"{"saved":true,"environment":"Sandbox"}"#.utf8),
+             HTTPURLResponse(url: URL(string: "https://ouchi-maintenance.vercel.app/api/billing/transactions")!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        do { try await reviewRedirect.submit(signedTransaction: "synthetic-jws", token: "synthetic"); fatalError("review accepted Production-origin response") }
+        catch { precondition(error as? CloudError == .malformedResponse) }
         // This suite links Release core: development options cannot redirect
         // any released billing request, including Sandbox, to loopback.
         for environment in [BillingEnvironment.sandbox, .production] {

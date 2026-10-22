@@ -665,7 +665,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
-            let billing = BillingAPI(environment: config.purchase)
+            let billing = configuredBillingAPI(environment: config.purchase)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), rights.environment == config.purchase.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
             let service = FormalNativePushAPI(notificationEnvironment: config.push, purchaseEnvironment: config.purchase)
@@ -1491,11 +1491,17 @@ struct FormalChannelSelection {
             }
         }
     }
+    private func configuredBillingAPI(environment: BillingEnvironment = .sandbox,
+                                      isolatedDevelopment: Bool = false) -> BillingAPI {
+        let review = Bundle.main.object(forInfoDictionaryKey: "OUCHI_SANDBOX_REVIEW_SERVER") as? Bool == true
+        return BillingAPI(environment: environment, server: review ? .sandboxReview : .production,
+                          isolatedDevelopment: isolatedDevelopment)
+    }
     private func releaseBillingAPI(environment: BillingEnvironment) -> BillingAPI {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
         if let releaseFixtureBilling { return releaseFixtureBilling }
         #endif
-        return BillingAPI(environment: environment)
+        return configuredBillingAPI(environment: environment)
     }
     private func releaseAttachmentAPI() -> AttachmentAPI {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
@@ -1608,7 +1614,7 @@ struct FormalChannelSelection {
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
             if subscription {
-                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+                let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard expected == generation, rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
                 sandboxEntitlement = rights
                 guard !rights.premiumIsCurrent() else {
@@ -1731,7 +1737,7 @@ struct FormalChannelSelection {
             // Process completion is not current premium: only the existing
             // authenticated verified-ledger API may refresh displayed rights.
             if result == .complete {
-                let rights = try await BillingAPI(isolatedDevelopment: false).entitlement(token: captured.bearer)
+                let rights = try await configuredBillingAPI(isolatedDevelopment: false).entitlement(token: captured.bearer)
                 guard !Task.isCancelled, sandboxRestoreStillBound(account: captured.scope.userID,
                     epoch: captured.scope.epochID, expected: expected, revision: revision),
                     rights.purchaseAccountToken == captured.scope.epochID else { throw CloudError.authenticationRequired }
@@ -1790,15 +1796,15 @@ struct FormalChannelSelection {
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
             let restored = try await purchases.restore(account: purchaseAccount)
             guard expected == generation else { return }
-            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+            let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard expected == generation else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
             do {
-                let accepted = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).requestRecovery(token: credentials.access_token)
+                let accepted = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).requestRecovery(token: credentials.access_token)
                 guard expected == generation else { return }
                 if accepted == .accepted {
-                    let progress = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
+                    let progress = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
                     guard expected == generation else { return }
                     billingRecoveryStatus = progress
                     message = "\u{5c65}\u{6b74}\u{306e}\u{7167}\u{5408}\u{3092}\u{53d7}\u{3051}\u{4ed8}\u{3051}\u{307e}\u{3057}\u{305f}\u{3002}"
@@ -1824,10 +1830,10 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard expected == generation, billingAccount == credentials.user.id, let purchaseAccount else { return }
-            let progress = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
+            let progress = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).recoveryStatus(token: credentials.access_token)
             guard expected == generation else { return }
             if progress.state == .complete {
-                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+                let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard expected == generation else { return }
                 guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
                 sandboxEntitlement = rights
@@ -1850,7 +1856,7 @@ struct FormalChannelSelection {
         if sandboxBillingConfigured, billingAccount == credentials.user.id, let purchaseAccount {
             do {
                 let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
-                let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+                let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
                 guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                       snapshotAccount == credentials.user.id, billingAccount == credentials.user.id else { return false }
                 guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
@@ -1882,7 +1888,7 @@ struct FormalChannelSelection {
                   signedIn, billingAccount == credentials.user.id, snapshotAccount == credentials.user.id,
                   let purchaseAccount else { return }
             let receipt = try await ReminderSettingsAPI(isolatedDevelopment: isolatedDevelopmentEnabled).load(token: credentials.access_token)
-            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+            let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding == accountBindingRevision,
                   billingAccount == credentials.user.id, snapshotAccount == credentials.user.id else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
@@ -2109,7 +2115,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
-            let billing = BillingAPI(environment: environment)
+            let billing = configuredBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), rights.environment == environment.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
             let service = FormalNotificationChannelAPI(environment: environment)
@@ -2142,7 +2148,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
-            let billing = BillingAPI(environment: environment)
+            let billing = configuredBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), let epoch = rights.purchaseAccountToken else { return nil }
             let service = FormalReminderSettingsAPI(environment: environment)
@@ -2187,7 +2193,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
-            let billing = BillingAPI(environment: environment)
+            let billing = configuredBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), let epoch = rights.purchaseAccountToken,
                   rights.premiumIsCurrent(expectedEnvironment: environment) else {
@@ -2212,7 +2218,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration, billingAccount == credentials.user.id, let purchaseAccount else { return }
-            let rights = try await BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
+            let rights = try await configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled).entitlement(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, expectedReport == reportGeneration else { return }
             guard rights.purchaseAccountToken == purchaseAccount else { throw CloudError.malformedResponse }
             sandboxEntitlement = rights
@@ -2263,7 +2269,7 @@ struct FormalChannelSelection {
         purchases.stopObserving()
         let expected = generation
         billingAccount = nil; purchaseAccount = nil; sandboxEntitlement = nil; billingRecoveryStatus = nil; purchases.persist = nil
-        let billing = BillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled)
+        let billing = configuredBillingAPI(isolatedDevelopment: isolatedDevelopmentEnabled)
         let issued: SandboxEntitlement
         do {
             let credentials = try await session.credentials()

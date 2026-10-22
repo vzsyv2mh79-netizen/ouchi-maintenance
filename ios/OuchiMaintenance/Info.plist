@@ -85,6 +85,8 @@
 	<string>Sandbox</string>
 	<key>IOS_SANDBOX_BILLING</key>
 	<string>$(IOS_SANDBOX_BILLING)</string>
+	<key>OUCHI_SANDBOX_REVIEW_SERVER</key>
+	<false/>
 	<key>SUPABASE_PUBLISHABLE_KEY</key>
 	<string>$(SUPABASE_PUBLISHABLE_KEY)</string>
 	<key>SUPABASE_URL</key>

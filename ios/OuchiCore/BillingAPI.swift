@@ -13,6 +13,24 @@ public enum BillingEnvironment: String, Codable, Sendable {
     case production = "Production"
 }
 
+/// Build-selected destinations only. Never accept an origin from a deep link,
+/// remote response or user input, and never include Vercel access credentials.
+public enum BillingServer: Sendable {
+    case production
+    case sandboxReview
+
+    fileprivate func origin(environment: BillingEnvironment) -> String? {
+        switch self {
+        case .production: return "https://ouchi-maintenance.vercel.app"
+        case .sandboxReview:
+            guard environment == .sandbox else { return nil }
+            // Verified Ouchi project / feat/native-household-core / ad1205275.
+            // Updating this immutable deployment requires a reviewed source change.
+            return "https://ouchi-maintenance-28cjyf5m5-gfgz4m9pkm-8942.vercel.app"
+        }
+    }
+}
+
 public struct VerifiedEntitlement: Decodable, Sendable {
     public enum Plan: String, Decodable, Sendable { case free, premium }
     public let plan: Plan
@@ -44,16 +62,17 @@ public enum BillingRecoveryRequest: String, Decodable, Sendable { case accepted;
 /// Environment selection only scopes validation; it does not enable purchases or sales.
 public struct BillingAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let origin: String
+    private let origin: String?
     public let environment: BillingEnvironment
-    public init(environment: BillingEnvironment = .sandbox, isolatedDevelopment: Bool = false,
+    public init(environment: BillingEnvironment = .sandbox, server: BillingServer = .production,
+                isolatedDevelopment: Bool = false,
                 loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
         self.environment = environment
         #if DEBUG
-        origin = isolatedDevelopment && environment == .sandbox && loopbackPort > 0
-            ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && environment == .sandbox && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             // Reject redirects before transmitting a bearer or signed transaction
@@ -72,6 +91,8 @@ public struct BillingAPI: Sendable {
         }
     }
     private func send(path: String, token: String, body: Data?, allowedStatuses: Set<Int> = [200]) async throws -> (data: Data, status: Int) {
+        // A mismatched build/environment must fail before bearer/JWS transmission.
+        guard let origin else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: origin + "/api/billing/" + path)!
         var request = URLRequest(url: url); request.httpMethod = body == nil ? "GET" : "POST"
