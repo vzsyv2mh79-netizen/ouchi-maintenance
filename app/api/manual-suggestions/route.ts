@@ -22,7 +22,9 @@ export async function POST(request:Request) {
     const result=await inspectManual(bytes,model,url);
     return NextResponse.json({...result,manualUrl:url});
   } catch (error) {
-    console.error("Manual inspection failed", error instanceof Error ? error.message : "Unknown failure");
+    // Upstream/parser errors may include request URLs or extracted PDF text.
+    // Keep operational logs independent of the submitted document and error body.
+    console.error("Manual inspection failed");
     if(error instanceof Error && (error.name==='TimeoutError'||error.name==='AbortError')) {
       return NextResponse.json({error:'メーカー公式サイトから説明書を取得するのに時間がかかっています。しばらくしてから、もう一度お試しください。'},{status:504});
     }
