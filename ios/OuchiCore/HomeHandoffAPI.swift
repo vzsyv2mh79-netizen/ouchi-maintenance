@@ -33,13 +33,16 @@ private final class HandoffRedirectBlocker: NSObject, URLSessionTaskDelegate, @u
 
 /// Prepared contract. A shipping server route and current MFA verifier are still required.
 public struct HomeHandoffAPI: Sendable {
-    private let origin: String
+    private let origin: String?
     private let transport: HouseholdAPI.Transport
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
         #if DEBUG
-        origin = isolatedDevelopment && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let configuration = URLSessionConfiguration.ephemeral
@@ -72,6 +75,8 @@ public struct HomeHandoffAPI: Sendable {
     }
     private func valid(_ id: UUID) -> Bool { id != UUID(uuidString: "00000000-0000-0000-0000-000000000000")! }
     private func send(method: String, requestID: UUID, homeID: UUID, epochID: UUID, token: String, body: [String: Any]?) async throws -> HomeHandoffStatus {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         guard valid(requestID), valid(homeID), valid(epochID) else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         try Task.checkCancellation()

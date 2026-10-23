@@ -55,13 +55,16 @@ private final class ManagementRedirectBlocker: NSObject, URLSessionTaskDelegate,
 }
 /// Backend endpoint and reviewed policy must be deployed before enabling the UI.
 public struct HomeManagementAPI: Sendable {
-    private let origin: String
+    private let origin: String?
     private let transport: HouseholdAPI.Transport
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
         #if DEBUG
-        origin = isolatedDevelopment && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let configuration = URLSessionConfiguration.ephemeral
@@ -94,6 +97,8 @@ public struct HomeManagementAPI: Sendable {
         guard [intent.accountID, intent.homeID, intent.epochID, intent.generation, intent.requestID].allSatisfy({ $0 != .zero }) else { throw CloudError.invalidInput }
     }
     private func send(homeID: UUID, epochID: UUID, token: String, query: [URLQueryItem]? = nil, body: [String: String]? = nil) async throws -> Data {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         guard homeID != .zero, epochID != .zero else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var parts = URLComponents(string: origin + "/api/family/management/" + homeID.uuidString.lowercased())!

@@ -30,12 +30,15 @@ private final class ClosureReadRedirectBlocker: NSObject, URLSessionTaskDelegate
 /// cleanup. A missing result must retain the original saved scope and key.
 public struct ClosureReadCustodyAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let origin: String
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+    private let origin: String?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
         #if DEBUG
-        origin = isolatedDevelopment && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let config = URLSessionConfiguration.ephemeral
@@ -91,6 +94,8 @@ public struct ClosureReadCustodyAPI: Sendable {
     }
     private func send(action: String, scope: ClosureReadScope, credentialID: UUID? = nil, token: String? = nil,
                       bearer: String? = nil, expiry: String? = nil) async throws -> [String: Any]? {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         guard [scope.requestID, scope.epochID, scope.submissionID].allSatisfy({ $0 != zero }), credentialID != zero else { throw CloudError.invalidInput }
         if let token {

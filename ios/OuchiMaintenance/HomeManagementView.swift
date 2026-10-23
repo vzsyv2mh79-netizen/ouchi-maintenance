@@ -255,7 +255,7 @@ private actor HomeManagementPreviewServer {
     private func screen(_ selection: HomeManagementSelection, restored: HomeManagementIntent?) -> some View {
         HomeManagementView(accountID: selection.accountID, epochID: selection.epochID, homeID: selection.homeID,
             revision: selection.revision, homeName: store.household?.homes.first(where: { UUID(uuidString: $0.id) == selection.homeID })?.name ?? "住まい",
-            restored: restored, persist: { intent in
+            restored: restored, api: store.configuredHomeManagementAPI, persist: { intent in
                 guard store.homeManagementSelectionIsCurrent(selection), intent.accountID == selection.accountID,
                       intent.epochID == selection.epochID, intent.homeID == selection.homeID else { throw CloudError.authenticationRequired }
                 return try store.homeManagementVault.prepare(intent)

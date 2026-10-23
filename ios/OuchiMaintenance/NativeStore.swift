@@ -172,7 +172,7 @@ struct FormalChannelSelection {
         #if DEBUG
         if let closureRootReviewAPI { return closureRootReviewAPI }
         #endif
-        return ClosureReadCustodyAPI()
+        return ClosureReadCustodyAPI(server: configuredServiceServer, environment: configuredReviewEnvironment)
     }
     var closureReadCustodyConfigured: Bool {
         #if DEBUG
@@ -218,7 +218,8 @@ struct FormalChannelSelection {
     /// does not remove credentials needed to read an already accepted request.
     let deletionReceiptVault = DeletionReadCredentialVault(
         service: (Bundle.main.bundleIdentifier ?? "ouchi") + ".deletion-receipts")
-    lazy var deletionReceiptRecoveryFlow = DeletionReceiptRecoveryFlow { [deletionReceiptVault] binding in
+    lazy var deletionReceiptRecoveryFlow = DeletionReceiptRecoveryFlow(api: DeletionReceiptAPI(
+        server: configuredServiceServer, environment: configuredReviewEnvironment)) { [deletionReceiptVault] binding in
         try deletionReceiptVault.recoveryReceipt(binding)
     }
     @Published private(set) var accountEmail: String?
@@ -1490,6 +1491,12 @@ struct FormalChannelSelection {
                 message = "購入を完了できませんでした。通信とログイン状態を確認してください。保存できていない取引は再確認できます。"
             }
         }
+    }
+    var configuredClosureReviewAPI: AccountClosureReviewAPI {
+        AccountClosureReviewAPI(server: configuredServiceServer, environment: configuredReviewEnvironment)
+    }
+    var configuredHomeManagementAPI: HomeManagementAPI {
+        HomeManagementAPI(server: configuredServiceServer, environment: configuredReviewEnvironment)
     }
     private var configuredServiceServer: BillingServer {
         Bundle.main.infoDictionary?["OUCHI_SANDBOX_REVIEW_SERVER"] as? Bool == true ? .sandboxReview : .production

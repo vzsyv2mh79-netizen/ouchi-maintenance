@@ -21,12 +21,15 @@ private final class ClosureReviewRedirectBlocker: NSObject, URLSessionTaskDelega
 /// Prepared client; no production endpoint is enabled. Review never means erased.
 public struct AccountClosureReviewAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let origin: String
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+    private let origin: String?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
         #if DEBUG
-        origin = isolatedDevelopment && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let config = URLSessionConfiguration.ephemeral
@@ -60,6 +63,8 @@ public struct AccountClosureReviewAPI: Sendable {
     /// Read-only bridge to a real deletion job after app enrollment closes.
     /// nil means progress unavailable/unmapped, never permission to resubmit.
     public func progress(token: String, epochID: UUID, submissionID: UUID) async throws -> AccountClosureProgressReceipt? {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         guard epochID != zero, submissionID != zero else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
@@ -93,6 +98,8 @@ public struct AccountClosureReviewAPI: Sendable {
         return .init(requestID: id, epochID: epochID, submissionID: submissionID, state: state)
     }
     private func send(action: String, token: String, epochID: UUID, submissionID: UUID, extra: [String: String] = [:]) async throws -> AccountClosureReviewReceipt? {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         guard epochID != zero, submissionID != zero else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }

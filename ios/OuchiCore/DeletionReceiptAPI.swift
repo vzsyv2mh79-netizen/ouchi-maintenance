@@ -10,12 +10,15 @@ private final class ReceiptRedirectBlocker: NSObject, URLSessionTaskDelegate, @u
 public struct DeletionReceiptAPI: Sendable {
     public enum State: String, Decodable, Sendable { case complete, unconfirmed }
     private let transport: HouseholdAPI.Transport
-    private let origin: String
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+    private let origin: String?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+                transport: HouseholdAPI.Transport? = nil) {
         #if DEBUG
-        origin = isolatedDevelopment && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let configuration = URLSessionConfiguration.ephemeral
@@ -49,6 +52,8 @@ public struct DeletionReceiptAPI: Sendable {
         return result.state
     }
     private func send(requestID: UUID, receiptToken: String, bearer: String?, body: Data?) async throws -> Data {
+        // Fail before transporting a bearer, password or saved read capability.
+        guard let origin else { throw CloudError.invalidInput }
         guard requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000"),
               receiptToken.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else { throw CloudError.invalidInput }
         let encoded = receiptToken.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/") + "="

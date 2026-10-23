@@ -249,7 +249,7 @@ import Darwin
                     revision: selection.revision, available: true, processingExplanation: selection.processingExplanation,
                     token: {
                         try? await store.authorizeSavedClosureProgress(account: selection.accountID, revision: selection.revision)
-                    }, vault: store.closureReviewVault, api: AccountClosureReviewAPI(), custodyAvailable: store.closureReadCustodyConfigured)
+                    }, vault: store.closureReviewVault, api: store.configuredClosureReviewAPI, custodyAvailable: store.closureReadCustodyConfigured)
             } else {
                 Form {
                     Section {
@@ -334,7 +334,7 @@ import Darwin
                     revision: revision, available: true,
                     processingExplanation: "状況確認専用です。処理の受付・サーバー側の完了・端末内の消去は、それぞれ別に確認します。",
                     token: { try? await store.authorizeSavedClosureProgress(account: account, revision: revision) },
-                    readOnly: true, vault: store.closureReviewVault, api: AccountClosureReviewAPI(), custodyAvailable: store.closureReadCustodyConfigured)
+                    readOnly: true, vault: store.closureReviewVault, api: store.configuredClosureReviewAPI, custodyAvailable: store.closureReadCustodyConfigured)
             } else {
                 Text("ログイン状態が変わりました。設定に戻り、保存した依頼を読み込み直してください。")
                     .padding().navigationTitle("退会依頼の状況")
