@@ -19,18 +19,18 @@ private final class FormalNativePushRedirectBlocker: NSObject, URLSessionTaskDel
 /// automatically requested and no message is sent by this transport.
 public struct FormalNativePushAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let endpoint: URL
+    private let endpoint: URL?
     private let notificationEnvironment: NativePushEnvironment
     private let purchaseEnvironment: BillingEnvironment
     public init(notificationEnvironment: NativePushEnvironment, purchaseEnvironment: BillingEnvironment,
-                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
+                server: BillingServer = .production, isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000, transport: HouseholdAPI.Transport? = nil) {
         self.notificationEnvironment = notificationEnvironment; self.purchaseEnvironment = purchaseEnvironment
+        let reviewed = server.origin(environment: purchaseEnvironment).flatMap { URL(string: $0 + "/api/native-push-registration") }
         #if DEBUG
-        endpoint = isolatedDevelopment && notificationEnvironment == .sandbox && purchaseEnvironment == .sandbox && loopbackPort > 0
-            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/native-push-registration")!
-            : URL(string: "https://ouchi-maintenance.vercel.app/api/native-push-registration")!
+        endpoint = isolatedDevelopment && server == .production && notificationEnvironment == .sandbox && purchaseEnvironment == .sandbox && loopbackPort > 0
+            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/native-push-registration")! : reviewed
         #else
-        endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/native-push-registration")!
+        endpoint = reviewed
         #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: FormalNativePushRedirectBlocker(), delegateQueue: nil)
@@ -68,6 +68,7 @@ public struct FormalNativePushAPI: Sendable {
         let registrationId: UUID?, disabled: Bool?, enabled: Bool?
     }
     private func send(method: String, body: [String: String], epoch: UUID, token: String, lookup: Bool = false) async throws -> Receipt {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard epoch != Self.nilUUID else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         try Task.checkCancellation()

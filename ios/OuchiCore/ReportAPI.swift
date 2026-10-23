@@ -210,19 +210,21 @@ public struct DevelopmentAccountLifecycleAPI: Sendable {
     }
 }
 
-/// Disposable loopback attachment tests only. Production transport is unavailable.
+/// Build-selected formal transport with a DEBUG-only disposable loopback path.
 /// Prepared formal client. Server enablement and a paid entitlement are separate checks.
 public struct AttachmentAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let endpoint: String
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+    private let endpoint: String?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
                 transport: HouseholdAPI.Transport? = nil) {
+        let reviewed = server.origin(environment: environment).map { $0 + "/api/product-attachments" }
         #if DEBUG
-        endpoint = isolatedDevelopment && loopbackPort > 0
+        endpoint = isolatedDevelopment && server == .production && loopbackPort > 0
             ? "http://127.0.0.1:\(loopbackPort)/api/development/verified-product-attachments"
-            : "https://ouchi-maintenance.vercel.app/api/product-attachments"
+            : reviewed
         #else
-        endpoint = "https://ouchi-maintenance.vercel.app/api/product-attachments"
+        endpoint = reviewed
         #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: ReportRedirectBlocker(), delegateQueue: nil)
@@ -250,12 +252,14 @@ public struct AttachmentAPI: Sendable {
         }
     }
     private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        guard endpoint != nil else { throw CloudError.invalidInput }
         try Task.checkCancellation()
         let result = try await transport(request)
         try Task.checkCancellation()
         return result
     }
     private func bindWrite(_ request: inout URLRequest, expectedEpoch: UUID?) throws {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard !endpoint.hasPrefix("https://") || expectedEpoch != nil else { throw CloudError.invalidInput }
         if let expectedEpoch {
             guard expectedEpoch.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
@@ -267,6 +271,7 @@ public struct AttachmentAPI: Sendable {
         public let epoch: UUID
     }
     public func binding(token: String) async throws -> Binding {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: endpoint + "?binding=true")!
         var request = URLRequest(url: url)
@@ -290,6 +295,7 @@ public struct AttachmentAPI: Sendable {
         public let fileLimitBytes: Int
     }
     public func usage(token: String) async throws -> Usage {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let url = URL(string: endpoint + "?usage=true")!
         var request = URLRequest(url: url)
@@ -319,6 +325,7 @@ public struct AttachmentAPI: Sendable {
         public let next: UUID?
     }
     public func page(product: UUID, after: UUID? = nil, token: String, scope: Scope = .personal, pending: Bool = false) async throws -> AttachmentPage {
+        guard let endpoint else { throw CloudError.invalidInput }
         let nilID = "00000000-0000-0000-0000-000000000000"
         guard product.uuidString != nilID, after?.uuidString != nilID, !pending || scope == .household else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
@@ -346,6 +353,7 @@ public struct AttachmentAPI: Sendable {
         return AttachmentPage(items: value.items, next: value.next)
     }
     public func list(product: UUID, token: String) async throws -> [StoredAttachment] {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard product.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
@@ -373,6 +381,7 @@ public struct AttachmentAPI: Sendable {
         public let fileExtension: String
     }
     public func download(attachment: UUID, token: String, scope: Scope = .personal) async throws -> DownloadedFile {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
@@ -401,6 +410,7 @@ public struct AttachmentAPI: Sendable {
     }
     /// Deletion remains available after paid access expires; server verifies scope.
     public func remove(attachment: UUID, token: String, confirmed: Bool, expectedEpoch: UUID? = nil, scope: Scope = .personal) async throws {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard confirmed, attachment.uuidString != "00000000-0000-0000-0000-000000000000" else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         var components = URLComponents(string: endpoint)!
@@ -420,6 +430,7 @@ public struct AttachmentAPI: Sendable {
     }
     /// Reuse the same ID after an uncertain response; never mint a retry ID silently.
     public func upload(product: UUID, attachment: UUID, bytes: Data, mime: String, token: String, confirmed: Bool, expectedEpoch: UUID? = nil) async throws {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard confirmed, !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024,
               ["image/jpeg", "image/png", "application/pdf"].contains(mime),
               product.uuidString != "00000000-0000-0000-0000-000000000000",

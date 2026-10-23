@@ -668,7 +668,7 @@ struct FormalChannelSelection {
             let billing = configuredBillingAPI(environment: config.purchase)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), rights.environment == config.purchase.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
-            let service = FormalNativePushAPI(notificationEnvironment: config.push, purchaseEnvironment: config.purchase)
+            let service = FormalNativePushAPI(notificationEnvironment: config.push, purchaseEnvironment: config.purchase, server: configuredServiceServer)
             var result = FormalNativePushChange.disabled
             if let prior {
                 guard prior.account == credentials.user.id, prior.receipt.epoch == epoch,
@@ -945,7 +945,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
-            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
+            let binding = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id, let storage = pendingAttachmentStorage else { return false }
             let pending = try PendingAttachment(account: binding.account, epoch: binding.epoch, product: product, id: attachment, bytes: bytes, mime: mime)
             if let existing = try storage.read(account: binding.account, epoch: binding.epoch) {
@@ -953,7 +953,7 @@ struct FormalChannelSelection {
             }
             try Task.checkCancellation()
             try storage.write(pending)
-            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed, expectedEpoch: binding.epoch)
+            try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).upload(product: product, attachment: attachment, bytes: bytes, mime: mime, token: credentials.access_token, confirmed: confirmed, expectedEpoch: binding.epoch)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingAttachmentStorage?.write(nil)
             message = "ファイルの保存をサーバーで確認しました。"
@@ -968,7 +968,7 @@ struct FormalChannelSelection {
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
+            let binding = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id else { return nil }
             let pending = try storage.read(account: binding.account, epoch: binding.epoch)
             guard !Task.isCancelled, expected == generation else { return nil }
@@ -983,7 +983,7 @@ struct FormalChannelSelection {
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let usage = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).usage(token: credentials.access_token)
+            let usage = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).usage(token: credentials.access_token)
             guard expected == generation else { return nil }
             return usage
         } catch {
@@ -997,7 +997,7 @@ struct FormalChannelSelection {
         let expected = generation, home = homeID
         do {
             let credentials = try await session.credentials()
-            let items = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token, scope: scope, pending: pending)
+            let items = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).page(product: product, after: after, token: credentials.access_token, scope: scope, pending: pending)
             guard expected == generation, home == homeID else { return nil }
             return items
         } catch {
@@ -1014,7 +1014,7 @@ struct FormalChannelSelection {
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            let file = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).download(attachment: attachment, token: credentials.access_token, scope: scope)
+            let file = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).download(attachment: attachment, token: credentials.access_token, scope: scope)
             guard expected == generation, exportGeneration == attachmentExportGeneration else { return }
             if let old = attachmentExportURL {
                 if FileManager.default.fileExists(atPath: old.path) { try FileManager.default.removeItem(at: old) }
@@ -1029,7 +1029,7 @@ struct FormalChannelSelection {
         let expected = generation
         do {
             let credentials = try await session.credentials()
-            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
+            let binding = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, binding.account == credentials.user.id else { return nil }
             return try storage.read(account: binding.account, epoch: binding.epoch)
         } catch {
@@ -1045,7 +1045,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
-            let binding = try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
+            let binding = try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, home == homeID, binding.account == credentials.user.id,
                   let storage = pendingRemovalStorage else { return false }
             let pending = try PendingAttachmentRemoval(account: binding.account, epoch: binding.epoch, product: product, id: attachment)
@@ -1055,7 +1055,7 @@ struct FormalChannelSelection {
                 guard household?.products(in: homeID).contains(where: { $0.id.lowercased() == product.uuidString.lowercased() }) == true else { throw CloudError.invalidInput }
             }
             try storage.write(pending)
-            try await AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).remove(attachment: attachment, token: credentials.access_token, confirmed: true, expectedEpoch: binding.epoch)
+            try await configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured).remove(attachment: attachment, token: credentials.access_token, confirmed: true, expectedEpoch: binding.epoch)
             guard !Task.isCancelled, expected == generation, home == homeID else { return false }
             try pendingRemovalStorage?.write(nil)
             clearDevelopmentAttachmentExport()
@@ -1074,7 +1074,7 @@ struct FormalChannelSelection {
         defer { if expected == generation { busy = false } }
         do {
             let credentials = try await session.credentials()
-            let api = AttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured)
+            let api = configuredAttachmentAPI(isolatedDevelopment: developmentLifecycleConfigured)
             let binding = try await api.binding(token: credentials.access_token)
             guard !Task.isCancelled, expected == generation, home == homeID, revision == accountBindingRevision,
                   binding.account == credentials.user.id else { return false }
@@ -1491,6 +1491,15 @@ struct FormalChannelSelection {
             }
         }
     }
+    private var configuredServiceServer: BillingServer {
+        Bundle.main.infoDictionary?["OUCHI_SANDBOX_REVIEW_SERVER"] as? Bool == true ? .sandboxReview : .production
+    }
+    private func configuredAttachmentAPI(isolatedDevelopment: Bool = false) -> AttachmentAPI {
+        let raw = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String
+        let environment = raw.flatMap(BillingEnvironment.init(rawValue:)) ?? .production
+        return AttachmentAPI(server: configuredServiceServer, environment: environment,
+                             isolatedDevelopment: isolatedDevelopment)
+    }
     private func configuredEnrollmentAPI() -> AccountEnrollmentAPI {
         let review = Bundle.main.infoDictionary?["OUCHI_SANDBOX_REVIEW_SERVER"] as? Bool == true
         let raw = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String
@@ -1513,7 +1522,7 @@ struct FormalChannelSelection {
         #if DEBUG && OUCHI_LOCAL_STOREKIT_TESTS && os(macOS)
         if let releaseFixtureAttachments { return releaseFixtureAttachments }
         #endif
-        return AttachmentAPI()
+        return configuredAttachmentAPI()
     }
     private func clearReleaseBilling() {
         releasePurchases.stopObserving(); releasePurchases.persist = nil
@@ -2124,7 +2133,7 @@ struct FormalChannelSelection {
             let billing = configuredBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), rights.environment == environment.rawValue, let epoch = rights.purchaseAccountToken else { return nil }
-            let service = FormalNotificationChannelAPI(environment: environment)
+            let service = FormalNotificationChannelAPI(environment: environment, server: configuredServiceServer)
             let receipt: NotificationChannelReceipt
             if let channel {
                 guard let prior, prior.current, prior.epoch == epoch, prior.environment == environment else { throw CloudError.invalidInput }
@@ -2157,7 +2166,7 @@ struct FormalChannelSelection {
             let billing = configuredBillingAPI(environment: environment)
             let rights = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), let epoch = rights.purchaseAccountToken else { return nil }
-            let service = FormalReminderSettingsAPI(environment: environment)
+            let service = FormalReminderSettingsAPI(environment: environment, server: configuredServiceServer)
             let receipt: ReminderSettingsReceipt
             if let schedule {
                 guard let prior, prior.epoch == epoch, prior.environment == environment,
@@ -2205,7 +2214,7 @@ struct FormalChannelSelection {
                   rights.premiumIsCurrent(expectedEnvironment: environment) else {
                 if stillBound() { message = "有料プランの利用権を確認できません。" }; return nil
             }
-            let result = try await FormalReportAPI(environment: environment).load(home: home, epoch: epoch, token: credentials.access_token)
+            let result = try await FormalReportAPI(environment: environment, server: configuredServiceServer).load(home: home, epoch: epoch, token: credentials.access_token)
             guard stillBound() else { return nil }
             let current = try await billing.entitlement(token: credentials.access_token)
             guard stillBound(), current.purchaseAccountToken == epoch, current.premiumIsCurrent(expectedEnvironment: environment) else { return nil }

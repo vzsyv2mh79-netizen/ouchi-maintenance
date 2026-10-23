@@ -7,15 +7,15 @@ private final class FormalReportRedirectBlocker: NSObject, URLSessionTaskDelegat
 /// Separate formal transport. Release always uses the fixed HTTPS application origin.
 public struct FormalReportAPI: Sendable {
     private let environment: BillingEnvironment
-    private let origin: String
+    private let origin: String?
     private let transport: HouseholdAPI.Transport
-    public init(environment: BillingEnvironment, isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+    public init(environment: BillingEnvironment, server: BillingServer = .production, isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
                 transport: HouseholdAPI.Transport? = nil) {
         self.environment = environment
         #if DEBUG
-        origin = isolatedDevelopment && environment == .sandbox && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : "https://ouchi-maintenance.vercel.app"
+        origin = isolatedDevelopment && server == .production && environment == .sandbox && loopbackPort > 0 ? "http://127.0.0.1:\(loopbackPort)" : server.origin(environment: environment)
         #else
-        origin = "https://ouchi-maintenance.vercel.app"
+        origin = server.origin(environment: environment)
         #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: FormalReportRedirectBlocker(), delegateQueue: nil)
@@ -32,6 +32,7 @@ public struct FormalReportAPI: Sendable {
         }
     }
     public func load(home: String, epoch: UUID, token: String) async throws -> MaintenanceReport {
+        guard let origin else { throw CloudError.invalidInput }
         try Task.checkCancellation()
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         guard let id = UUID(uuidString: home), id != zero, epoch != zero else { throw CloudError.invalidInput }

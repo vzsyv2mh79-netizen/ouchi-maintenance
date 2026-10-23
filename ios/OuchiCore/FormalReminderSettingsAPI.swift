@@ -12,17 +12,17 @@ private final class FormalReminderRedirectBlocker: NSObject, URLSessionTaskDeleg
 /// host or redirect may receive the user's bearer token.
 public struct FormalReminderSettingsAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let endpoint: URL
+    private let endpoint: URL?
     private let environment: BillingEnvironment
-    public init(environment: BillingEnvironment, isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+    public init(environment: BillingEnvironment, server: BillingServer = .production, isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
                 transport: HouseholdAPI.Transport? = nil) {
         self.environment = environment
+        let reviewed = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/reminder-settings") }
         #if DEBUG
-        endpoint = isolatedDevelopment && environment == .sandbox && loopbackPort > 0
-            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/reminder-settings")!
-            : URL(string: "https://ouchi-maintenance.vercel.app/api/reminder-settings")!
+        endpoint = isolatedDevelopment && server == .production && environment == .sandbox && loopbackPort > 0
+            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/reminder-settings")! : reviewed
         #else
-        endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/reminder-settings")!
+        endpoint = reviewed
         #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: FormalReminderRedirectBlocker(), delegateQueue: nil)
@@ -49,6 +49,7 @@ public struct FormalReminderSettingsAPI: Sendable {
         return receipt
     }
     private func send(epoch: UUID, token: String, body: Data?) async throws -> ReminderSettingsReceipt {
+        guard let endpoint else { throw CloudError.invalidInput }
         guard epoch != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         try Task.checkCancellation()
