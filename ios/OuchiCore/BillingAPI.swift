@@ -26,7 +26,7 @@ public enum BillingServer: Sendable {
             guard environment == .sandbox else { return nil }
             // Verified Ouchi project / feat/native-household-core / ad1205275.
             // Updating this immutable deployment requires a reviewed source change.
-            return "https://ouchi-maintenance-28cjyf5m5-gfgz4m9pkm-8942.vercel.app"
+            return "https://ouchi-maintenance-7gmdv28id-gfgz4m9pkm-8942.vercel.app"
         }
     }
 }

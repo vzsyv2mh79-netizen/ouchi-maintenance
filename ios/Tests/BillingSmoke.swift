@@ -2,7 +2,7 @@ import Foundation
 import OuchiCore
 @main struct BillingSmoke {
     static func main() async throws {
-        let reviewOrigin = "https://ouchi-maintenance-28cjyf5m5-gfgz4m9pkm-8942.vercel.app"
+        let reviewOrigin = "https://ouchi-maintenance-7gmdv28id-gfgz4m9pkm-8942.vercel.app"
         let review = BillingAPI(environment: .sandbox, server: .sandboxReview) { request in
             precondition(request.url?.absoluteString == reviewOrigin + "/api/billing/entitlement")
             precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic")
