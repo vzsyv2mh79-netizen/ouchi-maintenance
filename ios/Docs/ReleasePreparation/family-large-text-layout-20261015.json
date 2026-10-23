@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-15",
+  "status": "AX5_dark_and_normal_light_reachability_verified_not_submission_approved",
+  "parentHead": "9d3495e37f2b3af1a8a84987fe6a1011deea4920",
+  "problem": "At accessibility text sizes the member name and destructive sharing action competed for the same row width, splitting the sample name into three narrow lines and leaving the action beside it.",
+  "changes": [
+    "Use a leading vertical stack for member name and removal action at accessibility Dynamic Type sizes, retaining the existing horizontal row at ordinary sizes",
+    "Give the removal action a member-specific accessibility label; preserve the existing confirmation dialog and server operation",
+    "UI test reaches and verifies the full member label, exact member removal action and reload control, without performing a destructive action",
+    "Allow standard large text size in the existing isolated capture harness for normal listing-image review"
+  ],
+  "validation": {
+    "syntax": "Swift root/UI test frontend parse and Python harness AST parse passed",
+    "AX5Dark": {
+      "device": "iPhone 17e",
+      "os": "iOS27.0",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "sourceDigest": "302106bfc8e6d71a31b578e17ac3180b09bf3f80",
+      "testHarnessDigest": "a44248fb398df5f95306e38e9a724b7dab2c98a8a4ef058d43c1d3c55c36945c",
+      "rawSummaryInspected": true,
+      "imagesReviewed": 3,
+      "ownedSimulatorRemoved": true,
+      "observation": "Name now wraps into two wider lines; the exact member removal action fits on one line beneath it, with reload separately reachable"
+    },
+    "normalLight": {
+      "device": "iPhone 18 Pro",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "sourceDigest": "302106bfc8e6d71a31b578e17ac3180b09bf3f80",
+      "testHarnessDigest": "a44248fb398df5f95306e38e9a724b7dab2c98a8a4ef058d43c1d3c55c36945c",
+      "rawSummaryInspected": true,
+      "imagesReviewed": 3,
+      "ownedSimulatorRemoved": true,
+      "portraitPixels": [
+        1206,
+        2622
+      ],
+      "hasAlpha": false,
+      "observation": "Ordinary horizontal member/action row and reload fit and are reachable; same viewport captured for three targets. Upper automatic-navigation title area appears blank with excess space and remains a visual issue."
+    },
+    "scope": "Actual local synthetic FamilySettings navigation and reachability, not full automatic accessibility, VoiceOver, physical-device or cloud authorization proof",
+    "caseCountBoundary": "The same UI test passed separately in two configurations; not two distinct cases or a full accessibility audit"
+  },
+  "sourceBoundary": "Selected NativeRootView is reconstructed from exact remote parent with only the FamilySettings region replaced. Reversing this focused change matches the parent region. Other local native handoff changes remain preserved and outside this update; local runtime source digest is recorded rather than claimed as a complete published release digest.",
+  "remaining": [
+    "Fix normal family detail navigation-title/upper blank space",
+    "Current-head CI on selected patch",
+    "Other text clipping/contrast findings",
+    "VoiceOver and physical device",
+    "Final signed release and operator-approved App Store screenshots"
+  ],
+  "boundaries": [
+    "No change to actual account/member/ownership APIs, confirmation requirement or authorization",
+    "No real user, invite, member removal, production change, merge, payment or billing",
+    "All captures are synthetic review material, not approved submission images"
+  ]
+}

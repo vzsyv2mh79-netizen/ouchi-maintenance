@@ -1,0 +1,45 @@
+{
+  "status": "local_ui_verified_not_full_accessibility",
+  "date": "2026-10-15",
+  "change": "Move home reload from a scrolling text row into the native navigation toolbar, keeping pull-to-refresh and the same reload action. The control stays reachable after scrolling.",
+  "baseline": {
+    "directory": "shipping-overdue-recheck-20261015-ax5-dark",
+    "passed": 0,
+    "failed": 1,
+    "finding": "Partly clipped reload text beneath the navigation bar was identified by the contrast audit."
+  },
+  "verification": {
+    "sourceDigest": "81f8ad742cc56c1c95056e107744f70618fc6504",
+    "testHarnessDigest": "7d61000fdc76bc7832f7e9602342346aa9e8f913723860d50be912799b23521a",
+    "device": "iPhone 17e",
+    "runtime": "iOS 27.0",
+    "textSize": "AX5",
+    "appearance": "dark",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "categories": [
+      "contrast",
+      "dynamicType",
+      "elementDetection",
+      "hitRegion",
+      "sufficientElementDescription",
+      "textClipped",
+      "trait"
+    ],
+    "scope": "Home viewport with entire overdue title/count above tab bar, plus toolbar reload hittable after reach. No finding suppressed.",
+    "rawResultInspected": true,
+    "screenshotInspected": true,
+    "ownedSimulatorRemoved": true
+  },
+  "notVerified": [
+    "other tab and scrolled viewports",
+    "visible software keyboard",
+    "VoiceOver",
+    "physical device",
+    "real cloud persistence",
+    "signed final build"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false
+}

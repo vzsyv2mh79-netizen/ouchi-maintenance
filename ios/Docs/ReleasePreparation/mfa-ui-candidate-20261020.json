@@ -1,0 +1,71 @@
+{
+  "checkedAt": "2026-10-20T09:57:29.721249+00:00",
+  "status": "local_candidate_verified_runtime_off",
+  "basePublishedHead": "16fef7af87413edfbf346871c62dce1e378c9ee1",
+  "webUI": {
+    "browser": "CUA IAB loopback review route",
+    "result": "manual synthetic wrong-code rejection/cleared input, correct-code success with no handoff/deletion, cancellation removes challenge/code passed",
+    "hostedProductAuthConnected": false,
+    "currentCredentialBroker": "not implemented for production; commit port requires atomic abort-aware same-login compare-and-swap, not getSession+setSession",
+    "gating": "review page notFound unless server-only OUCHI_MFA_UI_REVIEW=synthetic-only; no actual account or network transport in review panel",
+    "successScreenshot": "output/mfa-ui-candidate-20261020/web-success.png",
+    "defaultBuildRouteStatus": 404
+  },
+  "nativeUI": {
+    "result": "4 passed,0failed,0skipped across same build large/light and AX5/dark",
+    "bundle": "dev.ouchi.review.closure",
+    "source": "Full NativeRoot settings to TOTPVerificationView, sample-only fixed Auth replies; future OUCHI_TOTP_VERIFICATION_ENABLED key absent/off",
+    "flow": "onVerified only changes account binding revision and after-dismiss result message; no mutation resumed",
+    "failuresPreserved": [
+      "totp-native-ui-20261020: sample Self initializer compile error fixed",
+      "totp-native-ui-fixed-20261020: keyboard Done leaves verification button covered on iOS27; added independent keyboard-safe inset verification controls",
+      "totp-native-ui-keyboard-20261020: success alert attempted while modal dismissing; moved notification to onDismiss",
+      "totp-native-ui-ax5-dark and final-variants: lazy Form rows queried before scroll; no shipping Auth change",
+      "totp-native-ui-final-scroll: test read elementType before exists; fixed guarded geometry and content-viewport drag"
+    ],
+    "evidence": "totp-native-ui-guarded-scroll-20261020",
+    "sourceDigest": "9b71581c6805ac836ede64cd29ff99163cac889d",
+    "testHarnessDigest": "bfb26f042f24221bdc150c98045953774073b913c30dbb273237a37df0fa36ce",
+    "ownedSimulatorRemoved": true,
+    "visualReview": "3 AX5/dark images inspected: explicit relogin guidance, visible pinned wrong-code summary, successful after-dismiss notification. Text wraps/scrolls at AX5; VoiceOver/physical hardware not proved."
+  },
+  "regression": {
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "includes": "7scoped issuer/9bound/8Web UI orchestration",
+    "log": "mfa-binding-final-regression-20261020.log"
+  },
+  "build": "passed totp-ui-candidate-build-20261020.log",
+  "typecheck": "passed",
+  "targetedLint": "passed",
+  "reactChecklist": [
+    "Separate orchestration/controls/review host; no Node/server imports in client component",
+    "Stable memoized sample flow, exact revision cancellation and cleanup, no raw token/code logs",
+    "Labels, inputMode numeric, one-time-code, password input, status announcements, explicit cancel",
+    "No effect callback performs SDK session mutation or handoff/retirement request"
+  ],
+  "limits": [
+    "Web sample is not real CloudAccount MFA integration; production atomic credential broker/auth-event hookup remains",
+    "Native screen/gate is candidate; shipping activation requires configuration, current policy/RLS/session expiry/physical verification",
+    "TOTP enrollment, lost-factor recovery and removal are not added",
+    "No signed original consent or independent policy/epoch/digest conversion",
+    "No production deploy/Auth changes, customer erasure, real charge or App Review submission",
+    "Shared native seal/post-family-release capability remains unimplemented; see output/bound-scoped-consent-root-order-20261020/post-native-seal-interface-review.json"
+  ],
+  "sourceSHA256": {
+    "lib/web-totp-confirmation.ts": "b5f038205dc1811b82766e112bee48eeafff877b5ab950b31141c90071c76a81",
+    "components/totp-confirmation-controls.tsx": "c61b6ba335161334aa0ef4f26e59f50480096e895d1dc81edd22ccd424f359f2",
+    "app/review/mfa/page.tsx": "7071d97979546b5fd1d79e29b2b42c851617f997c29ed3eee52c26b8ce03b9c6",
+    "app/review/mfa/review-panel.tsx": "c85b9008afff86468593af7d311f1f22ce28ad581008ff41bf87ca63f9feaa4d",
+    "app/review/mfa/review.css": "31dc8abb5144d04c47a42e39dd9ddc5cab25dd20a34b0734a33d30d6bcc1ec8f",
+    "tests/web-totp-confirmation.test.mjs": "796ecdf5d00cd3153fcbe3979547960dd8a54d5e02ba192d13c83e01bee03a37",
+    "ios/OuchiMaintenance/NativeStore.swift": "4c93d600795d525aae8913dde39dce7b014b89761f58e83b69c1f793582ac927",
+    "ios/OuchiMaintenance/NativeRootView.swift": "7fbcfc1036fbadd9b077f287353eb838528f529718eb3d3c9dbdb1caffc9749e",
+    "ios/OuchiMaintenance/NativeReviewFixture.swift": "4cdaeee38d04ba8e47052fd59555b1f93843b5a1b03ee43a13f468dfc749daeb",
+    "ios/OuchiMaintenance/HomeHandoffView.swift": "50b584982c870b6513308d38d01d518273447ff0ea94124bd6c99e9a753703c1",
+    "ios/UITests/AccountClosureReviewInteractionTests.swift": "509d728217e3b5f42ddd4ed3ffdebb41f1a3f8697bcff40ad4a0b68368299720",
+    "ios/scripts/test-closure-review-interactions.py": "c4224a226a4d6344a83bb0bf744fde78826c771d7b4e5029a5105808c4fd5a97"
+  },
+  "outboundMessageSent": false
+}

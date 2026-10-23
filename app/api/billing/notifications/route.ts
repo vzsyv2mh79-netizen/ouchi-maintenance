@@ -1,10 +1,52 @@
-import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody} from '@/lib/billing-server';
+import {billingConfiguration,billingDatabase,billingVerifier,verifyBillingTransaction,readBillingBody,persistBillingTransaction,verifyBillingRenewal,persistBillingRenewal,verifyBillingRenewalOnly,pairBillingRenewalOnly,renewalRetiredAfterVerification} from '@/lib/billing-server';
+import type {VerifiedTransaction} from '@/lib/billing';
+import type {VerifiedRenewal} from '@/lib/billing-renewal';
+import {normalizedVerifiedNotification,persistVerifiedNotification} from '@/lib/billing-notification-inbox';
 export const runtime='nodejs';
 export async function POST(request:Request){
- const config=billingConfiguration(),headers={'Cache-Control':'no-store'};if(!config)return Response.json({error:'Billing disabled'},{status:503,headers});
- try{const body=await readBillingBody(request);if(typeof body.signedPayload!=='string')throw new Error();const notification=await billingVerifier(config).verifyAndDecodeNotification(body.signedPayload);
- if(!notification.data?.signedTransactionInfo)return Response.json({received:true},{headers});
- const transaction=await verifyBillingTransaction(notification.data.signedTransactionInfo,config);
- const {error}=await billingDatabase(config).rpc('apply_ouchi_sandbox_transaction',{payload:transaction});if(error)return Response.json({error:'Retry notification'},{status:503,headers});return Response.json({received:true},{headers});
+ const config=billingConfiguration(),headers={'Cache-Control':'no-store'};
+ if(!config||config.storage!=='verified-ledger')return Response.json({error:'Billing disabled'},{status:503,headers});
+ let transaction:VerifiedTransaction|undefined;
+ let signedTransaction:string|undefined;
+ let signedRenewal:string|undefined;
+ let renewal:VerifiedRenewal|undefined;
+ let unpairedRenewal:Record<string,unknown>|undefined;
+ let signedPayload:string;
+ let notification:Record<string,unknown>;
+ try{
+  const body=await readBillingBody(request);
+  if(typeof body.signedPayload!=='string')throw new Error('Missing signed payload');
+  signedPayload=body.signedPayload;
+  notification=await billingVerifier(config).verifyAndDecodeNotification(signedPayload) as unknown as Record<string,unknown>;
+  const data=notification.data as Record<string,unknown>|undefined;
+  if(typeof data?.signedTransactionInfo==='string'){
+   signedTransaction=data.signedTransactionInfo;
+   transaction=await verifyBillingTransaction(signedTransaction,config);
+   if(typeof data.signedRenewalInfo==='string'){signedRenewal=data.signedRenewalInfo;renewal=await verifyBillingRenewal(signedRenewal,transaction,config);}
+  }
+  if(!transaction&&typeof data?.signedRenewalInfo==='string'){signedRenewal=data.signedRenewalInfo;unpairedRenewal=await verifyBillingRenewalOnly(signedRenewal,config);}
+  normalizedVerifiedNotification(notification,config.environment,Boolean(transaction));
  }catch{return Response.json({error:'Invalid signed notification'},{status:400,headers});}
+ // A valid Apple event must remain retryable if persistence or transport fails.
+ // Do not classify a database outage as an invalid signature or acknowledge it.
+ try{
+  const database=billingDatabase(config);
+  if(unpairedRenewal){
+   if(await renewalRetiredAfterVerification(database,config,unpairedRenewal))return Response.json({received:true},{headers});
+   renewal=await pairBillingRenewalOnly(database,config,unpairedRenewal);
+  }
+  if(transaction&&signedTransaction){
+   const result=await persistBillingTransaction(database,config,signedTransaction,transaction,'notification');
+   // Only an Apple-verified event plus the authoritative SQL retirement result
+   // may be acknowledged without creating more account-associated records.
+   if(result==='retired')return Response.json({received:true},{headers});
+  }
+  if(renewal&&signedRenewal){
+   if(await persistBillingRenewal(database,config,signedRenewal,renewal,'notification')==='retired')return Response.json({received:true},{headers});
+  }
+  const owner=transaction??renewal;
+  const record=normalizedVerifiedNotification(notification,config.environment,Boolean(transaction),owner?{accountToken:owner.accountToken,originalTransactionId:owner.originalTransactionId}:undefined);
+  await persistVerifiedNotification(signedPayload,record,async(name,args)=>await database.rpc(name,args));
+  return Response.json({received:true},{headers});
+ }catch{return Response.json({error:'Retry notification'},{status:503,headers});}
 }

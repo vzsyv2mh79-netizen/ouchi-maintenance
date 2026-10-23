@@ -1,0 +1,64 @@
+{
+  "status": "verified_partial_not_sale_approval",
+  "checkedAt": "2026-10-15",
+  "sources": [
+    "https://vercel.com/docs/plans/hobby",
+    "https://vercel.com/pricing",
+    "https://supabase.com/pricing",
+    "https://developer.apple.com/support/payment-options-on-the-app-store-in-japan/"
+  ],
+  "verifiedPlans": {
+    "hosting": "Vercel Pro, authenticated billing page",
+    "databaseAndStorage": "Supabase Free, authenticated organization metadata",
+    "email": null
+  },
+  "unverified": [
+    "actual hosting invoice/seats/metered usage",
+    "email allowance and sending domain operation",
+    "Apple product price points and signed agreements",
+    "Small Business Program approval",
+    "download traffic, copies, pending writes, backups, finite retention and purge costs"
+  ],
+  "appleJapan": {
+    "checkedAt": "2026-10-15",
+    "source": "https://developer.apple.com/support/payment-options-on-the-app-store-in-japan/",
+    "scope": "Published Japan new business terms; applicable storefront/OS/agreement and actual settlement must be checked before sale.",
+    "standardCommission": 0.21,
+    "iapProcessing": 0.05,
+    "qualifyingProgramOrSubscriptionAfterFirstYearCommission": 0.1,
+    "smallBusinessApproved": null,
+    "smallBusinessApprovalVerified": false,
+    "monthly300IllustrationBeforeTaxAndOtherAdjustments": {
+      "standard26Percent": 222,
+      "qualifying15Percent": 255
+    },
+    "annual3000IllustrationBeforeTaxAndOtherAdjustments": {
+      "standard26Percent": 2220,
+      "qualifying15Percent": 2550
+    },
+    "actualPayoutVerified": false
+  },
+  "attachmentProposal": {
+    "proposed_per_account_bytes": 104857600,
+    "proposed_file_count": 100,
+    "proposed_per_file_bytes": 5242880,
+    "enabled": false,
+    "shared_app_budget_allocated": false,
+    "capacity_observation": "About nine accounts at the full proposed allowance approach the entire Free storage pool; other apps and pending/retained copies share that pool.",
+    "release_requirement": "Choose a real shared project app allocation, admission/concurrency limits, retention funding and purge operations before selling; preserve basic free records and export."
+  },
+  "priceProposals": {
+    "monthly_jpy": 300,
+    "annual_jpy": 3000,
+    "tips_jpy": [
+      100,
+      300,
+      1000
+    ],
+    "actual_sale_enabled": false
+  },
+  "decision": "Keep JPY300/month and JPY3000/year as proposals; confirm full costs, applicable Apple terms and price points before final sale. No profitability or unlimited-capacity promise.",
+  "productionChanges": false,
+  "paidContractsCreated": false,
+  "actualBillingEnabled": false
+}

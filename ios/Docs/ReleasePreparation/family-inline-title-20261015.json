@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-15",
+  "status": "verified_sample_presentation_not_release_complete",
+  "baseHead": "5267180ada919999fa769cbe7cd24193e1cd7b7c",
+  "change": "Use inline navigation title specifically for family settings at ordinary and accessibility text sizes, preserving default adaptive titles on other screens.",
+  "test": {
+    "device": "iPhone 18 Pro",
+    "runtime": "iOS 27.0",
+    "textSize": "large",
+    "appearance": "light",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "sourceDigest": "31a0a5d2a5bda31eb564cf122131d3d337e44ab0",
+    "testHarnessDigest": "918afbc88a4ef59da06e8066087aded9649c186679dc083e2ba4c47242f4e7c5",
+    "screenshotsReviewed": 4,
+    "width": 1206,
+    "height": 2622,
+    "alpha": false,
+    "ownedSimulatorRemoved": true,
+    "assertions": [
+      "Family navigation title exists and is hittable",
+      "Entire sample member and scoped removal control reachable",
+      "Reload control reachable"
+    ],
+    "destructiveActionPerformed": false
+  },
+  "priorAccessibilityLayoutEvidence": "family-large-text-layout-20261015.json",
+  "limitations": [
+    "Synthetic sample membership; no live Auth or cloud membership proof",
+    "Prior AX5 dark layout evidence predates this title change",
+    "Not a seven-category accessibility audit, VoiceOver or physical-device verification",
+    "Not a signed release or final approved App Store screenshot"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false
+}

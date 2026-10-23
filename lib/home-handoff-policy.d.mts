@@ -1,0 +1,3 @@
+import type {AuthVersion} from './home-handoff-auth-version.mjs';
+type Policy={projectID:string;checkedAt:string;authVersion:string;assuranceMode:'highest-current-aal/v1';timeboxSeconds:number|null;inactivitySeconds:number|null;singleSession:boolean;totpVerify:boolean;phoneVerify:boolean;webAuthnVerify:boolean};
+export function createStrictHomeHandoffPolicyReader(options:{projectID:string;accessToken:string;authVersionReader:((signal:AbortSignal)=>Promise<AuthVersion|null>)&{isCurrent:(record:AuthVersion|null)=>boolean};fetcher?:typeof fetch;clock?:()=>number;timeoutMS?:number}):((signal:AbortSignal)=>Promise<Policy|null>)&{isCurrent:(policy:object|null)=>boolean};

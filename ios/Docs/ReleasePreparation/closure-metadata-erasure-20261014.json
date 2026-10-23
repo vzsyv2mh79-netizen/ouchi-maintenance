@@ -1,0 +1,30 @@
+{
+  "status": "prepared_not_enabled",
+  "date": "2026-10-14",
+  "migration": "supabase/migrations/20261014064119_ouchi_closure_review_erasure.sql",
+  "problem": "Review intake and cancelled-intent rows were not included in marker-only worker cleanup. Earlier retired Ouchi generations could retain personal metadata.",
+  "behavior": [
+    "Require exact live deletion job/user/epoch/lease and no currently active Ouchi enrollment before mutation.",
+    "Atomically clean owned reauthentication markers and review intents across retired Ouchi generations; preserve other actors, other apps, and original shared Auth sessions.",
+    "Mandatory before record erasure and resumed completion in the stored worker adapter.",
+    "Completion guard refuses remaining owned markers or review intents, including older generations.",
+    "Any review-delete failure rolls back the temporary-session/marker cleanup in the same SQL transaction."
+  ],
+  "local_validation": {
+    "related_tests_passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "actual_service_validation": "pending_new_commit",
+  "not_completed": [
+    "production rollout",
+    "worker credentials and scheduler",
+    "retention/log/backup policy adoption",
+    "shared Auth whole-account deletion coverage",
+    "Apple Sandbox and signed physical-device verification"
+  ],
+  "production_applied": false,
+  "real_billing_enabled": false
+}

@@ -1,0 +1,50 @@
+{
+  "status": "local_SQL_review_scaffold_verified_not_whole_family_storage_integration",
+  "basePublicHead": "cecd388d3cfeac1e48803300ab7972f118e1cf80",
+  "localManifestSHA256": "5b4b0a22e566a33f66e0c652c48574fbef6096a7bd107832126ea91b5cf1be76",
+  "sourceDelta": [
+    {
+      "path": "tests/fixtures/shared-maintenance-inventory-capture.sql",
+      "bytes": 10134,
+      "sha256": "ff2c36053c5c675818eaf22ecfb706aea41ad9edc1445e02c37c430912715245"
+    },
+    {
+      "path": "tests/shared-maintenance-inventory-capture.test.mjs",
+      "bytes": 7830,
+      "sha256": "e03e4d8705f6b6ebc0e7af3e87f5460ce862a9be25d170b6da3f4e9247677e9b"
+    },
+    {
+      "path": "tests/fixtures/shared-maintenance-composition.mjs",
+      "bytes": 16645,
+      "sha256": "f5314e904d6759062fe833c8f838cb7ffc5fc7433ed867f956cd0824e2ebf11c"
+    },
+    {
+      "path": "tests/fixtures/shared-family-stage-store.sql",
+      "bytes": 6620,
+      "sha256": "7555abfe021796e661cf6f3b9a086a173172b8987bfbc0742f7620b1568fa3a1"
+    }
+  ],
+  "result": {
+    "regression": {
+      "pass": 90,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "targetedLint": true
+  },
+  "changes": [
+    "Review-only exact scoped inventory capture after immutable family checkpoint and ordered prior-stage receipts; original canonical family refusal preserved",
+    "Capture allows only stopping original access/epoch, inserting original canonical object rows with absence=false and recording inventory capture; all ordinary role execution remains revoked",
+    "Review fixture can defer capture while stopping normal app access before household freeze",
+    "Family checkpoint completeness checks any member other than owner, including implicit owner with exactly one recipient row"
+  ],
+  "baselineFailure": "Adversarial empty-coverage checkpoint with implicit owner committed before the SQL predicate fix; regression now rejects it at COMMIT",
+  "limits": [
+    "PGlite and synthetic Auth/Storage metadata; no new actual managed service or physical family-file transfer proof",
+    "Post-handoff checked transaction provider and nonempty actual family ports are still pending",
+    "No production migration, grants, endpoint, new credentials, billing or Apple submission"
+  ],
+  "previousRealSoloFileProof": "shared-owned-object-retirement-20261015.json",
+  "previousHeadAllFiveCI": "success"
+}

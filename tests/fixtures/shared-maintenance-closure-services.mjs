@@ -1,0 +1,231 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import {createClient} from '@supabase/supabase-js';
+import {withSharedMaintenanceClosureMetadata as boundary} from '../../lib/shared-maintenance-closure-metadata.mjs';
+import {runWithTransactionCommitChecks} from '../../lib/transaction-commit-checks.mjs';
+import {seedSharedNativeMetadata,metadataRows} from './shared-native-metadata.mjs';
+import {seedSharedNativeDevices,deviceRows} from './shared-native-devices.mjs';
+import {createSharedMaintenanceAdapter} from './shared-maintenance-adapter-module.mjs';
+import {createSharedFamilyStageStore} from '../../lib/shared-family-stage-store.mjs';
+import {sharedFamilyCoverageDigest} from '../../lib/shared-family-handoff-stage.mjs';
+/** Actual local GoTrue/PG/Storage; shared receipts/enrollment/retention are
+ * privileged SYNTHETIC fixtures. Not live coverage, role, SLA or Auth-erasure proof.
+ */
+export async function verifyDisposableSharedClosureMetadata({db,account,admin,origin,options,createAttachmentFetch,bytes,retainedPath}){
+ assert.equal(process.env.OUCHI_FAMILY_STORAGE_TEST,'true');assert.equal(origin,'http://127.0.0.1:54321');
+ const {Client}=await import('pg');
+ await db.query(readFileSync('tests/fixtures/shared-maintenance-native-stage.sql','utf8'));
+ for(const mode of ['unapproved','approved','adapter']){
+ const approved=mode!=='unapproved';
+ const actor=await account(),marker=randomUUID(),agent='OuchiMaintenance/closure-reauth/v1/'+marker;
+ const session=await actor.client.auth.getSession();assert.equal(session.error,null);assert.ok(session.data.session);
+ const claims=JSON.parse(Buffer.from(session.data.session.access_token.split('.')[1],'base64url'));
+ assert.equal(claims.sub,actor.user);assert.equal(claims.session_id,actor.session);
+ const verified=await actor.client.auth.getUser(session.data.session.access_token);
+ assert.equal(verified.error,null);assert.equal(verified.data.user.id,actor.user);
+ const context=async()=>(await db.query("select nullif(current_setting('request.jwt.claims',true),'') as claims,nullif(current_setting('request.jwt.claim.sub',true),'') as subject")).rows[0];
+ const originalContext=await context();
+ // The preceding Kakei fixture installs auth.uid() backed by the legacy sub
+ // GUC. Bind BOTH GUC formats to this actual getUser-verified actor, locally
+ // on this connection; COMMIT/ROLLBACK restores the previous context.
+ assert.match((await db.query("select pg_get_functiondef('auth.uid()'::regprocedure) definition")).rows[0].definition,/request\.jwt\.claim\.sub/);
+ await db.query('begin');try{
+  await db.query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify(claims),actor.user]);
+  assert.equal((await db.query('select auth.uid()::text as actor')).rows[0].actor,actor.user);
+  assert.equal((await db.query('select maintenance_private.closure_reauth_register($1,$2,$3,$4) registered',[actor.user,actor.session,actor.epoch,marker])).rows[0].registered,true);
+  await db.query('commit');
+ }catch(error){await db.query('rollback');throw error;}
+ assert.deepEqual(await context(),originalContext);
+ const temporary=createClient(origin,'synthetic-public-key',{...options,global:{headers:{'User-Agent':agent},fetch:createAttachmentFetch(AbortSignal.timeout(10000),5000,65536)}});
+ assert.equal((await temporary.auth.signInWithPassword({email:actor.email,password:actor.password})).error,null);
+ const native=Object.freeze({requestID:randomUUID(),userID:actor.user,epochID:actor.epoch,leaseToken:randomUUID()});
+ // Fresh actor has only the Ouchi enrollment. Existing two-app family fixtures
+ // stay separate and are not relabelled as this actor's verified inventory.
+ const shared={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:actor.user,leaseToken:randomUUID(),inventoryDigest:'c'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:native.requestID,scopeID:native.epochID}]};
+ const fixed={...shared};delete fixed.leaseToken;
+ const receipts=Object.fromEntries(['prepare','verify-family-before','verify-sessions-before'].map(stage=>[stage,{durable:true,stage,...fixed}]));
+ await db.query("insert into private.kb_shared_deletion_journal(request_id,user_id,scope,status,lease_token,lease_until,receipts) values($1,$2,$3,'processing',$4,clock_timestamp()+interval '5 minutes',$5)",[shared.requestID,actor.user,fixed,shared.leaseToken,receipts]);
+ await db.query("insert into maintenance_private.account_deletion_requests(id,user_id,app_epoch_id,state,lease_token,lease_until,inventory_captured) values($1,$2,$3,'running',$4,clock_timestamp()+interval '5 minutes',true)",[native.requestID,actor.user,actor.epoch,native.leaseToken]);
+ await db.query("insert into maintenance_private.household_stop_bindings values($1,$2,$3,clock_timestamp()+interval '5 minutes','requested')",[actor.user,shared,native.leaseToken]);
+ for(const epoch of [actor.epoch,randomUUID()])await db.query('insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values($1,$2,$3)',[actor.user,epoch,randomUUID()]);
+ const bystander=await account();
+ await seedSharedNativeMetadata(db,[[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]]);
+ const keptMetadata=await metadataRows(db,bystander.user);
+ assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===2));
+ assert.ok(Object.values(keptMetadata).every(rows=>rows.length===1));
+ await db.query('update maintenance_private.account_access set enabled=false where user_id=$1',[actor.user]);
+ await db.query('update maintenance_private.app_epochs set enabled=false where user_id=$1',[actor.user]);
+ // All synthetic destinations are inserted before freezing. The guarded SQL
+ // stage below must erase them without an ordinary stopped-writer exemption.
+ await seedSharedNativeDevices(db,[[actor.user,actor.epoch],[actor.user,randomUUID()],[bystander.user,bystander.epoch]]);
+ const keptDevices=await deviceRows(db,bystander.user);
+ assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length>0));
+ // Canonical RPC callers must also retain uncertain send outcomes; do not
+ // rely solely on the optional shared-stage wrapper's preflight.
+ const call=kind=>db.query(`select public.erase_maintenance_deletion_${kind}($1,$2,$3,$4) erased`,[native.requestID,actor.user,actor.epoch,native.leaseToken]).then(r=>r.rows[0].erased);
+ await db.query("update public.maintenance_push_subscriptions set claim_token=$1,claimed_until=clock_timestamp()-interval '1 hour' where user_id=$2",[randomUUID(),actor.user]);
+ let pendingDevices=await deviceRows(db,actor.user);
+ assert.equal(await call('web_push'),false);assert.equal(await call('records'),false);
+ assert.deepEqual(await deviceRows(db,actor.user),pendingDevices);
+ await db.query('update public.maintenance_push_subscriptions set claim_token=null,claimed_until=null where user_id=$1',[actor.user]);
+ const pendingJob=(await deviceRows(db,actor.user))['maintenance_private.native_notification_jobs'].find(row=>row.state==='pending');
+ assert.ok(pendingJob);
+ await db.query("update maintenance_private.native_notification_jobs set state='unknown',lease_id=$1,lease_until=clock_timestamp()-interval '1 hour',send_started_at=clock_timestamp()-interval '2 hours' where id=$2",[randomUUID(),pendingJob.id]);
+ pendingDevices=await deviceRows(db,actor.user);
+ assert.equal(await call('native_push'),false);assert.equal(await call('records'),false);
+ assert.deepEqual(await deviceRows(db,actor.user),pendingDevices);
+ await db.query("update maintenance_private.native_notification_jobs set state='pending',lease_id=null,lease_until=null,send_started_at=null where id=$1",[pendingJob.id]);
+ assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
+ if(approved)await db.query("insert into maintenance_private.deletion_retention_checks values($1,'synthetic-shared-boundary-test',clock_timestamp(),clock_timestamp()+interval '5 minutes',600)",[native.requestID]);
+ await db.query('select maintenance_private.freeze_household_scope($1,$2)',[shared,native.leaseToken]);
+ const args=[native.requestID,actor.user,actor.epoch,native.leaseToken];
+ const stage=async(tx,phase)=>(await tx.query('select maintenance_private.run_shared_native_stage($1,$2,$3) value',[shared,native.leaseToken,phase])).rows[0].value;
+ const count=async()=>Number((await db.query('select count(*) n from maintenance_private.account_closure_reviews where user_id=$1',[actor.user])).rows[0].n);
+ const foreign=async()=>(await db.query('select to_jsonb(r) row from maintenance_private.account_closure_reviews r where user_id<>$1 order by submission_id',[actor.user])).rows;
+ const savedForeign=await foreign();
+ const transaction=async callback=>{
+  await db.query('begin');try{
+   await db.query("set local statement_timeout='4500ms';set local lock_timeout='1000ms'");
+   const result=await runWithTransactionCommitChecks(db,AbortSignal.timeout(10000),callback);await db.query('commit');return result;
+  }catch(error){await db.query('rollback');throw error;}
+ };
+ // Current read-only provider for this fresh, empty Ouchi actor only. It is NOT
+ // the production complete writer registry or a Kakei family/session verifier.
+ const gates=async(tx,s,n)=>{
+  assert.equal(s.apps.length,1);assert.equal(n.userID,actor.user);
+  return (await tx.query(`select not exists(select 1 from public.homes where owner_id=$1)
+   and not exists(select 1 from public.home_members where user_id=$1)
+   and not exists(select 1 from maintenance_private.account_access where user_id=$1 and enabled)
+   and exists(select 1 from auth.sessions where user_id=$1 and id=$2 and (not_after is null or not_after>clock_timestamp())) as allowed`,[actor.user,actor.session])).rows[0].allowed===true;
+ };
+
+ // Even these metadata-only cases use the exact committed empty-family proof;
+ // a legacy naked family boolean is not accepted by the full review schema.
+ const emptyFamily=async(tx,value)=>{
+  assert.deepEqual(value,shared);
+  const live=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() value from private.kb_shared_deletion_journal where request_id=$1",[shared.requestID,fixed,shared.leaseToken])).rows[0]?.value===true;
+  return live&&await gates(tx,shared,native)&&(await tx.query('select not exists(select 1 from maintenance_private.household_handoff_plans where owner_id=$1) value',[actor.user])).rows[0].value===true;
+ };
+ const familyStore=createSharedFamilyStageStore({verifyReadAuthority:emptyFamily,loadValidatedTargets:async(tx,value)=>{if(!await emptyFamily(tx,value))throw Error('Complete empty family proof required');return [];}});
+ await transaction(tx=>familyStore.record(tx,shared,sharedFamilyCoverageDigest([],shared),AbortSignal.timeout(10000)));
+ const records=tx=>stage(tx,'eraseRecords');
+ for(const table of ['private.kb_shared_deletion_journal','maintenance_private.household_stop_bindings']){
+  await assert.rejects(transaction(async tx=>{
+   assert.equal(await boundary(tx,shared,native,'eraseRecords',records,gates),true);assert.equal(await count(),0);
+   await tx.query(`update ${table} set lease_until=clock_timestamp()-interval '1 second' where ${table.startsWith('private.')?'request_id':'user_id'}=$1`,[table.startsWith('private.')?shared.requestID:actor.user]);
+  }),/Current/);
+  assert.equal(await count(),2);assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),1);
+ }
+ // A network/RPC-style second connection cannot be substituted for the stage's
+ // pinned native SQL connection: its scope locks wait and time out.
+ await assert.rejects(transaction(tx=>boundary(tx,shared,native,'eraseRecords',async()=>{
+  const outside=new Client({host:'127.0.0.1',port:54323,user:'postgres',password:'synthetic-ci-only',database:'auth_test',connectionTimeoutMillis:1000,query_timeout:2000});
+  await outside.connect();try{
+   await outside.query("set lock_timeout='150ms'");
+   await outside.query('select public.erase_maintenance_deletion_closure_metadata($1,$2,$3,$4)',args);
+  }finally{await outside.end();}
+ },gates)),error=>error.code==='55P03');
+ assert.equal(await count(),2);
+ assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),1);
+ // A third fresh actor exercises every application worker stage through the
+ // owned bridge against actual PostgreSQL, preserving both original cases.
+ // Inventory/enrollment/coverage/retention remain explicit disposable fixtures;
+ // there are no physical files or external sends belonging to this actor.
+ if(mode==='adapter'){
+  const calls=[],signal=AbortSignal.timeout(30000);
+  const current=async tx=>{
+   const sharedLive=(await tx.query("select scope=$2::jsonb and status='processing' and lease_token=$3 and lease_until>clock_timestamp() live from private.kb_shared_deletion_journal where request_id=$1",[shared.requestID,fixed,shared.leaseToken])).rows[0]?.live;
+   return sharedLive===true&&await gates(tx,shared,native)===true;
+  };
+  const confirmed=async tx=>(await tx.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) value',args)).rows[0].value===true;
+  let dropReply=true;
+  const composed=createSharedMaintenanceAdapter({
+   resolve:async mapping=>{assert.deepEqual(mapping.shared,shared);return native;},
+   atomic:async(mapping,value,phase)=>{
+    assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);calls.push(phase);
+    const result=await transaction(async tx=>{
+     if(!await current(tx))return false;
+     if(phase==='completionAlreadyConfirmed')return confirmed(tx);
+     if(phase==='leaseCurrent')return (await tx.query('select public.maintenance_deletion_lease_is_current($1,$2,$3,$4) value',args)).rows[0].value===true;
+     if(phase==='revokeAndCaptureInventory')return (await tx.query('select inventory_captured from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows[0].inventory_captured===true;
+     if(phase==='eraseAttachments')return (await tx.query('select not exists(select 1 from maintenance_private.account_deletion_objects where request_id=$1) as empty',[native.requestID])).rows[0].empty===true;
+     const run=name=>boundary(tx,shared,native,name,tx=>stage(tx,name),gates);
+     if(phase==='finalizeIdentityAndRetention')return await run('captureReceiptSessions')===true&&await run('eraseIdentity')===true;
+     return run(phase);
+    });
+    if(phase==='markComplete'&&result===true&&dropReply){dropReply=false;throw Error('Committed native completion reply lost');}
+    return result;
+   },
+   verify:async(mapping,value)=>{
+    assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);calls.push('verify');
+    return transaction(async tx=>await current(tx)&&await confirmed(tx));
+   },
+   handoff:async()=>false,family:async()=>false,sessions:async()=>false,familyAfterAuth:async()=>false,sessionsAfterAuth:async()=>false,
+  },signal);
+  assert.equal(await composed.erase(shared),false,'committed reply loss stays pending until exact readback');
+  assert.deepEqual(calls.filter(name=>!['leaseCurrent','completionAlreadyConfirmed'].includes(name)),['revokeAndCaptureInventory','eraseDeviceRegistrations','eraseAttachments','eraseRecords','finalizeIdentityAndRetention','markComplete']);
+  assert.equal((await db.query('select state from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows[0].state,'complete');
+  const sealed=(await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows;
+  calls.length=0;assert.equal(await composed.erase(shared),true);assert.deepEqual(calls,['completionAlreadyConfirmed','verify']);
+  assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
+  assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+  assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===0));
+  assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length===0));
+  assert.deepEqual(await metadataRows(db,bystander.user),keptMetadata);assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
+  assert.equal((await actor.client.auth.getUser()).error,null);assert.equal((await bystander.client.auth.getUser()).error,null);
+  const retained=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(retained.error,null);assert.deepEqual(Buffer.from(await retained.data.arrayBuffer()),bytes);
+  console.log('application-owned native worker actual PostgreSQL: all six stages used original shared/native bindings and checked metadata transactions; committed completion reply loss recovered through exact sealed receipt without replay; bystander metadata/devices, private Storage bytes and original real Auth retained; empty inventory and synthetic coverage/retention only, no global controller or physical object/outbox/device acknowledgement proof');
+  continue;
+ }
+ assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseDeviceRegistrations',tx=>stage(tx,'eraseDeviceRegistrations'),gates)),true);
+ assert.ok(Object.values(await deviceRows(db,actor.user)).every(rows=>rows.length===0));
+ assert.deepEqual(await deviceRows(db,bystander.user),keptDevices);
+ assert.equal(await transaction(tx=>boundary(tx,shared,native,'eraseRecords',records,gates)),true);
+ assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+
+ assert.equal(Number((await db.query('select count(*) n from auth.sessions where user_id=$1 and user_agent=$2',[actor.user,agent])).rows[0].n),0);
+ assert.equal((await actor.client.auth.getUser()).error,null,'original real Auth remains current');
+ for(const phase of ['captureReceiptSessions','eraseIdentity'])assert.equal(await transaction(tx=>boundary(tx,shared,native,phase,tx=>stage(tx,phase),gates)),true);
+ assert.ok(Object.values(await metadataRows(db,actor.user)).every(rows=>rows.length===0));
+ assert.deepEqual(await metadataRows(db,bystander.user),keptMetadata);
+ assert.equal((await bystander.client.auth.getUser()).error,null);
+ await db.query('insert into maintenance_private.account_closure_reviews(user_id,app_epoch_id,submission_id) values($1,$2,$3)',[actor.user,randomUUID(),randomUUID()]);
+ const complete=tx=>stage(tx,'markComplete');
+ if(!approved){
+  await assert.rejects(transaction(tx=>boundary(tx,shared,native,'markComplete',complete,gates)),/stage unconfirmed/);assert.equal(await count(),1);
+  assert.equal((await actor.client.auth.getUser()).error,null);assert.deepEqual(await foreign(),savedForeign);continue;
+ }
+ assert.equal(await transaction(tx=>boundary(tx,shared,native,'markComplete',complete,gates)),true);
+ const sealed=(await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows;
+ assert.equal(await transaction(tx=>boundary(tx,shared,native,'markComplete',async()=>{throw Error('must only read exact completion');},gates)),true);
+ assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
+ assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);
+ // Recover the exact committed receipt through the application-owned bridge
+ // and current actual worker. No stage may run again after sealed completion.
+ // This verifies only the completed-receipt port against actual PostgreSQL;
+ // the full worker stage composition is separately covered in PGlite.
+ const recoveryCalls=[];
+ const confirmed=async()=>{
+  assert.equal(await gates(db,shared,native),true);
+  return (await db.query('select public.maintenance_deletion_completion_is_confirmed($1,$2,$3,$4) value',args)).rows[0].value===true;
+ };
+ const recovered=createSharedMaintenanceAdapter({
+  resolve:async mapping=>{assert.deepEqual(mapping.shared,shared);return native;},
+  atomic:async(mapping,value,phase)=>{
+   assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);recoveryCalls.push(phase);
+   assert.equal(phase,'completionAlreadyConfirmed','completed recovery must not repeat any stage');return confirmed();
+  },
+  verify:async(mapping,value)=>{
+   assert.deepEqual(mapping.shared,shared);assert.deepEqual(value,native);recoveryCalls.push('verify');
+   assert.equal(await count(),0);assert.deepEqual(await foreign(),savedForeign);return confirmed();
+  },
+  handoff:async()=>false,family:async()=>false,sessions:async()=>false,familyAfterAuth:async()=>false,sessionsAfterAuth:async()=>false,
+ },AbortSignal.timeout(10000));
+ assert.equal(await recovered.erase(shared),true);assert.deepEqual(recoveryCalls,['completionAlreadyConfirmed','verify']);
+ assert.deepEqual((await db.query('select completion_lease,receipt_expires_at from maintenance_private.account_deletion_requests where id=$1',[native.requestID])).rows,sealed);
+ const kept=await admin.storage.from('ouchi-product-attachments').download(retainedPath);assert.equal(kept.error,null);assert.deepEqual(Buffer.from(await kept.data.arrayBuffer()),bytes);
+ assert.equal((await actor.client.auth.getUser()).error,null);
+ }
+ console.log('shared/native closure metadata actual PostgreSQL/Auth/Storage: guarded frozen device-registration SQL erases five categories across retained epochs and retains bystander rows; shared/binding expiry faults roll back, second-connection RPC refuses pinned boundary, scoped metadata/core SQL and resumed sealed native completion share one connection through final checks; thirteen Ouchi metadata categories across current/prior epochs erased, bystander metadata and real Auth retained; application-owned adapter plus actual worker recovers the sealed native receipt without repeating any mutation; exact lost-ack receipt unchanged, foreign reviews/private bytes/original Auth retained; synthetic destinations/enrollment/Apple material/shared receipts/coverage/retention, no external delivery/device ack, shared Auth erasure or live role/SLA proof');
+}

@@ -1,0 +1,38 @@
+{
+  "status": "local_verified_actual_service_assertions_pending",
+  "checkedAt": "2026-10-20",
+  "problem": "Consent issuance and replay returned accepted after in-callback checks without registering a final owning-transaction verification; actor/session loss or authentication expiry between callback completion and COMMIT was not covered by that path. Activation already had its own separate hook.",
+  "change": [
+    "Require beforeCommit-capable issuer transaction before any identity/store operation",
+    "Register immutable per-binding/per-actor issuance readback for new and replayed signed consent",
+    "Before COMMIT recheck current authority, actor/session/factor policy, exact unrevoked token, scope and recent authentication deadline; failed checks roll back the transaction",
+    "Historical committed read and post-Auth capability paths remain separate; no deleted-owner JWT requirement introduced"
+  ],
+  "tests": {
+    "localPassed": 73,
+    "localFailed": 0,
+    "localSkipped": 0,
+    "newCases": 3,
+    "targetedLint": "passed",
+    "actualServiceFixtureSyntax": "passed",
+    "actualServiceExecution": "pending CI actual GoTrue/PostgreSQL fixture; no new native service pass claimed",
+    "newCaseScope": [
+      "late session deletion after callback accepted rolls new record back",
+      "same fault on replay retains original token and expiry",
+      "query-only transaction refuses and recent authentication expiring at COMMIT rolls write back"
+    ]
+  },
+  "sourceSHA256": {
+    "lib/family-attachment-inventory-consent.mjs": "79f506b29e4cc3ffc4db6b440787fc3463d3d6eac916705a440e218b8b062b02",
+    "tests/family-attachment-inventory-consent.test.mjs": "5b49906665fb7be49590fe6cf1d276e0fb4b18e0218dffbe8f0f92d8d44526c1",
+    "tests/fixtures/family-attachment-atomic-services.mjs": "74922b287e114c1ac5761e877adac7cc281a7a90f95d71cb8daa6f6720d2bcf7"
+  },
+  "actualServiceCandidate": "New real-service assertions use actual signed TOTP identity and expire actual disposable session after callback acceptance, testing both new issue and replay. Fixture fault and consent write must both roll back. Not executed locally.",
+  "sourcePinBoundary": "Prior135-source paired runtime proof predates this shared backend change and cannot prove this source version; rerun/re-pin before any shipping activation. Native app source digest remains unchanged.",
+  "productionChanged": false,
+  "schemaChanged": false,
+  "credentialsCreatedReadOrShared": false,
+  "realDataDeleted": false,
+  "runtimeEnabled": false,
+  "recentTOTPRequirementRelaxed": false
+}

@@ -1,0 +1,9 @@
+{
+  "purpose": "Exact reviewed peer native executor, frozen only for isolated tests; not a second implementation or production migration",
+  "sourceSHA256": {
+    "shared-native-owner-profile.sql": "77232ff34a592dbc0d5efc354d5bc74dd63cefa9ba1c61bd99c88740ce96a1a4",
+    "shared-native-erasure.mjs": "db8a4580fac188920cf8f1b93f4822bb6d4917a279bc8921627d5a7cf0cbcee9",
+    "shared-deletion.mjs": "4d881e0e7f65b3e6639faa37e3c8283f4fd7922888a39beee59504bf2773fbb2",
+    "shared-deletion-journal.mjs": "6d7c8af3475128de4f4b7013867f4644d97cc1b1a41154bb157c95770b8e6d4d"
+  }
+}

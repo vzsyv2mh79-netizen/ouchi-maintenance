@@ -1,0 +1,89 @@
+{
+  "status": "reviewed_partial_not_enabled",
+  "checkedAt": "2026-10-13",
+  "sources": [
+    "https://supabase.com/pricing",
+    "https://supabase.com/docs/guides/platform/manage-your-usage/storage-size"
+  ],
+  "readOnlyProjectObservation": {
+    "projectRef": "hphifiqyypwyxkzfanod",
+    "region": "ap-northeast-1",
+    "status": "ACTIVE_HEALTHY",
+    "databaseBytes": 13044883,
+    "storageObjectCount": 0,
+    "knownStorageMetadataBytes": 0,
+    "billingPlan": "Free, verified in authenticated organization dashboard on 2026-10-13",
+    "limitations": [
+      "Metadata count does not prove absence of orphaned physical objects or pending uploads.",
+      "Database bytes are not total disk size or invoice usage.",
+      "Organization dashboard period values are rounded and may lag up to one hour; other projects were not individually inventoried."
+    ]
+  },
+  "publishedPlanReferences": {
+    "freeFileStorageGB": 1,
+    "freeDatabaseMB": 500,
+    "freeEgressGB": 5,
+    "proBaseUSDPerMonth": 25,
+    "proIncludedFileStorageGB": 100,
+    "proStorageOverageUSDPerGBMonth": 0.0213,
+    "billingScope": "organization across projects",
+    "billingMeasure": "average storage over period in GB-hours, not current metadata alone"
+  },
+  "proposedAccountCapacityBytes": 104857600,
+  "retainedAccountsAtFullCapacity": [
+    {
+      "accounts": 10,
+      "bytes": 1048576000,
+      "GiB": 0.9765625,
+      "decimalGB": 1.048576
+    },
+    {
+      "accounts": 100,
+      "bytes": 10485760000,
+      "GiB": 9.765625,
+      "decimalGB": 10.48576
+    },
+    {
+      "accounts": 1000,
+      "bytes": 104857600000,
+      "GiB": 97.65625,
+      "decimalGB": 104.8576
+    }
+  ],
+  "assessment": "Free 1 GB is a small test envelope, not capacity for a public 100 MiB-per-account storage promise. Even ten full accounts leave no margin and may exceed decimal 1 GB. Copies, reservations, other apps and expired subscribers retained for free all consume capacity. The authenticated dashboard now confirms the organization is on Free with no reported current overage. This does not authorize an upgrade or prove production storage availability.",
+  "pricingProposal": "Keep monthly JPY 300 / annual JPY 3000 as a proposal until Apple price points, commission, tax/FX, organization plan, actual egress, fixed hosting/email/backup costs and subscriber forecasts are verified. No public profitability claim.",
+  "releaseRequirements": [
+    "Recheck the verified Free organization plan and period storage/egress before sales; paid plan/spend cap changes still require authorization.",
+    "Set an explicit shared-project reserve including other apps, pending writes, transfer copies and retained expired accounts.",
+    "Implement and test the global admission budget; per-account quotas alone do not protect the shared project.",
+    "Do not promise storage availability or sell the photo benefit while provisioning and capacity remain unavailable.",
+    "Do not automatically delete expired subscriber files to reduce costs.",
+    "No automatic paid upgrade or spend-cap change."
+  ],
+  "productionChanges": false,
+  "newPaidContract": false,
+  "actualBillingEnabled": false,
+  "dashboardObservation": {
+    "organizationID": "elskxivtkplwvpmjicwz",
+    "verifiedURL": "https://supabase.com/dashboard/org/elskxivtkplwvpmjicwz/usage",
+    "plan": "FREE",
+    "observedAtUTC": "2026-10-13 05:48",
+    "currentBillingCycleSummary": {
+      "databaseMBDisplayed": 28,
+      "databaseQuotaMBDisplayed": 500,
+      "egressGBDisplayed": 0.01,
+      "egressQuotaGBDisplayed": 5,
+      "cachedEgressGBDisplayed": 0.0,
+      "cachedEgressQuotaGBDisplayed": 5,
+      "averageStorageGBDisplayed": 0.0,
+      "storageQuotaGBDisplayed": 1,
+      "storageOverageGBDisplayed": 0,
+      "monthlyActiveUsersDisplayed": 7,
+      "monthlyActiveUserQuotaDisplayed": 50000
+    },
+    "overages": "dashboard states current organization is not billed for overages; exceeding limits may restrict service",
+    "freshness": "rounded dashboard values; may take up to one hour to refresh; SQL project bytes are a different scope/measure",
+    "imageTransformations": "not included in current Free plan",
+    "changesMade": false
+  }
+}

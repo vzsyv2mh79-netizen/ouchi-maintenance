@@ -1,0 +1,49 @@
+{
+  "productionNavigationEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Prepared iPhone review screen plus synthetic-only DEBUG entry point, not enabled for real accounts.",
+  "screen": "Lists protected references for current account/epoch, explicitly selects original submission for read/cancel, shows review receipt separately from completed deletion, preserves unknown state and custody after lost response, reconciles same nonce before explicit retry, confirms cancellation and new request. Clears password/consent and cancels operations on account/session revision or disappearance. No remote deletion or local erasure action.",
+  "authorization": "Availability and nonempty processing disclosure gate all online actions; shipping remains disabled pending actual erasure/finite retention/provider. The preview requires dedicated bundle dev.ouchi.review.closure plus sample flag and only synthetic transport; no owner login.",
+  "coreFix": "Selecting a different saved reference under the same account/session now invalidates prior in-flight results, retains the selected protected binding and requires fresh reconciliation.",
+  "verified": {
+    "swiftTests": 7,
+    "failed": 0,
+    "skipped": 0,
+    "iOSSimulatorDebugBuild": "passed (local source composition)",
+    "scope": "Mocked core transport/persistence; current dedicated Debug iOS Simulator build with Xcode local ad-hoc signature. Initial normal/light and AX5/dark screenshots visually inspected; no tapped-control/full-accessibility/physical-device or real HTTP proof.",
+    "ownedSimulator": "E1DBA3E1-0B9C-42A6-A1C9-060E09E3870A",
+    "firstRender": {
+      "normal": "fixture preparation failure",
+      "ax5Dark": "fixture preparation failure",
+      "deviceDeleted": true
+    },
+    "diagnostic": {
+      "status": -34018,
+      "initialStage": "prepare",
+      "relaunchStage": "restore",
+      "deviceDeleted": true,
+      "officialReference": "https://developer.apple.com/documentation/security/errsecmissingentitlement"
+    },
+    "signedRender": {
+      "status": "passed using Xcode Simulator local signing; manual post-build signature failed launch",
+      "initialScreenshots": 2,
+      "deviceDeleted": true,
+      "keychainAttributes": {
+        "status": 0,
+        "accessible": "aku (WhenUnlockedThisDeviceOnly)",
+        "synchronizable": false
+      },
+      "restart": "both original synthetic references restored before any preparation; raw log inspected",
+      "limitations": [
+        "AX5 screenshot covers upper section only; lower controls require scrolling and are untested",
+        "No physical locked-device/migration test",
+        "No purchase, Auth or erasure endpoint"
+      ]
+    }
+  },
+  "remaining": [
+    "UI request/read/cancel operations including large text and VoiceOver",
+    "Trusted authenticated shipping route and actual classification/erasure",
+    "Finite retention/timing disclosure, legal/listing and Apple purchase/submission"
+  ]
+}

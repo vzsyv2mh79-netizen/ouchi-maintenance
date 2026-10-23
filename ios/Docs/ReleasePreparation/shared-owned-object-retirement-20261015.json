@@ -1,0 +1,69 @@
+{
+  "status": "local_solo_owned_attachment_paired_coordinator_pass_not_deployed",
+  "scope": "Solo actor-owned real private Storage attachment through the actual paired whole-account coordinator; dormant review capability only",
+  "parentPRHead": "4e09bab4492da9efde064a71636bcf203a576193",
+  "fixedManifestSHA256": "4b17197a7e8578e1eda41df803221d106a40f7bd47f37a034d7474bb7313929c",
+  "inputSetCounts": {
+    "previous": 745,
+    "changedExisting": 5,
+    "new": 4,
+    "unchanged": 740,
+    "total": 749
+  },
+  "result": {
+    "actualServices": {
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "targetedRegression": {
+      "pass": 23,
+      "fail": 0,
+      "skip": 0
+    },
+    "lint": true,
+    "typecheck": true
+  },
+  "claims": [
+    "One real actor-owned solo-home attachment reserved/uploaded/settled/finalized through canonical RPCs and private Storage",
+    "Present object refuses SQL absence acknowledgement",
+    "Successful Storage DELETE reply and independently committed scoped absence acknowledgement reply both lost; original inventory resumes with one physical removal",
+    "Canonical record erasure cascades only its acknowledged settled original write attempt; native stage reply loss and Auth DELETE reply loss resume without repeated side effects",
+    "Whole-account coordinator completes with original sealed receipt and other real Auth users, private bytes, bystander metadata/devices and Kakei family record preserved"
+  ],
+  "limits": [
+    "Ouchi family-file transfer in this whole-account coordinator still pending",
+    "Injected current Management policy; reduced six-table peer schema, synthetic enrollment/inventory/retention/operator role",
+    "No trusted shipping intake, full writer registry, production least privilege or external delivery acknowledgement proof",
+    "No production migrations/grants/customer or shared Auth deletion; no charge, Apple upload/submission/publication"
+  ],
+  "failuresPreserved": [
+    "Missing fs import in initial added fixture",
+    "120-second whole-test observation deadline reached; paired-only deadline increased to 180 seconds, runner remains bounded at 240 seconds",
+    "Original metadata guard refused settled write-attempt FK cascade; regression reproduced before narrowly scoped correction"
+  ],
+  "cleanup": {
+    "uniqueComposeProjectRemoved": true,
+    "containersRemaining": 0,
+    "lima": "Stopped"
+  },
+  "publishedSources": [
+    "lib/shared-maintenance-object-absence.mjs",
+    "tests/fixtures/shared-maintenance-object-absence.sql",
+    "tests/fixtures/shared-maintenance-native-stage.sql",
+    "tests/shared-maintenance-object-absence.test.mjs",
+    "tests/shared-maintenance-object-absence-sql.test.mjs"
+  ],
+  "privatePeerSourcePublished": false,
+  "fixtureCompositionLocation": "Private local fixed 749-source snapshot; existing public CI whole-account fixture remains Ouchi-only",
+  "sqlCapability": "No production migration, role, grant or endpoint. Install review-only object absence SQL after review native-stage SQL. Caller requires definitive SDK NoSuchKey and mandatory current gates repeated at owning COMMIT.",
+  "negativeSQLChecks": [
+    "Foreign actor/inventory/shared lease/native lease/object",
+    "Expired controller and stop-binding lease; native lease forgery refused by existing guard",
+    "Missing mutable prerequisite; immutable family checkpoint mutation refused",
+    "Unsettled write and still-present Storage metadata",
+    "Foreign attempt owner/uploader/epoch/object, started or missing settled_at, INSERT and UPDATE",
+    "Anonymous, authenticated and service_role have no function execute privilege"
+  ]
+}

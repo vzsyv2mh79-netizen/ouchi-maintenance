@@ -1,0 +1,56 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "changes": [
+    "Moved existing consent implementation unchanged into lib/home-handoff-consent.mjs; compatibility fixture re-exports it.",
+    "Historical household verifier requires the inventory historical verifier on the same pinned private read transaction.",
+    "Checks exact activation/household context and receipts, frozen plan/snapshot digest, same transaction, scope, parties, deadline and both household HMAC proofs at recorded completion time.",
+    "Requires each household authVerifiedAt to equal the corresponding signed inventory authenticatedAt. A new getUser timestamp cannot replace the verified recent-authentication time.",
+    "Composed disposable household contexts, plans and receipts reject UPDATE/DELETE; family context has an explicit household-context FK."
+  ],
+  "localEvidence": {
+    "priorRelevantSuite": {
+      "passed": 65,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Before exact cross-consent authentication-time check."
+    },
+    "finalHouseholdCases": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "finalRegression": {
+      "passed": 692,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-household-historical-final-regression-20261013.log"
+    }
+  },
+  "actualServiceAssertionsPrepared": [
+    "Both household and inventory issuers use pinned actual Auth/session/factor/epoch verification and exact signed TOTP AMR timestamps.",
+    "Sorted participant locks and complete original inventory pins precede Auth pins for household consent.",
+    "Historical household and inventory confirmation agree before activation, after rollback, after committed activation, consent revocation and logout."
+  ],
+  "actualServiceResult": "Pending exact-head disposable PostgreSQL/GoTrue/Storage CI; no local Docker substitute.",
+  "previousHeadEvidence": {
+    "head": "ef644d43996fd166b38cbfec5fcc878d6564b5b1",
+    "familyRun": 38385575688,
+    "familyJob": 115256404561,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawLogAndCleanupChecked": true,
+    "limitation": "That prior household issuer used getUser+Date.now; this revision replaces it with actual pinned TOTP AMR."
+  },
+  "remaining": [
+    "Durable source-cleanup completion receipt and current controller/cancellation/lease/freeze validation.",
+    "All-app retirement completion and final shared Auth retirement.",
+    "Finite evidence retention and least-privilege shipping provider.",
+    "Native/server deployment, real-device and Apple Sandbox; Developer payment remains held."
+  ],
+  "scope": "Historical facts never authorize a new transfer, Storage deletion or account retirement. No production migration, grant, provisioned key, paid contract, public endpoint, real billing or data deletion."
+}

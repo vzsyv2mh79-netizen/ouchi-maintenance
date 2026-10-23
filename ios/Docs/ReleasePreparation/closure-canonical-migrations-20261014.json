@@ -1,0 +1,40 @@
+{
+  "status": "draft_release_candidates_not_applied_live",
+  "date": "2026-10-14",
+  "migrations": [
+    "supabase/migrations/20261014061605_ouchi_account_closure_review.sql",
+    "supabase/migrations/20261014061618_ouchi_closure_review_private_access.sql",
+    "supabase/migrations/20261014061630_ouchi_closure_reauth_markers.sql",
+    "supabase/migrations/20261014061641_ouchi_closure_reauth_lifecycle.sql"
+  ],
+  "behavior": {
+    "intake_enabled": false,
+    "runtime_login_provisioned": false,
+    "worker_login_provisioned": false,
+    "scheduler_provisioned": false,
+    "live_auth_trigger_installed": false
+  },
+  "verification": {
+    "local_related_tests": {
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0
+    },
+    "upgrade": "The actual canonical SQL preserves synthetic existing free records, shared membership, Auth sessions, and namespaced other-app records; ordinary session insert remains usable and an unregistered marked session is refused.",
+    "ci_actual_auth": "pending_on_new_commit"
+  },
+  "deployment_gates": [
+    "Do not run db push against the shared project. Recorded baseline IDs differ from canonical IDs; preserve other-app migration history and reconcile exact source hashes first.",
+    "Canonical source files do not prove live schema or managed Auth compatibility. Recheck exact Auth columns, validated nondeferrable single-column user foreign keys, privileges, current Auth version, and ordinary signup/refresh against a disposable clone before deployment.",
+    "Auth sessions BEFORE INSERT trigger is always active once applied. Intake disabled does not disable this fence. Changes to managed Auth objects require staged compatibility and rollback review.",
+    "Run security/performance advisors against the staged schema; a live advisor before candidate application cannot validate these candidates.",
+    "No LOGIN passwords, membership grants, runtime flags, scheduler, retention approval, or production DDL are authorized by this report.",
+    "The two-minute marker lifetime and one-day closed-marker purge are implementation candidates, not a published retention SLA.",
+    "Review intake is a distinct pending/cancelled receipt, not account deletion completion. Shared Auth erasure and backup/log retention coverage remain incomplete."
+  ],
+  "official_references": [
+    "https://supabase.com/docs/reference/cli/supabase-migration-new",
+    "https://supabase.com/docs/guides/auth/managing-user-data"
+  ],
+  "managed_auth_caution": "Supabase documents that managed non-primary-key columns, indices, constraints and objects can change; a failing Auth trigger may block signup. Test coverage and a TRIGGER privilege alone are not a compatibility guarantee."
+}

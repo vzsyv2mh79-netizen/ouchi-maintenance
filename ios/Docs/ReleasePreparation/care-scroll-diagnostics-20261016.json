@@ -1,0 +1,122 @@
+{
+  "status": "diagnostic_trials_rejected_shipping_ui_unchanged",
+  "date": "2026-10-16",
+  "parentHead": "165269e644b7c9531553d76387cc157b9b7c5ee5",
+  "parentAllFiveCISucceeded": true,
+  "scope": "iPhone17e iOS27 AX5 dark, synthetic in-memory records only",
+  "trials": [
+    {
+      "name": "care-clipped-ax5-dark-20261016",
+      "sourceDigest": "e8307924ac0ffd6a189dbb8476481adbc3334b75",
+      "testHarnessDigest": "c6e6154f094f50ff9f7e9518ad41c28473f7a86b8eb03c4d1699fb1e36c4743e",
+      "cases": [
+        {
+          "name": "testVisibleNextDateContrast",
+          "result": "failed"
+        },
+        {
+          "name": "testVisibleTaskProductClipping",
+          "result": "passed"
+        }
+      ],
+      "passed": 1,
+      "failed": 1,
+      "ownedSimulatorRemoved": true,
+      "logSHA256": "cfe1155a90353fec6d627657c74eb5d7d33f06a645cb911a7c82ae54faaadb8e"
+    },
+    {
+      "name": "care-inset-clip-ax5-dark-20261016",
+      "sourceDigest": "9ca53a44f177961c56051a31efbae901106b9e35",
+      "testHarnessDigest": "c6e6154f094f50ff9f7e9518ad41c28473f7a86b8eb03c4d1699fb1e36c4743e",
+      "cases": [
+        {
+          "name": "testVisibleNextDateContrast",
+          "result": "failed"
+        },
+        {
+          "name": "testVisibleTaskProductClipping",
+          "result": "passed"
+        }
+      ],
+      "passed": 1,
+      "failed": 1,
+      "ownedSimulatorRemoved": true,
+      "logSHA256": "d2eb40ca53d222c8c02cb326a9b07d6b6b0cd81f82ae2cb376dc125e0dc15e41"
+    },
+    {
+      "name": "care-scroll-cards-ax5-dark-20261016",
+      "sourceDigest": "0690ec9364264c095951167cf7caeac7bacd5f6f",
+      "testHarnessDigest": "c6e6154f094f50ff9f7e9518ad41c28473f7a86b8eb03c4d1699fb1e36c4743e",
+      "cases": [
+        {
+          "name": "testVisibleNextDateContrast",
+          "result": "failed"
+        },
+        {
+          "name": "testVisibleTaskProductClipping",
+          "result": "passed"
+        }
+      ],
+      "passed": 1,
+      "failed": 1,
+      "ownedSimulatorRemoved": true,
+      "logSHA256": "1520abe3a9f638e20cd0c3050dec5cf5ddd94c5cc17abdde9746874894e06602"
+    },
+    {
+      "name": "care-no-fade-ax5-dark-20261016",
+      "sourceDigest": "9c092995e3f6b6d2224865f8630815ff2daab8f6",
+      "testHarnessDigest": "f0fe2d7af93734cbd520a8c007248fe62ded090bb93b37ada928105c12471f9f",
+      "cases": [
+        {
+          "name": "testCompletionUpdatesDueDateAndHistory",
+          "result": "passed"
+        },
+        {
+          "name": "testExportControlReachableAndProducesShareControl",
+          "result": "passed"
+        },
+        {
+          "name": "testVisibleNextDateContrast",
+          "result": "failed"
+        },
+        {
+          "name": "testVisibleTaskProductClipping",
+          "result": "passed"
+        }
+      ],
+      "passed": 3,
+      "failed": 1,
+      "ownedSimulatorRemoved": true,
+      "logSHA256": "fcd1ecdd00b3192ccc3cd035795c09aaa1578c9f70e161b9507221ca2075bf03"
+    }
+  ],
+  "retainedChange": "care-regression CLI selector runs four existing unmodified tests; not a green full accessibility claim",
+  "runnerSHA256": "f1dd219cd5b23c08089ac6dd2699ce8f589c5af6833640c11768de260c9a5df5",
+  "originalNativeRootSHA256": "ab29dd8a48a2acbf7c72c66e31276d6cd0b8d1245ab3596545c87d192e685039",
+  "rejectedFinalTrialSHA256": "7f87742085ecfa127bcacb520eaf809d9cc7419373ae24a5c6caafe86ad04d0f",
+  "finding": "List clipping and one-point inset did not resolve lower tab-edge interval contrast; eager cards and all-edge fade removal moved contrast finding to partially scrolled task title at upper navigation edge.",
+  "latestFailedTitleFrame": {
+    "x": 32,
+    "y": -16,
+    "width": 249,
+    "height": 187.3
+  },
+  "latestNavigationBottom": 155,
+  "operations": "Final rejected card sample completed task with exactly one history entry and updated due date; export share control reachable. These3 passing tests do not validate the restored shipping UI anew.",
+  "issueHandlersSuppressFindings": false,
+  "screenshotsReviewed": [
+    "care-clipped-ax5-dark:contrast screenshot",
+    "care-no-fade-ax5-dark:contrast screenshot",
+    "care-no-fade-ax5-dark:completion reachable screenshot"
+  ],
+  "limits": [
+    "All four attempts rejected; no UI layout correction published",
+    "Care contrast remains incomplete; no dismissal as false positive",
+    "Light/normal text of candidate not executed after dark failure",
+    "No live cloud persistence, VoiceOver, physical device or final signed build proof"
+  ],
+  "nextAction": "Review navigation/scroll viewport structure before further style-only trials; preserve complete accessible labels and all unfiltered issue reporting.",
+  "productionChanges": false,
+  "billingEnabled": false,
+  "appleSubmission": false
+}

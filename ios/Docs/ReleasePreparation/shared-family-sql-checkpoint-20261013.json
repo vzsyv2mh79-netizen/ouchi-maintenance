@@ -1,0 +1,48 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "implementation": [
+    "Private SQL store targets the existing private.kb_shared_deletion_journal, copied unchanged into a disposable fixture with source SHA provenance.",
+    "Only previously committed private family completions are admitted; remote handoff is routed outside legacy journal.perform outer transaction.",
+    "Exact current root scope/user/lease, prepare prerequisite, immutable canonical coverage and original plan/completion contexts are required.",
+    "Deferred SQL checks prevent expired context/root lease, wrong lease, missing prepare and omitted/new original family plans even with incomplete application commit callbacks.",
+    "Existing handoff-family receipt is immutable and read from its exact context on recovery; no duplicate checkpoint is stored.",
+    "Original signed target controller scope can retain its old execution token while the current root lease is independently verified against the same immutable request/inventory/apps."
+  ],
+  "localEvidence": {
+    "embeddedPostgresSQLCases": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "stageBridgeContractCases": {
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "fullRegression": {
+      "passed": 719,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-sql-family-checkpoint-final-regression-20261013.log"
+    }
+  },
+  "actualServiceAssertionsPrepared": [
+    "Complete actual family Storage cleanup and private family receipt first; subsequent global checkpoint contains no remote copy/delete/Auth operation.",
+    "Expire global root lease after checkpoint write; rollback global checkpoint only while family receipt, receiver/member bytes and definitive source absence remain.",
+    "Retry from same family result saves one global context/receipt, with native job still running and Auth users retained."
+  ],
+  "actualServiceResult": "Pending exact-head PostgreSQL/GoTrue/Storage CI; Docker unavailable locally.",
+  "otherAppsLimit": "Actual disposable fixture has only ouchi-maintenance. Kakei family scope/consents/transfer/retained snapshot verification remains mandatory inside loadValidatedTargets and verifyOtherApps; no other-app completion is assumed or proven.",
+  "remaining": [
+    "Implement authoritative complete frozen roster and independent Kakei family verification from private.kb_shared_handoff_plans/proofs and current retained household/member/transaction snapshot.",
+    "All-app controller composition and formal native/root rebind mapping.",
+    "Actual full app erase/verify and final shared Auth/post-Auth readbacks.",
+    "Shipping coordinator/read authentication, effective Auth policy, least privilege, outstanding namespace fencing, capacity/latency/finite retention.",
+    "Real device Apple Sandbox/TestFlight/submission; owner Developer payment held."
+  ],
+  "source": "Sibling coordinator source inspected read-only; no edits or messages to that chat. No production migrations/grants/credentials/scheduler/paid contract/real billing/existing data deletion."
+}

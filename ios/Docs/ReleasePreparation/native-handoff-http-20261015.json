@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-15",
+  "status": "native_http_embedded_sql_verified_not_shipping_ready",
+  "baseHead": "775d18124aa4178147d4fbc5993bc811219a6c3e",
+  "transport": "Actual DEBUG HomeHandoffAPI/Flow default URLSession over ephemeral loopback HTTP",
+  "database": "PGlite using authoritative CI migration sequence and family handoff candidates",
+  "identity": "Synthetic fixed owner/recipient sessions and epochs; no current GoTrue/MFA provider",
+  "protectedCustody": "Unique test-only macOS Keychain service, separate begin/restore/cleanup executable processes",
+  "verified": [
+    "Owner creates exactly one request",
+    "Acceptance commits in SQL before socket reply is destroyed",
+    "Unconfirmed native result retains original protected intent and does not claim completed",
+    "Separate-process GET recovers same request/home/deadline",
+    "Completed decision recovery sends no further PUT",
+    "Exact products/tasks/history, other family member and Auth IDs remain",
+    "New owner and successor's redundant membership match verified SQL result",
+    "Foreign bearer/epoch refused",
+    "Redirect destination receives no request",
+    "HTML, public caching, declared oversize and streamed oversize refused",
+    "Scoped Keychain marker and temporary files cleaned"
+  ],
+  "privateResponseDefect": {
+    "baseline": "New test reproduced seven malformed/cacheable successful-result acceptances",
+    "fix": "200 result requires application/json, exact no-store, bounded declared and streamed size, consistent ASCII Content-Length"
+  },
+  "swiftPackage": {
+    "passed": 67,
+    "failed": 0,
+    "skipped": 0
+  },
+  "actualHTTP": {
+    "exitCode": 0,
+    "scopedCleanupPassed": true
+  },
+  "lint": {
+    "exitCode": 0,
+    "warnings": 0
+  },
+  "ciIntegration": ".github/workflows/native.yml executes ios/Tests/home-handoff-http.mjs",
+  "limitations": [
+    "Not the other-app shared-controller composition or live effective MFA policy",
+    "No shipping HTTP route/current provider, recipient discovery or native handoff screen activation",
+    "No actual Storage file custody, family RLS or physical iPhone Keychain proof",
+    "No actual Apple purchase, signed release, TestFlight or App Store submission"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false
+}

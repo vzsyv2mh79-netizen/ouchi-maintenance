@@ -1,0 +1,102 @@
+{
+  "source": "Read-only fixed snapshot of sibling Kakei completion candidate",
+  "scope": "Disposable composition only. V2 current-auth and historical verifiers fixed unchanged; existing v1 completion remains explicit compatibility only. No original source edits, provisioning, grants or deployment.",
+  "files": [
+    {
+      "source": "lib/shared-deletion.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/shared-deletion.mjs",
+      "sha256": "4d881e0e7f65b3e6639faa37e3c8283f4fd7922888a39beee59504bf2773fbb2",
+      "gitBlobSHA": "dc24383c7c34d946c42878499c3cf32deb2630d7"
+    },
+    {
+      "source": "lib/shared-deletion-journal.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/shared-deletion-journal.mjs",
+      "sha256": "2ed2d22115df31380be144e0345db053f04db4830b9677667ae00e870ad326ee",
+      "gitBlobSHA": "482fe7aedd15623bae588e83bdbfda36a6e32c48"
+    },
+    {
+      "source": "lib/handoff-consent.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/handoff-consent.mjs",
+      "sha256": "f9e59ac507c284c96b69cdaf24f7185249e76b2c7a300107d12c4f51f2d71479",
+      "gitBlobSHA": "7de5f341aa50c577be69062c38f86b8cda4a48ca"
+    },
+    {
+      "source": "lib/handoff-consent-store.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/handoff-consent-store.mjs",
+      "sha256": "889698bd94bb76fccc970f65ad21cc0667258dcfd681cdd88fe2c49edb5f5733",
+      "gitBlobSHA": "713b7d7e1d1bc358fde5bd9d52bb779129c7cca7"
+    },
+    {
+      "source": "lib/kakei-family-snapshot.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-family-snapshot.mjs",
+      "sha256": "657adad954039ea966e2a28ab8371c76bde78080bdb37a0712643abdb3df743f",
+      "gitBlobSHA": "6b778ef2835149dccddfa1f5633f0de1b57a6617"
+    },
+    {
+      "source": "lib/kakei-family-transfer.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-family-transfer.mjs",
+      "sha256": "d6243f31e3442cfcd4c7a8a486a2d70a00b2f96106ddb5b9f4a39d72200deea5",
+      "gitBlobSHA": "60c2cc290135b32c69e53ec78dee3cf494720475"
+    },
+    {
+      "source": "tests/fixtures/handoff-consent-store.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/handoff-consent-store.sql",
+      "sha256": "ff175a7731a9f9494fbd1974953b42519541cd8db3b06c775a8994cc429381f5",
+      "gitBlobSHA": "5e9ddc9743822c06c1dbbb3027c05431f244cb99"
+    },
+    {
+      "source": "tests/fixtures/kakei-family-transfer.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-family-transfer.sql",
+      "sha256": "c48c8f0f6ce5d65b326d96b037c8778ce44582e51ed7e1827154a5b594dd7328",
+      "gitBlobSHA": "7278f340ce02b796c9a337f8ccb99eb1d5a7c7f7"
+    },
+    {
+      "source": "review/kakei-family-completion.sql",
+      "path": "tests/fixtures/kakei-completion/review/kakei-family-completion.sql",
+      "sha256": "364ae50883888cd47dad6c3d3cbcaa8991e656f6db751ea4b3a579c8204bfae8",
+      "gitBlobSHA": "07532931f05b741839da34310d0749586ca59ba5"
+    },
+    {
+      "source": "lib/kakei-write-fence.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-write-fence.mjs",
+      "sha256": "b3f7e3509a3d8eb1d55056efd21304fd10407dc2705a02923eb8832214ee8fba",
+      "gitBlobSHA": "81111b2f5edb84e0e8322a3be9c36e9a72b2d256"
+    },
+    {
+      "source": "tests/fixtures/kakei-write-fence.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-write-fence.sql",
+      "sha256": "9c0d7b50908a5a2bb3519927257a0a49fb1f23520643139e41aaa8e8af810ebf",
+      "gitBlobSHA": "827a96696401e818cba681cd902131b01a314a1a"
+    },
+    {
+      "source": "tests/fixtures/kakei-write-table-guards.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-write-table-guards.sql",
+      "sha256": "57bf9475cc126ef529e180905324d953af1af12acc52314ff8c0bd8106d3b4e1",
+      "gitBlobSHA": "b785d4dfb4f90b7e0d326d39a28c2738f324c8ef"
+    },
+    {
+      "source": "tests/fixtures/kakei-fenced-handoff.sql",
+      "path": "tests/fixtures/kakei-completion/tests/fixtures/kakei-fenced-handoff.sql",
+      "sha256": "31c34089eb0e1875e2d65359219427dfed7c4025a50423ba55fb741279c429f8",
+      "gitBlobSHA": "85061f69af394b68466b073ba602251773f08401"
+    },
+    {
+      "source": "lib/handoff-consent-auth-state.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/handoff-consent-auth-state.mjs",
+      "sha256": "74b8af8c7bdc3fa40437d23a2c2d2a901250d28c8e6c26e7661a4257ca92ea65",
+      "gitBlobSHA": "b5f127c377e6c9ee6cdaf2c060c1e877e86c795c"
+    },
+    {
+      "source": "lib/kakei-family-auth-bound-completion.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-family-auth-bound-completion.mjs",
+      "sha256": "e0713265506c2eb61b0f559ebe6ac4c7d277e8a7ed30918ec3acef763d7cbabf",
+      "gitBlobSHA": "395fdc4daa66b9714984a3a3587e065f85f21936"
+    },
+    {
+      "source": "lib/kakei-family-completion.mjs",
+      "path": "tests/fixtures/kakei-completion/lib/kakei-family-completion.mjs",
+      "sha256": "e4d07f1f6f555b21f469bd7486f4ff85a9dc0ec890bf6e3931ee933bbfa53036",
+      "gitBlobSHA": "9c709d0ed234ceb0ceb1cf9f5ca94020738f06bb"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+import {readFileSync} from 'node:fs';
+const code=ts.transpileModule(readFileSync('lib/web-totp-confirmation.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText;
+const {createWebTOTPConfirmation:create}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const account='11111111-1111-4111-8111-111111111111',sessionID='22222222-2222-4222-8222-222222222222',factor='33333333-3333-4333-8333-333333333333',challengeID='44444444-4444-4444-8444-444444444444';
+function fixture(){
+ let current={account,sessionID,token:'original',revision:'r1'},now=Date.now(),onVerify=()=>{},onCommit=()=>{};const calls=[];
+ const p={read:async()=>current,clock:()=>now,factors:async()=>[factor],challenge:async(_,factorID)=>({id:challengeID,factorID,expiresAt:now+120000}),verify:async(_,c,code,signal)=>{calls.push('verify');assert.equal(c.id,challengeID);signal.throwIfAborted();await onVerify();if(code!=='123456')throw Error('Wrong code');return{account,sessionID,accessToken:'promoted',refreshToken:'synthetic-refresh'};},commit:async(expected,result,signal)=>{calls.push('commit');await onCommit();signal.throwIfAborted();if(JSON.stringify(expected)!==JSON.stringify(current))return false;current={account:result.account,sessionID:result.sessionID,token:result.accessToken,revision:'r2'};return true;}};
+ const flow=create(p);
+ return{p,flow,calls,get current(){return current;},switch:()=>{current={...current,account:factor,revision:'foreign'};},restore:()=>{current={...current,revision:'restored'};},expire:()=>{now+=600001;},onVerify:f=>{onVerify=f;},onCommit:f=>{onCommit=f;},ready:async()=>{await flow.prepare();await flow.challenge(factor);}};
+}
+test('registered-factor UI flow only adopts through exact atomic host boundary, no mutation callback',async()=>{const f=fixture();await f.ready();assert.deepEqual(await f.flow.verify('123456'),{account,sessionID,confirmed:true});assert.equal(f.current.token,'promoted');assert.deepEqual(f.calls,['verify','commit']);});
+test('wrong code is refused and remains retryable under same challenge',async()=>{const f=fixture();await f.ready();await assert.rejects(f.flow.verify('000000'));assert.equal(f.current.token,'original');assert.deepEqual(f.calls,['verify']);await f.flow.verify('123456');});
+test('invalid/expired/absent challenge never reaches verification HTTP',async()=>{for(const value of ['12345','１２３４５６','12345x']){const f=fixture();await f.ready();await assert.rejects(f.flow.verify(value));assert.equal(f.calls.length,0);}const f=fixture();await f.ready();f.expire();await assert.rejects(f.flow.verify('123456'));assert.equal(f.calls.length,0);});
+test('account switch or same-account restore during response cannot adopt old promotion',async()=>{for(const change of ['switch','restore']){const f=fixture();await f.ready();f.onVerify(()=>f[change]());await assert.rejects(f.flow.verify('123456'));assert.deepEqual(f.calls,['verify']);assert.notEqual(f.current.token,'promoted');}});
+test('cancellation while response is in flight discards it and cannot persist or resume mutations',async()=>{const f=fixture();await f.ready();f.onVerify(()=>f.flow.cancel());await assert.rejects(f.flow.verify('123456'));assert.equal(f.current.token,'original');assert.deepEqual(f.calls,['verify']);});
+test('host atomic boundary denies a competing replacement login even after final precheck',async()=>{const f=fixture();await f.ready();f.onCommit(()=>f.switch());await assert.rejects(f.flow.verify('123456'));assert.equal(f.current.account,factor);assert.equal(f.current.token,'original');});
+test('unknown, duplicate or malformed factors/challenges deny',async()=>{for(const values of [[factor,factor],['bad']]){const f=fixture();f.p.factors=async()=>values;await assert.rejects(create(f.p).prepare());}const f=fixture();await f.flow.prepare();await assert.rejects(f.flow.challenge(challengeID));});
+test('empty factors produce no enrollment or deletion capability and cannot challenge',async()=>{const f=fixture();f.p.factors=async()=>[];const flow=create(f.p);assert.deepEqual(await flow.prepare(),[]);await assert.rejects(flow.challenge(factor));assert.equal('enroll' in flow,false);assert.equal('remove' in flow,false);});

@@ -1,0 +1,16 @@
+.mfa-review { width:min(100%,680px); margin:0 auto; padding:32px 24px 80px; box-sizing:border-box; font-size:16px; line-height:1.7; overflow-wrap:anywhere; }
+.mfa-review h1 { font-size:26px; font-weight:700; line-height:1.4; margin:0 0 16px; }
+.mfa-review h2 { font-size:21px; font-weight:700; line-height:1.5; margin:0; }
+.mfa-review p { margin:0 0 16px; }
+.mfa-review .settings-group { display:grid; gap:18px; padding:24px 0; }
+.mfa-review .settings-group p { margin:0; }
+.mfa-review label { display:grid; gap:8px; }
+.mfa-review form { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
+.mfa-review label span { font-size:16px; line-height:1.5; }
+.mfa-review button, .mfa-review input, .mfa-review select { width:100%; min-height:48px; box-sizing:border-box; font-size:16px; }
+.mfa-review input,.mfa-review select { padding:10px 12px; }
+.mfa-review button { padding:12px 16px; white-space:normal; line-height:1.5; }
+.mfa-review .primary-button { background:#205d40; color:white; }
+.mfa-review .primary-button:disabled { opacity:.6; }
+.mfa-review [role="status"] { padding:16px; border:1px solid #7d8d83; border-radius:12px; }
+@media(max-width:480px) { .mfa-review { padding:24px 20px 64px; } }

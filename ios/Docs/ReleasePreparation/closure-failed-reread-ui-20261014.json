@@ -1,0 +1,24 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "faultInjection": "DEBUG guarded dedicated sample bundle only. Repeated read of the same synthetic submission returns correct scoped JSON with public cache policy; normal preview remains no-store. No live Auth or network provider is changed.",
+  "evidence": {
+    "sourceDigest": "8f5a10bf4bc8fd2f8abf406bb6c24f80aaad2900",
+    "testSourceSHA256": "f76fc7646606ca3c49ba0fc463a28221862263f3b7394057aba8209634e57ca5",
+    "device": "iPhone17e Simulator",
+    "runtime": "iOS27.0 (24A434)",
+    "textSize": "AX5",
+    "appearance": "dark",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 58.770,
+    "runtimeWarnings": [],
+    "PNGReviewed": 3,
+    "ownedSimulatorRemoved": true,
+    "temporaryInputAccessoryRemoval": false,
+    "asserted": ["first read visibly confirms pending receipt", "second read of exact same reference shows uncertainty/reconcile instructions", "previous receipt status is absent", "stale cancellation action is absent", "selected reference remains AAAAAAAA", "protected reference count remains2"],
+    "protectedStorage": "Actual scoped iOS Simulator Keychain; same dedicated sample custody as existing tests"
+  },
+  "remaining": ["Enabled settings navigation with isolated real session/context provider", "Native-to-real-Auth shipping integration", "Actual personal/shared content erasure", "Normal/light and other screen error interactions", "VoiceOver/full audit/physical lock", "Apple purchases, distribution signing and App Store approval"]
+}

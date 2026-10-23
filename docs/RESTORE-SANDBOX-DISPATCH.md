@@ -1,0 +1,19 @@
+# Dormant Sandbox restore dispatch
+
+POST /api/billing/restore/process accepts only requestID, pairSHA256 and assertionSHA256 under verified live Auth and the original enrollment/session. It never accepts a client job, lease, Apple identifier or account token. A service-only database claim returns the exact stored worker job after matching scope and digests. A row lock and account advisory lock serialize claims; last_dispatch_at persistently throttles repeated execution for 60 seconds. This is a polling limit, not expiration of the reservation.
+
+The entry requires independent restore and reconciliation flags, complete Sandbox verification/signing configuration, and the disabled-by-default database policy. No configuration is enabled by this change. Apple operations use the existing hardwired SDK adapter. A durable mutation marker precedes the single token update. An unknown earlier update is readback-only; no second update or ownership release occurs automatically. Completion is process status only: premium remains a separate verified-ledger entitlement read. Refunds must not be reversed by a completed process response.
+
+Local tests use synthetic verified Auth/Apple responses and actual disposable PGlite ledger SQL. They cover exact scope, malformed requests/jobs, disabled gates, changed enrollment, dispatch throttling, lost acknowledgement and readback-only unknown updates. They do not prove Apple signatures/device attestation or real Apple mutations. CI applies the additive migration to disposable PostgreSQL. No shared database, owner keys, real payment, production deployment or SDK configuration is accessed.
+
+Release gates: native dispatch transport/flow integration, real Sandbox purchase/token-update readback, device attestation and signed UI checks, service security advisors, and an approved finite retention/escalation policy for unresolved jobs and receipts. App Store publication remains incomplete.
+
+## Disposable parallel PostgreSQL verification
+
+The additive migration CI now includes billing-restore-dispatch-race.integration.mjs. It creates a randomized disposable database inside the existing test container, uses two actual PostgreSQL sessions, observes the second session waiting on the account advisory lock, and exercises commit/rollback for the dispatch claim, mutation marker, and enrollment closure. A committed claim must throttle the waiter; a rolled-back claim must allow the surviving claim. Only one committed mutation marker may be returned, and later marker requests must return null. Committed closure must refuse the waiting claim without a dispatch timestamp. None of these operations creates purchase ownership or verified paid transactions.
+
+The test requires OUCHI_RESTORE_DISPATCH_RACE_TEST=true and hardwires the disposable compose project; no production URL or key is accepted. Syntax and lint are local checks; the parallel PostgreSQL assertions require observing their CI step result before claiming verification. Formal service security advisors and actual Apple/device proof remain separate release gates.
+
+Documentation checked: Supabase functions and changelog (2026-10-12), PostgreSQL explicit locking. The reviewed minor-release ltree/legacy-PGP/GiST/custom-operator changes are not used by this dispatch implementation; private service-only RPC privileges remain explicit.
+
+Sources: https://supabase.com/docs/guides/database/functions, https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes, https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically, https://www.postgresql.org/docs/current/explicit-locking.html. Apple current-renewal token behavior: https://developer.apple.com/documentation/appstoreserverapi/set-app-account-token (historical renewals remain unchanged; actual Sandbox readback is still required).

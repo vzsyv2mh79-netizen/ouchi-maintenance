@@ -1,0 +1,86 @@
+{
+  "status": "local-review-candidate-verified",
+  "createdAt": "2026-10-20T10:58:59.474245+00:00",
+  "baseHead": "529b6d95c0a66566abc7f7bf069cb66063705383",
+  "files": [
+    {
+      "path": "lib/post-native-seal-consent.ts",
+      "sha256": "b14f85be3b4527c2fedbc351a78750bfa4b9bee5c5bbc77f1dcb6175572f6588"
+    },
+    {
+      "path": "tests/fixtures/post-native-seal-consent.sql",
+      "sha256": "111a7da9241c7329e49563c3339cdb59d2bed16277dfff04ab17f0ffa6c14a34"
+    },
+    {
+      "path": "tests/post-native-seal-consent.native.mjs",
+      "sha256": "d4f4ee94b28d1c9fe51577f7449ae93bc9fc3174b8c16966c1cbf3afe8a0ddc4"
+    },
+    {
+      "path": "tests/fixtures/post-seal-family-setup.mjs",
+      "sha256": "e1561cc3e1b4b7695917f40ac04ba54b4dc05f066ff11864a91f08a0d9bd0be0"
+    },
+    {
+      "path": "tests/fixtures/home-handoff-full-schema.mjs",
+      "sha256": "50af3069003187a2914780015392739d4746c54fb5a3210d646469acc9cf7893"
+    },
+    {
+      "path": "tests/fixtures/family-attachment-activation.mjs",
+      "sha256": "1a86ff02d2b8d89628330334b37ca783fd2a0806344b8e9f448d77d14e97703d"
+    },
+    {
+      "path": "scripts/test-scoped-shared-consent-native.py",
+      "sha256": "4feabd84bc80e1797e6adf039f7bcee6a044a89175413f12c87c231e1ef83d29"
+    }
+  ],
+  "proof": {
+    "postgres": "17.6",
+    "canonicalMigrationCount": 135,
+    "nativeStages": [
+      "eraseRecords",
+      "eraseDeviceRegistrations",
+      "captureReceiptSessions",
+      "eraseIdentity",
+      "markComplete"
+    ],
+    "nativeTests": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "relatedRegression": {
+      "pass": 80,
+      "fail": 0,
+      "skip": 0
+    },
+    "typecheck": true,
+    "targetedLint": true,
+    "originalExpiredPayloadAndSignatureUnchanged": true,
+    "existingCurrentIdentityAndRunningReaderUnchanged": true,
+    "ownerAppRegistrationRemovedByActualNativeStages": true,
+    "familyAndAttachmentReceiptsCreatedByActualFixtureStageSQL": true,
+    "owningCommitRechecksSameTransaction": true,
+    "rootFirstLocks": true,
+    "lateRootLossRollsBackMarker": true,
+    "wrongNativeRequestEpochLeaseAndKeyRefused": true,
+    "missingHoldWithoutReleaseDenied": true,
+    "releaseWithoutGlobalCompleteRollsBack": true,
+    "wrongGlobalCompletionRollsBack": true,
+    "releasedReaderAndSealedRootReaderVerified": true,
+    "missingActualFamilyReceiptDenied": true,
+    "ownerTombstoneRetained": true,
+    "ownedClusterStoppedAndRemoved": true
+  },
+  "limits": [
+    "Auth identity and management policy are synthetic in this specific native-stage test; independent real GoTrue issuance tests are separate.",
+    "Storage is branded in-memory fixture with real hash/manifest checks and real SQL activation/completion; no actual remote Storage/API proof.",
+    "Cross-app/root prerequisite receipts in this test are explicit synthetic fixtures; this is not an all-app end-to-end retirement proof.",
+    "Native review runner test is explicit opt-in and is not included by ordinary tests/*.test.mjs CI glob.",
+    "No production wiring, migrations, role/grants, runtime feature activation, actual customer deletion, Apple purchase, publication or review submission."
+  ],
+  "newDormantCapability": "SQL includes separate metadata-only family-hold release definition with no EXECUTE grants; deferred COMMIT requires exact global COMPLETE and retained native/family proof. Historical read itself never writes family/Auth data.",
+  "remaining": [
+    "Bind real GoTrue issuer/current management policy and actual private Storage service to this full canonical schema test.",
+    "Wire separate read-only port into paired coordinator stages and verify all-app retained family obligations.",
+    "Independent review of new dormant release definition before any production grant or deployment."
+  ]
+}

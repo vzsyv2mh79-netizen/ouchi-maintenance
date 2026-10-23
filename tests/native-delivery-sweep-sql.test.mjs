@@ -1,0 +1,17 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
+test('actual sweep SQL fences leases, checkpoints, midnight and completed-cycle cadence',async()=>{
+ const db=new PGlite();try{
+ await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema maintenance_private;grant usage on schema maintenance_private to service_role;');await db.exec(readFileSync('supabase/migrations/20261011112330_ouchi_native_delivery_sweep.sql','utf8'));await db.exec('set role service_role');
+ const scopes=['Production','Sandbox'],cursor='11111111-1111-4111-8111-111111111111';
+ const claim=async(push='Production',purchase='Sandbox')=>(await db.query('select public.claim_maintenance_native_delivery_sweep($1,$2) as v',[push,purchase])).rows[0].v;
+ const current=async(c,push='Production',purchase='Sandbox')=>(await db.query('select public.maintenance_native_delivery_sweep_current($1,$2,$3,$4) as v',[push,purchase,c.cycle,c.lease])).rows[0].v;
+ const checkpoint=async(c,before,after,status='partial')=>(await db.query('select public.checkpoint_maintenance_native_delivery_sweep($1,$2,$3,$4,$5,$6,$7) as v',[...scopes,c.cycle,c.lease,before,after,status])).rows[0].v;
+ const first=await claim();assert.ok(first.lease);assert.equal(await claim(),null);assert.equal(await current(first),true);assert.equal(await current(first,'Production','Production'),false);assert.equal(await checkpoint(first,cursor,cursor),false,'expected cursor must match');assert.equal(await checkpoint(first,null,cursor),true);assert.equal(await current(first),false);
+ const second=await claim();assert.equal(second.cursor,cursor);assert.equal(second.cycle,first.cycle);assert.notEqual(second.lease,first.lease);assert.equal(await checkpoint(first,null,cursor),false);assert.equal(await checkpoint(second,cursor,null),false);assert.equal(await checkpoint(second,cursor,cursor,'complete'),true);assert.equal(await claim(),null,'completed sweep waits five minutes');
+ await db.query("update maintenance_private.native_delivery_sweeps set completed_at=clock_timestamp()-interval '6 minutes'");const third=await claim();assert.equal(third.cursor,null);assert.notEqual(third.cycle,second.cycle);
+ await db.query("update maintenance_private.native_delivery_sweeps set lease_until=clock_timestamp()-interval '1 second'");const recovered=await claim();assert.equal(recovered.cycle,third.cycle);assert.notEqual(recovered.lease,third.lease);assert.equal(await current(third),false);
+ await db.query("update maintenance_private.native_delivery_sweeps set delivery_day=delivery_day-1,lease_until=clock_timestamp()-interval '1 second'");assert.equal(await current(recovered),false);const tomorrow=await claim();assert.notEqual(tomorrow.cycle,recovered.cycle);assert.equal(tomorrow.cursor,null);
+ await claim('Sandbox','Sandbox');await claim('Sandbox','Production');await claim('Production','Production');assert.equal((await db.query('select count(*)::int as v from maintenance_private.native_delivery_sweeps')).rows[0].v,4);await assert.rejects(()=>claim('Invalid'));
+ for(const role of ['anon','authenticated']){await db.exec('reset role;set role '+role);await assert.rejects(()=>claim());await assert.rejects(()=>current(tomorrow));await assert.rejects(()=>checkpoint(tomorrow,null,null));}
+ }finally{await db.close();}
+});

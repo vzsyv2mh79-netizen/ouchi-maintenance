@@ -1,0 +1,15 @@
+# Restrictive review children: refusal evidence, not cleanup approval
+
+2026-10-21. Local test-only extension to the existing reviewed native executor. No eraser, canonical wrapper, executor profile, grant, trigger definition, FK, runtime registry, retention policy or hosted configuration is changed.
+
+A sibling catalog-only capture (observed 2026-10-20T21:10:08.306135Z) has 19 target tables and 22 outgoing validated FKs with origin-enabled internal RI triggers. Its raw metadata file SHA256 independently matches `7653e747007e12cd6018d0b34ae43902d9fd57582a73321ccd34ca1cdd3463c3`. This is preserved peer-provided metadata evidence, not a fresh live database query performed here. Structural cascades do not prove correct scoped execution or retention approval.
+
+Four child tables reference account_closure_reviews with DELETE RESTRICT: closure_field_redaction_receipts, closure_legacy_home_events, closure_operator_assessments and closure_text_snapshots. The current canonical reviewed cleanup deletes reviewed retirements/plans and then calls the unchanged closure eraser, which deletes account_closure_reviews. It has no corresponding child disposition for these four tables. A nonempty child must prevent that parent deletion. The previous nonempty plan/retirement/file/claim success did not cover these children.
+
+The new actual PG17.6/GoTrue2.197 cases inject **one synthetic exact-person/exact-epoch child at a time**, restore every original USER trigger mode, then run the real existing eight-phase native executor. Each independently fails with SQLSTATE23503 naming the expected child. The child stays byte-identical, all earlier native records/metadata phases roll back, and other-person/other-generation fixture rows remain unchanged. No actual user content or hosted data is accessed.
+
+Synthetic insert/remove setup temporarily disables USER triggers on only the one fixed child table; all FK/check constraints remain enabled. This setup is not an operational capability. Trigger modes are restored before every real executor call. After verifying refusal, that one synthetic child is removed using the same explicitly synthetic fixture setup. The subsequent old positive cleanup baseline therefore continues to exclude these four nonempty children; it must **not** be reinterpreted as successful erasure of them.
+
+Remaining work: explicit disposition and access/retention policy for each child; exact person/native request/epoch/review custody; provenance and complete child/FK/writer inventory; row order including text snapshot descendants; explicit canonical integration with unchanged final completion guards; nonempty success plus foreign person/generation preservation and late-COMMIT rollback tests. No caller-supplied evidence flag, blanket child DELETE, cascading-FK alteration, immutable-trigger bypass or user-wide broadening is authorized by this test.
+
+restore_cancelled_requests additionally mixes a CASCADE to restore_attested_keys with NO ACTION to Auth. It is a separate unresolved target; this four-child test provides no successful cleanup or retention proof for it. Global all-destination runtime adoption remains blocked.

@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-10-20",
+  "status": "local_actual_native_verified_undeployed_candidate",
+  "native": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "postgresVersion": "17.6",
+    "authVersion": "v2.197.0",
+    "log": "output/scoped-shared-consent-native-verified-20261020.log",
+    "cleanup": "Owned Auth stopped; native cluster stopped and temporary directory removed"
+  },
+  "regression": {
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "log": "output/scoped-shared-consent-regression-20261020.log"
+  },
+  "lint": "passed",
+  "typecheck": "passed",
+  "implementation": [
+    "Independent fixed request/home/native-lease SQL port; exact real LOGIN and bounded role attributes, no SET ROLE/admin fallback",
+    "Private original plan/controller journal/native request/holds plus processing leases checked; sorted Auth parent/child pins and validated immediate FKs required",
+    "AAL2 and exact recent signed TOTP matched to DB AMR; no default low-AAL duration or weaker current TOTP policy",
+    "Auth secrets hashed inside private SQL; only new-domain digest and bounded times returned",
+    "Dedicated issuer identity port registers same-transaction COMMIT recheck of original user/session/digest/TOTP time; bearer is only an ephemeral closure, not durable storage"
+  ],
+  "nativeVerified": [
+    "Real two-user signup/TOTP verification, actual dedicated LOGIN, both actor identity ports and HMAC test-proof persistence through checked COMMIT",
+    "Direct SELECT on all4 Auth tables and family-plan UPDATE denied",
+    "Foreign request/native lease, stale AAL1 JWT, TOTP verification disabled, broadened CREATEDB role, deferrable FK and expired root lease refuse",
+    "Concurrent session mutation blocked; pg_stat_activity and pg_blocking_pids prove factor INSERT waits on owning transaction, then succeeds after commit",
+    "Synthetic Management TOTP policy loss at COMMIT rolls staged test proof back",
+    "Factor metadata change alters digest without rebinding stored proof; actual owner logout refuses owner while remaining family actor still authenticates"
+  ],
+  "limitations": [
+    "Local SQL is a review candidate using existing shared-controller candidate table shapes, not a production migration or approval",
+    "Management config/private plan/journal/holds and proof-store grants are synthetic fixtures; native test does not prove production policy, plan immutability/writer coverage or final proof-store RLS",
+    "The HMAC test proof store exercises issuer identity/COMMIT composition, not a shipping consent HTTP API or complete durable original-session/cancellation/reconsent generation workflow",
+    "GoTrue uses privileged disposable migration-owner connection; dedicated runtime LOGIN is tested separately; no production TLS or credential custody proof",
+    "New scoped proof domain is distinct from legacy Ouchi/shared and Kakei digests; no casts, old-proof rebinding or automatic migration",
+    "Combined owner principal/global lock order/SQL map and both-app controller all-stage/post-Auth capability/retention/outbox remain independently unverified",
+    "No route imports or enables this new factory; no public API, current role/grant, shared Auth/data, real file, user or billing changed"
+  ],
+  "sourceSHA256": {
+    "lib/scoped-shared-consent-identity.ts": "41cd1f97a0d130f503bb52cf22806ca55eeaa5ad35e8d0c2e8ae25e94737e066",
+    "tests/fixtures/scoped-shared-consent-auth.sql": "6857e295adb16f06d2e32b90cb7505dfdacd796e5ff629303a20cd0f37590c12",
+    "tests/fixtures/scoped-shared-consent-module.mjs": "c1f85d8c2e313b3370b2e96d81eb48ae9538f9100143ab1e6430a9ec15941259",
+    "tests/fixtures/scoped-native-gotrue.mjs": "04e3b13ad5934db8280928969795d521a50c1304e32c16abb76253d81b85bdf4",
+    "tests/scoped-shared-consent-identity.test.mjs": "a3cc77b00ed661497bd81fe80fa427dff40cc0fa412bd248bbb1831ce947f461",
+    "tests/scoped-shared-consent.native.mjs": "e37e3a6c6f07781314ef2fceda1a94364d02ee9aa1e282b5d61dbba32f4c7e2e",
+    "scripts/test-scoped-shared-consent-native.py": "6b4979d09b2f5bf75072343d9139239d019f7bc9403df05e1d23b8756df40e2c"
+  },
+  "productionChanged": false,
+  "existingRolePrivilegesChanged": false,
+  "newProductionCredentialCreated": false,
+  "actualCustomerDataDeleted": false,
+  "runtimeEnabled": false,
+  "recentTOTPRequirementRelaxed": false
+}

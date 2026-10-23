@@ -1,0 +1,103 @@
+{
+  "status": "sample_captures_and_family_interaction_reviewed_not_submission_approved",
+  "sourceHead": "befae143a2df9f3c641ead12adb7ae4642e5d56c",
+  "sourceDigest": "d8623a3d0051b7ddfb19c0ada98d9191be95d5fb",
+  "reviewedOn": "2026-10-15",
+  "tabCaptures": {
+    "iphone": {
+      "count": 10,
+      "dimensions": [
+        1320,
+        2868
+      ],
+      "alpha": false
+    },
+    "ipad": {
+      "count": 10,
+      "dimensions": [
+        2064,
+        2752
+      ],
+      "alpha": false
+    },
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "textSize": "large",
+    "scope": "initial five tab viewports; synthetic in-memory records only"
+  },
+  "familyDetail": {
+    "test": "testFamilyDetailsLoadAndRemainReachable",
+    "device": "iPhone 18 Pro Max",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "expectedFailures": 0,
+    "runtimeWarnings": [],
+    "capturesReviewed": 4,
+    "dimensions": [
+      1320,
+      2868
+    ],
+    "alpha": false,
+    "scope": "actual Settings navigation, synthetic member decoding, fully visible title/member/remove/reload controls",
+    "removalTapped": false,
+    "liveMembershipVerified": false,
+    "ownedSimulatorRemoved": true
+  },
+  "captureHashes": {
+    "store-captures-inline-20261015-iphone-large": {
+      "dark/large/care-native.jpg": "1f68ef446dc2f923dd9139bb76e25a02cb112e03760f533d9ca67bc29037bcce",
+      "dark/large/history-native.jpg": "2ad838055a86ed87c9a009e28a2c71181f1d86cc61502e48f168d6f7301666ce",
+      "dark/large/home-native.jpg": "2890aca17cf91eb5011b9a90a99647eace6a6dd7582f17c31f82a61559aecec6",
+      "dark/large/products-native.jpg": "b678888c3afa445f04b23a8310cc0925aadd929583bf72c5b864db3054bfc06c",
+      "dark/large/settings-native.jpg": "7f287e6ae904ad5bdcc69b0e04a1522b34c694959a8c28bcca024f74f33f7a61",
+      "light/large/care-native.jpg": "e199b4cc6fea17bc5033997c364d9202a26c842ddf516a7e94f42596374fa2ab",
+      "light/large/history-native.jpg": "c12f6f0f3e927a6f608f9b604e714a821bd048198a1bcfacf5ff7b121cf69c79",
+      "light/large/home-native.jpg": "961167de36e347f9c4c65bd64bd67e023b5e485a6f1ba8037ef184ae4a61f95c",
+      "light/large/products-native.jpg": "eda9fb3134b5a7feca24979e31b2066ce5b1a3547037c6d68cc41a2cf53c7e04",
+      "light/large/settings-native.jpg": "575dc5a17e7d0edec4af9a81a2e65452873711e6f80aa3f2494c34f84042f511"
+    },
+    "store-captures-inline-20261015-ipad": {
+      "dark/large/care-native.jpg": "6e5508c7ad1e346ac6fe28df23ddbb70e399e63f488cf40cab1ca6bbe6921a4d",
+      "dark/large/history-native.jpg": "36a70732cbc695127a8f443740c7bb854dabae7426e50c3e6d916125c8a26363",
+      "dark/large/home-native.jpg": "d43875a5f4a143c9f88c14ca125a157b069eceba6bdfdad9f433a1a1ffd3b13a",
+      "dark/large/products-native.jpg": "4e7d31fa5b5f47300069c03a6b2f80b707296a1b60678954c35356cc49066d13",
+      "dark/large/settings-native.jpg": "000faea10bdeb78390e7b8e120743eb68fddbf359f1535139aaaabc2d958013e",
+      "light/large/care-native.jpg": "587625c7e1b2d417ba0e60888563e44bcaab19cf116fd99be40b78a9e82740c2",
+      "light/large/history-native.jpg": "b6b4e8d95ec5d5bf1d7f8295f0315167a95a937ddc9510595cc1406c029d83d2",
+      "light/large/home-native.jpg": "a803e577223a8d31cd56c6c9b9e1de02f751d056c0ca8903c5d8083718e134fe",
+      "light/large/products-native.jpg": "0a6fff4e4f3bad5bc60aec9bed5be1e1c9e544fc02ef37c2308af30972203d79",
+      "light/large/settings-native.jpg": "30cbf5ec734a0bc1bb89aeb814a6850631a5b5efd31b87d58e832288a43170b8"
+    },
+    "family": {
+      "attachments/3B51084C-1964-41A7-AB92-D02FD5A1BAE5.png": "f7e9b02b49e8ce2556e3e57d621c515f544fd450738141775ab64937b51c8233",
+      "attachments/A5402B1B-6E6C-479B-8F18-82643C1DFBB0.png": "f7e9b02b49e8ce2556e3e57d621c515f544fd450738141775ab64937b51c8233",
+      "attachments/CC9F81F8-DEFC-4E31-A96E-A7386481D363.png": "f7e9b02b49e8ce2556e3e57d621c515f544fd450738141775ab64937b51c8233",
+      "attachments/FFCAF189-DF94-47B7-926C-B58D21D17AF4.png": "f7e9b02b49e8ce2556e3e57d621c515f544fd450738141775ab64937b51c8233"
+    }
+  },
+  "latestPublishedNativeChecks": {
+    "run": 38697925821,
+    "job": 116298822094,
+    "conclusion": "success",
+    "coreTests": 67,
+    "failed": 0,
+    "unsignedReleaseBuild": "success",
+    "unsignedDebugBuild": "success",
+    "warning": "All interface orientations must be supported unless the app requires full screen. Needs explicit iPad orientation configuration and landscape review before submission."
+  },
+  "notVerified": [
+    "final signed archive",
+    "actual cloud invitation or removal",
+    "VoiceOver",
+    "physical device",
+    "landscape and keyboard forms",
+    "full accessibility including known partially scrolled Care contrast issue",
+    "Apple purchases and refunds"
+  ],
+  "submissionApproved": false,
+  "productionEnabled": false,
+  "billingEnabled": false
+}

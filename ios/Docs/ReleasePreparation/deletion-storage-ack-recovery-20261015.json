@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-15",
+  "status": "local_sdk_http_verified_real_storage_ci_pending",
+  "baseHead": "565812feb254d9a67736719980a19598aaa8a463",
+  "module": "lib/account-deletion-objects.ts",
+  "defect": "Storage deletion could commit before its response was lost, but the coordinator stopped on the removal error before attempting definitive absence reconciliation.",
+  "change": [
+    "Retain exact frozen path and immutable native request/user/epoch/lease",
+    "Treat removal error result or thrown loss as unknown, never success",
+    "Recheck lease and cancellation before Storage download",
+    "Require exact SDK StorageApiError NoSuchKey; arbitrary404/AccessDenied/timeouts/present bytes do not confirm absence",
+    "Require canonical same-scope durable SQL absence acknowledgement and final inventory reread",
+    "Do not mark account deletion complete or bypass late-writer settlement"
+  ],
+  "baseline": {
+    "tests": 4,
+    "passed": 1,
+    "failed": 3,
+    "scope": "Two lost-removal positive cases and one new refusal/read-expectation case failed before correction; original test passed"
+  },
+  "local": {
+    "relatedTestsPassed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "typecheck": "passed",
+    "sdkHTTP": "Actual pinned Supabase SDK and bounded attachment fetch against ephemeral loopback server; DELETE body exact path, socket destroyed after synthetic commit, SDK error surfaced, real SDK NoSuchKey decoded before injected SQL acknowledgement"
+  },
+  "actualServiceCandidate": {
+    "suite": "tests/account-deletion-storage.integration.mjs",
+    "workflow": "Additive billing identity migration checks",
+    "checks": [
+      "Real disposable Storage successful removal response consumed then downstream socket destroyed",
+      "Actual SDK must expose unknown removal result",
+      "Subsequent real Storage read and canonical SQL receipt must reconcile same frozen object",
+      "Unsettled late upload still refuses its acknowledgement until exact canonical settlement",
+      "No foreign frozen path is removed; original Auth and unrelated records remain"
+    ],
+    "status": "pending_new_head"
+  },
+  "limitations": [
+    "Local SQL/identity responses synthetic, real Storage/PostgreSQL result pending",
+    "Partial native object-batch adapter; not full v2 shared controller/all-writer coverage or shared Auth erasure",
+    "No production rollout, new role/grant, worker schedule, physical deletion SLA or Apple purchase"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false
+}

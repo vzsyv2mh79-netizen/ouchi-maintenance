@@ -1,0 +1,46 @@
+{
+  "status": "xcode_ui_tests_passed_result_inspected_selected_scope",
+  "sourceDigest": "95a087cea7a568e069d520ae6f73b006a3f5aaa3",
+  "textSize": "accessibility-extra-extra-extra-large",
+  "appearance": "dark",
+  "syntheticDataOnly": true,
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "scope": [
+    "Full NativeRoot flow with actual SessionController Auth Keychain erasure, then bounded guarded DEBUG pause before real AppAttest pending marker finalization. XCTest terminates the process. Restart refuses implicit reseeding and requires absent protected Auth, matching pending marker/deadline, original protected capability hashes and removed owned pending files. Logged-out saved-reference flow freshly confirms canonical completion and retries actual cleanup/recovery. Preserves full family filtering/local-only logout/original-key and foreign-file checks. Synthetic network only."
+  ],
+  "notVerified": [
+    "real Auth HTTP",
+    "actual account erasure",
+    "VoiceOver",
+    "physical locked device",
+    "purchases",
+    "distribution signing"
+  ],
+  "testSourceSHA256": "c61287816e76c271d575a5bae87c9d94006330af0bcbb62b9cc5c2c736772557",
+  "selectedTest": "closure-root-interruption",
+  "previewTextMode": "ax5",
+  "temporaryToolbarProjection": false,
+  "testHarnessDigest": "a4515364b897cdac187a4ed63231d6c0f9f1da6c3bb6d272ae8a0711c6a17172",
+  "simulatorUDID": "49589F71-88CC-476C-A5F8-699E51316F48",
+  "ownedSimulatorRemoved": true,
+  "sourceReviewHead": "a86db9c16a63131aba12fe62fc10b5c02e731e26",
+  "resultInspection": {
+    "xcresult": "Passed",
+    "totalTests": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "viewedAttachments": [
+      "root-interrupted-cleanup-resumes-with-original-key-no-auth",
+      "root-family-local-logout-keeps-original-owner-read-key"
+    ],
+    "inspection": "Selected controls and status remain reachable by scrolling at AX5. Long paragraphs span screens. DEBUG sample banners are not shipping UI. This does not establish full layout or VoiceOver acceptance."
+  },
+  "priorFailure": {
+    "resultBundle": "/tmp/ouchi-closure-root-interruption-20261023/InteractionTests.xcresult",
+    "reason": "After successful interrupted cleanup, navigation returned to the existing sign-in Form retaining a lower scroll position. The test searched downward for the virtualized email row.",
+    "fix": "Search upward only after the interrupted already-logged-out retry; the ordinary new-root path retains its downward search. No visibility bounds, assertions, timeout, app behavior or data protection was weakened."
+  },
+  "sourceScope": "Current native app source snapshot plus the explicitly recorded test-only scroll-direction correction. All network replies remain synthetic; no hosted erasure, customer data, Apple transaction, physical device or distribution signing was exercised."
+}

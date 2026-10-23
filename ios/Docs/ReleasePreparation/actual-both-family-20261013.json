@@ -1,0 +1,49 @@
+{
+  "status": "actual_both_family_services_passed_auth_v1_gap_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "scope": "Disposable common GoTrue + PostgreSQL + private Storage and both app family checkpoint; not all-account retirement.",
+  "implementation": [
+    "Actual root inventory has maintenance + kakei with fixed request/scope IDs before any issuer.",
+    "Kakei issuer uses actual pinned AAL2 identity/session/factor verification and signed TOTP AMR time, same actors as maintenance.",
+    "Kakei prepares authoritative fixture household membership and applies six copied financial table hooks/current private write-fence checks. Full shipping app enrollment/all-table writer coverage is not implied.",
+    "Kakei protected transfer and signed immutable completion commit in a dedicated DB transaction; deliberately lost completion reply is read back without repeating transfer.",
+    "Global checkpoint refuses missing Kakei completion; later proof revocation/logout does not erase an already committed fact.",
+    "Global checkpoint failure rolls only global SQL state back while maintenance source absence/copy bytes/member bytes/family receipts remain; both contributions are rechecked before retry.",
+    "Kakei completion in this fixture uses unchanged v1 signed proofs and current financial write fences. Receiver logout precedes new Kakei completion: this exposes the weaker v1 scope and is not evidence of fresh two-party Auth authorization."
+  ],
+  "localEvidence": {
+    "priorExactSourceRegression": {
+      "passed": 741,
+      "failed": 0,
+      "skipped": 0
+    },
+    "currentScope": "Only disposable actual-service fixture/helper and source fence copies changed; no production library or UI change.",
+    "lint": "passed",
+    "syntax": "passed"
+  },
+  "actualServiceResult": {
+    "head": "738c026aa968e0d893a222c307c886a518beea6c",
+    "workflow": 38405370107,
+    "job": 115323473076,
+    "status": "success",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawJobLogsInspected": true,
+    "enclosingFixtureAwaitedAtExactHead": true,
+    "durationMs": 30173.237858,
+    "disposableContainersAndAttachmentVolumeRemoved": true,
+    "scope": "Actual common GoTrue AAL2 issuer, PostgreSQL Kakei v1 signed completion + six financial table fences, Ouchi signed file/family completion, and two-app global checkpoint. Not worker current-auth v2 proof or whole-account retirement."
+  },
+  "copiedSource": "Kakei completion/consent/journal/transfer/snapshot/fence sources fixed unchanged with 14 SHA entries in source-manifest.json. Sibling originals read-only.",
+  "remaining": [
+    "Current post-consent Kakei Auth binding, then repeat actual composition with that reviewed protocol.",
+    "Kakei v1 signed proof does not persist authStateDigest. Actual AAL2 issuer pins do not prove post-consent factor/session changes are rejected at worker/COMMIT; cross-app Auth binding requires a reviewed versioned durable protocol before shipping.",
+    "Independent full frozen inventory/real Kakei app enrollment/all schema and writers/external namespace capabilities.",
+    "Formal current root/native rebind and all app erase/verify/final shared Auth/post-Auth proof.",
+    "Finite proof/context/snapshot retention and least privilege/shipping policy/auth/recovery.",
+    "Maximum capacity/latency, physical device Apple Sandbox/TestFlight/submission; owner Developer payment held."
+  ],
+  "safety": "No production migration/grant/new keys/paid infrastructure/real billing/production data deletion."
+}

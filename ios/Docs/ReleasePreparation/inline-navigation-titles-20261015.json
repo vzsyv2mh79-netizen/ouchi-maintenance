@@ -1,0 +1,88 @@
+{
+  "status": "visible_inline_titles_and_home_reselection_verified_sample_only",
+  "sourceHeadBeforeChange": "37477873c68984b54dd08666ef6529c99c336ea2",
+  "sourceDigest": "d8623a3d0051b7ddfb19c0ada98d9191be95d5fb",
+  "trigger": "Normal-text iPhone18Pro light Home/Products and dark Home captures showed an empty automatic title region; title styling now defaults to inline. Prior source5866a74 remains before-fix evidence.",
+  "change": "AdaptiveNavigationTitle forceInline defaults true; adaptive colors, product UILabel, toolbar actions and persistence preserved. Explicit false remains available.",
+  "captureToolChange": "Large iPhone18ProMax defaults for iPhone store sample captures; --iphone-size medium retains optional iPhone18Pro. iPad unchanged.",
+  "review": {
+    "captured": 10,
+    "reviewed": 10,
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "textSize": "large",
+    "device": "iPhone18ProMax",
+    "width": 1320,
+    "height": 2868,
+    "alpha": false,
+    "sampleOnly": true,
+    "finalSignedSubmission": false,
+    "ownedSimulatorRemoved": true
+  },
+  "uiTest": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "sourceDigest": "d8623a3d0051b7ddfb19c0ada98d9191be95d5fb",
+    "testHarnessDigest": "996e143e38feadd2193fe36f8075ca06c34e53cdcc2a93021e1768e5896924c5",
+    "scope": "actual Home menu/reselection; rendered/hittable title has nonzero frame entirely inside navigation bar",
+    "device": "iPhone-18-Pro",
+    "appearance": "light",
+    "textSize": "large",
+    "ownedSimulatorRemoved": true
+  },
+  "remaining": [
+    "large text and other viewports",
+    "known Care contrast findings at partially scrolled rows",
+    "VoiceOver and physical iPhone",
+    "family detail and iPad final captures",
+    "signed submitted build and removal of review sample header"
+  ],
+  "production": false,
+  "actualBilling": false,
+  "officialSpecification": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+  "captureHashes": [
+    {
+      "file": "light/large/home-native.jpg",
+      "sha256": "961167de36e347f9c4c65bd64bd67e023b5e485a6f1ba8037ef184ae4a61f95c"
+    },
+    {
+      "file": "light/large/care-native.jpg",
+      "sha256": "e199b4cc6fea17bc5033997c364d9202a26c842ddf516a7e94f42596374fa2ab"
+    },
+    {
+      "file": "light/large/products-native.jpg",
+      "sha256": "eda9fb3134b5a7feca24979e31b2066ce5b1a3547037c6d68cc41a2cf53c7e04"
+    },
+    {
+      "file": "light/large/history-native.jpg",
+      "sha256": "c12f6f0f3e927a6f608f9b604e714a821bd048198a1bcfacf5ff7b121cf69c79"
+    },
+    {
+      "file": "light/large/settings-native.jpg",
+      "sha256": "575dc5a17e7d0edec4af9a81a2e65452873711e6f80aa3f2494c34f84042f511"
+    },
+    {
+      "file": "dark/large/home-native.jpg",
+      "sha256": "2890aca17cf91eb5011b9a90a99647eace6a6dd7582f17c31f82a61559aecec6"
+    },
+    {
+      "file": "dark/large/care-native.jpg",
+      "sha256": "1f68ef446dc2f923dd9139bb76e25a02cb112e03760f533d9ca67bc29037bcce"
+    },
+    {
+      "file": "dark/large/products-native.jpg",
+      "sha256": "b678888c3afa445f04b23a8310cc0925aadd929583bf72c5b864db3054bfc06c"
+    },
+    {
+      "file": "dark/large/history-native.jpg",
+      "sha256": "2ad838055a86ed87c9a009e28a2c71181f1d86cc61502e48f168d6f7301666ce"
+    },
+    {
+      "file": "dark/large/settings-native.jpg",
+      "sha256": "7f287e6ae904ad5bdcc69b0e04a1522b34c694959a8c28bcca024f74f33f7a61"
+    }
+  ]
+}

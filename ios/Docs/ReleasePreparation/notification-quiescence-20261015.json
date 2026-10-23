@@ -1,0 +1,28 @@
+{
+ "date":"2026-10-15",
+ "status":"review_candidate_local_tests_passed_actual_service_retry_pending",
+ "migration":"supabase/migrations/20261015010011_ouchi_deletion_notification_quiescence.sql",
+ "createdBy":"Supabase CLI 2.120.0 migration new ouchi_deletion_notification_quiescence",
+ "changes":[
+  "Preserve the existing invoker ACLs and current request/user/epoch/lease, captured inventory, disabled access and family/attachment gates of the three canonical erasure functions",
+  "Web push erasure refuses any retained claim marker, including expired or incomplete marker pairs",
+  "Native push erasure refuses unknown outcomes or claimed sends already started, even after lease expiry",
+  "Record erasure checks both conditions before deleting subscriptions or accepting its records-erased checkpoint",
+  "Include family migrations in the baseline CI list before the new correction so fixture fallback cannot overwrite the new record function with the old family version",
+  "Actual-service fixture adds direct canonical uncertain-outcome refusal assertions before freeze, followed by frozen guarded device retirement"
+ ],
+ "reproduction":{
+  "canonicalBefore":{"passed":1,"failed":2,"reason":"Canonical Web/native erasure returned true and removed uncertain registrations"},
+  "cascadeBefore":{"passed":0,"failed":1,"reason":"clear_push_test_limit cleanup refused in eraseRecords, same stack as actual Family failure"},
+  "orderingIntermediate":{"reason":"New records checks were replaced by the fixture's later fallback family migration; stronger direct records assertions exposed this and canonical migration order was corrected"}
+ },
+ "localValidation":{
+  "command":"node --test tests/shared-maintenance-native-stage.test.mjs tests/shared-maintenance-closure-metadata.test.mjs tests/deletion-prior-delivery-identities.test.mjs tests/deletion-notification-quiescence.test.mjs tests/maintenance-migration-history.test.mjs tests/transaction-commit-checks.test.mjs",
+  "passed":35,"failed":0,"skipped":0,
+  "lint":"selected JavaScript files passed, no warnings"
+ },
+ "migrationReconciliation":{"localFiles":96,"recordedSourceMatches":7,"pending":89,"runtimeReviewCandidates":6,"automaticApplyAllowed":false,"historyRepairAllowed":false},
+ "securityReview":{"existingLiveAdvisors":"read-only check completed; pre-existing shared-project notices remain","candidateAdvisors":"not run against a deployed staging catalog; live advisors do not validate unapplied SQL","publicGrantsAdded":false,"securityDefinerAdded":false,"productionApplied":false},
+ "remaining":["Actual PostgreSQL/Auth/Storage CI on this candidate","External device/delivery acknowledgement and durable outbox integration","Complete shared account controller, live roles and all-writer coverage","Finite retention operations and release approval"],
+ "boundaries":["No production mutation or merge","No Apple payment or real billing","Original shared Auth and bystander records must remain intact in these partial-stage tests"]
+}

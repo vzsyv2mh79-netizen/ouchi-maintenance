@@ -1,0 +1,42 @@
+{
+  "status": "selected_local_retirement_tests_and_adapters_ready_for_draft_ci",
+  "main": "4b3e44ed59ed309494e327d74b56c1d51eb593c0",
+  "base": "feat/sandbox-billing-foundation",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "addedCases": 19,
+  "localEvidence": {
+    "allTestsPassed": 744,
+    "failed": 0,
+    "skipped": 0,
+    "concurrency": 2,
+    "typecheck": "passed",
+    "selectedLint": "passed"
+  },
+  "priorRemoteRegression": {
+    "head": "b4be5a181ae36758bf5c55237d957cdeafb66bb6",
+    "tests": 725,
+    "passed": 725,
+    "failed": 0,
+    "skipped": 0
+  },
+  "implementation": [
+    "Report family handoff required only after verified identity/reauthentication and the hardwired trusted enqueue SQL refusal; do not report an accepted deletion or a fabricated request ID.",
+    "Bounded prepared handoff SDK RPC adapter with exact verified IDs, no automatic retries, cancellation, scoped create/read/decision, and decision-only typed attachment refusal.",
+    "Default-disabled/RLS/schema and full existing schema preservation checks, HTTP-contract with actual embedded SQL lost-reply recovery, scoped read-only decision recovery and SDK HTTP contract."
+  ],
+  "dependencies": "Existing handler/type declaration, full-schema fixture and four disabled migration candidates match current remote Git blobs. Missing simplified fixture is included explicitly.",
+  "limitations": [
+    "Embedded SQL Auth rows/identity are synthetic, not shipping HTTP/current Auth policy/native flow.",
+    "SDK HTTP tests inspect mocked fetch transport and exact PostgREST contract, not a deployed endpoint.",
+    "No migration/policy grant/application to production, no customer data deletion, no real billing.",
+    "CI on the new exact head must demonstrate the previously omitted 19 cases; local success cannot substitute for remote coverage."
+  ],
+  "remaining": [
+    "Fresh trusted policy and private bounded/MFA identity provider",
+    "Least privilege concrete deployment routes and native handoff/recovery settings",
+    "Finite consent/job/receipt storage retention and operational cleanup SLA",
+    "Full shared Auth isolation/retirement proof where required, all writer/namespace coverage",
+    "Physical device/StoreKit signed Sandbox/TestFlight and final Apple submission"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-15",
+  "status": "prepared_web_recovery_verified_not_production_enabled",
+  "baseHead": "4401eaceb8fc8f7bb383c3cb40e0dd4dc863de70",
+  "problem": "A lost deletion acknowledgement previously had no durable browser retry reference; after reload a fenced file could disappear from the list, removing the UI retry target.",
+  "implementation": [
+    "Commit original account/epoch/product/attachment reference to the existing IndexedDB database before DELETE",
+    "Separate removal key leaves pending upload bytes untouched",
+    "Atomic exact-ID staging prevents another tab replacing an uncertain target",
+    "Current server account/epoch checked before mutation and after acknowledgement",
+    "Only exact acknowledged completion clears that removal reference",
+    "Settings recovery remains reachable without original product controls",
+    "No automatic replay; explicit confirmation before retry",
+    "Existing account-wide logout/auth-loss cleanup removes references and fences late writes; remote deletion is not cancelled"
+  ],
+  "verification": {
+    "relatedUnitTests": {
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "newTests": 6
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "productionBuild": "passed",
+    "actualBrowserUI": {
+      "status": "passed",
+      "viewport": [
+        390,
+        844
+      ],
+      "checks": [
+        "Initial deletion cancellation sends no DELETE",
+        "Lost acknowledgement persisted before navigation",
+        "Reopen without product controls and recover original reference from settings",
+        "Wrong-ID acknowledgement refused and reference retained",
+        "Retry sends same ID and exact completion clears reference",
+        "Auth loss during removal aborts stale UI and clears local account rows",
+        "Existing upload/download and explicit logout/login flows remain verified"
+      ],
+      "screenshotReviewed": true,
+      "screenshotSHA256": "6ed73b4a916f92449d73c022806274d81250d1004618f88e0c03850bcfa22262"
+    },
+    "actualIndexedDB": {
+      "status": "passed",
+      "browserRestart": true,
+      "crossTabVisibility": true,
+      "competingTargetRefused": true,
+      "exactCompletionPreservesUploadBytes": true,
+      "accountCleanup": true,
+      "apiRequests": 0
+    }
+  },
+  "testFixtureRepairs": [
+    "Copy existing image preparation and enrollment dependencies into disposable UI project",
+    "Use a valid CRC-complete synthetic PNG and actual browser image preparation instead of signature-only bytes",
+    "Scope heading locator exactly after adding settings recovery heading"
+  ],
+  "reactReview": [
+    "Hooks remain top-level; cleanup aborts and unsubscribes",
+    "Ref prevents concurrent operation per component",
+    "Post-await scope and abort checks guard UI and receipt clearing",
+    "Pending target contains no bearer, permission flag, filename or file bytes",
+    "Recovery requires explicit action and confirmation; disabled/busy controls expose status"
+  ],
+  "limitations": [
+    "Browser Auth/Storage endpoints synthetic; not live hosted Auth/Storage or physical iPhone proof",
+    "Native path has its separate prepared recovery implementation",
+    "Local logout intentionally erases retry references; it does not cancel a remote accepted removal",
+    "No production deployment, sales activation or additional paid service"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false
+}

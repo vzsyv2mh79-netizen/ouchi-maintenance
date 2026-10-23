@@ -1,0 +1,161 @@
+{
+  "checkedAt": "2026-10-23",
+  "source": "Read-only live GitHub, App Store Connect UI and Supabase Management API",
+  "github": {
+    "main": "c64e7cccaa1b1247afb0b35247d7cc6e0e1ebd86",
+    "nativeDraftPR": 167,
+    "nativeHead": "ad1205275b5b28424d86cc4f0a2cff69b1f0ca89",
+    "openPRs": [
+      {
+        "number": 169,
+        "title": "test: 販売準備の動作を変えずバックアップ整合性の検査を追加",
+        "head": "cb1a037948df5019f351a2c1044bf3c5743ed617"
+      },
+      {
+        "number": 167,
+        "title": "iPhone公開準備と家族の共有記録を守る退会・復元処理を整備",
+        "head": "ad1205275b5b28424d86cc4f0a2cff69b1f0ca89"
+      },
+      {
+        "number": 165,
+        "title": "Prepare sandbox billing and optional tips without enabling sales",
+        "head": "18fda668c3d398aab97c035585a0dfb60dc63a1f"
+      },
+      {
+        "number": 164,
+        "title": "Add Toshiba VC-CLW33 with official head inspection guidance",
+        "head": "531ddc7ee54489e5190222c27c3c2fd3c872bf01"
+      },
+      {
+        "number": 7,
+        "title": "複数タブによる端末記録の上書きを防止",
+        "head": "49ae1dad724a5f5ba6089c92b67590969ee066ec"
+      },
+      {
+        "number": 5,
+        "title": "破損した端末保存と不正型バックアップの上書きを防ぐ",
+        "head": "ace268372ef1d4863d31b11b780e366c8b87da51"
+      },
+      {
+        "number": 3,
+        "title": "ci: 既存の回帰テスト・lint・型検査・buildを自動実行",
+        "head": "17eda4cd3bae720d616f250f26fe3ee313f6ec10"
+      }
+    ],
+    "nativeHeadCI": [
+      {
+        "id": 39524928584,
+        "name": "Regression checks",
+        "conclusion": "success"
+      },
+      {
+        "id": 39524928505,
+        "name": "Native iPhone checks",
+        "conclusion": "success"
+      },
+      {
+        "id": 39524928562,
+        "name": "Isolated real Auth checks",
+        "conclusion": "success"
+      },
+      {
+        "id": 39524928527,
+        "name": "Family preservation Auth and Storage checks",
+        "conclusion": "success"
+      },
+      {
+        "id": 39524928534,
+        "name": "Additive billing identity migration checks",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "apple": {
+    "appID": "6823150600",
+    "bundleID": "jp.ouchi.maintenance",
+    "status": "提出準備中",
+    "paidAppsAgreement": "有効",
+    "bankingStatus": "有効",
+    "taxFormsStatus": "有効",
+    "savedJapanesePrices": {
+      "monthly": 300,
+      "annual": 3000,
+      "tipSmall": 100,
+      "tipMedium": 300,
+      "tipLarge": 1000
+    },
+    "priceEvidence": "Actual saved initial/current price dialogs, not the available-price matrix or local StoreKit catalog",
+    "subscriptionGroup": "22483191",
+    "subscriptionLevels": {
+      "monthly": 1,
+      "annual": 1
+    },
+    "productSaleReady": false,
+    "sandboxLifecycleVerified": false,
+    "listing": {
+      "promotionSaved": true,
+      "descriptionSaved": true,
+      "keywordsSaved": true,
+      "supportURL": "https://ouchi-maintenance.vercel.app/support",
+      "copyrightMissing": true,
+      "reviewContactMissing": true,
+      "reviewAccountMissing": true,
+      "finalReviewBuildSelected": false,
+      "releaseMode": "MANUAL"
+    },
+    "territoryEvidence": "Monthly subscription and all tip product pages show exactly one territory selected; exact territory not independently opened this turn. Japan is the approved target; do not interpret 175 price rows as sale availability.",
+    "sandboxTestAccount": {
+      "exists": true,
+      "territory": "Japan",
+      "purchaseInterruption": false,
+      "credentialsNotRead": true
+    }
+  },
+  "storage": {
+    "organizationPlan": "free",
+    "projectID": "hphifiqyypwyxkzfanod",
+    "appBudgetEnabled": false,
+    "writerCoverageVerified": false,
+    "budgetBytes": 0,
+    "capacityClaimsCount": 0,
+    "heldClaimBytes": 0,
+    "storageMetadataObjectCount": 0,
+    "knownMetadataBytes": 0,
+    "unknownSizeCount": 0,
+    "caveat": "Metadata-only aggregate for one project, not proof of physical absence, organization-wide usage, writer coverage, future capacity or a retention SLA."
+  },
+  "safeguards": {
+    "readOnlyExternalAudit": true,
+    "realCharge": false,
+    "productionActivation": false,
+    "realUserDeletion": false,
+    "appReviewSubmission": false
+  },
+  "remaining": [
+    "Signed Apple Sandbox lifecycle and delivered premium benefits",
+    "Operationally isolated account deletion with family/other apps preserved",
+    "Whole-server storage allocation, reservation/admission, retention and service-exit policy",
+    "Final public legal text and accurate App Store data declarations",
+    "Physical device/VoiceOver/full-screen checks and final signed build",
+    "Final listing screenshots, review credentials/contact and product review evidence"
+  ],
+  "runtime": {
+    "previewURL": "https://ouchi-maintenance-28cjyf5m5-gfgz4m9pkm-8942.vercel.app",
+    "previewHead": "ad1205275b5b28424d86cc4f0a2cff69b1f0ca89",
+    "previewReady": true,
+    "previewAccess": "Vercel Authentication protected; read-only official MCP fetch succeeded",
+    "anonymousEntitlement": {
+      "plan": "free",
+      "salesEnabled": false
+    },
+    "anonymousResultDoesNotProveSignedInConfiguration": true,
+    "nativeBillingEndpoint": "Production hostname hardcoded outside DEBUG isolated loopback",
+    "sandboxClientToServerVerified": false,
+    "previewKeyMetadata": {
+      "branch": "feat/native-household-core",
+      "privateKeyStoredAsSecret": true,
+      "keyValueNotRead": true
+    },
+    "remaining": "Design a scoped device-to-Sandbox test connection without embedding a Vercel secret, disabling protection or routing Sandbox into Production."
+  }
+}
