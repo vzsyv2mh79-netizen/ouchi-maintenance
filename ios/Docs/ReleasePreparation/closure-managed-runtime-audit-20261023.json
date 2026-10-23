@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-23",
+  "status": "read_only_managed_role_audit_runtime_access_not_provisioned",
+  "projectRef": "hphifiqyypwyxkzfanod",
+  "sourceReviewHead": "8276212fe02959724046fefcaed75f3e6dc9d755",
+  "roleAudit": {
+    "currentOuchiRoles": 9,
+    "currentOuchiLoginRoles": 0,
+    "allNineNoSuperuserNoBypassNoCreateDBNoCreateRole": true,
+    "allNinePublicSchemaCreate": false,
+    "allNineOtherPrivateSchemaUsage": false,
+    "allNineReadAllStatsMembership": false,
+    "allNineServiceRoleMembership": false,
+    "publicDefinerFunctions": [
+      {
+        "schema": "private",
+        "function": "kb_lock_current_member",
+        "closureRolesHaveSchemaUsage": false
+      }
+    ],
+    "publicRelations": [
+      {
+        "schema": "cron",
+        "table": "job",
+        "rls": true,
+        "privileges": [
+          "SELECT"
+        ]
+      },
+      {
+        "schema": "cron",
+        "table": "job_run_details",
+        "rls": true,
+        "privileges": [
+          "DELETE",
+          "SELECT"
+        ]
+      },
+      {
+        "schema": "extensions",
+        "view": "pg_stat_statements",
+        "rls": false,
+        "privileges": [
+          "SELECT"
+        ]
+      },
+      {
+        "schema": "extensions",
+        "view": "pg_stat_statements_info",
+        "rls": false,
+        "privileges": [
+          "SELECT"
+        ]
+      }
+    ],
+    "scope": "Role/catalog metadata only. No customer Auth state, password-derived hash, text or file was read.",
+    "allNineExistingParentMemberships": []
+  },
+  "runtimePrincipalsAbsent": [
+    "ouchi_closure_review_runtime",
+    "ouchi_closure_progress_runtime",
+    "ouchi_closure_receipt_register_runtime",
+    "ouchi_closure_receipt_read_runtime",
+    "ouchi_home_management_runtime",
+    "ouchi_closure_inspection_runtime",
+    "ouchi_closure_decision_runtime",
+    "ouchi_retirement_file_runtime",
+    "ouchi_closure_reauth_runtime"
+  ],
+  "requiredSharedRollout": {
+    "require_explicit": false,
+    "policyChanged": false,
+    "warning": "This policy also controls existing household writes. Do not activate only to pass a Preview test without the free enrollment/session rollout."
+  },
+  "connectionPreparation": {
+    "approved": false,
+    "requestPending": true,
+    "principals": 9,
+    "authConfigToken": "Prepared UI review only, scoped to this project, Auth Config Read, seven days; not created.",
+    "secretsCreated": false,
+    "genericServiceRoleFallbackAllowed": false,
+    "tlsVerificationMayBeDisabled": false
+  },
+  "appleSandboxNotification": {
+    "urlSavedAndReloadVerified": true,
+    "productionURLSet": false,
+    "testRequestAccepted": false,
+    "httpStatus": 404,
+    "apiError": 4040007,
+    "causeEstablished": false
+  },
+  "limits": [
+    "No customer Auth state, password-derived hash, text or file read.",
+    "Role and catalog inspection does not prove hosted intake, erasure, file cleanup, current writer coverage or completion.",
+    "No login, grant, operator principal, policy, worker, schedule or production setting changed by this audit.",
+    "Remaining five goal areas and actual Apple lifecycle/device/VoiceOver verification are not waived."
+  ],
+  "references": [
+    "https://supabase.com/docs/guides/platform/personal-access-tokens",
+    "https://developer.apple.com/documentation/appstoreserverapi/servernotificationurlnotfounderror"
+  ],
+  "inspectedAt": "2026-10-23T01:02:36.526033+00:00"
+}
