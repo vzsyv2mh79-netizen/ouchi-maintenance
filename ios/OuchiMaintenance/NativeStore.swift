@@ -113,7 +113,7 @@ struct FormalChannelSelection {
         do {
             let before = try await session.credentials()
             guard selectionIsCurrent(), before.user.id == account else { return nil }
-            let enrolled = try await AccountEnrollmentAPI().load(account: account, token: before.access_token)
+            let enrolled = try await configuredEnrollmentAPI().load(account: account, token: before.access_token)
             let after = try await session.credentials()
             guard selectionIsCurrent(), after.user.id == account, after.access_token == before.access_token,
                   enrolled.userID == account, let epoch = enrolled.epochID else { return nil }
@@ -151,7 +151,7 @@ struct FormalChannelSelection {
         do {
             let before = try await session.credentials()
             guard current(), before.user.id == account else { return nil }
-            let enrolled = try await AccountEnrollmentAPI().load(account: account, token: before.access_token)
+            let enrolled = try await configuredEnrollmentAPI().load(account: account, token: before.access_token)
             let after = try await session.credentials()
             guard current(), after.user.id == account, after.access_token == before.access_token,
                   enrolled.userID == account, let epoch = enrolled.epochID else { return nil }
@@ -1491,6 +1491,12 @@ struct FormalChannelSelection {
             }
         }
     }
+    private func configuredEnrollmentAPI() -> AccountEnrollmentAPI {
+        let review = Bundle.main.infoDictionary?["OUCHI_SANDBOX_REVIEW_SERVER"] as? Bool == true
+        let raw = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String
+        let environment = raw.flatMap(BillingEnvironment.init(rawValue:)) ?? .production
+        return AccountEnrollmentAPI(server: review ? .sandboxReview : .production, environment: environment)
+    }
     private func configuredBillingAPI(environment: BillingEnvironment = .sandbox,
                                       isolatedDevelopment: Bool = false) -> BillingAPI {
         let review = Bundle.main.object(forInfoDictionaryKey: "OUCHI_SANDBOX_REVIEW_SERVER") as? Bool == true
@@ -2072,7 +2078,7 @@ struct FormalChannelSelection {
         do {
             let credentials = try await session.credentials()
             guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
-            let service = AccountEnrollmentAPI()
+            let service = configuredEnrollmentAPI()
             var granted: UUID?
             if let password {
                 granted = try await service.register(account: credentials.user.id, token: credentials.access_token, password: password, requestID: UUID())

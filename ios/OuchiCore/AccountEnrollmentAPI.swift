@@ -18,15 +18,16 @@ private final class EnrollmentRedirectBlocker: NSObject, URLSessionTaskDelegate,
 /// host or redirect may receive the user's bearer token.
 public struct AccountEnrollmentAPI: Sendable {
     private let transport: HouseholdAPI.Transport
-    private let endpoint: URL
-    public init(isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                isolatedDevelopment: Bool = false, loopbackPort: UInt16 = 3000,
                 transport: HouseholdAPI.Transport? = nil) {
+        let reviewed = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/account/enrollment") }
         #if DEBUG
-        endpoint = isolatedDevelopment && loopbackPort > 0
-            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/account/enrollment")!
-            : URL(string: "https://ouchi-maintenance.vercel.app/api/account/enrollment")!
+        endpoint = isolatedDevelopment && server == .production && loopbackPort > 0
+            ? URL(string: "http://127.0.0.1:\(loopbackPort)/api/account/enrollment")! : reviewed
         #else
-        endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/account/enrollment")!
+        endpoint = reviewed
         #endif
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: EnrollmentRedirectBlocker(), delegateQueue: nil)
@@ -75,7 +76,9 @@ public struct AccountEnrollmentAPI: Sendable {
         return id
     }
     private func send(account: UUID, token: String, body: Data?) async throws -> [String: Any] {
-        guard account != Self.zero else { throw CloudError.invalidInput }
+        // Refuse a Production/review mismatch before handling credentials or
+        // invoking transport, including explicit-consent password submission.
+        guard let endpoint, account != Self.zero else { throw CloudError.invalidInput }
         guard !token.isEmpty, token.utf8.count <= 16384, !token.contains(where: { $0.isWhitespace }) else { throw CloudError.authenticationRequired }
         let expectedSession = try sessionID(token: token, account: account)
         try Task.checkCancellation()

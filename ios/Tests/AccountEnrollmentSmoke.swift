@@ -42,11 +42,39 @@ import OuchiCore
         for bad in ["number","extra","host","failure"] {
             do { _ = try await api(value, enrolled: true, bad: bad).load(account: account, token: token()); fatalError("Invalid receipt accepted") } catch { }
         }
+        let reviewURL = URL(string: "https://ouchi-maintenance-7gmdv28id-gfgz4m9pkm-8942.vercel.app/api/account/enrollment")!
+        let review = AccountEnrollmentAPI(server: .sandboxReview, environment: .sandbox, isolatedDevelopment: true) { request in
+            precondition(request.url == reviewURL && request.value(forHTTPHeaderField: "Authorization") != nil)
+            precondition(request.cachePolicy == .reloadIgnoringLocalCacheData)
+            var body: [String: Any] = value
+            if request.httpMethod == "POST" {
+                let consent = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
+                precondition(consent["confirmation"] == "ENROLL_OUCHI_MAINTENANCE" && consent["password"] == "synthetic")
+                body["requestID"] = requestID.uuidString
+            } else { body["enrolled"] = true }
+            return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: reviewURL, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"application/json","Cache-Control":"no-store"])!)
+        }
+        let reviewState = try await review.load(account: account, token: token())
+        precondition(reviewState.epochID == epoch)
+        let reviewReceipt = try await review.register(account: account, token: token(), password: "synthetic", requestID: requestID)
+        precondition(reviewReceipt == epoch)
+        let refused = AccountEnrollmentAPI(server: .sandboxReview, environment: .production) { _ in
+            fatalError("Production review enrollment transmitted credentials")
+        }
+        do { _ = try await refused.load(account: account, token: token()); fatalError("Production review read accepted") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        do { _ = try await refused.register(account: account, token: token(), password: "synthetic", requestID: requestID); fatalError("Production review write accepted") }
+        catch { precondition(error as? CloudError == .invalidInput) }
+        let wrongOrigin = AccountEnrollmentAPI(server: .sandboxReview, environment: .sandbox) { _ in
+            var body: [String: Any] = value; body["enrolled"] = true
+            return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: URL(string: "https://ouchi-maintenance.vercel.app/api/account/enrollment")!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"application/json","Cache-Control":"no-store"])!)
+        }
+        do { _ = try await wrongOrigin.load(account: account, token: token()); fatalError("Foreign review receipt accepted") } catch { }
         let task = Task { () throws -> EnrollmentState in
             withUnsafeCurrentTask { $0?.cancel() }
             return try await api(value, enrolled: true).load(account: account, token: token())
         }
         do { _ = try await task.value; fatalError("Cancellation accepted") } catch { precondition(error is CancellationError) }
-        print("PASS: free native enrollment API fixed endpoint, original user/session scope, absent/present state, explicit consent receipt, invalid Boolean/extra/foreign/failure/cancellation refused. Synthetic transport only.")
+        print("PASS: free native enrollment API fixed endpoint, original user/session scope, absent/present state, explicit consent receipt, invalid Boolean/extra/foreign/failure/cancellation refused. Pinned Sandbox GET/consent POST, Production-to-review refusal before bearer/password transport, and wrong-origin acknowledgement refusal also verified. Synthetic transport only.")
     }
 }

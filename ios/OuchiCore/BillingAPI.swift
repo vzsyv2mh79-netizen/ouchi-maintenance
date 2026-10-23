@@ -19,12 +19,12 @@ public enum BillingServer: Sendable {
     case production
     case sandboxReview
 
-    fileprivate func origin(environment: BillingEnvironment) -> String? {
+    func origin(environment: BillingEnvironment) -> String? {
         switch self {
         case .production: return "https://ouchi-maintenance.vercel.app"
         case .sandboxReview:
             guard environment == .sandbox else { return nil }
-            // Verified Ouchi project / feat/native-household-core / ad1205275.
+            // Verified Ouchi project / feat/native-household-core / c59251a0.
             // Updating this immutable deployment requires a reviewed source change.
             return "https://ouchi-maintenance-7gmdv28id-gfgz4m9pkm-8942.vercel.app"
         }
