@@ -47,6 +47,7 @@ struct NativeRootView: View {
         } message: { Text(presentedMessage ?? "") }
     }
     private var appearanceBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                 #if DEBUG
@@ -63,7 +64,6 @@ struct NativeRootView: View {
                     if store.isUIReviewSample { Text("サンプルデータ").font(.caption).dynamicTypeSize(...DynamicTypeSize.xxxLarge).accessibilityIdentifier("ouchi.reviewSample") }
                 }
                 #endif
-                if store.showingOfflineSnapshot { Text("保存済みの記録").font(.caption).accessibilityLabel("通信による更新前の保存済み記録") }
                 }.fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button {
@@ -74,8 +74,31 @@ struct NativeRootView: View {
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityLabel(appearance == .dark ? "ライトモードに切り替える" : "ダークモードに切り替える")
-            }.padding(.horizontal).background(.bar)
+            }
+            if store.showingOfflineSnapshot {
+                ViewThatFits(in: .horizontal) {
+                    HStack { offlineSummary; Spacer(); offlineRetryButton }
+                    VStack(alignment: .leading, spacing: 8) { offlineSummary; offlineRetryButton }
+                }
+                .padding(.bottom, 8)
+            }
+        }.padding(.horizontal).background(.bar)
+    }
+    private var offlineSummary: some View {
+        Text("保存済みの記録")
+            .font(.caption).fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("通信による更新前の保存済み記録")
+    }
+    private var offlineRetryButton: some View {
+        Button { Task { await store.reload() } } label: {
+            Label(store.busy ? "確認中…" : "再読み込み", systemImage: "arrow.clockwise")
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 44)
         }
+        .disabled(store.busy)
+        .accessibilityIdentifier("offline.retry")
+        .accessibilityHint("通信できる状態で、最新の共有記録を確認します")
+    }
 }
 
 /// Prepared explicit local recovery; release configuration defaults to off.

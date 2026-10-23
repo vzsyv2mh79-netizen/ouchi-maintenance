@@ -12,6 +12,8 @@ actor NativeReviewFixture {
     static let task="44444444-4444-4444-8444-444444444444"
     private var currentToken = NativeReviewFixture.token
     private var data:[String:Any]
+    private let simulateOfflineRetry: Bool
+    private var householdLoads = 0
     static func day(_ offset:Int) -> String {
         var c=Calendar(identifier:.gregorian);c.timeZone=TimeZone(identifier:"Asia/Tokyo")!
         let f=DateFormatter();f.locale=Locale(identifier:"en_US_POSIX");f.calendar=c;f.timeZone=c.timeZone;f.dateFormat="yyyy-MM-dd"
@@ -20,7 +22,8 @@ actor NativeReviewFixture {
     static func sessionBytes() throws -> Data {
         try JSONSerialization.data(withJSONObject:["access_token":token,"refresh_token":"synthetic-unused","expires_at":Date().timeIntervalSince1970+7200,"user":["id":account.uuidString,"email":"review@example.invalid"]])
     }
-    init(includeSecondHome: Bool = false) {
+    init(includeSecondHome: Bool = false, simulateOfflineRetry: Bool = false) {
+        self.simulateOfflineRetry = simulateOfflineRetry
         data=["homes":[["id":Self.home,"name":"サンプルのわが家","kind":"home","role":"owner"]],
               "products":[["id":Self.product,"homeId":Self.home,"categoryId":"air-purifier","maker":"画面確認用","name":"空気清浄機（サンプル）","modelNumber":"SAMPLE-001","memo":"実際の製品・公式情報ではありません。"]],
               "tasks":[["id":Self.task,"productId":Self.product,"name":"フィルター確認（サンプル）","kind":"点検","intervalDays":30,"nextDueAt":Self.day(0),"sourceKind":"ユーザー設定","sourceNote":"画面の確認用です。メンテナンスの推奨ではありません。"]],
@@ -60,6 +63,10 @@ actor NativeReviewFixture {
                   homes.contains(where:{"eq."+$0["id",default:""]==target}) else { throw CloudError.invalidInput }
             body=try JSONSerialization.data(withJSONObject:[["user_id":"77777777-7777-4777-8777-777777777777","nickname":"家族のサンプル"]])
         case ("POST","/rest/v1/rpc/load_household"):
+            householdLoads += 1
+            if simulateOfflineRetry && (2...3).contains(householdLoads) {
+                throw URLError(.notConnectedToInternet)
+            }
             body=try JSONSerialization.data(withJSONObject:data)
         case ("POST","/rest/v1/rpc/complete_maintenance"):
             let input=try JSONDecoder().decode([String:String].self,from:request.httpBody ?? Data())

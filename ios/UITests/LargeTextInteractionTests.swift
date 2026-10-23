@@ -4,12 +4,13 @@ import UIKit
 /// In-memory sample only; never authenticates or purchases.
 @MainActor
 final class LargeTextInteractionTests: XCTestCase {
-    private func launch(tab: Int, releaseLayout: Bool = false, twoHomes: Bool = false, requiresPhoneTabBar: Bool = true) -> XCUIApplication {
+    private func launch(tab: Int, releaseLayout: Bool = false, twoHomes: Bool = false, offlineRetry: Bool = false, requiresPhoneTabBar: Bool = true) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "dev.ouchi.review.storecaptures")
         app.launchEnvironment["OUCHI_REVIEW_CAPTURE_TAB"] = String(tab)
         if releaseLayout { app.launchEnvironment["OUCHI_REVIEW_AUDIT_RELEASE_LAYOUT"] = "1" }
         if twoHomes { app.launchEnvironment["OUCHI_REVIEW_TWO_HOMES"] = "1" }
+        if offlineRetry { app.launchEnvironment["OUCHI_REVIEW_OFFLINE_RETRY"] = "1" }
         app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         app.launch()
         if !releaseLayout { XCTAssertTrue(app.staticTexts["ouchi.reviewSample"].waitForExistence(timeout: 45)) }
@@ -476,6 +477,42 @@ final class LargeTextInteractionTests: XCTestCase {
         app.buttons[expected].tap()
         XCTAssertTrue(app.buttons[original].waitForExistence(timeout: 10))
         app.terminate()
+    }
+
+    func testOfflineRetryPreservesRecordsUntilConnectionRecovers() {
+        let app = launch(tab: 1, releaseLayout: true, offlineRetry: true)
+        defer { app.terminate() }
+        let task = app.staticTexts["フィルター確認（サンプル）"]
+        XCTAssertTrue(task.waitForExistence(timeout: 15))
+        let due = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次回 ")).firstMatch
+        reach(due, in: app)
+        let originalDue = due.label
+        let reload = app.navigationBars.buttons["再読み込み"]
+        XCTAssertTrue(reload.waitForExistence(timeout: 10))
+        reload.tap()
+        let alert = app.alerts["おうちメンテ"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 15))
+        XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "保存済みの記録を表示しています")).firstMatch.exists)
+        alert.buttons["閉じる"].tap()
+        let retry = app.buttons["offline.retry"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 10))
+        XCTAssertTrue(retry.isEnabled)
+        XCTAssertTrue(retry.isHittable)
+        capture(app, name: "offline-retry-visible-with-saved-records")
+        retry.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 15))
+        alert.buttons["閉じる"].tap()
+        XCTAssertTrue(retry.waitForExistence(timeout: 10))
+        XCTAssertTrue(task.exists)
+        XCTAssertEqual(due.label, originalDue)
+        capture(app, name: "offline-repeat-failure-preserves-records")
+        retry.tap()
+        let recovered = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !retry.exists }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [recovered], timeout: 15), .completed)
+        XCTAssertFalse(alert.exists)
+        XCTAssertTrue(task.exists)
+        XCTAssertEqual(due.label, originalDue)
+        capture(app, name: "offline-recovery-removes-warning-keeps-records")
     }
 
 }

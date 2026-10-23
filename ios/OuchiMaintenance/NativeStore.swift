@@ -838,7 +838,9 @@ struct FormalChannelSelection {
            let bytes=try? NativeReviewFixture.sessionBytes() {
             let fixture=NativeReviewFixture(includeSecondHome:
                 Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" &&
-                ProcessInfo.processInfo.environment["OUCHI_REVIEW_TWO_HOMES"] == "1")
+                ProcessInfo.processInfo.environment["OUCHI_REVIEW_TWO_HOMES"] == "1",
+                simulateOfflineRetry: Bundle.main.bundleIdentifier == "dev.ouchi.review.storecaptures" &&
+                ProcessInfo.processInfo.environment["OUCHI_REVIEW_OFFLINE_RETRY"] == "1")
             let client=HouseholdAPI(config:config,transport:{ try await fixture.reply($0) })
             api=client;session=SessionController(api:client,storage:NativeReviewSessionStorage(bytes))
             totpVerificationAPI=TOTPVerificationAPI(config:config,transport:{ try await fixture.reply($0) })
