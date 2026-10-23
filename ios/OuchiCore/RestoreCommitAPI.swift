@@ -11,12 +11,14 @@ public struct RestoreCommitAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let identity: AppAttestRegistrationAPI
     private let now: @Sendable () -> Int64
-    private let endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/restore/commit")!
-    public init(currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        endpoint = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/billing/restore/commit") }
         self.now = now
-        self.identity = AppAttestRegistrationAPI(currentSession: currentSession, now: now)
+        self.identity = AppAttestRegistrationAPI(server: server, environment: environment, currentSession: currentSession, now: now)
         self.transport = transport ?? { request in
             // Bound the entire response, including a peer that trickles bytes.
             let configuration = URLSessionConfiguration.ephemeral
@@ -42,6 +44,7 @@ public struct RestoreCommitAPI: Sendable {
         }
     }
     public func submit(pending: PendingRestore, captured: AppAttestRegistrationSession) async throws -> Accepted {
+        guard let endpoint else { throw CloudError.invalidInput }
         try await validate(captured)
         guard pending.scope == captured.scope else { throw CloudError.authenticationRequired }
         let expected = RestoreAssertionScope(userID:pending.scope.userID,sessionID:pending.scope.sessionID,epochID:pending.scope.epochID,

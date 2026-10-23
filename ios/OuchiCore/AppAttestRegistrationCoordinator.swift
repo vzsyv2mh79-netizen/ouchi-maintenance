@@ -23,6 +23,8 @@ public enum AppAttestRegistrationPreparation: Equatable, Sendable {
 /// Neither this coordinator nor the lease is a purchase entitlement source.
 public actor AppAttestRegistrationCoordinator {
     public typealias CurrentContext = @Sendable () async -> AppAttestRegistrationContext?
+    private let server: BillingServer
+    private let purchaseEnvironment: BillingEnvironment
     private let currentContext: CurrentContext
     private let device: AppAttestDeviceService
     private let encryptionKeys: AppAttestEncryptionKeyStorage
@@ -35,13 +37,15 @@ public actor AppAttestRegistrationCoordinator {
     private var activeAccount: UUID?
     private var closingAccounts=Set<UUID>()
     private var completionWaiters:[UUID:[CheckedContinuation<Void,Never>]]=[:]
-    public init(currentContext: @escaping CurrentContext, device: AppAttestDeviceService,
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentContext: @escaping CurrentContext, device: AppAttestDeviceService,
                 encryptionKeys: AppAttestEncryptionKeyStorage, references: AppAttestKeyReferenceStorage,
                 pending: AppAttestPendingRegistrationStorage, retentionMilliseconds: Int64,
                 eraseAdditionalPending: @escaping @Sendable (UUID) async throws -> Void = { _ in },
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970*1000) }) throws {
         guard retentionMilliseconds>=300000,retentionMilliseconds<=7_776_000_000 else { throw CloudError.invalidInput }
+        self.server=server;self.purchaseEnvironment=environment
         self.currentContext=currentContext;self.device=device;self.encryptionKeys=encryptionKeys
         self.references=references;self.pending=pending;self.retentionMilliseconds=retentionMilliseconds
         self.transport=transport;self.now=now;self.eraseAdditionalPending=eraseAdditionalPending
@@ -53,7 +57,7 @@ public actor AppAttestRegistrationCoordinator {
         return context.session(keyID:keyID)
     }
     private func api(keyID: String) -> AppAttestRegistrationAPI {
-        AppAttestRegistrationAPI(currentSession:{ [weak self] in await self?.session(keyID:keyID) },transport:transport,now:now)
+        AppAttestRegistrationAPI(server:server,environment:purchaseEnvironment,currentSession:{ [weak self] in await self?.session(keyID:keyID) },transport:transport,now:now)
     }
     private func finishRegistration(account: UUID) {
         activeAccount=nil

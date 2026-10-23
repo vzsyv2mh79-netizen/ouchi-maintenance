@@ -82,14 +82,17 @@ final class CoordinatorSyntheticDevice: @unchecked Sendable {
 }
 actor CoordinatorSyntheticHTTP {
     let context:AppAttestRegistrationContext,references:AppAttestKeyReferenceStorage,pending:AppAttestPendingRegistrationStorage
+    let expectedHost: String
     var failCommit=true,challengeCount=0,commitBodies:[Data]=[]
-    init(context:AppAttestRegistrationContext,references:AppAttestKeyReferenceStorage,pending:AppAttestPendingRegistrationStorage) {
+    init(context:AppAttestRegistrationContext,references:AppAttestKeyReferenceStorage,pending:AppAttestPendingRegistrationStorage,expectedHost:String) {
+        self.expectedHost=expectedHost
         self.context=context;self.references=references;self.pending=pending
     }
     func allowCommit() { failCommit=false }
     func counts()->(Int,Int) { (challengeCount,commitBodies.count) }
     func requests()->[Data] { commitBodies }
     func send(_ request:URLRequest)async throws->(Data,HTTPURLResponse) {
+        precondition(request.url?.host==expectedHost, "coordinator changed server origin")
         let body=try JSONSerialization.jsonObject(with:request.httpBody!) as! [String:String]
         let reference=try references.generated(account:context.userID,epoch:context.epochID,nowMilliseconds:AppAttestCoordinatorSmoke.now)!
         precondition(body["requestID"]==reference.requestID.uuidString.lowercased() && body["keyID"]==reference.keyID,"key/reference must persist before HTTP")
@@ -123,6 +126,8 @@ actor CoordinatorSyntheticHTTP {
         return .init(userID:user,sessionID:session,epochID:epoch,appID:"SYNTHETIC1.dev.synthetic.ouchi",environment:"production",bearer:"e30."+token+".synthetic")
     }
     static func main()async throws {
+        for server: BillingServer in [.production, .sandboxReview] {
+        let expectedHost = server == .sandboxReview ? "ouchi-maintenance-7gmdv28id-gfgz4m9pkm-8942.vercel.app" : "ouchi-maintenance.vercel.app"
         let root=FileManager.default.temporaryDirectory.appendingPathComponent("ouchi-coordinator-synthetic-"+UUID().uuidString)
         defer { try? FileManager.default.removeItem(at:root) }
         let keychain=CoordinatorSyntheticKeychain(),device=CoordinatorSyntheticDevice(),captured=try context()
@@ -135,8 +140,8 @@ actor CoordinatorSyntheticHTTP {
             if let reference = try references.confirmed(account: scope.userID, epoch: scope.epochID, nowMilliseconds: clock) { return reference.scope == scope }
             return false
         })
-        let http=CoordinatorSyntheticHTTP(context:captured,references:references,pending:pending)
-        let coordinator=try AppAttestRegistrationCoordinator(currentContext:{ captured },device:AppAttestDeviceService(operations:device.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await http.send($0) },now:{ now })
+        let http=CoordinatorSyntheticHTTP(context:captured,references:references,pending:pending,expectedHost:expectedHost)
+        let coordinator=try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ captured },device:AppAttestDeviceService(operations:device.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await http.send($0) },now:{ now })
         await refused { _ = try await coordinator.register(captured:captured) }
         precondition(device.counts()==(1,1))
         let retainedLive = try await coordinator.pruneExpiredPending(captured: captured)
@@ -160,7 +165,7 @@ actor CoordinatorSyntheticHTTP {
         // retries cannot automatically create another key with an unknown result.
         let uncertain=try context(),failing=CoordinatorSyntheticDevice();failing.failGeneration=true
         let makeUncertain:@Sendable ()throws->AppAttestRegistrationCoordinator = {
-            try AppAttestRegistrationCoordinator(currentContext:{ uncertain },device:AppAttestDeviceService(operations:failing.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("uncertain generation reached HTTP") },now:{ now })
+            try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ uncertain },device:AppAttestDeviceService(operations:failing.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("uncertain generation reached HTTP") },now:{ now })
         }
         await refused { _ = try await makeUncertain().register(captured:uncertain) }
         let intent=try references.generationIntent(account:uncertain.userID,epoch:uncertain.epochID);precondition(intent != nil)
@@ -170,8 +175,8 @@ actor CoordinatorSyntheticHTTP {
         // Cancellation after the device callback started preserves the completed
         // proof, with no commit; closing the SAME actor then removes owned data.
         let cancelledContext=try context(),delayed=CoordinatorSyntheticDevice();delayed.delay=true
-        let cancelledHTTP=CoordinatorSyntheticHTTP(context:cancelledContext,references:references,pending:pending)
-        let cancellable=try AppAttestRegistrationCoordinator(currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await cancelledHTTP.send($0) },now:{ now })
+        let cancelledHTTP=CoordinatorSyntheticHTTP(context:cancelledContext,references:references,pending:pending,expectedHost:expectedHost)
+        let cancellable=try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await cancelledHTTP.send($0) },now:{ now })
         let registration=Task { try await cancellable.register(captured:cancelledContext) }
         await delayed.waitForAttestation()
         await refused { _ = try await cancellable.pruneExpiredPending(captured: cancelledContext) }
@@ -180,10 +185,10 @@ actor CoordinatorSyntheticHTTP {
         let cancellationReference=try references.generated(account:cancelledContext.userID,epoch:cancelledContext.epochID,nowMilliseconds:now)!
         let cancelledProof=try await pending.read(scope:cancellationReference.scope,nowMilliseconds:now);precondition(cancelledProof?.attestation==CoordinatorSyntheticDevice.proof)
         let cancelledCounts=await cancelledHTTP.counts();precondition(cancelledCounts==(1,0))
-        let staleMaintenance = try AppAttestRegistrationCoordinator(currentContext:{ nil },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
+        let staleMaintenance = try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ nil },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
         await refused { _ = try await staleMaintenance.pruneExpiredPending(captured: cancelledContext) }
         let stillPending = try await pending.hasPendingRecord(account: cancelledContext.userID, epoch: cancelledContext.epochID); precondition(stillPending)
-        let restartedMaintenance = try AppAttestRegistrationCoordinator(currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
+        let restartedMaintenance = try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ cancelledContext },device:AppAttestDeviceService(operations:delayed.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("maintenance reached HTTP") },now:{ now+300000 })
         let physicallyRemoved = try await restartedMaintenance.pruneExpiredPending(captured: cancelledContext)
         precondition(physicallyRemoved == 1 && delayed.counts() == (1,1))
         let missingProof = try await pending.hasPendingRecord(account: cancelledContext.userID, epoch: cancelledContext.epochID); precondition(!missingProof)
@@ -194,15 +199,15 @@ actor CoordinatorSyntheticHTTP {
         // Closing while Apple is still completing blocks HTTP and waits for
         // the active flow to finish before erasing its newly staged record.
         let closingContext=try context(),closingDevice=CoordinatorSyntheticDevice();closingDevice.delay=true
-        let closingHTTP=CoordinatorSyntheticHTTP(context:closingContext,references:references,pending:pending)
-        let closing=try AppAttestRegistrationCoordinator(currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await closingHTTP.send($0) },now:{ now })
+        let closingHTTP=CoordinatorSyntheticHTTP(context:closingContext,references:references,pending:pending,expectedHost:expectedHost)
+        let closing=try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ try await closingHTTP.send($0) },now:{ now })
         let running=Task { try await closing.register(captured:closingContext) }
         await closingDevice.waitForAttestation()
         // A second coordinator/storage actor must share the process-wide lease.
         let separatePending = AppAttestPendingRegistrationStorage(root: root, keyProvider: { account, epoch in
             guard let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.unavailable }; return key
         })
-        let separate = try AppAttestRegistrationCoordinator(currentContext: { closingContext }, device: AppAttestDeviceService(operations: closingDevice.operations), encryptionKeys: keys, references: references, pending: separatePending, retentionMilliseconds: 3600000,
+        let separate = try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext: { closingContext }, device: AppAttestDeviceService(operations: closingDevice.operations), encryptionKeys: keys, references: references, pending: separatePending, retentionMilliseconds: 3600000,
             transport: { _ in fatalError("overlapping coordinator reached network") }, now: { now })
         await refused { _ = try await separate.register(captured: closingContext) }
         await refused { _ = try await separate.pruneExpiredPending(captured: closingContext) }
@@ -218,7 +223,7 @@ actor CoordinatorSyntheticHTTP {
         await refused { _ = try await running.value };try await cleanup.value
         precondition(keychain.registrationCount()==0)
         let closure=try references.pendingClosure(account:closingContext.userID);precondition(closure != nil)
-        let restarted=try AppAttestRegistrationCoordinator(currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("closed account reached HTTP after restart") },now:{ now+3600001 })
+        let restarted=try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext:{ closingContext },device:AppAttestDeviceService(operations:closingDevice.operations),encryptionKeys:keys,references:references,pending:pending,retentionMilliseconds:3600000,transport:{ _ in fatalError("closed account reached HTTP after restart") },now:{ now+3600001 })
         await refused { _ = try await restarted.register(captured:closingContext) }
         try await restarted.closeAccount(account:closingContext.userID)
         let original=try references.pendingClosure(account:closingContext.userID);precondition(original==closure,"retry must not extend closure deadline")
@@ -242,7 +247,7 @@ actor CoordinatorSyntheticHTTP {
         await refused { _ = try await restarted.register(captured:closingContext) }
         // A foreign-controller proof must not poison a fresh instance after
         // another instance has completed the durable closure.
-        let fresh = try AppAttestRegistrationCoordinator(currentContext: { closingContext },
+        let fresh = try AppAttestRegistrationCoordinator(server:server,environment:.sandbox,currentContext: { closingContext },
             device: AppAttestDeviceService(operations: closingDevice.operations),
             encryptionKeys: keys, references: references, pending: pending,
             retentionMilliseconds: 3600000,
@@ -315,5 +320,6 @@ actor CoordinatorSyntheticHTTP {
         try await restartedEmpty.signOut()
         await refused { try await restartedEmpty.withLocalClosureRecovery(absentPermit) {} }
         print("PASS: synthetic initial registration persists intent/key/reference/proof in order, exact uncertain commit retry avoids new device calls, confirmed metadata stays local-only, unknown generation blocks restart retries, cancellation retains proof, and shared-actor closing blocks commit and erases after callback. No Apple service, owner Keychain or purchase.")
+        }
     }
 }

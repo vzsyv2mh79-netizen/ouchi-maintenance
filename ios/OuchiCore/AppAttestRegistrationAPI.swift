@@ -24,9 +24,11 @@ public struct AppAttestRegistrationAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let currentSession: CurrentSession
     private let now: @Sendable () -> Int64
-    private let endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/app-attest/registration")!
-    public init(currentSession: @escaping CurrentSession, transport: HouseholdAPI.Transport? = nil,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentSession: @escaping CurrentSession, transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        endpoint = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/app-attest/registration") }
         self.currentSession = currentSession; self.now = now
         self.transport = transport ?? { request in
             let session = URLSession(configuration: .ephemeral, delegate: AttestRegistrationRedirectBlocker(), delegateQueue: nil)
@@ -63,6 +65,7 @@ public struct AppAttestRegistrationAPI: Sendable {
         return AppAttestRegistrationReceipt(requestID: challenge.requestID, scope: captured.scope)
     }
     func validate(_ captured: AppAttestRegistrationSession) async throws {
+        guard endpoint != nil else { throw CloudError.invalidInput }
         try Task.checkCancellation()
         guard await currentSession() == captured else { throw CloudError.authenticationRequired }
         let zero = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
@@ -89,6 +92,7 @@ public struct AppAttestRegistrationAPI: Sendable {
         try Task.checkCancellation()
     }
     private func send(path: String, captured: AppAttestRegistrationSession, body: [String: String]) async throws -> [String: Any] {
+        guard let endpoint else { throw CloudError.invalidInput }
         try await validate(captured)
         let target = endpoint.appendingPathComponent(path)
         var request = URLRequest(url: target); request.httpMethod = "POST"; request.timeoutInterval = 30; request.cachePolicy = .reloadIgnoringLocalCacheData

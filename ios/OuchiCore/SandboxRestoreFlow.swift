@@ -13,14 +13,15 @@ public actor SandboxRestoreFlow {
     private let cancel: RestoreCancelAPI
     private let now: @Sendable () -> Int64
     private var active = false
-    public init(storage: PendingRestoreStorage, currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .sandbox,
+                storage: PendingRestoreStorage, currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
         self.storage = storage; self.now = now
-        commit = RestoreCommitAPI(currentSession: currentSession, transport: transport, now: now)
-        status = RestoreStatusAPI(currentSession: currentSession, transport: transport, now: now)
-        process = RestoreProcessAPI(currentSession: currentSession, transport: transport, now: now)
-        cancel = RestoreCancelAPI(currentSession: currentSession, transport: transport, now: now)
+        commit = RestoreCommitAPI(server: server, environment: environment, currentSession: currentSession, transport: transport, now: now)
+        status = RestoreStatusAPI(server: server, environment: environment, currentSession: currentSession, transport: transport, now: now)
+        process = RestoreProcessAPI(server: server, environment: environment, currentSession: currentSession, transport: transport, now: now)
+        cancel = RestoreCancelAPI(server: server, environment: environment, currentSession: currentSession, transport: transport, now: now)
     }
     /// Independent opt-in is mandatory; a local StoreKit/loopback fixture cannot
     /// call the fixed formal restore endpoints. The shipped flag remains false.

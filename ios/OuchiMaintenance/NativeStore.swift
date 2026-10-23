@@ -1494,6 +1494,10 @@ struct FormalChannelSelection {
     private var configuredServiceServer: BillingServer {
         Bundle.main.infoDictionary?["OUCHI_SANDBOX_REVIEW_SERVER"] as? Bool == true ? .sandboxReview : .production
     }
+    private var configuredReviewEnvironment: BillingEnvironment {
+        let raw = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String
+        return raw.flatMap(BillingEnvironment.init(rawValue:)) ?? .production
+    }
     private func configuredAttachmentAPI(isolatedDevelopment: Bool = false) -> AttachmentAPI {
         let raw = Bundle.main.infoDictionary?["OUCHI_RELEASE_PURCHASE_ENVIRONMENT"] as? String
         let environment = raw.flatMap(BillingEnvironment.init(rawValue:)) ?? .production
@@ -1677,7 +1681,7 @@ struct FormalChannelSelection {
                 bundleIdentifier: bundle, purchaseEnvironment: purchases.environment,
                 isolatedDevelopment: isolatedDevelopmentEnabled),
               sandboxRestoreStillBound(account: account, epoch: nil, expected: expected, revision: revision) else { throw CloudError.unavailable }
-        let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+        let provider = AppAttestEnrollmentContextProvider(session: session, enrollment: configuredEnrollmentAPI(), configuration: configuration)
         let currentContext: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
             guard let self, await self.sandboxRestoreStillBound(account: account, epoch: nil, expected: expected, revision: revision),
                   let context = try? await provider.load(expectedAccount: account),
@@ -1721,8 +1725,8 @@ struct FormalChannelSelection {
                   let key = try keys.read(account: account, epoch: epoch) else { throw CloudError.authenticationRequired }
             return key
         })
-        let flow = SandboxRestoreFlow(storage: storage, currentSession: currentSession)
-        try await RestoreCommitAPI(currentSession: currentSession).validate(captured)
+        let flow = SandboxRestoreFlow(server: configuredServiceServer, environment: purchases.environment, storage: storage, currentSession: currentSession)
+        try await RestoreCommitAPI(server: configuredServiceServer, environment: purchases.environment, currentSession: currentSession).validate(captured)
         return (captured, flow)
     }
     private enum SandboxRestoreAction { case start, refresh, cancelUnreserved }
@@ -1785,7 +1789,7 @@ struct FormalChannelSelection {
         // challenge API validates this exact captured identity before/after HTTP.
         guard let session, let configuration = try AppAttestRegistrationConfiguration.parse(
             info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier) else { throw CloudError.unavailable }
-        let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+        let provider = AppAttestEnrollmentContextProvider(session: session, enrollment: configuredEnrollmentAPI(), configuration: configuration)
         let current: AppAttestRegistrationAPI.CurrentSession = { [weak self] in
             guard let self, await self.sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision),
                   let context = try? await provider.load(expectedAccount: scope.userID),
@@ -1793,7 +1797,7 @@ struct FormalChannelSelection {
                   await self.sandboxRestoreStillBound(account: scope.userID, epoch: scope.epochID, expected: expected, revision: revision) else { return nil }
             return context.session(keyID: scope.keyID)
         }
-        let api = RestoreChallengeAPI(currentSession: current)
+        let api = RestoreChallengeAPI(server: configuredServiceServer, environment: purchases.environment, currentSession: current)
         let (evidence, challenge, assertion) = try await purchases.sandboxRestoreAssertion(captured: identity,
             originalTransactionID: original, requestID: requestID, api: api)
         try await api.validate(identity)
@@ -1997,7 +2001,7 @@ struct FormalChannelSelection {
             }
             return false
         })
-        let coordinator = try AppAttestRegistrationCoordinator(currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
+        let coordinator = try AppAttestRegistrationCoordinator(server: configuredServiceServer, environment: configuredReviewEnvironment, currentContext: current, device: AppAttestDeviceService(), encryptionKeys: keys,
             references: references, pending: pending, retentionMilliseconds: configuration.referenceRetentionMilliseconds,
             eraseAdditionalPending: { try await Self.erasePendingRestore(account: $0) })
         appAttestRegistrationCoordinator = coordinator; appAttestCoordinatorConfiguration = configuration
@@ -2022,7 +2026,7 @@ struct FormalChannelSelection {
                   signedIn, snapshotAccount == account else { return }
             guard let configuration = try AppAttestRegistrationConfiguration.parse(info: Bundle.main.infoDictionary ?? [:], bundleIdentifier: Bundle.main.bundleIdentifier),
                   let bundle = Bundle.main.bundleIdentifier else { return }
-            let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+            let provider = AppAttestEnrollmentContextProvider(session: session, enrollment: configuredEnrollmentAPI(), configuration: configuration)
             let current: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
                 guard let self, await self.signedIn, await self.snapshotAccount == account else { return nil }
                 guard let context = try? await provider.load(expectedAccount: account),
@@ -2051,7 +2055,7 @@ struct FormalChannelSelection {
                   let bundle = Bundle.main.bundleIdentifier else { return nil }
             busy = true
             defer { if expected == generation { busy = false } }
-            let provider = AppAttestEnrollmentContextProvider(session: session, configuration: configuration)
+            let provider = AppAttestEnrollmentContextProvider(session: session, enrollment: configuredEnrollmentAPI(), configuration: configuration)
             let current: AppAttestRegistrationCoordinator.CurrentContext = { [weak self] in
                 guard let self, await self.signedIn, await self.snapshotAccount == account else { return nil }
                 guard let context = try? await provider.load(expectedAccount: account),

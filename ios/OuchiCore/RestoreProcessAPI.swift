@@ -12,12 +12,14 @@ public struct RestoreProcessAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let identity: AppAttestRegistrationAPI
     private let now: @Sendable () -> Int64
-    private let endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/restore/process")!
-    public init(currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        endpoint = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/billing/restore/process") }
         self.now = now
-        self.identity = AppAttestRegistrationAPI(currentSession: currentSession, now: now)
+        self.identity = AppAttestRegistrationAPI(server: server, environment: environment, currentSession: currentSession, now: now)
         self.transport = transport ?? { request in
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 60
@@ -35,6 +37,7 @@ public struct RestoreProcessAPI: Sendable {
     public enum Status: String, Sendable { case pending, complete }
     public func process(captured: AppAttestRegistrationSession, requestID: UUID,
                        pairSHA256: String, assertionSHA256: String) async throws -> Status {
+        guard let endpoint else { throw CloudError.invalidInput }
         try await validate(captured)
         let allowed = Set("0123456789abcdef".utf8)
         guard requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000")!,

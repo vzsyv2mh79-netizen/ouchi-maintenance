@@ -11,12 +11,14 @@ public struct RestoreCancelAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let identity: AppAttestRegistrationAPI
     private let now: @Sendable () -> Int64
-    private let endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/restore/cancel")!
-    public init(currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        endpoint = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/billing/restore/cancel") }
         self.now = now
-        self.identity = AppAttestRegistrationAPI(currentSession: currentSession, now: now)
+        self.identity = AppAttestRegistrationAPI(server: server, environment: environment, currentSession: currentSession, now: now)
         self.transport = transport ?? { request in
             // Bound the entire response, including a peer that trickles bytes.
             let configuration = URLSessionConfiguration.ephemeral
@@ -42,6 +44,7 @@ public struct RestoreCancelAPI: Sendable {
         }
     }
     public func cancelUnreserved(pending: PendingRestore, captured: AppAttestRegistrationSession) async throws -> Receipt {
+        guard let endpoint else { throw CloudError.invalidInput }
         try await validate(captured)
         guard pending.scope == captured.scope else { throw CloudError.invalidInput }
         let requestID = pending.challenge.requestID

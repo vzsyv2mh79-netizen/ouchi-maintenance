@@ -12,12 +12,14 @@ public struct RestoreChallengeAPI: Sendable {
     private let transport: HouseholdAPI.Transport
     private let identity: AppAttestRegistrationAPI
     private let now: @Sendable () -> Int64
-    private let endpoint = URL(string: "https://ouchi-maintenance.vercel.app/api/billing/restore/challenge")!
-    public init(currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
+    private let endpoint: URL?
+    public init(server: BillingServer = .production, environment: BillingEnvironment = .production,
+                currentSession: @escaping AppAttestRegistrationAPI.CurrentSession,
                 transport: HouseholdAPI.Transport? = nil,
                 now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+        endpoint = server.origin(environment: environment).flatMap { URL(string: $0 + "/api/billing/restore/challenge") }
         self.now = now
-        self.identity = AppAttestRegistrationAPI(currentSession: currentSession, now: now)
+        self.identity = AppAttestRegistrationAPI(server: server, environment: environment, currentSession: currentSession, now: now)
         self.transport = transport ?? { request in
             // Bound the entire response, including a peer that trickles bytes.
             let configuration = URLSessionConfiguration.ephemeral
@@ -34,6 +36,7 @@ public struct RestoreChallengeAPI: Sendable {
     public func validate(_ captured: AppAttestRegistrationSession) async throws { try await identity.validate(captured) }
     public func challenge(captured: AppAttestRegistrationSession, requestID: UUID,
                           signedAppTransaction: String, signedTransaction: String) async throws -> RestoreAssertionChallenge {
+        guard let endpoint else { throw CloudError.invalidInput }
         try await validate(captured)
         guard requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000")! else { throw CloudError.invalidInput }
         let digest = try RestoreAssertionChallenge.pairDigest(signedApp: signedAppTransaction, signedTransaction: signedTransaction)
