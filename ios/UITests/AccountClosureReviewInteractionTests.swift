@@ -312,7 +312,13 @@ import XCTest
                 let bottom = min(contentBottom, keyboardTop.isFinite ? keyboardTop - 8 : contentBottom)
                 guard top.isFinite, bottom.isFinite, bottom > top else { continue }
                 if element.exists && element.isHittable && element.frame.minY >= top && (element.frame.maxY <= bottom || (paragraph && element.elementType == .staticText && element.frame.minY + 100 < bottom)) { return }
-                let down = element.exists ? element.frame.minY < top : up
+                // A virtualized Form can expose an existing element with an
+                // empty/invalid frame. It has no usable direction yet; scan
+                // toward undiscovered content instead of jumping to the top.
+                let frame = element.exists ? element.frame : .null
+                let positioned = frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
+                    && frame.width > 0 && frame.height > 0
+                let down = positioned ? frame.minY < top : up
                 let height = max(1, bottom - top)
                 let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: (top + height * (down ? 0.3 : 0.8)) / bounds.height))
                 let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: (top + height * (down ? 0.8 : 0.3)) / bounds.height))
@@ -336,8 +342,12 @@ import XCTest
             if app.keyboards.firstMatch.exists && finishEmail.exists { finishEmail.tap() }
             let password = app.secureTextFields["signin.password"]
             reachRoot(password); password.tap(); password.typeText("Sample-only-123\n")
-            let dismiss = app.buttons["signin.dismiss-keyboard"]
-            if app.keyboards.firstMatch.exists && dismiss.exists { dismiss.tap() }
+            // Return invokes the real password field's onSubmit and clears
+            // focus. Wait for that transition instead of tapping a toolbar
+            // button from a stale pre-dismissal accessibility snapshot.
+            let keyboardDismissed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+            XCTAssertEqual(XCTWaiter.wait(for: [keyboardDismissed], timeout: 10), .completed)
             let submit = app.buttons["signin.submit"]
             reachRoot(submit)
             waitEnabled(submit); submit.tap()
@@ -394,7 +404,10 @@ import XCTest
             app.navigationBars.buttons.firstMatch.tap()
             app.navigationBars.buttons.firstMatch.tap()
         }
-        reachRoot(app.textFields["signin.email"], up: true); XCTAssertTrue(app.textFields["signin.email"].exists)
+        // Cleanup replaces the root with a fresh sign-in Form at its top.
+        // At AX5 the email row is virtualized below the introductory content;
+        // search toward that content rather than scrolling above the new root.
+        reachRoot(app.textFields["signin.email"]); XCTAssertTrue(app.textFields["signin.email"].exists)
         let loggedOutEntry = app.buttons["closure-custody.saved-entry"]
         reachRoot(loggedOutEntry); waitEnabled(loggedOutEntry); loggedOutEntry.tap()
         reachRoot(family); XCTAssertTrue(family.exists)
