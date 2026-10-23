@@ -404,10 +404,13 @@ import XCTest
             app.navigationBars.buttons.firstMatch.tap()
             app.navigationBars.buttons.firstMatch.tap()
         }
-        // Cleanup replaces the root with a fresh sign-in Form at its top.
-        // At AX5 the email row is virtualized below the introductory content;
-        // search toward that content rather than scrolling above the new root.
-        reachRoot(app.textFields["signin.email"]); XCTAssertTrue(app.textFields["signin.email"].exists)
+        // Signed-in cleanup creates a fresh sign-in Form at its top. The
+        // interrupted, already logged-out retry instead navigates back to the
+        // existing Form, retaining the saved-reference row's lower scroll
+        // position. Search upward only in that retained Form; at AX5 its email
+        // row is virtualized above the current viewport.
+        reachRoot(app.textFields["signin.email"], up: interruptAfterAuth)
+        XCTAssertTrue(app.textFields["signin.email"].exists)
         let loggedOutEntry = app.buttons["closure-custody.saved-entry"]
         reachRoot(loggedOutEntry); waitEnabled(loggedOutEntry); loggedOutEntry.tap()
         reachRoot(family); XCTAssertTrue(family.exists)
