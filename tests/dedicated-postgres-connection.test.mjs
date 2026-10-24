@@ -36,3 +36,22 @@ test('an error emitted synchronously during shutdown cannot recursively end the 
  const connection=await createDedicatedPostgresConnection({createClient:()=>d.client})({signal:new AbortController().signal});
  await connection.close();assert.equal(calls,1);
 });
+
+for(const operation of ['connect','query'])test('private '+operation+' rejects elapsed budget before timer notification',async t=>{
+ let now=100,ends=0;
+ t.mock.method(performance,'now',()=>now);
+ const client={
+  connect:async()=>{if(operation==='connect')now+=3001;},
+  query:async()=>{now+=5001;return {rows:[{complete:true}]};},
+  end:async()=>{ends++;},on:()=>{}
+ };
+ const connect=createDedicatedPostgresConnection({createClient:()=>client});
+ if(operation==='connect')await assert.rejects(connect({signal:new AbortController().signal}),/deadline/);
+ else{
+  const connection=await connect({signal:new AbortController().signal});
+  await assert.rejects(connection.query('COMMIT'),/deadline/);
+  await assert.rejects(connection.query('SELECT 1'),/unavailable/);
+  await connection.close();
+ }
+ assert.equal(ends,1,'Over-budget private driver must be closed once');
+});
