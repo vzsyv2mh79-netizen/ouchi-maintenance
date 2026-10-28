@@ -107,6 +107,8 @@ test('every owning binding requires the operation row lock after its global lock
    assert.equal(Boolean(await held.bind(t.tx,scope,t.tx.signal)),locked===true);
    const row=t.queries.indexOf(OPERATION_LOCK_SQL);
    assert.ok(row>0);assert.match(t.queries[row-1],/pg_try_advisory_xact_lock_shared.*hashtextextended/);
+   if(locked===true)assert.ok(t.queries.indexOf(OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL)>row);
+   else assert.equal(t.queries.includes(OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL),false);
   });
   if(locked===true)await run;else await assert.rejects(run);
  }
