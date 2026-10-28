@@ -55,12 +55,13 @@ function owning(f){
  }};return t;
 }
 function birthOwning(f){
- const t=owning(f),query=t.tx.query,{leaseToken:unused,...fixed}=scope;
+ const t=owning(f),query=t.tx.query,fixed={...scope};delete fixed.leaseToken;
  t.birth={request_id:scope.requestID,user_id:scope.userID,scope:fixed,status:'requested',lease_token:null,lease_until:null,receipts:{},pid:t.pid,xid:t.xid};
  t.witness={request_id:scope.requestID,user_id:scope.userID,scope:fixed,producer_pid:t.pid,producer_xid:t.xid};
  t.tx.query=async(sql,...args)=>{
   if(sql===OUCHI_CONTROLLED_BIRTH_ROOT_SQL)return {rows:[{...t.birth}]};
   if(sql===OUCHI_CONTROLLED_BIRTH_WITNESS_SQL)return {rows:t.witness?[{...t.witness}]:[]};
+  if(sql===OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL)return {rows:[{...t.birth,lease_live:false}]};
   return query(sql,...args);
  };return t;
 }
@@ -86,6 +87,15 @@ test('birth refuses stale witnesses, active leases, receipts and late changes',a
 test('controlled terminal SQL never calls the legacy generation verifier',()=>{
  assert.match(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/kb_verify_controlled_generation_terminal_exclusion_root/);
  assert.doesNotMatch(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/private\.kb_verify_generation_terminal_exclusion_root/);
+});
+test('requested birth cannot be used as processing or terminal authority',async()=>{
+ for(const mode of ['bind','bindTerminal']){
+  const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=birthOwning(f);
+  await assert.rejects(f.provider.withScope(scope,new AbortController().signal,async held=>{
+   assert.ok(await held.bindBirth(t.tx,scope,t.tx.signal));
+   assert.equal(await held[mode](t.tx,scope,t.tx.signal),null);
+  }));
+ }
 });
 test('owning callbacks preserve processing and verified terminal completion',async()=>{
  for(const terminal of [false,true]){
