@@ -99,12 +99,36 @@ end$$;
 create constraint trigger complete_controlled_preparation after insert on maintenance_private.controlled_family_preparation_bindings deferrable initially deferred for each row execute function maintenance_private.check_controlled_preparation_commit();
 alter table maintenance_private.controlled_family_preparation_bindings enable always trigger complete_controlled_preparation;
 
+-- Historical metadata only, including after processing/terminal completion.
+-- No current-operation/root lock, XID allocation, admission or execution grant.
+create function maintenance_private.read_controlled_family_preparation_binding(r uuid,s jsonb,g uuid,d text)
+returns table(kind text,native_lease uuid,targets jsonb,provenance_digest text,header_pid integer,header_xid text,producer_pid integer,producer_xid text)
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if session_user::text<>'shared_retirement_backend' or current_setting('role')<>'none'
+ or r is null or g is null or s is null or s->>'requestID' is distinct from r::text
+ or d is null or d !~ '^[a-f0-9]{64}$'
+ or not exists(select 1 from pg_roles x where x.rolname=session_user and x.rolcanlogin and not x.rolsuper and not x.rolbypassrls and not x.rolcreatedb and not x.rolcreaterole and not x.rolreplication and not exists(select 1 from pg_auth_members m where m.member=x.oid or m.roleid=x.oid))
+ then raise exception 'Exact controlled history principal and identity required';end if;
+ return query
+ select 'controlled-family-preparation-history'::text,b.native_lease,b.targets,b.provenance_digest,b.header_pid,b.header_xid,b.producer_pid,b.producer_xid
+ from maintenance_private.controlled_family_preparation_bindings b
+ join maintenance_private.family_preparation_generations p on p.generation_id=b.generation_id
+ join private.kb_read_controlled_generation_provenance(g,s) h on h.provenance=b.provenance and h.producer_pid=b.header_pid and h.producer_xid=b.header_xid
+ where b.generation_id=g and b.root_request=r and b.scope=s and b.provenance_digest=d
+ and b.provenance->>'domain'='Kakei/shared-retirement/controlled-generation/v1'
+ and b.provenance->>'generationID'=g::text and b.provenance->'scope'=s and b.provenance->>'digest'=d
+ and p.root_request=b.root_request and p.scope=b.scope and p.native_lease=b.native_lease and p.targets=b.targets
+ and p.backend_pid=b.producer_pid and p.transaction_id::text=b.producer_xid;
+end$$;
+
 -- Run installer only in isolated fixture. The NOLOGIN owner receives no schema
 -- CREATE, table ownership, Auth privileges, or membership in another role.
 do $$declare f record;begin
- for f in select oid::regprocedure signature from pg_proc where pronamespace='maintenance_private'::regnamespace and proname in('refuse_controlled_preparation_change','lock_controlled_preparation_header','controlled_family_preparation_generation_state','reserve_controlled_family_preparation_generation','check_controlled_preparation_commit') loop
+ for f in select oid::regprocedure signature from pg_proc where pronamespace='maintenance_private'::regnamespace and proname in('refuse_controlled_preparation_change','lock_controlled_preparation_header','controlled_family_preparation_generation_state','reserve_controlled_family_preparation_generation','check_controlled_preparation_commit','read_controlled_family_preparation_binding') loop
   execute format('alter function %s owner to ouchi_controlled_preparation_owner',f.signature);
   execute format('revoke all on function %s from public,anon,authenticated,service_role,shared_retirement_backend',f.signature);
  end loop;
 end$$;
 grant execute on function maintenance_private.reserve_controlled_family_preparation_generation(uuid,jsonb,uuid,uuid,jsonb,text),maintenance_private.controlled_family_preparation_generation_state(uuid,jsonb,uuid,uuid,jsonb,text) to shared_retirement_backend;
+grant execute on function maintenance_private.read_controlled_family_preparation_binding(uuid,jsonb,uuid,text) to shared_retirement_backend;

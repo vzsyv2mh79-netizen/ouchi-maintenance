@@ -77,6 +77,25 @@ Missing ports fail closed; there is no direct old-reserve fallback.
 
 ## Stage 1–4 integration still required
 
+### Historical binding lookup
+
+`maintenance_private.read_controlled_family_preparation_binding(root, scope,
+generationID, provenanceDigest)` is a STABLE metadata reader. It returns zero or
+one row with `kind: controlled-family-preparation-history`, `native_lease`,
+`targets`, `provenance_digest`, integer `header_pid`/`producer_pid`, and text
+`header_xid`/`producer_xid`. It compares the immutable mapping to both the actual
+original reservation and protected original provenance. No caller-supplied lease
+or targets are adopted. An identity mismatch returns no row; an invalid caller
+raises. Only the dedicated backend has EXECUTE, not direct table access.
+
+The lookup intentionally remains readable after processing/completion and an
+operation change. It does not lock roots/Auth rows, allocate a transaction ID,
+check current eligibility, renew a lease, issue a receipt or authorize any work.
+The stage evidence caller must separately verify actual runtime/admission and
+stage-specific facts. Real PG checks must cover read-only transactions before and
+after status transitions, mismatched inputs, immutable original metadata, and
+the absence of XID assignment. This SQL candidate is not yet PG-verified.
+
 - Prepare: separately verify native capture, all app bindings, consent and
   write-stop readiness before claim. Stage zero is not this permission.
 - Family handoff: retain actual successor consent and copy/transfer/retention
