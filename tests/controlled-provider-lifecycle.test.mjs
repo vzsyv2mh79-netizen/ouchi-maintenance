@@ -6,6 +6,7 @@ mock.module('../lib/postgres-driver.mjs',{namedExports:{createPostgresClient:con
 const {createOuchiControlledRetirement,OUCHI_CONTROLLED_EXCLUSION_HOLDER_SQL,OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL,OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,OUCHI_CONTROLLED_EXCLUSION_CALLER_SQL}=await import('../lib/ouchi-controlled-retirement.mjs');
 const {STATE_SQL,PROTOCOL,REVISION}=await import('../lib/controlled-operating-state.mjs');
 const {OPERATION_LOCK_SQL}=await import('../lib/controlled-owning-maintenance-lock.mjs');
+const {OUCHI_CONTROLLED_BIRTH_ROOT_SQL,OUCHI_CONTROLLED_BIRTH_WITNESS_SQL}=await import('../lib/ouchi-controlled-retirement.mjs');
 const uuid=n=>`${n.repeat(8)}-${n.repeat(4)}-4${n.repeat(3)}-8${n.repeat(3)}-${n.repeat(12)}`;
 const scope={protocolVersion:2,kind:'shared-account',requestID:uuid('1'),userID:uuid('2'),leaseToken:uuid('3'),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:uuid('4'),scopeID:uuid('5')}]};
 function fixture({remaining=async()=>false,terminalRemaining=remaining,maxHoldMs=100}={}){
@@ -53,6 +54,39 @@ function owning(f){
   throw Error('Unexpected owning query');
  }};return t;
 }
+function birthOwning(f){
+ const t=owning(f),query=t.tx.query,{leaseToken:unused,...fixed}=scope;
+ t.birth={request_id:scope.requestID,user_id:scope.userID,scope:fixed,status:'requested',lease_token:null,lease_until:null,receipts:{},pid:t.pid,xid:t.xid};
+ t.witness={request_id:scope.requestID,user_id:scope.userID,scope:fixed,producer_pid:t.pid,producer_xid:t.xid};
+ t.tx.query=async(sql,...args)=>{
+  if(sql===OUCHI_CONTROLLED_BIRTH_ROOT_SQL)return {rows:[{...t.birth}]};
+  if(sql===OUCHI_CONTROLLED_BIRTH_WITNESS_SQL)return {rows:t.witness?[{...t.witness}]:[]};
+  return query(sql,...args);
+ };return t;
+}
+test('birth binding is a fresh requested-only capability without deletion verify',async()=>{
+ const f=fixture({maxHoldMs:3000}),t=birthOwning(f);
+ await f.provider.withScope(scope,new AbortController().signal,async held=>{
+  const b=await held.bindBirth(t.tx,scope,t.tx.signal);assert.ok(b);
+  assert.deepEqual(Object.keys(b).sort(),['kind','operation','verifyBirth']);assert.equal(b.kind,'controlled-generation-birth');
+  assert.equal(b.operation,held.operation);assert.ok(Object.isFrozen(b));assert.equal(b.verify,undefined);
+  assert.equal(await b.verifyBirth(t.tx,scope,t.tx.signal),true);
+  for(const c of t.checks)assert.equal(await c.verify(),true,c.name);
+ });
+});
+test('birth refuses stale witnesses, active leases, receipts and late changes',async()=>{
+ for(const late of [false,true])for(const mutation of [t=>{t.witness=null;},t=>{t.witness.producer_xid='1';},t=>{t.birth.status='processing';},t=>{t.birth.lease_token=scope.leaseToken;},t=>{t.birth.lease_until='future';},t=>{t.birth.receipts={stage:1};},t=>{t.witness.scope={...t.witness.scope,extra:true};}]){
+  const f=fixture({maxHoldMs:3000}),t=birthOwning(f);
+  await assert.rejects(f.provider.withScope(scope,new AbortController().signal,async held=>{
+   if(!late){mutation(t);assert.equal(await held.bindBirth(t.tx,scope,t.tx.signal),null);}
+   else{const b=await held.bindBirth(t.tx,scope,t.tx.signal);assert.ok(b);mutation(t);assert.equal(await t.checks.at(-1).verify(),false);assert.equal(await b.verifyBirth(t.tx,scope,t.tx.signal),false);}
+  }));
+ }
+});
+test('controlled terminal SQL never calls the legacy generation verifier',()=>{
+ assert.match(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/kb_verify_controlled_generation_terminal_exclusion_root/);
+ assert.doesNotMatch(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/private\.kb_verify_generation_terminal_exclusion_root/);
+});
 test('owning callbacks preserve processing and verified terminal completion',async()=>{
  for(const terminal of [false,true]){
   const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=owning(f);
