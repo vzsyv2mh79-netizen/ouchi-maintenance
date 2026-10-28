@@ -5,6 +5,7 @@ let active;
 mock.module('../lib/postgres-driver.mjs',{namedExports:{createPostgresClient:config=>{active.config=config;return active.client;}}});
 const {createOuchiControlledRetirement,OUCHI_CONTROLLED_EXCLUSION_HOLDER_SQL,OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL,OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,OUCHI_CONTROLLED_EXCLUSION_CALLER_SQL}=await import('../lib/ouchi-controlled-retirement.mjs');
 const {STATE_SQL,PROTOCOL,REVISION}=await import('../lib/controlled-operating-state.mjs');
+const {OPERATION_LOCK_SQL}=await import('../lib/controlled-owning-maintenance-lock.mjs');
 const uuid=n=>`${n.repeat(8)}-${n.repeat(4)}-4${n.repeat(3)}-8${n.repeat(3)}-${n.repeat(12)}`;
 const scope={protocolVersion:2,kind:'shared-account',requestID:uuid('1'),userID:uuid('2'),leaseToken:uuid('3'),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:uuid('4'),scopeID:uuid('5')}]};
 function fixture({remaining=async()=>false,terminalRemaining=remaining,maxHoldMs=100}={}){
@@ -39,8 +40,10 @@ test('elapsed hold deadline refuses even when timer delivery is blocked',async()
  const f=fixture();await assert.rejects(f.provider.withScope(scope,new AbortController().signal,async()=>{const until=performance.now()+130;while(performance.now()<until){}return 'late';}));assert.equal(f.closed,1);
 });
 function owning(f){
- const t={checks:[],terminal:false,terminalProof:true,pid:88,xid:'55',callerSafe:true};
+ const t={checks:[],terminal:false,terminalProof:true,pid:88,xid:'55',callerSafe:true,operationLocked:true,queries:[]};
  t.tx={signal:new AbortController().signal,beforeCommit:(name,verify)=>t.checks.push({name,verify}),query:async(sql)=>{
+  t.queries.push(sql);
+  if(sql===OPERATION_LOCK_SQL)return {rows:[{locked:t.operationLocked}]};
   if(sql===OUCHI_CONTROLLED_EXCLUSION_ROOT_SQL)return {rows:[{scope,user_id:scope.userID,status:t.terminal?'complete':'processing',lease_token:t.terminal?null:scope.leaseToken,lease_live:true,pid:t.pid,xid:t.xid}]};
   if(sql===OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL)return {rows:[{verified:t.terminalProof,pid:t.pid,xid:t.xid}]};
   if(sql===OUCHI_CONTROLLED_EXCLUSION_CALLER_SQL)return {rows:[{pid:t.pid,xid:t.xid,principal_safe:t.callerSafe,same_held_session:true,caller_held_key:true}]};
@@ -95,6 +98,18 @@ test('held operating descriptor is exact immutable data, not a receipt',async()=
   assert.ok(Object.isFrozen(held.operation));assert.throws(()=>{held.operation.epoch='8';},TypeError);
   assert.equal(held.operation.durable,undefined);assert.equal(held.operation.signature,undefined);
  });
+});
+
+test('every owning binding requires the operation row lock after its global lock',async()=>{
+ for(const locked of [true,false,null]){
+  const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=owning(f);t.operationLocked=locked;
+  const run=f.provider.withScope(scope,new AbortController().signal,async held=>{
+   assert.equal(Boolean(await held.bind(t.tx,scope,t.tx.signal)),locked===true);
+   const row=t.queries.indexOf(OPERATION_LOCK_SQL);
+   assert.ok(row>0);assert.match(t.queries[row-1],/pg_try_advisory_xact_lock_shared.*hashtextextended/);
+  });
+  if(locked===true)await run;else await assert.rejects(run);
+ }
 });
 
 test('pre-cancelled scope never creates a database session or runs work',async()=>{
