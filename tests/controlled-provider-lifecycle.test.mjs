@@ -88,6 +88,20 @@ test('controlled terminal SQL never calls the legacy generation verifier',()=>{
  assert.match(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/kb_verify_controlled_generation_terminal_exclusion_root/);
  assert.doesNotMatch(OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL,/private\.kb_verify_generation_terminal_exclusion_root/);
 });
+test('terminal port missing, ambiguous, null, foreign transaction or error never binds',async()=>{
+ for(const result of [[],[{verified:null,pid:88,xid:'55'}],[{verified:true,pid:99,xid:'55'}],[{verified:true,pid:88,xid:'56'}],[{verified:true,pid:88,xid:'55'},{verified:true,pid:88,xid:'55'}],null]){
+  const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=owning(f),query=t.tx.query;
+  t.terminal=true;
+  t.tx.query=async(sql,...args)=>{
+   if(sql===OUCHI_CONTROLLED_EXCLUSION_TERMINAL_ROOT_SQL){if(result===null)throw Error('terminal facts unavailable');return {rows:result};}
+   return query(sql,...args);
+  };
+  await assert.rejects(f.provider.withScope(scope,new AbortController().signal,async held=>{
+   assert.equal(await held.bindTerminal(t.tx,scope,t.tx.signal),null);
+  }));
+  assert.equal(f.closed,1);
+ }
+});
 test('requested birth cannot be used as processing or terminal authority',async()=>{
  for(const mode of ['bind','bindTerminal']){
   const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=birthOwning(f);
