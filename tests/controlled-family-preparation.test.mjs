@@ -54,3 +54,21 @@ test('late dispatch, root changes and missing controlled SQL never grant complet
  const f=fixture();f.missingSQL=true;await assert.rejects(createOuchiControlledFamilyPreparation(f.options).reserve(f.tx),/missing controlled SQL/);assert.equal(await f.checks[0].verify(),false);
  assert.equal(f.queries.some(sql=>sql.includes('maintenance_private.reserve_family_preparation_generation(')),false);
 });
+test('uncertain commit reconciliation reads protected state without reserving again',async()=>{
+ const f=fixture(),adapter=createOuchiControlledFamilyPreparation(f.options);
+ const observation=await adapter.reconcile(f.tx);
+ assert.equal(observation.kind,'controlled-family-preparation-observation');
+ assert.equal(observation.verify,undefined);assert.equal(observation.durable,undefined);
+ assert.equal(f.reserved,0);assert.equal(f.queries.includes(CONTROLLED_PREPARATION_RESERVE_SQL),false);
+ for(const c of f.checks)assert.equal(await c.verify(),true);
+ await assert.rejects(adapter.reserve(f.tx),/already attempted/);
+});
+test('missing or changed mapped facts during reconciliation never trigger a new reserve',async()=>{
+ for(const phase of ['missing','cancelled']){
+  const f=fixture();f.phase=phase;
+  await assert.rejects(createOuchiControlledFamilyPreparation(f.options).reconcile(f.tx),/facts/);
+  assert.equal(f.reserved,0);assert.equal(await f.checks[0].verify(),false);
+ }
+ const f=fixture();await createOuchiControlledFamilyPreparation(f.options).reconcile(f.tx);
+ f.source.producer_xid='11';assert.equal(await f.checks[0].verify(),false);assert.equal(f.reserved,0);
+});

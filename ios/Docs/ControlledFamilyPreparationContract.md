@@ -4,7 +4,13 @@ This is an undeployed adapter contract, not production SQL or deletion authority
 `createOuchiControlledFamilyPreparation` accepts the exact original protected
 provenance object (`domain`, `generationID`, `scope`, `operation`, `digest`), a
 distinct native lease, an exact home/successor roster, externally pinned operation,
-and independent no-dispatch/writer coverage. It exposes only `reserve(tx)`.
+and independent no-dispatch/writer coverage. It exposes `reserve(tx)` and
+`reconcile(tx)`. The latter never calls reserve: it reads the protected mapping
+and actual reserved facts under the same locks and final checks, returning only
+`controlled-family-preparation-observation`. Missing/cancelled/mismatched state
+is an error, never permission to retry or create a new generation. It grants no
+deletion authority. Caller must finish the checked transaction before relying on
+the observation; a changed operation still requires separate recovery admission.
 
 The original header must already be committed in a different transaction.
 Bootstrap requires its operation to equal the external current operation. Restart
@@ -84,6 +90,6 @@ The shared owner implements controlled typed checkpoint issuance/readback and
 the full lifecycle. These facts need dedicated stage-specific ports; this
 adapter intentionally does not claim to implement stages 1–4 or 1–15.
 
-Current verification: four preparation mock-driver tests plus seventeen provider
+Current verification: six preparation mock-driver tests plus seventeen provider
 mock tests. Real SQL/PG/Auth integration,
 production configuration, and recovery admission remain unverified.
