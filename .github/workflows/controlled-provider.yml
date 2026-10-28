@@ -1,0 +1,28 @@
+name: Controlled retirement candidate
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation, feat/native-household-core]
+    paths:
+      - 'lib/controlled-*.mjs'
+      - 'lib/ouchi-controlled-retirement.mjs'
+      - 'lib/dedicated-postgres-connection.mjs'
+      - 'lib/shared-deletion-protocol.mjs'
+      - 'lib/ouchi-auth-recreation-key.mjs'
+      - 'tests/controlled-provider-lifecycle.test.mjs'
+      - '.github/workflows/controlled-provider.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mock-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Candidate lifecycle with mocked driver; no database or credentials
+        run: node --experimental-test-module-mocks --test tests/controlled-provider-lifecycle.test.mjs
