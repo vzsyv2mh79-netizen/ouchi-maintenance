@@ -103,6 +103,18 @@ test('pre-cancelled scope never creates a database session or runs work',async()
  assert.equal(called,false);assert.equal(f.config,undefined);assert.equal(f.queries.length,0);
 });
 
+test('cleanup refusal preserves the original work or COMMIT error',async()=>{
+ const f=fixture({maxHoldMs:3000}),original=Error('synthetic COMMIT rejection');
+ await assert.rejects(f.provider.withScope(scope,new AbortController().signal,async()=>{
+  f.row.status='paused';throw original;
+ }),error=>{
+  assert.ok(error instanceof AggregateError);assert.equal(error.cause,original);
+  assert.equal(error.errors.length,2);assert.equal(error.errors[0],original);
+  assert.match(error.errors[1].message,/release unconfirmed/);return true;
+ });
+ assert.equal(f.closed,1);assert.equal(f.actor||f.global,false);
+});
+
 test('cancellation during work closes holds and prevents retained binding reuse',async()=>{
  const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=owning(f),controller=new AbortController();let held,binding;
  await assert.rejects(f.provider.withScope(scope,controller.signal,async value=>{
