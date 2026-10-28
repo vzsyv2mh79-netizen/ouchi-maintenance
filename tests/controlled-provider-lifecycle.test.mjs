@@ -96,3 +96,21 @@ test('held operating descriptor is exact immutable data, not a receipt',async()=
   assert.equal(held.operation.durable,undefined);assert.equal(held.operation.signature,undefined);
  });
 });
+
+test('pre-cancelled scope never creates a database session or runs work',async()=>{
+ const f=fixture(),controller=new AbortController();controller.abort();let called=false;
+ await assert.rejects(f.provider.withScope(scope,controller.signal,async()=>{called=true;}));
+ assert.equal(called,false);assert.equal(f.config,undefined);assert.equal(f.queries.length,0);
+});
+
+test('cancellation during work closes holds and prevents retained binding reuse',async()=>{
+ const f=fixture({remaining:async()=>true,maxHoldMs:3000}),t=owning(f),controller=new AbortController();let held,binding;
+ await assert.rejects(f.provider.withScope(scope,controller.signal,async value=>{
+  held=value;binding=await held.bind(t.tx,scope,t.tx.signal);assert.ok(binding);
+  controller.abort();return 'cancelled work cannot succeed';
+ }));
+ assert.equal(f.closed,1);assert.equal(f.actor||f.global,false);assert.equal(held.signal.aborted,true);
+ assert.equal(await binding.verify(t.tx,scope,t.tx.signal),false);
+ assert.equal(await held.bind(t.tx,scope,t.tx.signal),null);
+ for(const check of t.checks.filter(check=>check.name.startsWith('controlled-auth:')))assert.equal(await check.verify(),false);
+});
