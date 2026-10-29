@@ -417,7 +417,7 @@ private struct NativeSettings: View {
                 }
                 #endif
                 if store.explicitEnrollmentConfigured {
-                    Section("クラウド登録") { NavigationLink("おうちメンテへの登録") { ExplicitEnrollmentView() } }
+                    Section("クラウド登録") { NavigationLink("おうちメンテへの登録") { ExplicitEnrollmentView() }.accessibilityIdentifier("enrollment.entry") }
                 }
                 if store.formalNativePushConfiguration != nil {
                     Section("この端末への通知") { NavigationLink("通知先を管理") { FormalNativePushView() } }
@@ -2158,19 +2158,19 @@ private struct ExplicitEnrollmentView: View {
         Form {
             Section {
                 Text("このログインをおうちメンテで使うことに同意して登録します。無料です。有料契約は行いません。")
-                Button("登録状態を確認") { run() }.disabled(store.busy)
+                Button("登録状態を確認") { run() }.disabled(store.busy).accessibilityIdentifier("enrollment.refresh")
             }
             if let state {
                 if state.enrolled {
-                    Section { Text("このログインの登録を確認しました。")
-                        Button("記録を読み込み直す") { Task { await store.reload() } }.disabled(store.busy)
+                    Section { Text("このログインの登録を確認しました。").accessibilityIdentifier("enrollment.confirmed")
+                        Button("記録を読み込み直す") { Task { await store.reload() } }.disabled(store.busy).accessibilityIdentifier("enrollment.reload-records")
                     }
                 } else {
                     Section("無料で登録する") {
-                        SecureField("本人確認のパスワード", text: $password).textContentType(.password).focused($passwordFocused).submitLabel(.done).onSubmit { passwordFocused = false }
-                        Toggle("このログインをおうちメンテで使うことに同意します", isOn: $consent)
+                        SecureField("本人確認のパスワード", text: $password).textContentType(.password).focused($passwordFocused).submitLabel(.done).onSubmit { passwordFocused = false }.accessibilityIdentifier("enrollment.password")
+                        Toggle("このログインをおうちメンテで使うことに同意します", isOn: $consent).accessibilityIdentifier("enrollment.consent")
                         Text("以前に削除した記録や、別のアプリの購入権は引き継ぎません。")
-                        Button("無料で登録する") { run(register: true) }.disabled(store.busy || !consent || password.isEmpty || password.count > 1024)
+                        Button("無料で登録する") { run(register: true) }.disabled(store.busy || !consent || password.isEmpty || password.count > 1024).accessibilityIdentifier("enrollment.submit")
                     }.disabled(store.busy)
                 }
             }
