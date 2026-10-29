@@ -1,0 +1,29 @@
+name: Enrollment HTTP fixture
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/enrollment-http-fixture.yml'
+      - 'tests/enrollment-ui-gateway.test.mjs'
+      - 'tests/explicit-enrollment-handler.native.mjs'
+      - 'tests/fixtures/enrollment-*.mjs'
+      - 'tests/fixtures/scoped-native-gotrue.mjs'
+      - 'scripts/test-scoped-shared-consent-native.py'
+permissions:
+  contents: read
+jobs:
+  transport-and-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify isolated transport behavior
+        run: node --test tests/enrollment-ui-gateway.test.mjs
+      - name: Check native fixture syntax (not integration execution)
+        run: |
+          node --check tests/explicit-enrollment-handler.native.mjs
+          node --check tests/fixtures/enrollment-postgrest.mjs
+          node --check tests/fixtures/scoped-native-gotrue.mjs
+          python3 -m py_compile scripts/test-scoped-shared-consent-native.py
