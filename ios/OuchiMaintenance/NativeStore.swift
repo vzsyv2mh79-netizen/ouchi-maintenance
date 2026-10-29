@@ -2099,7 +2099,10 @@ struct FormalChannelSelection {
         let stillBound = { [self] in !Task.isCancelled && signedIn && expected == generation && revision == accountBindingRevision }
         do {
             let credentials = try await session.credentials()
-            guard stillBound(), snapshotAccount == credentials.user.id else { return nil }
+            // Record access may be denied until this session is enrolled. A
+            // cleared snapshot must not prevent the free registration path.
+            let authenticatedAccount = await session.localAccount()
+            guard stillBound(), authenticatedAccount == credentials.user.id else { return nil }
             let service = configuredEnrollmentAPI()
             var granted: UUID?
             if let password {
