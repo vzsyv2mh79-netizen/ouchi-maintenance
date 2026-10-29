@@ -19,6 +19,9 @@ export async function POST(request:Request) {
  if(error)return response(error.code==='P0003'?'テスト通知は1分に1回です。少し待ってください。':'この端末の通知を有効にしてください。',error.code==='P0003'?429:404);
  const subscription=data?.[0];if(!subscription)return response('通知先を確認できません。',404);
  try{
+  const authorization=await db.rpc('can_dispatch_maintenance_push_test',{target_user:user.id,target_endpoint:endpoint});
+  if(authorization.error)return response('通知の送信を確認できません。しばらくしてからお試しください。',503);
+  if(authorization.data!==true)return response('この端末の通知を有効にしてください。',404);
   await sendPush(config,subscription,{title:'おうちメンテ',body:'テスト通知です。この端末でお手入れ通知を受け取れます。',tag:'ouchi-maintenance-test',url:'/'});
   return Response.json({sent:true},{headers});
  }catch(cause){

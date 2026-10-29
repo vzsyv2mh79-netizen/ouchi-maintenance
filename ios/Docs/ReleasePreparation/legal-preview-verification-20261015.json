@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-15",
+  "status": "draft_review_only",
+  "route": "/development/release-information",
+  "checks": {
+    "typecheck": "passed",
+    "targetedLint": "passed",
+    "productionBuild": "passed",
+    "developmentHTTP": 200,
+    "productionHTTP": 404,
+    "mobileViewport": {
+      "width": 390,
+      "height": 844,
+      "horizontalOverflow": false,
+      "navigationMinimumHeight": 48,
+      "articleCount": 17
+    },
+    "noSubmissionForm": true,
+    "robots": "noindex,nofollow"
+  },
+  "limits": [
+    "Not a formal published policy",
+    "Operator, contact and effective date remain unset",
+    "No purchase, billing, database change or deletion activated",
+    "Local browser review does not prove native VoiceOver or physical-device behavior"
+  ],
+  "screenshots": "Local output/release-information-preview-20261015; review artifacts only, not App Store screenshots"
+}

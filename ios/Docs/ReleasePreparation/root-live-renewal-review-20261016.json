@@ -1,0 +1,33 @@
+{
+  "status": "original_live_renewal_positive_and_refusal_review_passed_not_shipping",
+  "baseManifest": "output/family-former-uploader-fixed-20261016/manifest.json",
+  "baseManifestSHA256": "0c61a9092cea0688f30f825e2b80f98f3ca8139b7e2b6010fe89695f6ff3da8d",
+  "inputSetCounts": {
+    "previous": 755,
+    "unchanged": 754,
+    "changedExisting": 1,
+    "new": 1,
+    "total": 756
+  },
+  "result": {
+    "passCount": 5,
+    "fail": 0,
+    "cancelled": 0,
+    "skip": 0
+  },
+  "lintExit": 0,
+  "claims": [
+    "Original live root lease extends while exact scope/nonce, native record and stopped binding remain unchanged.",
+    "Expired deadline, foreign root nonce, foreign frozen scope and missing app coverage each refused; root/native/binding rows unchanged after rejection.",
+    "Exact same renewal function as actual family composition, exposed only through the cloned synthetic fixture return; removing that sole return property makes fixture bytes match former-family base exactly."
+  ],
+  "limits": [
+    "PGlite with synthetic Auth and one Ouchi app, not a new actual GoTrue/Storage service run or multi-app shipping proof.",
+    "Current nonempty family reader is not exercised by these negative cases; expired/foreign root checks run before family lookup.",
+    "No native/binding lease extension, expired lease revival, consent refresh, production endpoint, grants or credentials."
+  ],
+  "snapshotTiming": "Independent synthetic copy executed then all756 source bytes fixed; parent runtime unchanged.",
+  "privatePeerSourceChanges": false,
+  "fixedManifestSHA256": "2d6c4af91888c8859fc0a4d535787ae173676ef39499c3da668153bf0f9e8e01",
+  "publicAssembly": "Evidence only; private cloned fixture and test stay in fixed local source"
+}

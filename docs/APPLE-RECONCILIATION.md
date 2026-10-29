@@ -1,0 +1,21 @@
+# Apple signed purchase history reconciliation
+
+Prepared 2026-10-11. Internal code only; no API keys, new paid service, scheduler, public endpoint or production setting is enabled.
+
+The internal engine receives a seed from the service ledger and an expected live app epoch. These must not be client-selected. It requests V2 transaction history, follows Apple's revision cursor with unchanged query options, verifies every signed transaction in each bounded page before writing that page, and filters independently verified purchases owned by another epoch without transferring rights. After full history it requests latest subscription statuses for a subscription seed, verifies transaction and renewal signatures and persists the matched snapshots. Unsigned raw API status flags are never entitlements.
+
+History pages are bounded to20 records and25 pages per invocation (configurable1..50). A page limit returns complete=false with the cursor after durable saves; a worker must keep the job queued and resume it. Missing/malformed/repeating cursors, response scope mismatch, invalid signatures, storage failure or inconsistent paired status throw instead of reporting completion. Production also requires the correct Apple app ID. Completed consumable histories use V2 to include finished consumables; they do not grant premium.
+
+The server adapter uses Apple's pinned official AppStoreServerAPIClient. Recovery remains disabled unless BILLING_RECONCILIATION_ENABLED=true, verified-ledger storage and valid server-only APPLE_IAP_PRIVATE_KEY_BASE64, APPLE_IAP_KEY_ID and APPLE_IAP_ISSUER_ID are present. The signing key must parse as an EC P256 PKCS8 private key. Environment maps to Apple's fixed Sandbox/Production hosts. No credentials belong in repository, chat, output or public variables. Actual test keys are not configured.
+
+Prepared interactive enrollment: `reconciliationSeedAfterAuth` accepts the exact bearer only after Auth.getUser verification. Its service-only SQL RPC independently checks the current session and epoch, scopes records by user/epoch/environment, and prefers a subscription snapshot. No purchase returns null; invalid or closed enrollment throws. A stored normalized snapshot is a trusted lookup seed, not a newly verified Apple signature. A background worker needs its own enrollment policy: an expired interactive session must not silently abandon historical signed notifications or grant rights to closed enrollments.
+
+Remaining operational gates: external trigger authorization and live enrollment rechecks, durable job cursor/leases/retry scheduling and HTTP timeout/cancellation, deployment/advisor review, notification-only pairing/history recovery, actual signed Apple Sandbox lifecycle, retained entitlement/account erasure and production rollout approval. This helper alone is not a running recovery service. The caller must enforce those gates before connecting an external trigger.
+
+Checks: latest interactive-seed preparation passed all253 local backend tests with zero failures/skips, TypeScript and targeted ESLint. Disposable actual Auth/PostgREST assertions now include service-only seed access, wrong epoch/environment and expired/signed-out session refusal; their CI result is pending. Earlier history engine checks: local TypeScript and targeted ESLint passed. Full249 backend tests passed before final signing-key guards and the additional Production response case; final targeted server/reconciliation tests passed after those edits, including a transient synthetic EC key verifying the official client's fixed destinations without network. Synthetic transport tests cover page resume, wrong account/environment/app identity, failed saves and renewal pairing; no actual Apple signature/purchase is claimed. Parent renewal migration CI38092983636/job114333046610 was inspected: actual disposable Auth/PostgREST test1pass0fail0skip; all4 parent checks succeeded.
+
+Official references:
+- https://developer.apple.com/documentation/appstoreserverapi/get-transaction-history
+- https://developer.apple.com/documentation/appstoreserverapi/hasmore
+- https://developer.apple.com/documentation/appstoreserverapi/get-all-subscription-statuses
+- https://developer.apple.com/documentation/appstoreserverapi

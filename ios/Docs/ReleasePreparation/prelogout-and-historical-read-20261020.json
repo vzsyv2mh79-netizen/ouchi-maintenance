@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-20",
+  "status": "dormant review candidates; no runtime/roles/grants/migrations enabled",
+  "prelogoutCapture": {
+    "factory": "createSharedMaintenancePrelogoutCustody",
+    "source": "lib/shared-maintenance-prelogout-custody.mjs",
+    "sql": "tests/fixtures/shared-maintenance-prelogout-custody.sql",
+    "newUnitTests": 6,
+    "realAuthPGNativeTests": 1,
+    "proof": "restricted actual LOGIN, fixed non-deleting capture, exact manifest dependency, root-before-native concurrency proof, final authority rollback; personal records/false absence flags preserved",
+    "dependencies": {
+      "shared-maintenance-native-stage.sql": "add3566915735db4f34907fb1b5021d366ffb7869f33a69f42c9ad010e17836a",
+      "shared-prelogout-receipt-custody.sql": "6d93514eec1e6971886c6f891f394d1636dccbc478682b156c51b043568b1e6d"
+    }
+  },
+  "afterLogoutBeforeNative": {
+    "factory": "createPreNativeAfterLogoutConsent",
+    "source": "lib/pre-native-after-logout-consent.ts",
+    "sql": "tests/fixtures/pre-native-after-logout-consent.sql",
+    "tests": {
+      "native": {
+        "passed": 1,
+        "failed": 0,
+        "postgres": "17.6",
+        "auth": "GoTrue v2.197.0 actual three-user password/TOTP fixture"
+      },
+      "adversarial": {
+        "passed": 7,
+        "failed": 0
+      },
+      "lint": true,
+      "typecheck": true,
+      "build": true,
+      "related": {
+        "passed": 46,
+        "failed": 0,
+        "skipped": 0,
+        "includesNewAdversarial": 7
+      },
+      "existingCurrentNative": {
+        "passed": 1,
+        "failed": 0
+      },
+      "existingPostSealRealAuthNative": {
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    "sourceSHA256": {
+      "lib/pre-native-after-logout-consent.ts": "28c279bbe67aeb11b28c8346db68efa102da2b7c4a79a3c883ba8ee958d7f409",
+      "tests/fixtures/pre-native-after-logout-consent.sql": "c10ba706c1c878791a200c3a5a2eaec300476a8f475e2986da1f34485e4022be",
+      "tests/pre-native-after-logout-consent.test.mjs": "1f2943a29ac5cda05bd752e70e9f03d28a1cafbeabf2326546dc37cd43840c30",
+      "tests/pre-native-after-logout-consent.native.mjs": "cd2f5931981cc5f7a3e1e3227b20f3258a1a97d4919d843fc8b66938322579b2",
+      "tests/fixtures/post-seal-family-setup.mjs": "90ef44f8060ddb6a6042e8814d9b68fc502740c0f8630da3ac5c55a4ce7c0d03",
+      "tests/fixtures/scoped-shared-consent-module.mjs": "7bc1d913f9f288b114c84ae0f450de95a6d4bbdbcd8e105da4b86098ec4c3d9e",
+      "scripts/test-scoped-shared-consent-native.py": "b6ee70d71edf7876d152f155149fb88da6d2a69e20e75c2ed97875f611009665"
+    },
+    "proof": [
+      "actual initial TOTP/epoch originals and SQL family transfer/completion; actual global logout",
+      "exact ordered prior receipts and root/native live phase",
+      "all retained family holds, current snapshot, activation/completion/initial origin, quota/routes correspondence",
+      "independent read authority callback required between physical PID/XID-pinned SQL reads",
+      "original payload/signature/epoch/expiry never renewed or converted to current identity"
+    ],
+    "existingSixGateFilesUnchanged": true,
+    "existingGateHead": "554ea50a9864c3ad71fc9728d62f6f63920130b7"
+  },
+  "limits": [
+    "New native proofs executed locally, not remote CI coverage",
+    "Native metadata preparation ACL/global policy/readiness/current Storage are explicit fixtures; production least privilege/all-writer/Management and real bytes must be independently verified",
+    "Read-only historical port grants no Storage mutation, Auth erasure, device/identity/complete or login authority",
+    "Native test dependencies must be explicitly supplied as fixed SHA256 sources; no downloads or implicit credential discovery",
+    "No complete paired personal workflow duplicated in this review candidate"
+  ],
+  "productionChanged": false,
+  "customerDataDeleted": false,
+  "realBillingEnabled": false,
+  "nativeDependencies": {
+    "folder": "tests/fixtures/prelogout-dependencies-20261020",
+    "explicitRunnerArgument": "--prelogout-source-dir tests/fixtures/prelogout-dependencies-20261020",
+    "manifest": {
+      "status": "Frozen test dependencies only; not production migrations or role/grant approval",
+      "files": {
+        "shared-maintenance-native-stage.sql": {
+          "sha256": "add3566915735db4f34907fb1b5021d366ffb7869f33a69f42c9ad010e17836a",
+          "origin": "peer frozen shared native-stage review"
+        },
+        "shared-prelogout-receipt-custody.sql": {
+          "sha256": "6d93514eec1e6971886c6f891f394d1636dccbc478682b156c51b043568b1e6d",
+          "origin": "peer frozen dedicated custody overlay"
+        },
+        "initial-family-runtime-worker.sql": {
+          "sha256": "2c0a55bbaaabe81344c29254a39cf519b6d4e7c4f1b0ee1a8ae3771c1e60442c",
+          "origin": "peer fixture-only family preparation metadata ACL"
+        }
+      }
+    },
+    "neverAutoApplied": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-15",
+  "status": "local_prepared_client_verified_not_release_complete",
+  "baseHead": "b5c34d1549251aa5f1c39b4b1b9e55ad8b3e4df4",
+  "scope": [
+    "Prepared native handoff API/flow/view and account-scoped device-only intent vault",
+    "Existing-factor TOTP API and session-generation-bound custody",
+    "Exact family refusal handling in prepared native account deletion"
+  ],
+  "defect": {
+    "before": "Zero recipient reached persistence and poisoned subsequent valid request; regression reproduced with two assertions failing",
+    "after": "Zero recipient refused before intent capture/persistence; subsequent valid request succeeds; ambiguous valid recipient remains immutable"
+  },
+  "swiftPackage": {
+    "passed": 66,
+    "failed": 0,
+    "skipped": 0,
+    "suites": {
+      "HomeHandoff": 7,
+      "TOTP": 8,
+      "HouseholdAPI": 27,
+      "closureReview": 8,
+      "receiptAPI": 6,
+      "receiptRecovery": 6,
+      "receiptRegistration": 4
+    }
+  },
+  "nativeVerification": {
+    "exitCode": 0,
+    "freshlyCompiledSmokeExecutables": 64,
+    "macOSTypecheck": true,
+    "uiSyntax": true,
+    "projectAndPrivacyManifest": true,
+    "separateProcessHandoffKeychainRestore": true,
+    "unsignedSimulatorBuild": true
+  },
+  "limitations": [
+    "Injected transport and synthetic identities, not live MFA or native shipping HTTP",
+    "macOS test Keychain is not physical iPhone protection or device restart interaction",
+    "Prepared handoff screens remain unlinked; server route/current authorization, recipient discovery and attachment custody are incomplete",
+    "Not full shared-account erasure, signed Apple build, purchase verification, TestFlight or App Store submission"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false
+}

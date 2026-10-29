@@ -1,0 +1,37 @@
+# New requested preparation and exact cancellation candidate
+
+Review-only local protocol, 2026-10-21. No hosted migration, server route, user-data operation, billing or activation is included. The old unprepared-cancellation guard is unchanged and continues to refuse legacy prepared records.
+
+## Boundary and interface
+
+`createOuchiRequestedPreparation({scope,nativeLease,verifyCoverage})` exports `prepare(scope,tx)`, `cancelRequested(scope,tx)` and `verifyCancelled(scope,tx)`. Use the exact normalized planned root scope and a distinct fixed native lease. `tx` must provide query, AbortSignal and beforeCommit hooks bound to the **actual owning physical transaction**. A raw pg.Client must be wrapped by the checked transaction adapter; do not silently omit final checks. Independent current coverage must cover all app, Storage, dispatch, old-JWT/reenrollment and privileged writer/DDL paths through COMMIT. A boolean supplied by the client is not authority.
+
+This candidate supports only a **new owner-zero, empty-personal-file request**: no shared home requiring successor consent, linked personal attachment, copy/transfer work, review work, prior native request, active stop or prior prepared state. Family/copy/file protocols are separate and must not route through this path. Native state enums, unique constraints, canonical capture/erase bodies and original consent readers are unchanged.
+
+1. Reserve the exact requested root, with empty receipts and null root lease fields.
+2. In one checked transaction call `prepare`. Its fixed SAVE RPC derives the actual preimage **before** native creation. The actual canonical capture then creates the legitimate prepared footprint: running native request, captured empty inventory, disabled enrollment flags, processing stop binding and stopped principal fence. The deferred constraint refuses partial SAVE-only COMMIT. New native preparation is not an irreversible logout/erasure or root processing claim.
+3. Obtain the real owner AAL2 original using the existing issuer. Its HMAC, expiry and original row survive cancellation; cancellation makes that old root ineligible for claim.
+4. Cancel the root via the existing journal; its `after-cancel` callback must call `cancelRequested` in that same checked transaction. Exact requested→cancelled root status, empty receipts, null root leases and full saved prepared footprint are required. Only metadata created by this protocol is removed, and only saved enabled/stopped flags are restored. Auth sessions, household content, consent originals and result credentials are never recreated or deleted.
+5. COMMIT the cancellation before preparing a new root. New root/native IDs are mandatory. Old cancelled verification is a historical no-op and cannot re-enable a later preparation. Reusing a cancelled native ID is refused by an ALWAYS trigger. A reservation alone is not preparation authority.
+
+`verifyCancelled` is a historical verification RPC with independent coverage, not a mutation, cancellation admission, read-only HTTP projection or terminal-completion proof. Successful `prepare` / `cancelRequested` calls register a pinned PID/XID check that runs around independent coverage again at owning COMMIT. Any failed or repeated mutation call poisons its owning hook even if the caller catches the error. The root coordinator remains responsible for rollback.
+
+## Provenance and refusal
+
+The private immutable record binds root, full scope, actor, app epoch, native ID/lease, actual producing PID/XID, before-image, prepared footprint and metadata digest. Its state transitions are capturing→prepared→cancelled. The transient capability context is bound to actual PID/XID/root and must be gone at COMMIT. Original preparation records cannot be retrofitted from current flags or client snapshots.
+
+The preimage includes actual enrollment, principal fence (including absence), session ID set, session mappings and epoch rows. Household content is compared using a digest, not stored/restored. The prepared footprint additionally compares native flags and lease, all captured inventory, route/binding, family holds/plans, prelogout/terminal checkpoints, receipt sessions, retention/read/submission work, linked file/copy/review/retirement metadata. Any processing, transfer/copy/erase/logout, foreign epoch, content or writer change refuses restoration instead of overwriting it.
+
+Incoming native-request FKs are inspected by actual relation/key/validation shape. Unknown child storage is refused even when empty. Known child rows must be empty. No schema-prefix or empty-array exemption. The catalog digest covers public/private/maintenance_private/Auth table shape, policies, ACLs, triggers and enabled modes, function bodies/config/owners, safe role attributes and membership. It is deliberately conservative: unrelated metadata deployments may require reviewed recovery rather than reusing the snapshot. It does not replace external writer exclusion, physical Storage verification or permission review.
+
+## Local role and writer profile
+
+The new RPCs use the existing restricted NOLOGIN/NOBYPASS native owner. No LOGIN, membership, direct Auth write or Storage grant is added. Fixed core operations receive narrow RLS-bound native INSERT/DELETE and inventory-flag update, enabled-only enrollment updates, exact route/binding/fence capabilities and existing canonical capture/owner-frame execution. Canonical capture needs an object INSERT privilege at statement analysis, but this candidate adds a **deny-all INSERT policy**: any actual object row refuses. Only products.id/homeId SELECT is added for that capture linkage predicate.
+
+The writer stage dispatcher routes only an exact live PID/XID/root provenance context through the new narrow check; otherwise it delegates the frozen old guard. Helpers are private with PUBLIC EXECUTE revoked. The isolated metadata observation helpers retain fixture DDL ownership: hosted helper ownership/effective ACL, whole-registry coverage and deployment admission remain **unapproved**, not a proven production least-privilege profile. The earlier frozen native executor profile is unchanged.
+
+## Verification and remaining work
+
+Actual isolated PostgreSQL 17.6 + GoTrue 2.197 exercises real password/TOTP owner issuance, canonical capture, same-transaction SAVE/prepare, retry, exact cancellation, old-original preservation, new-root separation, missing preimage refusal, partial COMMIT refusal, processing refusal, late prepare/cancel rollback and writer-trigger drift. It also injects synthetic changed product, erase-start flag, replacement epoch and transfer-plan markers with original trigger modes restored before every protocol call: all refuse without overwriting. Unknown child FK refuses even empty. Actual global logout invalidates restoration. Actual legacy canonical prepared rows refuse SAVE/adoption and cancellation. No physical file copy/erase is claimed; those scopes are refused.
+
+Before adoption: independent family/nonempty-file preparation design; current shared source/effective-role review; all-writer/DDL/Storage coverage and admission; restart/operator handling; validated integration with the owning coordinator; explicit retention/access policy for provenance (session IDs are personal data); hosted migration and deployment authorization. There is **no implicit TTL, retention approval, deletion schedule, production activation or completed app-retirement guarantee** in this candidate.

@@ -1,0 +1,61 @@
+{
+ "status":"design_for_review_not_enabled",
+ "version":"2026-10-12",
+ "reference":"/Users/a16/.codex/.chatgpt-projects/g-p-6ac8671111e48191b590365fa350ada4/ios/Docs/SharedAccountDeletionReview.md",
+ "referenceStatus":"other-app audit supplied; production state not independently reverified in this turn",
+ "scope":{
+  "appOnly":"close the current maintenance app epoch; do not delete shared Auth",
+  "sharedAccount":"explicit separate request listing affected apps; cannot pass Kakei request/claim as a maintenance worker receipt",
+  "production":"no schema, permission, acceptance switch, real Auth or owner-data mutation"
+ },
+ "familyHandoff":{
+  "required":"before erasing an owned household with other members, ask whether to preserve it; default must not silently cascade family products/tasks/history",
+  "recipient":"existing active member explicitly accepts ownership before transfer",
+  "atomicity":"live owner, recipient membership/consent, target home and account epochs revalidated under shared write fences; transfer and deletion inventory committed together",
+  "noRecipient":"keep request awaiting decision; never choose a member automatically or use a timeout as consent",
+  "scope":"separate owner attribution and personal identifiers from shared maintenance records; preserve family history with reviewed attribution policy",
+  "attachments":"shared file ownership and quota transfer require recipient consent and backend support; storage paths cannot merely be relabeled",
+  "currentGap":"handoff not implemented in the maintenance deletion worker; existing owner-home cascade must not be activated for this shared-account design"
+ },
+ "orchestration":{
+  "identity":"one random coordinator request ID mapped to exact per-app user/epoch/request IDs; service-only evidence, no client-supplied ownership",
+  "preflight":"verified recent identity, affected-app inventory, family consent, export and Apple cancellation explanation",
+  "requested":"cancellable until atomic processing claim; UI reports server state",
+  "processing":"per-app writes/rejoin/ownership changes fenced; no general cancellation promise after destructive work begins",
+  "partialFailure":"persist per-app progress and exact retry checkpoints; completed steps are not repeated; do not mark the overall account complete",
+  "resume":"renew worker lease after live scope/state check; stale callbacks may not update replacement requests",
+  "appComplete":"verified durable app closure, attachment deletion, notification shutdown, preserved family data and explicitly reviewed billing retention",
+  "authDeletion":"only after every affected app is complete and family handoff readback verified; shared session revocation/JWT write denial tested first; Auth admin API only",
+  "overallComplete":"Auth deletion readback plus all app receipts; missing cascaded Kakei request row alone proves nothing",
+  "race":"coordinator processing claim does not itself fence app writes; all relevant mutations must join the same per-user/per-home boundary"
+ },
+ "notification":{
+  "proposal":"outbox created before Auth deletion, outside any auth.users cascade; requires explicit verified contact consent",
+  "payload":"random delivery ID, verified contact encrypted server-side, locale, completion status; no household contents or purchase identifiers",
+  "send":"separate worker after durable overall completion, idempotent delivery; delivery timeout remains unknown and must not imply success",
+  "retentionProposal":"retry delivery for 7 days; erase contact after verified delivery or at 30 days maximum; retain only non-personal aggregate delivery outcome after purge",
+  "privacy":"review lawful purpose and provider retention before enabling; do not claim removal of external mail copies",
+  "statusAfterAuth":"optional expiring receipt token stored hashed server-side, exposes only exact request completion; design and abuse review required",
+  "enabled":false
+ },
+ "requiredSyntheticTests":[
+  "shared owner with family: no silent cascade",
+  "recipient missing/removed/declines: no transfer or delete",
+  "recipient accepts: original shared products/tasks/history preserved",
+  "two competing transfers: one atomic winner",
+  "invite/rejoin/write during processing refused",
+  "another household/account unaffected",
+  "app-only request never invokes shared Auth deletion",
+  "wrong app epoch/request/claim refused",
+  "cancel before claim succeeds; after irreversible start refused honestly",
+  "partial app failure blocks overall complete and Auth deletion",
+  "lost acknowledgment rereads exact request without repeating completed step",
+  "replacement epoch cannot consume old receipt",
+  "stale worker lease or callback refused",
+  "Auth row cascade does not erase outbox completion evidence",
+  "notification timeout/retry preserves honest delivery state and prevents duplicated job",
+  "retention purge removes encrypted contact and expired receipt access"
+ ],
+ "verification":"design only; these new coordination scenarios have not been executed",
+ "ownerApprovalBeforeLive":["family transfer semantics","affected-app disclosure","new coordinator/receipt/outbox permissions and migrations","notification contact and periods","activation and actual deletion"]
+}

@@ -1,0 +1,44 @@
+{
+  "status": "initial-viewports-verified-not-full-release-clearance",
+  "nativeSourceDigest": "531b76fff70ef9d24ad3355499055fbb5f76c30e",
+  "device": "iPhone 17e iOS 27 Simulator",
+  "textSize": "AX5",
+  "appearance": "dark",
+  "tabs": [
+    "Home",
+    "Care",
+    "Products",
+    "History",
+    "Settings"
+  ],
+  "categories": [
+    "contrast",
+    "dynamicType",
+    "elementDetection",
+    "hitRegion",
+    "sufficientElementDescription",
+    "textClipped",
+    "trait"
+  ],
+  "actualCasesPassed": 35,
+  "failed": 0,
+  "expectedFailures": 0,
+  "skipped": 0,
+  "exactSelectedCaseNamesReconciled": true,
+  "issuesFiltered": false,
+  "runtimeWarnings": 0,
+  "initialScreensVisuallyReviewed": 5,
+  "ownedSimulatorRemoved": true,
+  "requestedXcodeTimeoutIsNotHardWallClockGuarantee": true,
+  "longestObservedCaseSeconds": 1004.783,
+  "notVerified": [
+    "offscreen controls and all forms",
+    "other text sizes, appearances and orientations",
+    "VoiceOver",
+    "physical iPhone",
+    "live cloud and Apple purchase lifecycle",
+    "final signed release build"
+  ],
+  "productionChanged": false,
+  "billingEnabled": false
+}

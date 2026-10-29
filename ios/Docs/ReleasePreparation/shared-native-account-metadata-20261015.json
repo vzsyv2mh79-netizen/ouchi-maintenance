@@ -1,0 +1,73 @@
+{
+  "status": "local_verified_actual_services_pending",
+  "date": "2026-10-15",
+  "baseHead": "627beb1007b2f1729afb4176e6f5f40222f2209b",
+  "change": "Within the existing guarded eraseIdentity stage, run each canonical Ouchi metadata cleanup sequentially on the same pinned transaction before identity erasure; throw on every non-true result so earlier cleanup cannot partially commit.",
+  "categories": [
+    "reconciliation jobs",
+    "reminder schedules",
+    "notification channels",
+    "enrollment consents",
+    "App Attest registration challenges",
+    "registered restore keys",
+    "restore challenges",
+    "cancelled restore requests",
+    "purchase transfer jobs",
+    "verified Apple notifications",
+    "verified renewals",
+    "verified transactions",
+    "transaction ownership"
+  ],
+  "guards": [
+    "exact live shared/native leases and frozen inventory/binding remain required",
+    "only DELETE for this user and phase; other users and settings updates refused",
+    "unknown purchase-transfer phase refused",
+    "ledger child ownership and epoch association checked before deletion",
+    "captured object inventory minimized only with confirmed absence for exact native request",
+    "current gate and same-connection COMMIT checks unchanged",
+    "no new runtime grant, LOGIN, endpoint, scheduler or production migration"
+  ],
+  "localStandalone": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "PGlite with canonical schema and existing guards; prior to extracting the same fixture helper; combined related checks running"
+  },
+  "newCases": [
+    "all thirteen categories in current and prior epochs removed; bystander byte-for-byte JSON preserved",
+    "unknown restore, corrupted ledger and remaining device block finalization and roll back earlier metadata cleanup",
+    "every foreign metadata category, wrong-phase DELETE and settings UPDATE refused"
+  ],
+  "actualServices": {
+    "status": "prior_head_failed_fixture_collision_corrected_pending_rerun",
+    "failedHead": "02191ec70b33eeaf047ced67cc935cbf8035fb61",
+    "failedRun": 38659883890,
+    "failedJob": 116178364938,
+    "reason": "Fixed synthetic purchase IDs collided with an earlier verified-restore reservation. Existing guard correctly refused them. Repeated preparation could also reuse deterministic synthetic keys. Both now use unique random data; no guard disabled.",
+    "scope": "Disposable PostgreSQL/GoTrue/Storage; actual getUser actors with operator-seeded enrollment/Apple material and synthetic shared receipts/coverage/retention. Not a whole shared controller or Auth-erasure proof."
+  },
+  "notVerified": [
+    "full v2 controller from prepare with both apps and after-Auth readbacks",
+    "remaining native device and attachment phases/outboxes",
+    "least-privilege production LOGIN and all-writer provider",
+    "finite retention/purge SLA",
+    "signed device and Apple purchase lifecycle"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false,
+  "localRelated": {
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "scope": "Updated SQL-stage candidate, canonical schema, metadata fixture, shared boundary, family stage and transaction commit checks. Not a production all-writer or shared Auth erasure proof."
+  },
+  "localAfterFixtureUniquenessFix": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "lint": "passed",
+    "scope": "Includes repeated preparation across actors in one database; random globally distinct purchase IDs and synthetic key material. Prior related 31 tests are retained separately, not added to this count."
+  }
+}

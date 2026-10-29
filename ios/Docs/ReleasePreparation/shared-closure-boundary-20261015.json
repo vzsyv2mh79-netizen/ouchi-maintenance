@@ -1,0 +1,54 @@
+{
+  "status": "prepared_partial_integration_not_enabled",
+  "date": "2026-10-15",
+  "module": "lib/shared-maintenance-closure-metadata.mjs",
+  "api": "withSharedMaintenanceClosureMetadata(tx, sharedScope, nativeScope, stage, workOnSameTx, verifyCurrentGates)",
+  "stages": [
+    "eraseRecords",
+    "markComplete"
+  ],
+  "prerequisites": [
+    "Use the shared journal existing dedicated transaction, wrapped by runWithTransactionCommitChecks before its owning immediate COMMIT. Roll back on any rejection; do not introduce another connection or network RPC.",
+    "Map shared apps entry to the exact native request/user/epoch and independent native lease. Do not substitute the shared lease token.",
+    "Pass one independently reviewed READ-ONLY current family/session/all-writer gate provider, on the same tx, reused across stages; missing, false or unknown approval refuses.",
+    "Other ports.atomic stages must retain their existing fenced implementations. This partial component is not the complete createMaintenanceAdapter or a coverage provider."
+  ],
+  "enforced": [
+    "PostgreSQL backend PID/transaction ID must stay fixed before mutation and at final checks; autocommit refuses.",
+    "Pin current shared journal, immutable inventory and prerequisite receipts, participant coordination lock, stopped principal/frozen native binding and exact native lease.",
+    "Run canonical closure metadata erasure and the existing reviewed native SQL work on this same tx. Never pass storedDeletionDependencies/Supabase RPC as work.",
+    "Repeat current gates, both leases, scope, metadata absence and record acknowledgement before owning COMMIT. A swallowed stage failure poisons that transaction.",
+    "Resumed markComplete requires metadata cleanup and canonical sealed native completion evidence; exact completed receipt retry does not renew timestamps or manufacture retention."
+  ],
+  "verification": {
+    "local": {
+      "related_tests": 27,
+      "failed": 0,
+      "skipped": 0,
+      "new_boundary_tests": 8,
+      "lint": "passed",
+      "typecheck": "passed"
+    },
+    "actual_services": "pending_new_commit",
+    "coverage_note": "Unit shared bindings/receipts/Auth are synthetic. Actual-service fixture uses real GoTrue/PostgreSQL/private Storage but a fresh Ouchi-only actor and synthetic shared receipt/coverage/retention fixtures. Preserved foreign private bytes are read back; remote Storage deletion is not performed by this SQL component."
+  },
+  "remaining": [
+    "Wire owner-specific current Kakei/Ouchi family/session and complete writer coverage on this same boundary; no fallback true predicate.",
+    "Connect all other worker stages, remote Storage outbox/reconciliation and current controller lease takeover using the existing v2 source, without dropping its fences.",
+    "Audit production least-privilege role and grants, TLS, current Auth configuration, managed Auth compatibility, all writers and operators. Actual service tests use a privileged disposable database connection and do not prove production grants.",
+    "Adopt finite registration/review/proof/log/backup retention and cleanup scheduling; synthetic retention evidence is not approval.",
+    "Complete shared Auth/all-application erasure and final readbacks before claiming whole-account completion.",
+    "Apple payment remains held; no signed purchase/device/submission proof."
+  ],
+  "production_applied": false,
+  "new_grants": false,
+  "new_scheduler": false,
+  "shared_intake_enabled": false,
+  "real_billing_enabled": false,
+  "official_references": [
+    "https://www.postgresql.org/docs/17/explicit-locking.html",
+    "https://www.postgresql.org/docs/17/functions-info.html",
+    "https://supabase.com/changelog/cbc-tls-ciphers-deprecated",
+    "https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes"
+  ]
+}

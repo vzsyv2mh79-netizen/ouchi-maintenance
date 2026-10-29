@@ -1,0 +1,26 @@
+{
+  "status": "prepared_not_activated",
+  "parentCommit": "60083747be154ed1deb39b6dcf1c69d15d07bccc",
+  "boundary": {
+    "VercelProduction": "Production transactions only, explicit production verification opt-in, verified ledger and valid Apple app ID required",
+    "VercelPreviewAndDevelopment": "Sandbox transactions and verified ledger only",
+    "unknownHostedEnvironment": "configuration refused",
+    "localWithoutVercelEnvironment": "existing isolated fixture behavior preserved",
+    "unsetBillingMode": "configuration refused"
+  },
+  "verification": {
+    "focusedTestsPassed": 14,
+    "focusedTestsFailed": 0,
+    "scope": "Configuration environment matrix, actual Apple SDK verifier refusal, persistence and renewal acknowledgements, recovery/restore opt-in and report-route refusal; synthetic proofs only"
+  },
+  "remainingBeforeAppleSandbox": [
+    "Protected Preview access for the native client without embedding bypass credentials",
+    "Isolated test actors and reviewed least-privilege server/database connection",
+    "Current native build connected to that exact environment",
+    "Actual signed Apple purchase, restore, renewal, expiry, refund, cancellation, pending and network-recovery lifecycle"
+  ],
+  "productionConfigurationChanged": false,
+  "billingActivated": false,
+  "realPurchasePerformed": false,
+  "customerDeletionPerformed": false
+}

@@ -1,0 +1,30 @@
+{
+  "reviewedAt": "2026-10-17",
+  "scope": "Current OuchiMaintenance and local OuchiCore native sources, package/project dependencies, and iPhoneOS Release binary load commands; Web/server dependencies are not linked into the native app.",
+  "distribution": ["Japan"],
+  "usesEncryption": true,
+  "classification": "Encryption provided within the Apple operating system",
+  "ITSAppUsesNonExemptEncryption": false,
+  "meaning": "Exempt from uploading encryption documentation in App Store Connect; does not mean no encryption, Apple approval, or exemption from all export obligations.",
+  "implementations": [
+    {"provider": "Foundation URLSession", "use": "HTTPS authentication and application requests"},
+    {"provider": "CryptoKit AES.GCM", "use": "Authenticated local encryption for pending registration and purchase recovery records", "sources": ["OuchiCore/AppAttestPendingRegistrationStorage.swift", "OuchiCore/PendingRestoreStorage.swift"]},
+    {"provider": "CryptoKit SHA256 and SHA384", "use": "Integrity, scoped challenge hashes, backup checksum and transaction consistency", "sources": ["OuchiCore/Backup.swift", "OuchiCore/AppAttestRegistrationChallenge.swift", "OuchiCore/RestoreAssertionChallenge.swift", "OuchiCore/StoreDeviceVerification.swift", "OuchiMaintenance/AccountDeletionView.swift"]},
+    {"provider": "Security, LocalAuthentication and DeviceCheck", "use": "OS Keychain, secure random keys and OS App Attest operations", "sources": ["OuchiCore/AppAttestEncryptionKeyStorage.swift", "OuchiCore/RestoreAssertionDeviceService.swift"]},
+    {"provider": "StoreKit", "use": "Apple-provided purchase transaction verification"}
+  ],
+  "dependencies": "Local OuchiCore only; no external Swift package, binary target, external framework or custom cryptographic primitive identified. Release load commands resolve only to Apple OS frameworks and system Swift/runtime libraries.",
+  "reviewIncludesDisabledFeatures": true,
+  "guard": "verify-store-artifact.py checks the built boolean and all packaged Mach-O dependencies. Unexpected bundled/static libraries or non-system load commands require renewed review; this guard cannot detect custom or statically compiled algorithms by itself.",
+  "recheckBeforeUpload": [
+    "Inspect the final signed artifact using verify-store-artifact.py, not just source Info.plist.",
+    "Re-review cryptographic source and dependency changes, including local packages, static code, build scripts and any new platform or territory.",
+    "Do not infer App Store acceptance or the completion of other export obligations from this technical classification."
+  ],
+  "sources": [
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption/",
+    "https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations",
+    "https://developer.apple.com/documentation/bundleresources/information-property-list/itsappusesnonexemptencryption"
+  ],
+  "appStoreConnectDeclarationSubmitted": false
+}

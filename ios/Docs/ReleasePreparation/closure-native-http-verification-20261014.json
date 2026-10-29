@@ -1,0 +1,26 @@
+{
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "nativeSources": {
+    "ios/Tests/AccountClosureReviewHTTPIntegration.swift": "62667d71e0e60c9a422bde72111e27d36f247bd0",
+    "ios/Tests/closure-review-http.mjs": "71d61eecd232785c4d3c35521dcbf9bf95e519e4"
+  },
+  "localResult": {
+    "exitCode": 0,
+    "targetedLint": "passed without warnings",
+    "freshSwift6DebugBuild": "passed",
+    "transport": "Unmodified default AccountClosureReviewAPI URLSession transport to a dedicated loopback HTTP server",
+    "protectedCustody": "Actual uniquely scoped macOS Keychain; save and restore in separate native processes; two exact account/epoch references at explicit new request; cleanup confirmed",
+    "database": "PGlite full migration schema and default-disabled review fixture enabled only in the disposable embedded database",
+    "auth": "Synthetic handler providers; not actual GoTrue in this native witness",
+    "asserted": ["accepted reply deliberately lost at HTTP layer", "unknown submission reference retained before process exit", "same submission reread after restart", "pending request prevents new nonce", "exact cancellation receipt", "cancelled nonce replay stays cancelled", "fresh nonce only after explicit new request", "invalid bearer refused", "two durable SQL rows: old cancelled and new pending", "family snapshot unchanged", "no deletion job", "exact test Keychain namespace removed"]
+  },
+  "independentRealAuthEvidence": {
+    "head": "c542c2f22e0c7a8b4981332df968652bd837fb56",
+    "runID": 38455738332,
+    "jobID": 115497859283,
+    "result": "success; actual GoTrue/PostgREST/PostgreSQL/private Storage and loopback HTTP handler; separate from native client witness"
+  },
+  "ciIntegration": "Dedicated step in existing standard macos-26 Native checks; no paid infrastructure or artifact retention added",
+  "limitations": ["Complete native-to-real-GoTrue end-to-end flow still unverified", "Shipping route and effective production Auth policy provider still missing", "No personal/shared data erasure proof", "No physical iPhone Keychain lock or distribution signing", "No actual Apple purchase lifecycle or App Store approval"]
+}

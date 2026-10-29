@@ -1,0 +1,20 @@
+name: Notification startup regression
+on:
+  pull_request:
+    branches: [feat/native-household-core]
+    paths: ['ios/OuchiMaintenance/LocalReminders.swift', 'ios/OuchiMaintenance/NativeStore.swift', 'ios/Tests/LocalReminderLifecycleSmoke.swift', '.github/workflows/notification-startup-regression.yml']
+permissions:
+  contents: read
+concurrency:
+  group: notification-startup-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify notification callbacks, cleanup and native type safety
+        run: python3 ios/scripts/verify-native.py --sdk "$(xcrun --sdk macosx --show-sdk-path)" --only-smoke LocalReminderLifecycleSmoke

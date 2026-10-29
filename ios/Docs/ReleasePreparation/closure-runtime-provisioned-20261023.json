@@ -1,0 +1,57 @@
+{
+  "observedAt": "2026-10-23T02:48:16.120315+00:00",
+  "status": "nine_roles_and_scoped_token_verified_server_key_mac_copy_pending",
+  "userApproved": true,
+  "projectRef": "hphifiqyypwyxkzfanod",
+  "runtimeRolesCreated": 9,
+  "validUntilUTC": "2026-10-30T02:25:47.481015Z",
+  "connectionLimitEach": 2,
+  "membership": {
+    "admin": false,
+    "inherit": false,
+    "set": true
+  },
+  "tlsVerifiedAllNine": true,
+  "rawAuthAndServiceRoleEscalationDeniedAllNine": true,
+  "privateMacConfigurations": [
+    "inspection.json",
+    "decision.json",
+    "file-cleanup.json",
+    "reauth.json"
+  ],
+  "privateMacMode": "0600 within 0700 directory",
+  "previewOnlyBranch": "feat/native-household-core",
+  "previewDedicatedDatabaseSecrets": 5,
+  "previewAuthConfigTokenSecretRecords": 2,
+  "publicCaConfigRecords": 4,
+  "authConfigReadToken": "project-only Auth Config Read; seven days; verified by canonical strict policy reader",
+  "temporaryPlaintextProvisioningFilesRemoved": true,
+  "existingServerKeyMacCopyComplete": false,
+  "customerDataRead": false,
+  "customerDeletionExecuted": false,
+  "featureOrPolicyActivated": false,
+  "productionEnvChanged": false,
+  "realBillingEnabled": false,
+  "databaseRoleDefinitionMigration": "ouchi_closure_preview_runtime_principals",
+  "passwordsInMigrationHistory": false,
+  "initialFailures": [
+    "Required official Supabase CA to maintain full certificate verification",
+    "Metadata Auth table-name resolution refused before denied-access probes; changed to catalog OID lookup without granting access"
+  ],
+  "sourceReviewHead": "49e56bd713068042239aae7673a26d6cedc79339",
+  "scope": "Approved connection preparation only. Limited metadata/denied-access probes, not hosted intake/erasure/purchase/Storage acceptance.",
+  "pendingUserOperation": "Copy the existing default Secret key from the prepared Supabase screen; no new key or rotation requested.",
+  "securityAdvisors": {
+    "rlsEnabledNoPolicyInfo": 77,
+    "authenticatedDefinerWarnings": 5,
+    "authenticatedDefinerScope": "kb_* functions belonging to the other app; no grants/definitions changed",
+    "authLeakedPasswordProtectionWarnings": 1,
+    "advisorsClean": false,
+    "privateTablesRLSWithoutClientPolicies": "Deliberately closed private scope; no new client policies or public grants were added",
+    "references": [
+      "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+      "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+      "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+    ]
+  }
+}

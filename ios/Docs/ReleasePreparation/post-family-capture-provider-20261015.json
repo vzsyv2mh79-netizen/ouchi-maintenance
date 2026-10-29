@@ -1,0 +1,55 @@
+{
+  "status": "post_family_capture_checked_provider_connected_to_actual_solo_file_coordinator_not_full_family_transfer",
+  "inputSetCounts": {
+    "previous": 749,
+    "unchanged": 744,
+    "changedExisting": 5,
+    "new": 4,
+    "total": 753
+  },
+  "result": {
+    "actualServices": {
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "targetedTests": {
+      "pass": 19,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0
+    },
+    "sameTestsReplayedFromFixedSource": true,
+    "targetedLint": true,
+    "typecheck": true,
+    "productionBuild": true
+  },
+  "snapshotTiming": "Full source snapshot frozen after service success and verified against unchanged runtime source; not a before-start snapshot claim.",
+  "claims": [
+    "Capture is now invoked in a checked dedicated transaction after ordered family checkpoint and peer prerequisites, before external object erasure",
+    "Mandatory independent gate identity and current SQL authority are repeated at owning COMMIT",
+    "Initial failure after a successful statement, later gate loss, cancellation or replaced scope/provider poisons the original transaction even if work catches the rejection",
+    "Real solo attachment deletion, original inventory retry, native/Auth reply-loss recovery and whole coordinator completion passed while bystander private bytes and other Auth users remain"
+  ],
+  "limits": [
+    "Ouchi family targets remain empty in this actual-service case; real nonempty Ouchi family copy/activation/retention through same controller remains pending",
+    "Management policy explicitly injected, synthetic inventory/enrollment/retention and operator role, reduced private Kakei review schema",
+    "No production intake, writer registry, least-privilege role, migration, grant or endpoint enabled",
+    "No Apple upload, Sandbox purchase, App Review, publication or live charge"
+  ],
+  "cleanup": {
+    "containersRemaining": 0,
+    "VM": "Stopped"
+  },
+  "fixedManifestSHA256": "8228fabbcccc0365711032081fc423ddaddc56b2222aaa7118c30b19e48c10c1",
+  "parentPublicHead": "82a662c9b729da94ceb75f11750ed8a8e9b907ae",
+  "publishedSources": [
+    "lib/shared-maintenance-inventory-capture.mjs",
+    "lib/shared-maintenance-object-absence.mjs",
+    "tests/shared-maintenance-inventory-capture-boundary.test.mjs",
+    "tests/shared-maintenance-inventory-capture.test.mjs",
+    "tests/shared-maintenance-object-absence.test.mjs"
+  ],
+  "privatePeerSourcePublished": false
+}

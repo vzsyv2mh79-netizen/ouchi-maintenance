@@ -1,0 +1,62 @@
+{
+  "status": "local_native_ui_verified_draft_not_public_policy",
+  "parent_head": "c7ccce3279a3f6f1edbe76b4100666aa10209f04",
+  "change": "PrivacyInformation now exposes reviewed HTTPS privacy/terms/support destinations instead of always showing only a preparation notice. Without reviewed valid destinations it retains the preparation notice. Existing approval flag and URL validation reused; no new purchase enablement or URL value.",
+  "entry_points": {
+    "settings": "データの取り扱い",
+    "login": "プライバシーについて",
+    "tested_entry": "settings only; login uses the same view but was not separately navigated in this run"
+  },
+  "ui_test": {
+    "device": "iPhone 17e simulator",
+    "runtime": "iOS 27.0 24A434",
+    "appearance": "light",
+    "text_size": "accessibility-extra-large (AX3)",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "source_digest": "7d9f6531acaa2f063cb517bc1fcc4b6d3634b07c",
+    "harness_digest": "3499c8b0f640056b85b018a26ada8e7ccae8c01f1417754d496447191f4fb1b6",
+    "raw_result_inspected": true,
+    "raw_log_inspected": true,
+    "screenshots_viewed": 1,
+    "owned_simulator_removed": true,
+    "scope": [
+      "navigate actual sample settings to privacy page",
+      "reach each entire link above tab bar",
+      "assert exact labels and Link/Button semantics with explicit accessibility identifiers"
+    ],
+    "destinations": "example.invalid HTTPS URLs and reviewed flag injected only into ephemeral test Info.plist; no external URL opened",
+    "previous_attempt": "Button-only label query failed; explicit identifiers and semantic type checks passed. No disabled product protection or suppressed audit issue."
+  },
+  "harness_changes": [
+    "preserve unreachable-control tree/viewport",
+    "assert actual visible software keyboard after input instead of existence alone",
+    "reach overdue semantic title/count row",
+    "add isolated Dynamic Type diagnostic that does not replace full audit",
+    "add legal-links selector and reviewed synthetic metadata for legal/all test runs only"
+  ],
+  "separate_unresolved_accessibility": [
+    "full seven-category clipping/contrast/Dynamic Type findings",
+    "visible software keyboard after input",
+    "VoiceOver and physical iPhone",
+    "landscape and signed release screenshots"
+  ],
+  "theme_font_candidate": {
+    "published": false,
+    "reverted": true,
+    "reason": "Semantic title2 icon still fails isolated Dynamic Type; fixed icon alone is not established as cause."
+  },
+  "release_requirements": [
+    "real reviewed operator/privacy/terms/support pages and reachable URLs",
+    "actual retention/provider/backups/closure disclosure",
+    "signed release/TestFlight and physical device",
+    "Apple purchase lifecycle and review submission"
+  ],
+  "public_policy_published": false,
+  "real_url_values_set": false,
+  "actual_billing_enabled": false,
+  "production_applied": false,
+  "official_reference": "https://developer.apple.com/app-store/review/guidelines/",
+  "official_rule_reference": "5.1.1(i) in-app accessible privacy policy link; actual policy content and App Store Connect metadata remain unverified"
+}

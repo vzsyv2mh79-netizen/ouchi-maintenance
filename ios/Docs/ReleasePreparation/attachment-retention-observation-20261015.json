@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-15",
+  "status": "actual_disposable_postgres_verified_not_activated",
+  "migration": "supabase/migrations/20261015023355_ouchi_attachment_retention_observation.sql",
+  "purpose": "Record first committed transition to the existing removal fence and observe aggregate backlog without erasing anything",
+  "behavior": [
+    "Server clock timestamp on first false-to-true removal_pending transition",
+    "Canonical removal retry cannot renew or forge the timestamp",
+    "Rollback leaves no accepted removal/time",
+    "Existing pending rows retain unknown original acceptance time; no false historical backfill",
+    "Aggregate pending, unknown/future timestamp, >30-day age, unsettled and legacy unknown writer counts",
+    "Database errors, unsafe counters, missing rows and unexpected identifying fields fail instead of reporting zero",
+    "No new public route, role/grant, cleanup worker, scheduler or Storage API write"
+  ],
+  "verification": {
+    "relatedTestsPassed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "targetedLint": "passed",
+    "engine": "PGlite authoritative CI schema with canonical candidate; not actual PostgreSQL concurrency"
+  },
+  "migrationReconciliation": {
+    "canonicalFiles": 97,
+    "recordedSourceMatches": 7,
+    "pendingCandidates": 90,
+    "foreignHistoryPreserved": 8,
+    "conflicts": 0,
+    "reviewRuntimeCandidates": 6,
+    "automaticApply": false,
+    "historyRepair": false,
+    "scope": "Compared current source catalog against retained same-day read-only history; no fresh live query or application"
+  },
+  "actualServiceCandidate": {
+    "workflow": "Family preservation Auth and Storage checks",
+    "helper": "tests/fixtures/attachment-retention-services.mjs",
+    "expected": [
+      "Real disposable GoTrue account/session with operator fixture enrollment",
+      "Actual PostgreSQL first timestamp and concurrent canonical removal RPC retry",
+      "Service timestamp forgery refused and direct trigger execute denied",
+      "Aggregate report works with service's existing reads; authenticated client denied",
+      "No Storage deletion; pending file and real Auth retained"
+    ],
+    "status": "passed_on_parent_4401eace",
+    "verifiedHead": "4401eaceb8fc8f7bb383c3cb40e0dd4dc863de70",
+    "run": 38672506498,
+    "job": 116218645655,
+    "rawLogInspected": true,
+    "scope": "One whole Family integration test passed with the new helper marker present; helper assertions are not counted as separate tests"
+  },
+  "limitations": [
+    "Subset: product_attachments removal_pending rows, not all account-deletion/family-copy outboxes",
+    "No physical absence, quotas released, backup/log expiry, 30-day SLA or whole-account completion proved",
+    "No production least-privilege runtime, advisors, migration compatibility approval, deployment or monitoring schedule",
+    "Historical unknown times require operator review; never use created_at or migration time as acceptance"
+  ],
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "existingDataDeletionEnabled": false,
+  "securityAdvisors": {
+    "local": "unavailable: local PostgreSQL 127.0.0.1:54322 refused connection; Docker is unavailable",
+    "candidateChecked": false,
+    "productionChecksNotReused": true
+  }
+}

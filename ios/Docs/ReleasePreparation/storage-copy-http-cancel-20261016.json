@@ -1,0 +1,76 @@
+{
+  "baseManifest": "output/family-former-uploader-fixed-20261016/manifest.json",
+  "baseManifestSHA256": "0c61a9092cea0688f30f825e2b80f98f3ca8139b7e2b6010fe89695f6ff3da8d",
+  "inputSetCounts": {
+    "previous": 755,
+    "unchanged": 750,
+    "changedExisting": 5,
+    "new": 1,
+    "total": 756
+  },
+  "status": "actual_committed_copy_http_abort_quiescence_and_reconciliation_passed_not_deployed",
+  "result": [
+    {
+      "variant": "explicit-owner-active-former-uploader-real-copy-http-cancel",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 31353.332417,
+      "log": "logs/ouchi-storage-cancel-final-services-20261016.log"
+    },
+    {
+      "variant": "implicit-owner-default-no-cancellation",
+      "passCount": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "caseDurationMs": 25544.893083,
+      "log": "logs/ouchi-storage-cancel-default-regression-20261016.log"
+    }
+  ],
+  "fixedLintExit": 0,
+  "runnerSyntaxAndArgumentGuardVerified": true,
+  "transport": {
+    "actualStoragePOSTRequests": 1,
+    "SDKUploadDispatches": 1,
+    "upstreamHTTPResponseEnded": true,
+    "downstreamClientHTTPClosed": true,
+    "SDKReturnedError": true,
+    "parentFamilySignalStillLive": true,
+    "reconciledByActualMeasuredDestinationRead": true
+  },
+  "claims": [
+    "Real Storage committed the family copy and its upstream response body ended. Disposable gateway withheld the reply and called AbortController on the actual bounded SDK fetch.",
+    "SDK returned an error; gateway observed downstream connection close and upstream response completion before upload wrapper returned. Parent family signal remained live; neither error nor cancellation was treated as rollback or a verified copy.",
+    "Original family worker re-read and measured actual persisted destination bytes under original authority, without a second SDK upload or HTTP POST. Metadata activation still required the opaque measured proof.",
+    "Same original whole coordinator retained HMAC consent digests, rolled back a late actual recipient factor mutation, confirmed family/global checkpoints before solo capture/deletion, and recovered actual Storage/Auth DELETE response loss and post-Auth pending.",
+    "Recipient could read three family files after retiring owner Auth erasure; active former member family RPC denied, unrelated private metadata/write/path/bytes/RPC and Auth retained. Default implicit-owner two-file case passed on same final source.",
+    "Runner preflight now matches Node reuse of closed connections via SO_REUSEADDR, without SO_REUSEPORT. Separate local TCP check refused an active listener and allowed reuse after closing."
+  ],
+  "limits": [
+    "Server Node SDK copy-fetch cancellation after real server response completion only. Parent whole-account/family signal remains live; global cancellation, process suspension, physical iPhone/URLSession, before-commit or mid-body cancellation not established.",
+    "Upstream response completion and downstream request closure observed; not a claim that all idle pooled TCP connections are closed or every remote side effect can be cancelled.",
+    "Disposable local HTTP services, not production TLS/network deployment. Original production transport/storage-port bytes unchanged.",
+    "Active current-epoch former uploader and current explicit owner only for cancellation case; default regression is implicit two-file. Closed/old-epoch uploader policy still pending.",
+    "Dedicated fresh cases only, not success of legacy standalone suite. Management policy injection, reduced peer schema, synthetic inventory/enrollment/retention/operator role; no shipping trusted intake/full writer registry/least privilege proof.",
+    "Private assembly and runner not published; public CI does not execute this nonempty paired case. No production migrations/grants/customer deletion, billing or Apple upload/submission/publication."
+  ],
+  "productionTransportSHA256": "4a51fee4c62ba8c887d8d801ab25969641f1c2285d9e2a99c659d353f732f23b",
+  "storagePortsSHA256": "a4a44948675ba49004109fe10bba43135690f837fad0f54ba60fd0ae4f8f146b",
+  "snapshotTiming": "All756 runtime sources fixed after both successful cases using final runner; hash-checked against runtime and prior fixed chain.",
+  "privatePeerSourceChanges": false,
+  "earlierAttempts": [
+    "Initial cancellation actual case succeeded before runner socket-preflight correction; preserved but not counted as final-source proof.",
+    "Initial default regression stopped before creating containers because closed-connection state made the old raw bind probe fail. Log preserved; no test executed in that attempt."
+  ],
+  "cleanup": {
+    "containersRemaining": 0,
+    "projectVolumesRemoved": true,
+    "VM": "Stopped verified"
+  },
+  "legacyConsoleNote": "Old generic implicit/no-transfer labels remain in raw plan/final output; dedicated cancellation observation and mandatory final witness/transport/retained-state assertions define this bounded claim.",
+  "fixedManifestSHA256": "9e20f0f6c0f5c835e968eb6dbfe67676fa90853623a94cf1855e88a68576e3e1",
+  "parentPublicHead": "ebfe5e9c64a6973e209c9de981c8d285c983d68e",
+  "publicAssembly": "Ouchi-owned cancellation gateway helper, scene builder and evidence only; paired runner/integration assembly remain fixed locally"
+}

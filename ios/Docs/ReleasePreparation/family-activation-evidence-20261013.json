@@ -1,0 +1,45 @@
+{
+  "status": "local_tests_passed_remote_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "purpose": "Bind durable activation receipt to exact immutable transaction evidence for later family completion recovery.",
+  "changes": [
+    "Receipt activation_token binds one exact private activation context; trigger checks current pinned transaction, scope and inventory digests.",
+    "Activation context and before/after row evidence refuse UPDATE and DELETE.",
+    "Deferred COMMIT checks the receipt token; status reads only its exact context.",
+    "Expiry test waits for real capability expiry instead of mutating historical evidence."
+  ],
+  "verification": {
+    "preliminaryRelevantTests": {
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0
+    },
+    "additionalNegativeBindingTests": {
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalRelevantTests": {
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-activation-evidence-final-20261013.log"
+    },
+    "lint": "passed",
+    "fullRegression": {
+      "passed": 674,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Started before the final status-query linkage change; final changed activation/status/consent suite separately passed 43 tests. Remote CI must verify the exact published tree.",
+      "log": "/private/tmp/ouchi-activation-evidence-regression-20261013.log"
+    }
+  },
+  "remaining": [
+    "Durable source-cleanup completion receipt and historical consent verification.",
+    "Whole-account controller integration and final Auth retirement.",
+    "Finite evidence retention with separately verified cleanup authority.",
+    "Actual PostgreSQL/Auth/Storage workflow for this exact revision; embedded database results do not prove deployment."
+  ],
+  "scope": "Private disposable schema only; no production migration, grants, user data deletion or deployment."
+}

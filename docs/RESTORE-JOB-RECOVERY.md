@@ -1,0 +1,13 @@
+# Scoped restore status after lost acknowledgement
+
+Prepared Sandbox-only read. Fixed commit/status routes are present but disabled by the existing independent restore flag and incomplete verification settings. No shared database application, Apple update or paid rights.
+
+The status service verifies the exact bearer via server Auth and checks the current session's explicit enrollment before and after the RPC. It accepts only a bounded request ID and the pair/assertion digests retained from the original proof; these hashes do not authorize access. The service-role invoker RPC binds them to the same durable job, user, original session, enrollment and bundle under the disabled-by-default policy. It returns only request ID plus pending/complete, never its private lease or Apple purchase identifiers.
+
+A missing, revoked, foreign or unknown result is an error. It must not be interpreted as permission to create a second job, retry an Apple mutation or grant rights. A logout that creates a different Auth session needs a separate reviewed reauthorization flow; this lookup intentionally cannot rebind jobs. Completed describes a past durable process, not current premium access, and does not rewrite later refunds or expiry.
+
+Native encrypted pending proof, fixed status transport, dispatch and finite unknown-result retention/reconciliation remain to be connected. Tests cover actual SQL with synthetic Auth/Apple output and injected service responses; real Auth/PostgREST, concurrency, advisors and Apple Sandbox proof are still required before activation. Current function privilege guidance: https://supabase.com/docs/guides/database/functions .
+
+`RestoreStatusAPI` prepares the fixed first-party native HTTP request with the captured Auth/key/enrollment scope and the original pair/assertion digests. It refuses redirected/cached/oversized responses and accepts only exact pending/complete process DTOs for the requested UUID. Current login and cancellation are checked again after transport. Missing/foreign/extra/active/error responses never produce a success or trigger a mutation. Synthetic Swift tests cover both statuses and malformed/error/session/cancellation paths. Native encrypted durable pending storage and UI integration remain unimplemented for this flow.
+
+The fixed Node routes `/api/billing/restore/commit` and `/api/billing/restore/status` use the existing independently gated Sandbox deployment configuration. Commit uses the operator-configured App Attest build policy. No flags/settings are written or enabled. Status does not dispatch the worker; commit only reserves the job. Apple update dispatch and durable native integration remain pending.

@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-10-20T09:51:17.817538+00:00",
+  "status": "local_candidate_verified_not_published",
+  "basePublishedHead": "16fef7af87413edfbf346871c62dce1e378c9ee1",
+  "native": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "auth": "v2.197.0",
+    "postgres": "17.6",
+    "log": "bound-scoped-consent-root-order-native-20261020.log"
+  },
+  "regression": {
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "log": "mfa-binding-final-regression-20261020.log",
+    "includes": "7scoped issuer +9bound custody +8Web UI orchestration"
+  },
+  "changes": [
+    "Private issuer/read RPCs now lock shared root journal first, before app plan/native bindings/request and sorted Auth parents",
+    "record/current RPCs delegate into same root-first authority before taking further locks",
+    "Issuer/current/historical wrappers register once per actor and physical tx; changed fingerprint cannot replace original first hook",
+    "New hook-free readCurrent/readHistoricalSnapshot methods for existing owning COMMIT callback; retain original independent domain and historical-only result type"
+  ],
+  "nativeNewProof": [
+    "Actual minimal coordinator LOGIN pins root only via explicit fixture-only lock function",
+    "Independent actual issuer LOGIN waits on root, observed with pg_stat_activity/pg_blocking_pids",
+    "Coordinator acquires app plan/read while issuer waits: earlier app-first inversion would time out/deadlock; then COMMIT releases issuer",
+    "Strict test adapter rejects duplicate registrations; repeated same-actor reads and callback hook-free readback succeed",
+    "All prior atomic issuance rollback/lease recovery/global logout/historical custody/factor insertion wait checks still passed"
+  ],
+  "limits": [
+    "Not full all-app lock graph, migrations, family/Storage controller integration or post-fence release capability proof",
+    "Private custody retention/revocation/key rotation and existing consent-format adapter still required",
+    "No production role/grants/migration/config/auth/data changes",
+    "Published16fef7af CI does not attest this new local delta or in-progress MFA UI"
+  ],
+  "productionChanged": false,
+  "outboundMessageSent": false,
+  "sourceSHA256": {
+    "lib/bound-scoped-shared-consent.ts": "0de8564100f4ccba9852ebe33efc4251b5e6df7c9bfc0795a369a81ecc2d1831",
+    "lib/scoped-shared-consent-identity.ts": "84a71f6b5cbce6649b3cb95bcd8e817f7039b0c809bf0b695222a73c88bf9b85",
+    "tests/fixtures/scoped-shared-consent-auth.sql": "9247fe1a6083db846f0a77d18311ee105421979bcfd5ee190ee1c6e17a4873c6",
+    "tests/fixtures/bound-scoped-shared-consent.sql": "19326c0d93e2559094030f0c2a0a7e2e789593f27bf502f744b5fe2756549c0a",
+    "tests/bound-scoped-shared-consent.native.mjs": "1f2d14936cd46b059e5e4372f7e813d8ba742b979c31ef92b52eb8b9501f8ad7",
+    "tests/bound-scoped-shared-consent.test.mjs": "da3bc4432d518382a5c221c0e1d67b405f78c81614adaca03596e7af8eb128ee",
+    "tests/scoped-shared-consent-identity.test.mjs": "15162781d22eb3410eeea648ea49f0498008a0a31d75c871dc75078b989738f5",
+    "tests/fixtures/scoped-shared-consent-module.mjs": "67a9324a201e3367c2fdd044e6d969be46da9cf6c4bda5dd1f3c88218c2a3db2",
+    "tests/fixtures/scoped-native-gotrue.mjs": "04e3b13ad5934db8280928969795d521a50c1304e32c16abb76253d81b85bdf4",
+    "lib/transaction-commit-checks.mjs": "6452452e7731cbc1ad2cf2fb2eff87557c59dac634f4b6bf8f8c2fc4f8e7db1c"
+  }
+}

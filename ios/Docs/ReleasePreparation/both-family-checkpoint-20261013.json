@@ -1,0 +1,44 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "implementation": [
+    "Fixed read-only Kakei completion/transfer/consent/journal/snapshot and SQL candidate copied unchanged into disposable fixture with SHA256/Git blob manifest.",
+    "Maintenance fixture can include exact Kakei request/scope in the immutable root inventory before any consent/transfer.",
+    "Both datasets share one root scope; maintenance cleanup and Kakei signed completion commit independently before final global checkpoint.",
+    "Actual Kakei completion.read is bound to retained content verifier and strict other-app registry; missing completion cannot be replaced by current ownership alone.",
+    "Global store rejects absent/damaged Kakei evidence and incomplete maintenance cleanup; failed checkpoint keeps already-committed family facts."
+  ],
+  "localEvidence": {
+    "mixedEmbeddedPostgresCases": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-both-family-checkpoint-20261013.log"
+    },
+    "copiedSourceHashes": "10 sources verified against fixed SHA256 and Git blob manifest",
+    "lint": "passed",
+    "typecheck": "passed",
+    "fullRegression": {
+      "passed": 741,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-both-family-regression-20261013.log"
+    }
+  },
+  "negativeCases": [
+    "Valid protected Kakei transfer without completion receipt does not confirm historical transfer; probe transaction rolls back.",
+    "Retained budget amount drift, missing receipt and foreign plan scope prevent global checkpoint.",
+    "Maintenance source still present/no cleanup receipt prevents global checkpoint."
+  ],
+  "faultInjectionLimit": "Missing budget receipt simulates privileged corruption in a disposable fixture by temporarily disabling its immutable trigger, then re-enabling it. Normal clients cannot perform that mutation.",
+  "evidenceLimit": "Both-app embedded SQL and real HMAC code; Kakei identity/read/fence/frozen coverage callbacks are synthetic and no actual Kakei Auth or complete writer admission is claimed. Maintenance storage here is a map. No all-app erasure/shared Auth retirement or deployment.",
+  "remaining": [
+    "Same fixed both-app composition in actual PostgreSQL/GoTrue/Storage with both real issuer identities and current complete fences.",
+    "Authoritative all-target coverage, complete all-schema writer/namespace admission, formal native/root lease rebind.",
+    "All app erase/verify, final shared Auth and post-Auth readbacks.",
+    "Finite/minimized source proofs/context/snapshot retention that preserves recovery.",
+    "Shipping auth/effective policy/least privilege, real device Apple Sandbox/TestFlight/App Store submission; owner payment held."
+  ],
+  "safety": "Sibling original source read-only. No production migration/grant/credentials/real billing/paid contract/existing data deletion."
+}

@@ -1,0 +1,8 @@
+{
+  "package": "core-js",
+  "version": "3.50.0",
+  "license": "MIT",
+  "source": "https://raw.githubusercontent.com/zloirock/core-js/v3.50.0/LICENSE",
+  "file": "core-js-3.50.0-LICENSE.txt",
+  "sha256": "b87653fff2d44426ab5cd4723cee3b1364dc8d35a0acdf098c54689543123bf8"
+}

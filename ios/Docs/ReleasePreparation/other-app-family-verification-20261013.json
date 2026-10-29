@@ -1,0 +1,53 @@
+{
+  "status": "local_tests_passed_exact_head_ci_pending_not_release_complete",
+  "productionEnabled": false,
+  "realBillingEnabled": false,
+  "implementation": [
+    "Mandatory app registry verifies current full controller inventory/fences and every non-maintenance app contribution; unknown/unconfigured apps refuse.",
+    "Kakei read-only verifier pins current root journal, full fixed plan coverage, exact app/request/epoch/parties and retained household/member/transaction content.",
+    "Committed signed transfer evidence is separately mandatory; current successor ownership alone cannot prove past authorized completion.",
+    "Completion reader bridge checks exact request/household/plan digest/retained digest and never invokes complete or transfer.",
+    "Original/retained content digests, canonical snapshot/digest functions and immutable plan copies prevent changed content or mutated callback input.",
+    "Cancellation and controller expiry after fence reads are refused.",
+    "Actual fixture uses registry for its independently checked maintenance-only inventory; it never assumes Kakei completion."
+  ],
+  "localEvidence": {
+    "focusedCases": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0
+    },
+    "sourceDigestEquivalence": {
+      "passed": 3,
+      "scope": "Pure canonical Kakei source digest compared read-only; no mutation/network."
+    },
+    "lint": "passed",
+    "typecheck": "passed",
+    "fullRegression": {
+      "passed": 736,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/private/tmp/ouchi-other-family-final-regression-20261013.log"
+    }
+  },
+  "evidenceLimit": "Kakei SQL tests are embedded PostgreSQL with synthetic root/proof/fence/coverage callbacks; the bridge reader is a test double. No real Kakei Auth, transfer or whole-account retirement is claimed.",
+  "integrationInterface": "bindKakeiCommittedFamilyVerifier can use the independently supplied Kakei createKakeiFamilyCompletion.read(scope,plan,tx); canonical completion receipt identity is checked locally. Key/provisioning and actual source candidate integration remain required.",
+  "previousActualService": {
+    "head": "fcac7c708d373431c4f1546b4d1fbd4ae0e00d11",
+    "run": 38396263451,
+    "job": 115292144412,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "rawLogsAndDedicatedCleanupChecked": true,
+    "scope": "Maintenance family cleanup plus failed global checkpoint rollback and retry; no Kakei/all-app completion."
+  },
+  "remaining": [
+    "Fixed-source Kakei signed completion reader/SQL integration and independently proven full frozen roster.",
+    "Both app actual data/identity/current writer fences and final checkpoint composition.",
+    "Formal current root/native rebind mapping and all app erase/verify/final Auth/post-Auth stages.",
+    "Shipping scoped read/coordinator authentication, real effective Auth policy, least privilege, namespace admission, capacity/latency and finite retention.",
+    "Native real device, actual Apple Sandbox/TestFlight and submission; owner Developer payment held."
+  ],
+  "source": "Sibling Kakei canonical snapshot/digest source copied read-only with hash provenance and equivalent protocol normalization. No source edits/messages to sibling chat. No production migrations/roles/credentials/paid contracts/real billing/data deletion enabled."
+}

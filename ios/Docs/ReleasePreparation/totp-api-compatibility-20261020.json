@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-20T09:25:39.516024+00:00",
+  "status": "local_api_compatibility_passed_UI_not_ready",
+  "publishedBase": "16fef7af87413edfbf346871c62dce1e378c9ee1",
+  "native": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "auth": "v2.197.0",
+    "postgres": "17.6",
+    "webSDK": "2.117.2",
+    "log": "totp-cross-app-native-final-20261020.log"
+  },
+  "verified": [
+    "Real GoTrue TOTP enrollment invalidates two independent original AAL1 sessions",
+    "Actual installed Supabase JS SDK rejects old Web session, password re-login + mfa.listFactors + challengeAndVerify succeed at AAL2",
+    "Actual Swift SessionController/HouseholdAPI reject stale original Native session, re-login, load registered factor, challenge, verify, and persist promoted session through memory storage readback",
+    "Existing established AAL2 Web SDK session survives Native TOTP verification"
+  ],
+  "observedDenialBoundary": "Swift HouseholdAPI currentUser maps revoked-token 403 to rejected(403); fixture accepts this refusal or authenticationRequired401, never success",
+  "sourceFindings": [
+    "CloudAccount has password login but no TOTP/code-entry UI",
+    "Native TOTPVerificationView and APIs are prepared, but no initializer call/site/navigation into that View was found in current app Swift sources",
+    "HomeHandoffView itself is explicitly a prepared, unlinked screen; no current release integration is implied"
+  ],
+  "limits": [
+    "Isolated disposable Auth/DB only; fixture uses an HTTP loopback proxy preserving actual status/body; not production TLS/current Management proof",
+    "Actual Swift core APIs tested with in-memory SessionStorage, not Keychain/physical iPhone/native SwiftUI navigation",
+    "Web SDK API exercised directly, not CloudAccount screen",
+    "No factor enrollment/removal added to Ouchi product; recovery/lost-factor flow not ready",
+    "No authenticated app data/RLS/family/attachment/controller mutation executed by this compatibility test",
+    "New test and runner changes local, not published in16fef7af; previous full CI proof does not cover this new local test"
+  ],
+  "initialFailures": [
+    {
+      "log": "totp-cross-app-native-20261020.log",
+      "cause": "Swift fixture used async throwing call inside precondition autoclosure; fixed test syntax"
+    },
+    {
+      "log": "totp-cross-app-native-verified-20261020.log",
+      "cause": "Fixture assumed only401; actual existing API correctly refused403 as rejected(403); test assertion corrected without weakening shipping checks"
+    }
+  ],
+  "targetedLint": "passed",
+  "productionChanged": false,
+  "customerAuthFactorsChanged": false,
+  "peerCredentialReadOrCopied": false,
+  "outboundMessageSent": false,
+  "localSourceSHA256": {
+    "ios/Tests/TOTPRealAuthCompatibility.swift": "aa341a2b92f883aa07fdad736a36d50b5aa075793484ec2ca91d889d99f7b6ff",
+    "tests/totp-cross-app-compatibility.native.mjs": "334b57af716390c33dbb8d28f134858a0b04bfee7f143e2cbfe1baac57c0d19b",
+    "scripts/test-scoped-shared-consent-native.py": "43fc0d21bd20e33fd045f38536b2fbf6dae7834bc41fe8258b9c3b7c9cc65ef3",
+    "tests/fixtures/scoped-native-gotrue.mjs": "04e3b13ad5934db8280928969795d521a50c1304e32c16abb76253d81b85bdf4",
+    "ios/OuchiCore/TOTPVerificationAPI.swift": "f2477794809fd12366b9e294e76d0cf95ac6fa8b813603e1db14cc084af94bd9",
+    "ios/OuchiCore/SessionController.swift": "9a78f8903126a24e6b76664d105bace2676b2836ded868dae7c56579c8e84e23",
+    "ios/OuchiCore/HouseholdAPI.swift": "7585c9283acec2a2d733bf598a9d620e7e8077744933588247c2743fe30a4268",
+    "ios/OuchiMaintenance/HomeHandoffView.swift": "671a86d83e6f551e51144f2dfafc66a82edf8bccda5212b116a2e98c08ef233e",
+    "components/cloud-account.tsx": "ad71958c4d6ed986c32469e487864ca60dc79cd83ce10115835daf1d888dc6af",
+    "lib/supabase.ts": "cf53b371ed42b062644e98fab077e97863ce19f104edce250280b270093e426d"
+  },
+  "sourceAuditSupersededBy": "output/mfa-ui-candidate-20261020/verification.json",
+  "coreAPIInputsStillMatchNow": true
+}

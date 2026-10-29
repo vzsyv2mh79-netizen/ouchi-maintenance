@@ -1,0 +1,252 @@
+{
+  "status": "prepared_templates_not_submission_images",
+  "assets": [
+    {
+      "screen": "home",
+      "file": "01-home-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "次のお手入れを",
+        "ひと目で。"
+      ],
+      "caption": "製品ごとの予定をまとめて確認",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "products",
+      "file": "02-products-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "家電の情報を",
+        "ひとつに。"
+      ],
+      "caption": "品番とお手入れの周期を管理",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "history",
+      "file": "03-history-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "いつお手入れしたか、",
+        "ちゃんと残る。"
+      ],
+      "caption": "完了を記録して次の予定へ",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "family",
+      "file": "04-family-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "家族でわかる、",
+        "わが家のこと。"
+      ],
+      "caption": "同じ住まいの予定と記録を共有",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    },
+    {
+      "screen": "settings",
+      "file": "05-settings-template.svg",
+      "width": 1320,
+      "height": 2868,
+      "status": "template_not_screenshot",
+      "headline": [
+        "大切な記録を、",
+        "手元にも。"
+      ],
+      "caption": "基本の記録と書き出しは無料",
+      "captureRequirements": [
+        "synthetic household and family names only",
+        "actual submitted native build",
+        "no real email, push tokens, billing identifiers or owner records",
+        "light/dark and AX3/AX5 verify separately",
+        "PNG/JPEG with no alpha after actual capture and layout review"
+      ]
+    }
+  ],
+  "officialSource": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+  "excludedClaims": [
+    "photo/warranty storage not live",
+    "advanced notifications not live",
+    "premium report not live",
+    "unconfirmed subscription/tip prices",
+    "all-model support",
+    "direct TimeTree synchronization"
+  ],
+  "specificationsCheckedAt": "2026-10-13",
+  "requiredFinalCaptures": [
+    {
+      "device": "iPhone with Dynamic Island (medium display)",
+      "acceptedPortraitPixels": [
+        [
+          1179,
+          2556
+        ],
+        [
+          1206,
+          2622
+        ]
+      ],
+      "status": "pending_final_release_capture"
+    },
+    {
+      "device": "iPad 13-inch if iPad support retained",
+      "acceptedPortraitPixels": [
+        [
+          2064,
+          2752
+        ],
+        [
+          2048,
+          2732
+        ]
+      ],
+      "status": "pending_final_release_capture"
+    }
+  ],
+  "sampleCapture": {
+    "script": "ios/scripts/capture-store-review.py",
+    "bundle": "dev.ouchi.review.storecaptures",
+    "status": "five_native_sample_screens_visually_reviewed",
+    "screens": [
+      "home",
+      "care",
+      "products",
+      "history",
+      "settings"
+    ],
+    "isSubmissionApproved": false,
+    "familyDetailStillPending": true,
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "containsAlphaChannel": true
+  },
+  "ipadSampleCapture": {
+    "device": "iPad Pro 13-inch M5",
+    "status": "ten_native_sample_screens_visually_reviewed",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "screens": [
+      "home",
+      "care",
+      "products",
+      "history",
+      "settings"
+    ],
+    "pixels": [
+      2064,
+      2752
+    ],
+    "imageFormat": "jpeg",
+    "containsAlphaChannel": false,
+    "isSubmissionApproved": false
+  },
+  "iphoneOpaqueSampleCapture": {
+    "device": "iPhone 18 Pro",
+    "status": "ten_native_sample_screens_visually_reviewed",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "screens": [
+      "home",
+      "care",
+      "products",
+      "history",
+      "settings"
+    ],
+    "pixels": [
+      1206,
+      2622
+    ],
+    "imageFormat": "jpeg",
+    "containsAlphaChannel": false,
+    "isSubmissionApproved": false
+  },
+  "largeTextReview": {
+    "status": "initial_large_text_viewports_reviewed_not_full_accessibility_validation",
+    "device": "iPhone 18 Pro",
+    "sizes": [
+      "AX3",
+      "AX5"
+    ],
+    "appearance": "light",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "reviewedInitialViewports": 10,
+    "remaining": [
+      "Scroll to offscreen controls and activate them",
+      "VoiceOver focus/reading order",
+      "Keyboard and input forms",
+      "Physical iPhone verification",
+      "Family detail",
+      "Final signed release build"
+    ]
+  },
+  "largeTextInteractionReview": {
+    "status": "AX3_AX5_sample_interactions_verified_not_full_accessibility",
+    "sourceDigest": "b9d39483bbeda16c4ebf25b9115cb1e46f8d6fcd",
+    "appearance": "light",
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "reviewedAttachments": 8,
+    "scope": [
+      "completion entirely visible and activated",
+      "next due date plus 30 days and history exactly one added",
+      "export entirely visible and activated, share control visible"
+    ],
+    "report": "native-interaction-review.md",
+    "remaining": [
+      "dark large text",
+      "keyboard forms",
+      "VoiceOver",
+      "physical device",
+      "real cloud persistence",
+      "final signed release"
+    ],
+    "textSizes": [
+      "AX3",
+      "AX5"
+    ]
+  }
+}

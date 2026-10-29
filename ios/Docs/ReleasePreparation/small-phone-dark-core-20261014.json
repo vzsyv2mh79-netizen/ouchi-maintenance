@@ -1,0 +1,39 @@
+{
+  "status": "core_interactions_verified_accessibility_unfinished",
+  "sourceDigest": "e2b3db4fecd94012300ff87239e828769855f026",
+  "textSize": "accessibility-extra-extra-extra-large",
+  "appearance": "dark",
+  "deviceType": "iPhone-17e",
+  "selectedTest": "completion-export",
+  "auditUsesReleaseHeaderLayout": false,
+  "testHarnessDigest": "f574716c839c9315a098ca57831b1f6a8d53eb82c7170eb065f99311dde4e3bb",
+  "auditIssuesFiltered": false,
+  "syntheticDataOnly": true,
+  "productionEnabled": false,
+  "actualBillingEnabled": false,
+  "scope": [
+    "complete actual sample task; exactly one history addition and next due date update",
+    "export action produces a reachable share control"
+  ],
+  "notVerified": [
+    "real cloud persistence",
+    "VoiceOver",
+    "physical device",
+    "purchases",
+    "final signed build"
+  ],
+  "simulatorUDID": "E0BCE533-B548-49E1-A53B-E2A8FBAFCB15",
+  "ownedSimulatorRemoved": true,
+  "passed": 2,
+  "failed": 0,
+  "skipped": 0,
+  "rawResultSummaryInspected": true,
+  "rawLogInspected": true,
+  "screenshotsExported": 4,
+  "screenshotsViewed": 2,
+  "knownFindings": [
+    "AX5 light care product-name clipping finding remains unresolved",
+    "AX5 light initial care next-date contrast under floating tab bar remains unresolved"
+  ],
+  "fullDarkSmallSuite": "running_not_yet_verified"
+}

@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-23",
+  "change": "iPhone offline-snapshot header exposes an explicit reload action on every tab; wraps into a vertical stack when text needs more width.",
+  "baseline": {
+    "main": "b994a8aa44cf92b29a0d7db5ad6a36bb3376acb5",
+    "pr": 167,
+    "parent": "743227ccda6529bf11e91eb71ea0a13ce1620535",
+    "mainDelta": "Only AGENTS.md since prior c64e7cc main; no application-source conflict.",
+    "allFiveChangedFilePreimagesMatchedRemote": true
+  },
+  "shippingBehavior": [
+    "Uses existing NativeStore.reload without changing storage, authorization, mutations or request semantics.",
+    "Button is disabled during existing busy reservation and has a VoiceOver hint plus at least 44-point label height.",
+    "Existing online header and appearance switch remain available; successful reload removes offline warning."
+  ],
+  "testIsolation": {
+    "sampleTransportOnly": true,
+    "realCredentialsRead": false,
+    "syntheticFailures": "Initial household load succeeds; next two loads throw notConnectedToInternet; following load succeeds.",
+    "fixtureControl": "DEBUG sample initializer, dev.ouchi.review.storecaptures bundle only, guarded sample plist/build stamp; shipping initialization does not read review environment."
+  },
+  "verification": {
+    "sourceDigest": "7dac05449e8b156d23da49a336c0015e75fe1078",
+    "testHarnessDigest": "a93d61b3002f0309d07c0d52c127822f545695408fba03ef197e9f7e21482ebc",
+    "ax5Dark": {
+      "device": "iPhone 17e / iOS 27 Simulator",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "runtimeWarnings": [],
+      "ownedSimulatorRemoved": true,
+      "screenshotsVisuallyReviewed": true,
+      "states": [
+        "Offline warning and fully visible retry",
+        "Second failure retains same task and due date",
+        "Successful retry removes warning and keeps same task and due date"
+      ]
+    },
+    "normalLight": {
+      "device": "iPhone 17e / iOS 27 Simulator",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0,
+      "runtimeWarnings": [],
+      "ownedSimulatorRemoved": true,
+      "screenshotsVisuallyReviewed": true,
+      "horizontalRetryLayoutVerified": true
+    },
+    "totalSelectedCaseExecutions": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "expectedFailures": 0
+    },
+    "nativeSourceTreeComparison": {
+      "compared": 82,
+      "onlyExpectedNativeSourceDeltas": [
+        "NativeRootView.swift",
+        "NativeReviewFixture.swift",
+        "NativeStore.swift"
+      ],
+      "allOtherSourcesEqualPRParent": true
+    },
+    "screenshots": {
+      "normalLight": {
+        "sha256": "0a97bf7897f9139ea5a8e6ba0acdacfd5e3b8bcf8cd48c4b31e8508c089c47c5",
+        "pixels": [
+          1170,
+          2532
+        ],
+        "syntheticDataOnly": true,
+        "submissionApproved": false
+      },
+      "ax5Dark": {
+        "sha256": "5e2bed019ed8da319be875d4fb665df0f65736a41686192847f7f820329f4508",
+        "pixels": [
+          1170,
+          2532
+        ],
+        "syntheticDataOnly": true,
+        "submissionApproved": false
+      }
+    },
+    "initialRestrictedAttempt": "Simulator service was unavailable under restricted filesystem execution. Retried with authorized host access; both actual native test runs passed and removed their owned devices."
+  },
+  "limitations": [
+    "Synthetic transport failure, not live network or hosted cloud persistence proof.",
+    "No physical-device or VoiceOver operation verification.",
+    "Not a final signed release or App Store submission image.",
+    "Other screen accessibility audits not rerun by this targeted test."
+  ],
+  "productionChanged": false,
+  "billingEnabled": false,
+  "accountDeletionExecuted": false
+}

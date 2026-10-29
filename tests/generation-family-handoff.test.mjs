@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHmac,randomBytes,randomUUID} from 'node:crypto';
+import {generationHandoffModule as handoff,generationFamilyModule as original} from './fixtures/scoped-shared-consent-module.mjs';
+function fixture(){
+ const now=Math.floor(Date.now()/1000)*1000,owner=randomUUID(),receiver=randomUUID(),home=randomUUID(),key=randomBytes(32),generationID=randomUUID(),nativeLease=randomUUID();
+ const scope={protocolVersion:2,kind:'shared-account',requestID:randomUUID(),userID:owner,leaseToken:randomUUID(),inventoryDigest:'a'.repeat(64),apps:[{app:'ouchi-maintenance',requestID:randomUUID(),scopeID:randomUUID()}]};
+ const state={captured:false,noDispatch:true,admitted:true,policy:true,pid:91,xid:'51',extra:false},hooks=new Map(),queries=[],phases=[],proofs=new Map();
+ for(const userID of [owner,receiver]){const payload={domain:'OuchiMaintenance/family-generation-original/v1',requestID:scope.requestID,generationID,homeID:home,userID,epochID:randomUUID(),sessionID:randomUUID(),aal:'aal2',authenticatedAt:now,authStateDigest:'b'.repeat(64),proofDomain:'OuchiMaintenance/scoped-shared-consent-auth/v1',expiresAt:now+600000};const signature=createHmac('sha256',key).update('OuchiMaintenance/family-generation-original/v1\n'+JSON.stringify(payload)).digest('hex');proofs.set(userID,{payload,signature});}
+ const policyReader=Object.assign(async()=>({projectID:'abcdefghijklmnopqrst',authVersion:'v2.197.0',assuranceMode:'highest-current-aal/v1',singleSession:false,totpVerify:true,timeboxSeconds:null,inactivitySeconds:null}),{isCurrent:()=>state.policy});
+ const options={scope,generationID,nativeLease,homes:[{homeID:home,successorID:receiver}],key,projectID:'abcdefghijklmnopqrst',policyReader,getUser:async()=>{throw Error('Handoff must not mint another bearer original');},clock:()=>now,verifyNoDispatch:async()=>state.noDispatch,verifyHandoffAdmission:async(s,tx,signal,phase)=>{assert.deepEqual(s,scope);signal.throwIfAborted();phases.push(phase);return state.admitted;}};
+ const tx={signal:new AbortController().signal,beforeCommit:(k,f)=>hooks.set(k,f),query:async(sql,args)=>{queries.push(sql);
+  if(sql===handoff.GENERATION_HANDOFF_VERIFY_SQL)return {rows:state.captured?[{ok:true,backend_pid:state.pid,transaction_id:state.xid,...(state.extra?{extra:true}:{})}]:[]};
+  if(sql===handoff.GENERATION_HANDOFF_EXEC_SQL){state.captured=true;state.noDispatch=false;return {rows:[{ok:true}]};}
+  if([original.GENERATION_FAMILY_FRAME_SQL,original.GENERATION_FAMILY_CLAIM_SQL].includes(sql))return {rows:[{status:'processing',backend_pid:state.pid,transaction_id:state.xid}]};
+  if(sql===original.GENERATION_FAMILY_READ_SQL)return {rows:[structuredClone(proofs.get(args[2]))]};
+  throw Error('Unexpected handoff query');
+ }};
+ return {scope,options,tx,state,queries,hooks,phases,proofs,port:handoff.createGenerationFamilyHandoff(options),commit:async()=>{for(const f of hooks.values())assert.equal(await f(),true);}};
+}
+test('requires separate stage admission; known transfer does not reuse literal pre-dispatch approval',async()=>{const blocked=fixture();blocked.state.noDispatch=false;await assert.rejects(blocked.port.execute(blocked.scope,blocked.tx),/Current same-generation originals\/dispatch admission/);assert.equal(blocked.state.captured,false);const f=fixture();assert.throws(()=>handoff.createGenerationFamilyHandoff({...f.options,verifyHandoffAdmission:null}),/stage-specific/);assert.equal(await f.port.verifyAfter(f.scope,f.tx),false);await f.port.execute(f.scope,f.tx);assert.equal(f.state.noDispatch,false);assert.ok(f.phases.includes('before')&&f.phases.includes('after'));await f.commit();});
+test('wrong HMAC key refuses before any handoff/capture mutation',async()=>{const f=fixture(),port=handoff.createGenerationFamilyHandoff({...f.options,key:randomBytes(32)});await assert.rejects(port.execute(f.scope,f.tx),/Independent exact generation original/);assert.equal(f.state.captured,false);assert.ok(!f.queries.includes(handoff.GENERATION_HANDOFF_EXEC_SQL));await assert.rejects(f.commit());});
+test('late stage admission, policy or physical pin drift refuses owning COMMIT',async()=>{for(const field of ['admitted','policy','pid','xid']){const f=fixture();await f.port.execute(f.scope,f.tx);f.state[field]=field==='pid'?92:field==='xid'?'52':false;await assert.rejects(f.commit());}});
+test('repeated operation poisons and unexpected postfact fields cannot produce success',async()=>{const f=fixture();await f.port.execute(f.scope,f.tx);await assert.rejects(f.port.execute(f.scope,f.tx),/already used/);await assert.rejects(f.commit());const g=fixture();g.state.extra=true;await assert.rejects(g.port.execute(g.scope,g.tx),/Same original set/);await assert.rejects(g.commit());});
+test('foreign scope and missing checked transaction never dispatch',async()=>{const f=fixture();await assert.rejects(f.port.execute({...f.scope,requestID:randomUUID()},f.tx),/Foreign/);assert.equal(f.queries.length,0);await assert.rejects(f.port.execute(f.scope,{query:f.tx.query,signal:f.tx.signal}),/Checked/);assert.equal(f.queries.length,0);});

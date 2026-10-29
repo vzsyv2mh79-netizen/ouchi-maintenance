@@ -18,7 +18,7 @@ Web決済は今は追加しない。Apple契約をWebで認識する。将来Str
 Next.jsの専用APIとDBは署名検証後の取引のみ受理。Apple公式App Store Server LibraryでJWS証明書チェーン、bundle ID、environment、appAppleId、appAccountToken、product allowlistを検証。クライアントlocalStorage/メタデータで権利を付与しない。
 原取引IDは1アカウントに固定、transaction ID/notification UUIDで重複防止、signedDate順で返金・取消を含む古い通知再送の巻き戻り防止。期限は要求ごとに評価。sandboxとproductionをDB/設定で分離。購入/復元通知を保存後にStoreKit finishする。通信失敗は未完了取引を再送、pending/cancelは権利なし。復元は同じaccountToken以外を自動移管しない。
 実請求・本番DB変更・有料契約を有効にしない。購入UIはストア商品がなく、実装済み有料機能がない間は販売不可を明示。サンプル価格を実価格のように表示しない。テスト画面は合成データ、テストStoreKitのみ。
-iPhone版はSwiftUI + StoreKit2 + アカウント認証。既存Webを使う場合も単純なサイト表示だけで提出せず、ネイティブ購入/復元、ファイル/写真、通知/共有の端末体験とReview4.2を検証。Xcode本体は現Mac未設定。ソースは用意し、iOSSDKビルド・StoreKit実機検証は本人のXcode/App Store Connect設定後に実施。
+iPhone版はSwiftUI + StoreKit2 + アカウント認証。既存Webを使う場合も単純なサイト表示だけで提出せず、ネイティブ購入/復元、ファイル/写真、通知/共有の端末体験とReview4.2を検証。Xcode27は導入済みで、実iOS SDKの未署名Simulator/Releaseビルドが成功した。最新コードのログイン画面と登録/再設定モードはiPhone17e/iOS27シミュレーターで確認済み。実ログイン後の操作、StoreKit実購入と署名付き配布は別途必要。
 
 ## 検証・本人操作
 単体/DBで偽署名、他account、重複、更新、失効、返金、取消、順不同通知、同時処理、通信失敗を検証。Web画面で無料範囲/未販売表示/任意チップと既存導線を確認。Previewのみ公開し本番は別段階。
@@ -29,8 +29,14 @@ https://developer.apple.com/jp/app-store/review/guidelines/ （3.1.1/3.1.2/4.2�
 https://developer.apple.com/in-app-purchase/
 https://github.com/apple/app-store-server-library-node （公式署名検証ライブラリ）
 https://supabase.com/docs/guides/storage/pricing （Free1GB、Pro100GB、超過$0.0213/GB月。転送費別）
-現請求額/プラン/共有枠残量は管理画面で確認が必要。既存Vercel/Supabase/Resendの請求書を確認するまで実費を断定しない。300円税/手数料控除前、15%適用仮定255円/30%仮定210円。Apple Developer年会費を含む固定費の損益は実請求額確定後。チップは固定収入へ織り込まない。
+2026-10-15の費用確認：認証済みの契約画面でVercel Pro、組織情報でSupabase Freeを確認した。実際の請求総額、従量利用、送信メールのプランは未確認。新規契約・支払い・上限の変更はしていない。写真保管の100MiB枠は提案のままで、共有プロジェクト全体の割当と保存・削除運用を確認するまで販売しない。
+
+[Apple公式の日本向け条件](https://developer.apple.com/support/payment-options-on-the-app-store-in-japan/)では、App Storeの通常手数料21%にAppleアプリ内購入の決済処理料5%が加わる。Small Business Program等の対象取引、または自動更新サブスクの2年目以降は10%＋5%。日本向け新条件を前提に、単純試算は月300円から26%控除で222円、15%控除で255円、年3,000円では2,220円／2,550円となる。これは税・為替・返金・調整・運営費を反映する前の計算で、実入金額ではない。Small Business Programの申請・承認は未確認のため、15%適用を前提にしない。他地域・OS・契約条件へ一律に適用しない。
+
+月300円／年3,000円案は維持する。Appleの選択可能価格、適用条件、年会費と既存インフラの実費を確認してから採算と最終料金を決める。チップを固定収入へ織り込まない。詳細は `ios/Docs/ReleasePreparation/release-cost-check-20261015.json`。
 
 ## このPRの実装範囲と残り
 Sandbox専用検証API/取引台帳の隔離SQL fixture/権利判定/設定案内・プランページ/StoreKit2アダプターを実装。SQLは実DBに未適用、BILLING_MODE未設定時は受付503・利用権free。Production取引は常に拒否する。fixtureは移行ファイルではなく、販売開始時にSupabase CLIで正式migrationを生成・レビューする。
-Swiftはソース準備段階でiOSSDKビルド未確認。実商品価格表示の購入画面、アプリプロジェクト/署名/認証接続、StoreKit更新監視、通知の自動更新状態/grace period表示、正式Terms/Privacy、写真/通知詳細/レポートの機能実装、実Sandbox購入・復元・返金は残作業。購入画面がないのでこのPRはApp Store提出可能という意味ではない。未実装特典は販売できない。権利判定は有効期限とrevocationDateに基づく。grace periodは初期無効を前提とし、提供時にはrenewalInfo検証が必要。
+iPhoneアプリプロジェクト、StoreKit商品情報の実価格を表示する開発用サブスク/チップ画面、更新監視、復元/未完了取引再試行、隔離レポートと添付保管/一覧/読戻し/再送/消去の試作は実装済み。19種の合成テストと実iOS SDKビルド、使い捨てAuth/PostgREST/Storageの結合テストが通っている。これらは実Apple商品登録や署名済み購入の証拠ではない。正式Terms/Privacy/問い合わせ、完全な個人情報削除、共有Authを保護する本番migration、端末キャッシュの再登録境界、APNs、細かな通知、有料特典の本番対応、実Sandbox購入・復元・更新・返金・保留、実ログイン後の操作、署名/商品/契約/TestFlight/審査は残作業。未実装特典は販売できない。新規ログイン前の端末キャッシュ消去案は承認待ちで、現在のPRへ含めていない。権利判定は有効期限とrevocationDateに基づく。grace periodは初期無効を前提とし、提供時にはrenewalInfo検証が必要。
+
+2026-10-10現状確認: main4b3e44e、PR165課金基盤→PR167iPhone版の依存関係。PR164カタログとPR166アイコンは独立して未統合。PR167はdraft/mergeableで販売未完了。Appleの現在のアカウントはProgram登録案内を表示し、本人氏名/電話/住所の登録画面で停止。入力/同意/支払いは未実施。
