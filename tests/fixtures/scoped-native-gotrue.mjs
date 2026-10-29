@@ -78,6 +78,9 @@ export async function startFixtureGoTrue(socket,issuer){
    const r=await attemptFixtureUserCreate(userID,email,password);
    assert.equal(r.status,200,'Disposable fixed-ID Auth account creation must succeed');assert.equal(r.body.id,userID);return r.body;
   }
-  return {origin,request,eraseFixtureUser,adminFetch,createFixtureUser,attemptFixtureUserCreate,stop};
- }catch(e){await stop();throw e;}
+  return {origin,request,eraseFixtureUser,adminFetch,createFixtureUser,attemptFixtureUserCreate,stop,fixtureJWTSecret:env.GOTRUE_JWT_SECRET};
+ }catch(e){
+  try{await stop();}catch(cleanup){throw new AggregateError([e,cleanup],'Owned GoTrue startup and cleanup failed');}
+  throw e;
+ }
 }
