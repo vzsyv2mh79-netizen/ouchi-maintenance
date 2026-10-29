@@ -62,8 +62,11 @@ def configuration_checks(info,stage):
             if not public_https_url(info.get(name)):
                 errors.append(name+' must be a reviewed public HTTPS page (reachability unverified)')
         if info.get('OUCHI_RELEASE_TIPS_ENABLED') or info.get('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED'):
-            for name in ('OUCHI_PURCHASE_DISCLOSURES_REVIEWED','OUCHI_SUBSCRIPTION_OFFER_REVIEWED'):
-                if info.get(name) is not True:errors.append(name+' is required before enabling purchases')
+            if info.get('OUCHI_PURCHASE_DISCLOSURES_REVIEWED') is not True:
+                errors.append('OUCHI_PURCHASE_DISCLOSURES_REVIEWED is required before enabling purchases')
+        if info.get('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED'):
+            if info.get('OUCHI_SUBSCRIPTION_OFFER_REVIEWED') is not True:
+                errors.append('OUCHI_SUBSCRIPTION_OFFER_REVIEWED is required before enabling subscriptions')
         if info.get('OUCHI_ATTACHMENTS_ENABLED'):
             for name in ('OUCHI_ATTACHMENT_MAXIMUM_BYTES','OUCHI_ATTACHMENT_MAXIMUM_FILES','OUCHI_ATTACHMENT_MAXIMUM_FILE_BYTES'):
                 if not isinstance(info.get(name),int) or isinstance(info.get(name),bool) or info[name]<=0:errors.append(name+' must be a reviewed positive limit')

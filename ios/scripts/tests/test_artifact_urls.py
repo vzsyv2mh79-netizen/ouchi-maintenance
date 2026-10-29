@@ -34,6 +34,22 @@ class ArtifactURLTests(unittest.TestCase):
                     info = valid_info(); info[field] = value
                     self.assertTrue(any(field in error for error in artifact.configuration_checks(info,"submission")))
 
+    def test_tip_and_subscription_disclosures_are_independent(self):
+        tips = {**valid_info(), "OUCHI_RELEASE_TIPS_ENABLED": True,
+                "OUCHI_PURCHASE_DISCLOSURES_REVIEWED": True}
+        self.assertEqual(artifact.configuration_checks(tips, "submission"), [])
+        errors = artifact.configuration_checks({**tips, "OUCHI_PURCHASE_DISCLOSURES_REVIEWED": False}, "submission")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("OUCHI_PURCHASE_DISCLOSURES_REVIEWED", errors[0])
+        for with_tips in (False, True):
+            subscriptions = {**tips, "OUCHI_RELEASE_TIPS_ENABLED": with_tips,
+                             "OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED": True}
+            errors = artifact.configuration_checks(subscriptions, "submission")
+            self.assertEqual(len(errors), 1)
+            self.assertIn("OUCHI_SUBSCRIPTION_OFFER_REVIEWED", errors[0])
+            subscriptions["OUCHI_SUBSCRIPTION_OFFER_REVIEWED"] = True
+            self.assertEqual(artifact.configuration_checks(subscriptions, "submission"), [])
+
     def test_development_stage_does_not_claim_submission_acceptance(self):
         info = valid_info()
         for field in FIELDS: info.pop(field)
