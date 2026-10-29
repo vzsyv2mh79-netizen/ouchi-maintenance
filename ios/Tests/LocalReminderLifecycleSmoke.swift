@@ -8,6 +8,7 @@ import OuchiCore
 @MainActor private final class TestNotificationBackend: LocalNotificationBackend {
     var pending: [String: UNNotificationRequest] = [:]
     var delivered: [String] = []
+    var queriesFail = false
     var authorized = true
     var granted = true
     var requests = 0
@@ -16,12 +17,15 @@ import OuchiCore
     var onPending: (@MainActor () async -> Void)?
     var ignoreRemoval = false
     var onAdd: (@MainActor () async -> Void)?
-    func pendingIDs() async -> [String] {
+    func pendingIDs() async throws -> [String] {
+        if queriesFail { throw CloudError.unavailable }
         let hook = onPending; onPending = nil
         await hook?()
         return Array(pending.keys)
     }
-    func deliveredIDs() async -> [String] { delivered }
+    func deliveredIDs() async throws -> [String] {
+        if queriesFail { throw CloudError.unavailable }; return delivered
+    }
     func notificationAuthorized() async -> Bool { authorized }
     func requestAuthorization() async throws -> Bool { requests += 1; return granted }
     func addNotification(_ request: UNNotificationRequest) async throws {
@@ -37,6 +41,28 @@ import OuchiCore
 
 @main struct LocalReminderLifecycleSmoke {
     @MainActor static func main() async throws {
+        let immediate: Int = try await boundedNotificationQuery(timeout: 0.02) { reply in reply(7); reply(8) }
+        precondition(immediate == 7, "Only the first callback may resolve a query")
+        do {
+            let _: [String] = try await boundedNotificationQuery(timeout: 0.02) { _ in }
+            fatalError("Missing callback must time out, not produce an empty list")
+        } catch { precondition(error as? CloudError == .unavailable) }
+        do {
+            let _: [String] = try await boundedNotificationQuery(timeout: 0.02) { reply in
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) { reply([]); reply([]) }
+            }
+            fatalError("Late callback must not turn a timeout into success")
+        } catch { precondition(error as? CloudError == .unavailable) }
+        try await Task.sleep(for: .milliseconds(80))
+        let unavailableBackend = TestNotificationBackend(), unavailablePreferences = TestReminderPreferences()
+        let unavailableAccount = UUID(); unavailablePreferences.account = unavailableAccount
+        unavailableBackend.queriesFail = true
+        let unavailable = LocalReminders(backend: unavailableBackend, preferences: unavailablePreferences)
+        let resetSucceeded = await unavailable.reset(clearPreference: false)
+        let deletionSucceeded = await unavailable.eraseForAccountDeletion(account: unavailableAccount, stillBound: { true })
+        let remoteStopSucceeded = await unavailable.stopPendingForRemoteDelivery(account: unavailableAccount, stillBound: { true })
+        precondition(!resetSucceeded && !deletionSucceeded && !remoteStopSucceeded)
+        precondition(unavailablePreferences.account == unavailableAccount, "Unknown notification state must not confirm account cleanup")
         let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
         let household = try Backup.decode(Data(contentsOf: fixtures.appendingPathComponent("web-backup.json")))
         let account = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!

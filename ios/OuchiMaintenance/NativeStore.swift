@@ -1131,8 +1131,11 @@ struct FormalChannelSelection {
         let expected = generation
         var ownsBusy = true
         defer { if ownsBusy, expected == generation { busy = false } }
-        await reminders.reset(clearPreference: false)
+        let notificationsReset = await reminders.reset(clearPreference: false)
         guard expected == generation else { return }
+        if !notificationsReset {
+            message = "端末の通知を確認できませんでした。ログインは続けられます。通知の設定は後で確認してください。"
+        }
         guard let session else { message = "クラウド接続の設定が必要です。"; return }
         do {
             let restored = try await session.restore()
