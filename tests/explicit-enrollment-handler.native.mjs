@@ -29,7 +29,6 @@ test('real Auth/SQL enrollment preserves original session and recovers without a
   await admin.query(readFileSync('tests/fixtures/auth/rest-bootstrap.sql','utf8'));
   auth=await startFixtureGoTrue(socket,'https://hphifiqyypwyxkzfanod.supabase.co/auth/v1');
   const fullSchema=process.env.OUCHI_ENROLLMENT_FULL_SCHEMA==='1';
-  assert.ok(!fullSchema||!process.env.OUCHI_ENROLLMENT_UI_OUTPUT,'Full-schema UI mode needs its own mapped-session assertions before use');
   if(fullSchema){
    const catalog=maintenanceMigrationCatalog();
    for(const entry of catalog)await admin.query(readFileSync(entry.file,'utf8'));
@@ -70,7 +69,7 @@ test('real Auth/SQL enrollment preserves original session and recovers without a
   const uiMode=process.env.OUCHI_ENROLLMENT_UI_OUTPUT;
   if(uiMode)assert.ok(process.env.OUCHI_ENROLLMENT_UI_PREPARED,'Build UI target before creating fixture login');
   const login=uiMode?null:await auth.request('/token?grant_type=password',{email,password});let token=login?.access_token;
-  const sessionID=token?JSON.parse(Buffer.from(token.split('.')[1],'base64url')).session_id:null;
+  let sessionID=token?JSON.parse(Buffer.from(token.split('.')[1],'base64url')).session_id:null;
   const accountOpen=async(session)=>{
    await admin.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user,session_id:session})]);
    return (await admin.query('select maintenance_private.maintenance_account_is_open() open')).rows[0].open;
@@ -110,7 +109,11 @@ test('real Auth/SQL enrollment preserves original session and recovers without a
    assert.equal((await admin.query('select count(*)::int n from maintenance_private.enrollment_consents where user_id=$1',[user])).rows[0].n,1);
    assert.equal((await admin.query('select count(*)::int n from maintenance_private.app_epochs where user_id=$1',[user])).rows[0].n,1);
    assert.equal((await admin.query('select count(*)::int n from auth.sessions where user_id=$1',[user])).rows[0].n,1,'Only original UI login remains after reauthentication cleanup');
-   await verifyHousehold();
+   const survivingSessions=(await admin.query('select id from auth.sessions where user_id=$1',[user])).rows;
+   assert.equal(survivingSessions.length,1);
+   sessionID=survivingSessions[0].id;
+   assert.equal(await accountOpen(sessionID),true,'Original UI session must be admitted after recovery');
+   await verifyHousehold(true);
    return;
   }
   assert.equal((await(await handle(request('GET'))).json()).enrolled,false);

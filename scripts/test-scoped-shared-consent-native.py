@@ -30,8 +30,6 @@ if args.enrollment_full_http:
         raise SystemExit('Prepared PostgREST runtime missing')
     if not all(str(p).startswith('/private/tmp/') for p in [rest_binary, rest_library]):
         raise SystemExit('Disposable prepared PostgREST paths required')
-    if os.environ.get('OUCHI_ENROLLMENT_UI_OUTPUT'):
-        raise SystemExit('Full HTTP profile is separate from the native UI profile')
 elif args.postgrest_binary or args.postgrest_library:
     raise SystemExit('PostgREST arguments require --enrollment-full-http')
 root = pathlib.Path(__file__).resolve().parents[1]
