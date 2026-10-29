@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Validate listing text only; never upload or approve an App Store release."""
 import argparse
+import ipaddress
+import re
 import json
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -37,6 +39,42 @@ def check_fields(draft):
     return errors, measurements
 
 
+def public_https_url(value):
+    """Reject private/local destinations without DNS, fetches or URL rewrites.
+
+    This is a syntax filter only: DNS, redirects and page content still require
+    independent verification before submission.
+    """
+    if not isinstance(value, str):
+        return False
+    if value != value.strip() or "\\" in value or any(ord(c) < 33 or ord(c) == 127 for c in value):
+        return False
+    try:
+        url = urlsplit(value)
+        host = (url.hostname or "").rstrip(".").lower()
+        if url.scheme != "https" or not host or url.username is not None or url.password is not None:
+            return False
+        _ = url.port
+        try:
+            return ipaddress.ip_address(host).is_global and "%" not in host
+        except ValueError:
+            pass
+        # Numeric and abbreviated IP spellings can be interpreted as loopback
+        # by browsers even though ipaddress rejects them as ordinary IPv4.
+        if not re.match(r"[a-z]", host.rsplit(".", 1)[-1], re.I):
+            return False
+        host = host.encode("idna").decode("ascii")
+        if host.endswith((".localhost", ".local", ".internal", ".test", ".invalid", ".example", ".home.arpa")):
+            return False
+        labels = host.split(".")
+        return len(labels) >= 2 and len(host) <= 253 and all(
+            re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", part)
+            for part in labels
+        )
+    except (ValueError, UnicodeError):
+        return False
+
+
 def check_owner_fields(draft):
     # Check presence/URL structure only. No reachability, contact identity,
     # legal adequacy, demo credentials or review acceptance is inferred.
@@ -50,14 +88,9 @@ def check_owner_fields(draft):
             errors.append(f"ownerFields.{key}: missing")
             continue
         if key.endswith("URL"):
-            try:
-                url = urlsplit(value)
-                valid = url.scheme in {"https", "http"} and url.hostname and not url.username and not url.password
-                _ = url.port
-            except ValueError:
-                valid = False
+            valid = public_https_url(value)
             if not valid:
-                errors.append(f"ownerFields.{key}: invalid public URL structure")
+                errors.append(f"ownerFields.{key}: expected HTTPS URL with a non-local host (reachability unverified)")
     return errors
 
 

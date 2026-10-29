@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Read-only checks for an already built app; never uploads or enables features."""
-import argparse,datetime,json,pathlib,plistlib,re,subprocess,urllib.parse
+import argparse,datetime,json,pathlib,plistlib,re,runpy,subprocess,urllib.parse
+
+# Share exactly the listing preflight syntax rule; neither check performs DNS
+# resolution or proves page content, redirects, or operational readiness.
+public_https_url = runpy.run_path(str(pathlib.Path(__file__).with_name("verify-listing-draft.py")))["public_https_url"]
 
 def encryption_dependency_checks(app, runner=subprocess.run):
     """Guard the reviewed OS-only dependency boundary, not legal classification.
@@ -55,12 +59,14 @@ def configuration_checks(info,stage):
         if info.get('ITSAppUsesNonExemptEncryption') is not False:
             errors.append('Reviewed Apple OS-only encryption declaration must be a resolved false boolean')
         for name in ('OUCHI_TERMS_URL','OUCHI_PRIVACY_URL','OUCHI_SUPPORT_URL'):
-            address=urllib.parse.urlparse(str(info.get(name,'')))
-            if address.scheme!='https' or not address.netloc or address.username or address.password or address.hostname in ('localhost','example.invalid') or str(address.hostname).endswith(('.invalid','.test','.localhost')):
-                errors.append(name+' must be a reviewed public HTTPS page')
+            if not public_https_url(info.get(name)):
+                errors.append(name+' must be a reviewed public HTTPS page (reachability unverified)')
         if info.get('OUCHI_RELEASE_TIPS_ENABLED') or info.get('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED'):
-            for name in ('OUCHI_PURCHASE_DISCLOSURES_REVIEWED','OUCHI_SUBSCRIPTION_OFFER_REVIEWED'):
-                if info.get(name) is not True:errors.append(name+' is required before enabling purchases')
+            if info.get('OUCHI_PURCHASE_DISCLOSURES_REVIEWED') is not True:
+                errors.append('OUCHI_PURCHASE_DISCLOSURES_REVIEWED is required before enabling purchases')
+        if info.get('OUCHI_RELEASE_SUBSCRIPTIONS_ENABLED'):
+            if info.get('OUCHI_SUBSCRIPTION_OFFER_REVIEWED') is not True:
+                errors.append('OUCHI_SUBSCRIPTION_OFFER_REVIEWED is required before enabling subscriptions')
         if info.get('OUCHI_ATTACHMENTS_ENABLED'):
             for name in ('OUCHI_ATTACHMENT_MAXIMUM_BYTES','OUCHI_ATTACHMENT_MAXIMUM_FILES','OUCHI_ATTACHMENT_MAXIMUM_FILE_BYTES'):
                 if not isinstance(info.get(name),int) or isinstance(info.get(name),bool) or info[name]<=0:errors.append(name+' must be a reviewed positive limit')

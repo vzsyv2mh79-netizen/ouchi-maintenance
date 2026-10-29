@@ -1,0 +1,39 @@
+name: Release URL checks
+
+on:
+  pull_request:
+    branches: [main, feat/sandbox-billing-foundation, feat/native-household-core]
+    paths:
+      - 'ios/scripts/verify-listing-draft.py'
+      - 'ios/scripts/verify-store-artifact.py'
+      - 'ios/scripts/tests/test_*urls.py'
+      - '.github/workflows/release-url-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ios/scripts/verify-listing-draft.py'
+      - 'ios/scripts/verify-store-artifact.py'
+      - 'ios/scripts/tests/test_*urls.py'
+      - '.github/workflows/release-url-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-urls-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-urls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check listing and built plist URL rejection
+        run: python3 -m unittest discover -s ios/scripts/tests -p 'test_*urls.py'
