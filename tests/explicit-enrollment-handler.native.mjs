@@ -2,7 +2,7 @@
 import test from 'node:test';
 import {spawn} from 'node:child_process';
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {randomUUID,randomBytes} from 'node:crypto';
 import pg from 'pg';
@@ -91,16 +91,23 @@ test('real Auth/SQL enrollment preserves original session and recovers without a
   }}})};
   const config={url:'https://fixture.supabase.co',key:'unused-sql-adapter',publishableKey:'synthetic-publishable'};
   const request=(method,pass=password)=>new Request('http://127.0.0.1/api/account/enrollment',{method,headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:method==='POST'?JSON.stringify({password:pass,confirmation:'ENROLL_OUCHI_MAINTENANCE',requestID:randomUUID()}):undefined});
-  gateway=await startEnrollmentUIGateway({authOrigin:auth.origin,authPort:uiMode?54321:0,enrollmentPort:uiMode?3000:0,handleEnrollment:r=>accountEnrollmentResponse(r,config,factories)});
+  gateway=await startEnrollmentUIGateway({authOrigin:auth.origin,authPort:uiMode?54321:0,enrollmentPort:uiMode?3000:0,handleEnrollment:r=>accountEnrollmentResponse(r,config,factories),handleHousehold:uiMode&&rest?async request=>{
+   const bearer=request.headers.get('authorization');
+   const status=await accountEnrollmentResponse(new Request('http://127.0.0.1/api/account/enrollment',{headers:{authorization:bearer??''}}),config,factories);
+   if(!status.ok || !(await status.json()).enrolled)return Response.json({message:'Unenrolled fixture session'},{status:403});
+   assert.equal(await request.text(),'{}');
+   return rest.request('/rpc/load_household',bearer.slice(7),{});
+  }:undefined});
   const handle=async r=>fetch(gateway.enrollmentURL,{method:r.method,headers:r.headers,body:r.method==='POST'?await r.text():undefined,redirect:'error'});
   if(uiMode){
    // Keep the event loop free so XCTest can reach actual Auth and SQL over HTTP.
    await new Promise((resolve,reject)=>{
     const child=spawn('python3',['ios/scripts/test-explicit-enrollment-interactions.py','--output',uiMode,'--prepared',process.env.OUCHI_ENROLLMENT_UI_PREPARED],{
-     stdio:['ignore','inherit','inherit'],env:{...process.env,OUCHI_ENROLLMENT_REAL_FIXTURE:'1',OUCHI_ENROLLMENT_TEST_EMAIL:email,OUCHI_ENROLLMENT_TEST_PASSWORD:password}
+     stdio:['ignore','inherit','inherit'],env:{...process.env,OUCHI_ENROLLMENT_REAL_FIXTURE:'1',OUCHI_ENROLLMENT_TEST_EMAIL:email,OUCHI_ENROLLMENT_TEST_PASSWORD:password,OUCHI_ENROLLMENT_VERIFY_RECORDS:rest?'1':'0'}
     });
     child.once('error',reject);child.once('exit',(code,signal)=>code===0?resolve():reject(Error('Enrollment UI runner failed: '+(signal??code))));
    });
+   if(rest)assert.ok(gateway.evidence.householdReads>=1,'Native record reload must reach actual PostgREST');
    assert.equal(gateway.evidence.lostAcknowledgements,1);
    assert.equal(gateway.evidence.enrollmentPosts,1,'Read recovery must never repeat consent');
    assert.ok(gateway.evidence.enrollmentReads>=2);
@@ -183,7 +190,7 @@ test('real Auth/SQL enrollment preserves original session and recovers without a
 
  }finally{
   try {
-   if(process.env.OUCHI_ENROLLMENT_UI_OUTPUT && gateway)
+   if(process.env.OUCHI_ENROLLMENT_UI_OUTPUT && existsSync(process.env.OUCHI_ENROLLMENT_UI_OUTPUT) && gateway)
     writeFileSync(join(process.env.OUCHI_ENROLLMENT_UI_OUTPUT,'gateway-evidence.json'),JSON.stringify(gateway.evidence,null,2)+'\n',{mode:0o600});
   } finally {await gateway?.stop();await rest?.stop();await service?.end();await auth?.stop();await admin.end();}
  }

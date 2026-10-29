@@ -46,3 +46,20 @@ test('Auth diagnostic retains only route and status, never credentials or respon
   await new Promise(resolve=>{upstream.close(resolve);upstream.closeAllConnections();});
  }
 });
+
+test('optional household forwarding preserves caller identity and never forwards mutations',async()=>{
+ const seen=[];
+ const gateway=await startEnrollmentUIGateway({authOrigin:'http://127.0.0.1:1',authPort:0,enrollmentPort:0,handleEnrollment:()=>Response.json({}),handleHousehold:async request=>{
+  seen.push({authorization:request.headers.get('authorization'),body:await request.text()});
+  return Response.json({homes:[],products:[{name:'Synthetic appliance'}]});
+ }});
+ try{
+  const response=await fetch(gateway.authURL+'/rest/v1/rpc/load_household',{method:'POST',headers:{authorization:'Bearer fixture-user'},body:'{}'});
+  assert.equal(response.status,200);assert.equal((await response.json()).products[0].name,'Synthetic appliance');
+  assert.deepEqual(seen,[{authorization:'Bearer fixture-user',body:'{}'}]);
+  assert.equal((await fetch(gateway.authURL+'/rest/v1/rpc/complete_maintenance',{method:'POST',body:'{}'})).status,404);
+  assert.equal((await fetch(gateway.authURL+'/rest/v1/products',{method:'DELETE'})).status,404);
+  assert.equal(seen.length,1);assert.equal(gateway.evidence.householdReads,1);
+  assert.equal(JSON.stringify(gateway.evidence).includes('fixture-user'),false);
+ }finally{await gateway.stop();}
+});
