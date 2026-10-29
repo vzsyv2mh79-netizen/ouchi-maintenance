@@ -2,10 +2,38 @@ import Foundation
 import UserNotifications
 import OuchiCore
 
+// A missing OS callback is an error, never evidence that notifications are absent.
+private final class NotificationQueryReply<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Error>?
+    init(_ continuation: CheckedContinuation<Value, Error>) { self.continuation = continuation }
+    func finish(_ result: Result<Value, Error>) {
+        lock.lock()
+        let waiting = continuation; continuation = nil
+        lock.unlock()
+        waiting?.resume(with: result)
+    }
+}
+@MainActor func boundedNotificationQuery<Value: Sendable>(
+    timeout: TimeInterval = 10,
+    start: (@escaping @Sendable (Value) -> Void) -> Void
+) async throws -> Value {
+    try Task.checkCancellation()
+    let value: Value = try await withCheckedThrowingContinuation { continuation in
+        let reply = NotificationQueryReply(continuation)
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+            reply.finish(.failure(CloudError.unavailable))
+        }
+        start { reply.finish(.success($0)) }
+    }
+    try Task.checkCancellation()
+    return value
+}
+
 @MainActor protocol LocalNotificationBackend {
-    func pendingIDs() async -> [String]
-    func deliveredIDs() async -> [String]
-    func notificationAuthorized() async -> Bool
+    func pendingIDs() async throws -> [String]
+    func deliveredIDs() async throws -> [String]
+    func notificationAuthorized() async throws -> Bool
     func requestAuthorization() async throws -> Bool
     func addNotification(_ request: UNNotificationRequest) async throws
     func removePending(_ identifiers: [String])
@@ -26,24 +54,24 @@ import OuchiCore
     private let center = UNUserNotificationCenter.current()
     // Older SDK notification objects are not Sendable. Map inside the callback;
     // only immutable identifiers/Bool cross back to the main actor.
-    func pendingIDs() async -> [String] {
-        await withCheckedContinuation { continuation in
+    func pendingIDs() async throws -> [String] {
+        try await boundedNotificationQuery { reply in
             center.getPendingNotificationRequests { requests in
-                continuation.resume(returning: requests.map(\.identifier))
+                reply(requests.map(\.identifier))
             }
         }
     }
-    func deliveredIDs() async -> [String] {
-        await withCheckedContinuation { continuation in
+    func deliveredIDs() async throws -> [String] {
+        try await boundedNotificationQuery { reply in
             center.getDeliveredNotifications { notifications in
-                continuation.resume(returning: notifications.map { $0.request.identifier })
+                reply(notifications.map { $0.request.identifier })
             }
         }
     }
-    func notificationAuthorized() async -> Bool {
-        await withCheckedContinuation { continuation in
+    func notificationAuthorized() async throws -> Bool {
+        try await boundedNotificationQuery { reply in
             center.getNotificationSettings { settings in
-                continuation.resume(returning: settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+                reply(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
             }
         }
     }
@@ -90,18 +118,18 @@ import OuchiCore
         generation += 1
         let expected = generation
         let preferenceAccount = preferences.account
-        let pending = await backend.pendingIDs()
+        guard let pending = try? await backend.pendingIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
-        let delivered = await backend.deliveredIDs()
+        guard let delivered = try? await backend.deliveredIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
         let pendingPlan = ReminderCleanupPlan(identifiers: pending, account: account)
         let deliveredPlan = ReminderCleanupPlan(identifiers: delivered, account: account)
         backend.removePending(pendingPlan.identifiers)
         backend.removeDelivered(deliveredPlan.identifiers)
         activeIDs.removeAll { pendingPlan.identifiers.contains($0) }
-        let remainingPending = await backend.pendingIDs()
+        guard let remainingPending = try? await backend.pendingIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
-        let remainingDelivered = await backend.deliveredIDs()
+        guard let remainingDelivered = try? await backend.deliveredIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
         let pendingCheck = ReminderCleanupPlan(identifiers: remainingPending, account: account)
         let deliveredCheck = ReminderCleanupPlan(identifiers: remainingDelivered, account: account)
@@ -116,30 +144,31 @@ import OuchiCore
         guard stillBound(), !Task.isCancelled else { return false }
         generation += 1
         let expected = generation
-        let pending = await backend.pendingIDs()
+        guard let pending = try? await backend.pendingIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
         let plan = ReminderCleanupPlan(identifiers: pending, account: account)
         guard !plan.ambiguousLegacy else { return false }
         backend.removePending(plan.identifiers)
         activeIDs.removeAll { plan.identifiers.contains($0) }
-        let remaining = await backend.pendingIDs()
+        guard let remaining = try? await backend.pendingIDs() else { return false }
         guard generation == expected, stillBound(), !Task.isCancelled else { return false }
         let check = ReminderCleanupPlan(identifiers: remaining, account: account)
         guard check.identifiers.isEmpty, !check.ambiguousLegacy else { return false }
         if preferences.account == account { preferences.account = nil }
         return true
     }
-    func reset(clearPreference: Bool) async {
+    @discardableResult func reset(clearPreference: Bool) async -> Bool {
         generation += 1
         let expected = generation
         if clearPreference { preferences.account = nil }
-        let requests = await backend.pendingIDs()
-        guard expected == generation else { return }
+        guard let requests = try? await backend.pendingIDs() else { return false }
+        guard expected == generation else { return false }
         backend.removePending(requests.filter { $0.hasPrefix("ouchi.local.") })
-        let delivered = await backend.deliveredIDs()
-        guard expected == generation else { return }
+        guard let delivered = try? await backend.deliveredIDs() else { return false }
+        guard expected == generation else { return false }
         backend.removeDelivered(delivered.filter { $0.hasPrefix("ouchi.local.") })
         activeIDs = []
+        return true
     }
     func enable(data: Household, account: UUID, schedule: ReminderSchedule = .free,
                 premiumValidUntil: Date? = nil) async throws -> Bool {
@@ -158,7 +187,7 @@ import OuchiCore
                    premiumValidUntil: Date? = nil) async throws -> Bool {
         guard preferences.account == account else { return false }
         let expected = generation
-        let authorized = await backend.notificationAuthorized()
+        let authorized = try await backend.notificationAuthorized()
         guard expected == generation, preferences.account == account, !Task.isCancelled else { return false }
         guard authorized else {
             await reset(clearPreference: true); return false
@@ -170,7 +199,7 @@ import OuchiCore
         } else { plan = try ReminderPlan.make(data, now: now()) }
         // In-memory identifiers disappear on process restart. Read the actual
         // account-scoped requests so a refresh cannot leave duplicate schedules.
-        let pending = await backend.pendingIDs()
+        let pending = try await backend.pendingIDs()
         guard expected == generation, preferences.account == account, !Task.isCancelled else { return false }
         let previous = ReminderCleanupPlan(identifiers: pending, account: account)
         guard !previous.ambiguousLegacy else { throw CloudError.invalidInput }
