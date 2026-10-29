@@ -12,7 +12,7 @@ args=parser.parse_args()
 root=pathlib.Path(__file__).resolve().parents[1]
 if args.prepare_only == bool(args.prepared):
     raise SystemExit('Choose --prepare-only or --prepared DIRECTORY')
-fixture_environment={key:os.environ.get(key,'') for key in ['OUCHI_ENROLLMENT_REAL_FIXTURE','OUCHI_ENROLLMENT_TEST_EMAIL','OUCHI_ENROLLMENT_TEST_PASSWORD']}
+fixture_environment={key:os.environ.get(key,'') for key in ['OUCHI_ENROLLMENT_REAL_FIXTURE','OUCHI_ENROLLMENT_TEST_EMAIL','OUCHI_ENROLLMENT_TEST_PASSWORD','OUCHI_ENROLLMENT_VERIFY_RECORDS']}
 if not args.prepare_only and (fixture_environment['OUCHI_ENROLLMENT_REAL_FIXTURE']!='1' or not fixture_environment['OUCHI_ENROLLMENT_TEST_EMAIL'].endswith('@fixture.invalid') or len(fixture_environment['OUCHI_ENROLLMENT_TEST_PASSWORD'])<16):
     raise SystemExit('Requires isolated fixture credentials; refusing a skipped test.')
 output=args.output.resolve()

@@ -98,6 +98,13 @@ final class ExplicitEnrollmentInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["enrollment.confirmed"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.secureTextFields["enrollment.password"].exists)
         XCTAssertFalse(app.buttons["enrollment.submit"].exists)
+        if env["OUCHI_ENROLLMENT_VERIFY_RECORDS"] == "1" {
+            let reload = app.buttons["enrollment.reload-records"]
+            XCTAssertTrue(reload.waitForExistence(timeout: 10)); reload.tap()
+            let products = app.tabBars.buttons["製品"]
+            XCTAssertTrue(products.waitForExistence(timeout: 10)); products.tap()
+            XCTAssertTrue(app.staticTexts["Synthetic existing appliance"].waitForExistence(timeout: 20), "Existing appliance must load through the actual data API after recovery")
+        }
         // The runner checks DB consent count and family records after this.
     }
 
