@@ -2150,6 +2150,7 @@ private struct ExplicitEnrollmentView: View {
     @EnvironmentObject private var store: NativeStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var state: EnrollmentState?
+    @FocusState private var passwordFocused: Bool
     @State private var password = ""
     @State private var consent = false
     @State private var operation: Task<Void, Never>?
@@ -2166,19 +2167,26 @@ private struct ExplicitEnrollmentView: View {
                     }
                 } else {
                     Section("無料で登録する") {
-                        SecureField("本人確認のパスワード", text: $password).textContentType(.password)
+                        SecureField("本人確認のパスワード", text: $password).textContentType(.password).focused($passwordFocused).submitLabel(.done).onSubmit { passwordFocused = false }
                         Toggle("このログインをおうちメンテで使うことに同意します", isOn: $consent)
                         Text("以前に削除した記録や、別のアプリの購入権は引き継ぎません。")
                         Button("無料で登録する") { run(register: true) }.disabled(store.busy || !consent || password.isEmpty || password.count > 1024)
                     }.disabled(store.busy)
                 }
             }
-        }.navigationTitle("おうちメンテへの登録").modifier(AdaptiveNavigationTitle())
+        }.scrollDismissesKeyboard(.interactively)
+         .toolbar {
+             ToolbarItemGroup(placement: .keyboard) {
+                 Spacer()
+                 Button("入力を終える") { passwordFocused = false }.accessibilityIdentifier("enrollment.dismiss-keyboard")
+             }
+         }
+         .navigationTitle("おうちメンテへの登録").modifier(AdaptiveNavigationTitle())
          .task(id: store.accountBindingRevision) { clear() }
          .onChange(of: scenePhase) { _, phase in if phase != .active { clear() } }
          .onDisappear { clear() }
     }
-    private func clear() { operation?.cancel(); operation = nil; state = nil; password = ""; consent = false }
+    private func clear() { passwordFocused = false; operation?.cancel(); operation = nil; state = nil; password = ""; consent = false }
     private func run(register: Bool = false) {
         guard !store.busy, !register || consent else { return }
         let proof = register ? password : nil, expected = store.accountBindingRevision
